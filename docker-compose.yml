@@ -1,0 +1,78 @@
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aw-backend
+    restart: unless-stopped
+    networks:
+      - aw-net
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: aw-frontend
+    restart: unless-stopped
+    networks:
+      - aw-net
+    environment:
+      - NODE_ENV=development
+
+  db:
+    image: mysql:8.0
+    container_name: aw-mysql
+    restart: unless-stopped
+    command: ["mysqld", "--default-authentication-plugin=mysql_native_password"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-appdb}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apppass}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - aw-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: aw-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ssl:/etc/ssl/aw.max:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - aw-net
+
+volumes:
+  mysql_data:
+
+networks:
+  aw-net:
+    driver: bridge

@@ -1,0 +1,4 @@
+# Place your locally signed certs here:
+# - fullchain.pem
+# - privkey.pem
+# Do NOT commit real certificates to version control.
