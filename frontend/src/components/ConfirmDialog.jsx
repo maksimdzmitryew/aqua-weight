@@ -115,13 +115,26 @@ export default function ConfirmDialog({
     ),
   }
 
-  const resolvedIconKey = icon || (toneKind === 'danger' ? 'danger' : (toneKind === 'warning' ? 'warning' : (toneKind === 'success' ? 'success' : (toneKind === 'info' ? 'info' : 'info'))))
-  const resolvedIcon = ICONS[resolvedIconKey] || ICONS['warning']
   const headerTone = toneStyles[toneKind] || toneStyles.default
+  const resolvedIconKey = icon || (toneKind === 'danger' ? 'danger' : (toneKind === 'warning' ? 'warning' : (toneKind === 'success' ? 'success' : (toneKind === 'info' ? 'info' : 'info'))))
+  const iconEl = ICONS[resolvedIconKey] || ICONS['warning']
+
   const headerIcon = (
     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
-      <div style={{ width: 56, height: 56, borderRadius: '50%', background: headerTone.bg, border: `1px solid ${headerTone.border}`, color: headerTone.text, display: 'flex', alignItems: 'center', justifyContent: 'center' }} aria-hidden="true">
-        {resolvedIcon}
+      <div
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: '50%',
+          background: headerTone.bg,
+          border: `1px solid ${headerTone.border}`,
+          color: headerTone.text,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {iconEl}
       </div>
     </div>
   )
