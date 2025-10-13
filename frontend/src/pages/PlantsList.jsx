@@ -75,7 +75,16 @@ export default function PlantsList() {
 
   return (
     <DashboardLayout title="Plants">
-      <h1 style={{ marginTop: 0 }}>Plants</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Plants</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/plants/new')}
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
+        >
+          + Create
+        </button>
+      </div>
       <p>List of all available plants fetched from the API.</p>
 
       {loading && <div>Loading…</div>}

@@ -9,6 +9,8 @@ import Settings from './pages/Settings.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import PlantEdit from './pages/PlantEdit.jsx'
 import LocationEdit from './pages/LocationEdit.jsx'
+import PlantCreate from './pages/PlantCreate.jsx'
+import LocationCreate from './pages/LocationCreate.jsx'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -18,8 +20,10 @@ createRoot(document.getElementById('root')).render(
           <Route path="/" element={<App />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/plants" element={<PlantsList />} />
+          <Route path="/plants/new" element={<PlantCreate />} />
           <Route path="/plants/:id/edit" element={<PlantEdit />} />
           <Route path="/locations" element={<LocationsList />} />
+          <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

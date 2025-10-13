@@ -74,7 +74,16 @@ export default function LocationsList() {
 
   return (
     <DashboardLayout title="Locations">
-      <h1 style={{ marginTop: 0 }}>Locations</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Locations</h1>
+        <button
+          type="button"
+          onClick={() => navigate('/locations/new')}
+          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
+        >
+          + Create
+        </button>
+      </div>
       <p>List of all available locations fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
