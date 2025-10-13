@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import { useTheme } from '../ThemeContext.jsx'
+import IconButton from '../components/IconButton.jsx'
+import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 
 export default function LocationsList() {
   const [locations, setLocations] = useState([])
@@ -9,6 +11,8 @@ export default function LocationsList() {
   const [error, setError] = useState('')
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
+  const navigate = useNavigate()
+  const routerLocation = useRouterLocation()
 
   const th = {
     textAlign: 'left',
@@ -44,6 +48,30 @@ export default function LocationsList() {
     }
   }, [])
 
+  useEffect(() => {
+    const updated = routerLocation.state && routerLocation.state.updatedLocation
+    if (updated) {
+      setLocations((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
+      try {
+        window.history.replaceState({}, document.title, routerLocation.pathname)
+      } catch {}
+    }
+  }, [routerLocation.state, routerLocation.pathname])
+
+  function handleView(l) {
+    const details = `Location #${l.id}\nName: ${l.name}\nType: ${l.type || '—'}\nCreated: ${formatDateTime(l.created_at)}`
+    window.alert(details)
+  }
+
+  function handleEdit(l) {
+    navigate(`/locations/${l.id}/edit`, { state: { location: l } })
+  }
+
+  function handleDelete(l) {
+    if (!window.confirm(`Delete location "${l.name}"? This cannot be undone.`)) return
+    setLocations((prev) => prev.filter((it) => it.id !== l.id))
+  }
+
   return (
     <DashboardLayout title="Locations">
       <h1 style={{ marginTop: 0 }}>Locations</h1>
@@ -61,6 +89,7 @@ export default function LocationsList() {
                 <th style={th}>Name</th>
                 <th style={th}>Type</th>
                 <th style={th}>Created</th>
+                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -70,11 +99,16 @@ export default function LocationsList() {
                   <td style={td}>{l.name}</td>
                   <td style={td}>{l.type || '—'}</td>
                   <td style={td}>{formatDateTime(l.created_at)}</td>
+                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />
+                    <IconButton icon="edit" label={`Edit location ${l.name}`} onClick={() => handleEdit(l)} variant="subtle" />
+                    <IconButton icon="delete" label={`Delete location ${l.name}`} onClick={() => handleDelete(l)} variant="danger" />
+                  </td>
                 </tr>
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={4}>No locations found</td>
+                  <td style={td} colSpan={5}>No locations found</td>
                 </tr>
               )}
             </tbody>

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import { useTheme } from '../ThemeContext.jsx'
+import IconButton from '../components/IconButton.jsx'
+import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -9,6 +11,8 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
+  const navigate = useNavigate()
+  const routerLocation = useRouterLocation()
 
   const th = {
     textAlign: 'left',
@@ -44,6 +48,31 @@ export default function PlantsList() {
     }
   }, [])
 
+  useEffect(() => {
+    const updated = routerLocation.state && routerLocation.state.updatedPlant
+    if (updated) {
+      setPlants((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
+      // clear navigation state to avoid reapplying on refresh/back
+      try {
+        window.history.replaceState({}, document.title, routerLocation.pathname)
+      } catch {}
+    }
+  }, [routerLocation.state, routerLocation.pathname])
+
+  function handleView(p) {
+    const details = `Plant #${p.id}\nName: ${p.name}\nSpecies: ${p.species || '—'}\nLocation: ${p.location || '—'}\nCreated: ${formatDateTime(p.created_at)}`
+    window.alert(details)
+  }
+
+  function handleEdit(p) {
+    navigate(`/plants/${p.id}/edit`, { state: { plant: p } })
+  }
+
+  function handleDelete(p) {
+    if (!window.confirm(`Delete plant "${p.name}"? This cannot be undone.`)) return
+    setPlants((prev) => prev.filter((it) => it.id !== p.id))
+  }
+
   return (
     <DashboardLayout title="Plants">
       <h1 style={{ marginTop: 0 }}>Plants</h1>
@@ -62,6 +91,7 @@ export default function PlantsList() {
                 <th style={th}>Species</th>
                 <th style={th}>Location</th>
                 <th style={th}>Created</th>
+                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -72,11 +102,16 @@ export default function PlantsList() {
                   <td style={td}>{p.species || '—'}</td>
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
+                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
+                    <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
+                    <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
+                  </td>
                 </tr>
               ))}
               {plants.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={5}>No plants found</td>
+                  <td style={td} colSpan={6}>No plants found</td>
                 </tr>
               )}
             </tbody>
