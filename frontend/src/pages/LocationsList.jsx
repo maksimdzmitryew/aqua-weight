@@ -1,11 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
+import { useTheme } from '../ThemeContext.jsx'
 
 export default function LocationsList() {
   const [locations, setLocations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const { effectiveTheme } = useTheme()
+  const isDark = effectiveTheme === 'dark'
+
+  const th = {
+    textAlign: 'left',
+    padding: '8px 10px',
+    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
+    background: isDark ? '#111827' : '#f9fafb',
+    color: isDark ? '#e5e7eb' : '#111827',
+    fontWeight: 600,
+  }
+
+  const td = {
+    padding: '8px 10px',
+    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -66,18 +83,5 @@ export default function LocationsList() {
       )}
     </DashboardLayout>
   )
-}
-
-const th = {
-  textAlign: 'left',
-  padding: '8px 10px',
-  borderBottom: '1px solid #e5e7eb',
-  background: '#f9fafb',
-  fontWeight: 600,
-}
-
-const td = {
-  padding: '8px 10px',
-  borderBottom: '1px solid #f3f4f6',
 }
 

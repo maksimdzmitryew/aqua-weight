@@ -1,8 +1,23 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useTheme } from '../ThemeContext.jsx'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
+  const { effectiveTheme } = useTheme()
+
+  const isDark = effectiveTheme === 'dark'
+  const colors = {
+    sidebarBg: isDark ? '#0f172a' : '#f3f4f6',
+    sidebarText: isDark ? 'white' : '#111827',
+    linkBg: isDark ? '#111827' : '#e5e7eb',
+    linkBgActive: isDark ? '#1f2937' : '#d1d5db',
+    linkText: isDark ? 'inherit' : '#111827',
+    backLink: isDark ? '#93c5fd' : '#1d4ed8',
+    mainBg: isDark ? '#0b1220' : '#ffffff',
+    mainText: isDark ? '#e5e7eb' : '#111827',
+  }
+
   const menuItems = [
     { key: 'overview', label: 'Overview', to: '/dashboard' },
     { key: 'plants', label: 'Plants', to: '/plants' },
@@ -12,13 +27,13 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'sans-serif', background: colors.mainBg, color: colors.mainText }}>
       {/* Sidebar */}
       <aside
         style={{
           width: 240,
-          background: '#0f172a',
-          color: 'white',
+          background: colors.sidebarBg,
+          color: colors.sidebarText,
           padding: 16,
           boxSizing: 'border-box',
         }}
@@ -33,12 +48,12 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
                 to={item.to}
                 style={{
                   display: 'block',
-                  color: 'inherit',
+                  color: colors.linkText,
                   textDecoration: 'none',
                   padding: '10px 8px',
                   borderRadius: 6,
                   marginBottom: 6,
-                  background: active ? '#1f2937' : '#111827',
+                  background: active ? colors.linkBgActive : colors.linkBg,
                 }}
               >
                 {item.label}
@@ -47,14 +62,14 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
           })}
         </nav>
         <div style={{ marginTop: 16 }}>
-          <Link to="/" style={{ color: '#93c5fd' }}>
+          <Link to="/" style={{ color: colors.backLink }}>
             ← Back to Home
           </Link>
         </div>
       </aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, padding: 24 }}>{children}</main>
+      <main style={{ flex: 1, padding: 24, background: colors.mainBg, color: colors.mainText }}>{children}</main>
     </div>
   )
 }

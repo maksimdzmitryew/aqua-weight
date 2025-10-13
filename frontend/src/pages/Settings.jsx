@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
+import { useTheme } from '../ThemeContext.jsx'
 
 export default function Settings() {
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light')
+  const { theme, effectiveTheme, setTheme } = useTheme()
   const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
   const [saved, setSaved] = useState('')
@@ -14,11 +15,32 @@ export default function Settings() {
 
   function save(e) {
     e.preventDefault()
-    localStorage.setItem('theme', theme)
+    // Theme is persisted by ThemeProvider on change; only persist other fields here
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
     setSaved('Saved!')
   }
+
+  const styles = useMemo(() => {
+    const isDark = effectiveTheme === 'dark'
+    return {
+      input: {
+        padding: '8px 10px',
+        border: '1px solid #e5e7eb',
+        borderRadius: 6,
+        background: isDark ? '#111827' : '#ffffff',
+        color: isDark ? '#f9fafb' : '#111827',
+      },
+      button: {
+        padding: '8px 12px',
+        background: isDark ? '#111827' : '#111827',
+        color: 'white',
+        border: 0,
+        borderRadius: 6,
+        cursor: 'pointer',
+      },
+    }
+  }, [effectiveTheme])
 
   return (
     <DashboardLayout title="Settings">
@@ -33,12 +55,12 @@ export default function Settings() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            style={input}
+            style={styles.input}
           />
         </div>
         <div style={fieldRow}>
           <label style={label}>Theme</label>
-          <select value={theme} onChange={(e) => setTheme(e.target.value)} style={input}>
+          <select value={theme} onChange={(e) => setTheme(e.target.value)} style={styles.input}>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
             <option value="system">System</option>
@@ -46,13 +68,13 @@ export default function Settings() {
         </div>
         <div style={fieldRow}>
           <label style={label}>Date/Time format</label>
-          <select value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={input}>
+          <select value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={styles.input}>
             <option value="europe">Europe (DD/MM/YYYY 24h)</option>
             <option value="usa">USA (MM/DD/YYYY 12h)</option>
           </select>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button type="submit" style={button}>Save</button>
+          <button type="submit" style={styles.button}>Save</button>
           {saved && <span style={{ marginLeft: 12, color: 'seagreen' }}>{saved}</span>}
         </div>
       </form>
@@ -62,5 +84,3 @@ export default function Settings() {
 
 const fieldRow = { display: 'flex', flexDirection: 'column', marginBottom: 12 }
 const label = { fontWeight: 600, marginBottom: 6 }
-const input = { padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 6 }
-const button = { padding: '8px 12px', background: '#111827', color: 'white', border: 0, borderRadius: 6, cursor: 'pointer' }
