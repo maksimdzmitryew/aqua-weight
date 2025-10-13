@@ -9,6 +9,8 @@ export default function PlantsList() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [saveError, setSaveError] = useState('')
+  const [dragIndex, setDragIndex] = useState(null)
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
@@ -73,6 +75,57 @@ export default function PlantsList() {
     setPlants((prev) => prev.filter((it) => it.id !== p.id))
   }
 
+  function reorder(list, startIndex, endIndex) {
+    const result = list.slice()
+    const [removed] = result.splice(startIndex, 1)
+    result.splice(endIndex, 0, removed)
+    return result
+  }
+
+  async function persistOrder(newList) {
+    setSaveError('')
+    const orderedIds = newList.map((p) => p.uuid).filter(Boolean)
+    if (orderedIds.length !== newList.length) return
+    try {
+      const res = await fetch('/api/plants/order', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ordered_ids: orderedIds }),
+      })
+      if (!res.ok) {
+        let detail = ''
+        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
+        setSaveError(detail || `Failed to save order (HTTP ${res.status})`)
+      }
+    } catch (e) {
+      setSaveError(e.message || 'Failed to save order')
+    }
+  }
+
+  function onDragStart(index) {
+    setDragIndex(index)
+  }
+
+  function onDragOver(e, index) {
+    e.preventDefault()
+    if (dragIndex === null || dragIndex === index) return
+    setPlants((prev) => reorder(prev, dragIndex, index))
+    setDragIndex(index)
+  }
+
+  function onDragEnd() {
+    if (dragIndex === null) return
+    persistOrder(plants)
+    setDragIndex(null)
+  }
+
+  const handleStyle = {
+    cursor: 'grab',
+    color: isDark ? '#9ca3af' : '#6b7280',
+    paddingRight: 6,
+    userSelect: 'none',
+  }
+
   return (
     <DashboardLayout title="Plants">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -89,13 +142,14 @@ export default function PlantsList() {
 
       {loading && <div>Loading…</div>}
       {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {saveError && !loading && <div style={{ color: 'crimson' }}>{saveError}</div>}
 
       {!loading && !error && (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr>
-                <th style={th}>ID</th>
+                <th style={th}></th>
                 <th style={th}>Name</th>
                 <th style={th}>Species</th>
                 <th style={th}>Location</th>
@@ -104,9 +158,16 @@ export default function PlantsList() {
               </tr>
             </thead>
             <tbody>
-              {plants.map((p) => (
-                <tr key={p.id}>
-                  <td style={td}>{p.id}</td>
+              {plants.map((p, idx) => (
+                <tr key={p.id}
+                    draggable
+                    onDragStart={() => onDragStart(idx)}
+                    onDragOver={(e) => onDragOver(e, idx)}
+                    onDragEnd={onDragEnd}
+                >
+                  <td style={{ ...td, width: 24 }}>
+                    <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
+                  </td>
                   <td style={td}>{p.name}</td>
                   <td style={td}>{p.species || '—'}</td>
                   <td style={td}>{p.location || '—'}</td>

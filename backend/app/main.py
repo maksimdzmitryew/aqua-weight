@@ -32,7 +32,8 @@ def get_db_connection():
 
 
 class Plant(BaseModel):
-    id: int
+    id: int  # synthetic sequential id for UI
+    uuid: str | None = None  # stable DB id (hex) for mutations like reordering
     name: str
     species: str | None = None
     location: str | None = None
@@ -64,23 +65,25 @@ async def list_plants() -> list[Plant]:
                 # Prefer sort_order then name for stable listing; exclude archived plants
                 cur.execute(
                     """
-                    SELECT p.name, p.species_name, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    SELECT p.id, p.name, p.species_name, COALESCE(l.name, NULL) AS location_name, p.created_at
                     FROM plants p
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.name ASC
+                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
                     """
                 )
                 rows = cur.fetchall() or []
                 results: list[Plant] = []
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
-                    # row = (name, species_name, location_name, created_at)
-                    name = row[0]
-                    species_name = row[1]
-                    location_name = row[2]
-                    created_at = row[3] or now
-                    results.append(Plant(id=idx, name=name, species=species_name, location=location_name, created_at=created_at))
+                    # row = (id, name, species_name, location_name, created_at)
+                    pid = row[0]
+                    name = row[1]
+                    species_name = row[2]
+                    location_name = row[3]
+                    created_at = row[4] or now
+                    uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
+                    results.append(Plant(id=idx, uuid=uuid_hex, name=name, species=species_name, location=location_name, created_at=created_at))
                 return results
         finally:
             conn.close()
@@ -89,7 +92,8 @@ async def list_plants() -> list[Plant]:
 
 
 class Location(BaseModel):
-    id: int
+    id: int  # synthetic sequential id for UI
+    uuid: str | None = None  # stable DB id (hex)
     name: str
     type: str | None = None
     created_at: datetime
@@ -102,16 +106,18 @@ async def list_locations() -> list[Location]:
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                # Prefer sort_order then name for stable listing
-                cur.execute("SELECT name, created_at FROM locations ORDER BY sort_order ASC, name ASC")
+                # Prefer sort_order, then newest first, then name for stable listing
+                cur.execute("SELECT id, name, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC")
                 rows = cur.fetchall() or []
                 results: list[Location] = []
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
-                    # row = (name, created_at)
-                    name = row[0]
-                    created_at = row[1] or now
-                    results.append(Location(id=idx, name=name, type=None, created_at=created_at))
+                    # row = (id, name, created_at)
+                    lid = row[0]
+                    name = row[1]
+                    created_at = row[2] or now
+                    uuid_hex = lid.hex() if isinstance(lid, (bytes, bytearray)) else None
+                    results.append(Location(id=idx, uuid=uuid_hex, name=name, type=None, created_at=created_at))
                 return results
         finally:
             conn.close()
@@ -291,3 +297,58 @@ async def create_plant(payload: PlantCreate):
             conn.close()
 
     return await run_in_threadpool(do_insert)
+
+
+# Reordering endpoints
+class ReorderPayload(BaseModel):
+    ordered_ids: list[str]
+
+
+def _validate_and_update_order(table: str, ids: list[str]):
+    if not ids:
+        raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
+
+    # Update in a single connection
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Validate all ids exist and count matches
+            placeholders = ",".join(["UNHEX(%s)"] * len(ids))
+            cur.execute(f"SELECT COUNT(*) FROM {table} WHERE id IN ({placeholders})", ids)
+            count = cur.fetchone()[0]
+            if count != len(ids):
+                raise HTTPException(status_code=400, detail="Some ids do not exist")
+            # Assign sequential sort_order starting at 1
+            for idx, hex_id in enumerate(ids, start=1):
+                cur.execute(f"UPDATE {table} SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+    finally:
+        conn.close()
+
+
+@app.put("/locations/order")
+async def reorder_locations(payload: ReorderPayload):
+    await run_in_threadpool(_validate_and_update_order, "locations", payload.ordered_ids)
+    return {"ok": True}
+
+
+@app.put("/plants/order")
+async def reorder_plants(payload: ReorderPayload):
+    # Only reorder non-archived plants in the provided list
+    def do_update():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                if not payload.ordered_ids:
+                    raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
+                # Validate IDs exist and are not archived
+                placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
+                cur.execute(f"SELECT COUNT(*) FROM plants WHERE archive=0 AND id IN ({placeholders})", payload.ordered_ids)
+                count = cur.fetchone()[0]
+                if count != len(payload.ordered_ids):
+                    raise HTTPException(status_code=400, detail="Some ids do not exist or are archived")
+                for idx, hex_id in enumerate(payload.ordered_ids, start=1):
+                    cur.execute("UPDATE plants SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+        finally:
+            conn.close()
+    await run_in_threadpool(do_update)
+    return {"ok": True}

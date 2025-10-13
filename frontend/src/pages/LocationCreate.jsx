@@ -8,12 +8,12 @@ export default function LocationCreate() {
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
 
-  const [loc, setLoc] = useState({ name: '', description: '', sort_order: 0 })
+  const [loc, setLoc] = useState({ name: '', description: '' })
   const [fieldErrors, setFieldErrors] = useState({})
 
   function onChange(e) {
     const { name, value } = e.target
-    setLoc((prev) => ({ ...prev, [name]: name === 'sort_order' ? Number(value) : value }))
+    setLoc((prev) => ({ ...prev, [name]: value }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))
   }
 
@@ -34,7 +34,7 @@ export default function LocationCreate() {
       const res = await fetch('/api/locations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: (loc.description || '').trim() || null, sort_order: Number(loc.sort_order) || 0 }),
+        body: JSON.stringify({ name, description: (loc.description || '').trim() || null }),
       })
       if (!res.ok) {
         let detail = ''
@@ -117,11 +117,6 @@ export default function LocationCreate() {
         <div style={rowStyle}>
           <label style={labelStyle} htmlFor="description">Description</label>
           <textarea id="description" name="description" value={loc.description} onChange={onChange} style={textareaStyle} placeholder="Optional notes about this location" />
-        </div>
-
-        <div style={rowStyle}>
-          <label style={labelStyle} htmlFor="sort_order">Sort order</label>
-          <input id="sort_order" name="sort_order" type="number" value={loc.sort_order} onChange={onChange} style={inputStyle} />
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>

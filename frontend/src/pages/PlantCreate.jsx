@@ -15,7 +15,6 @@ export default function PlantCreate() {
     botanical_name: '',
     cultivar: '',
     location: '', // placeholder text field; DB expects location_id
-    sort_order: 0,
     photo_url: '',
     fertilizer_ec_ms: '',
   })
@@ -23,7 +22,7 @@ export default function PlantCreate() {
 
   function onChange(e) {
     const { name, value, type } = e.target
-    const v = name === 'sort_order' ? Number(value) : (type === 'number' ? Number(value) : value)
+    const v = type === 'number' ? Number(value) : value
     setPlant((prev) => ({ ...prev, [name]: v }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))
   }
@@ -49,7 +48,6 @@ export default function PlantCreate() {
         botanical_name: (plant.botanical_name || '').trim() || null,
         cultivar: (plant.cultivar || '').trim() || null,
         location: (plant.location || '').trim() || null,
-        sort_order: Number(plant.sort_order) || 0,
         photo_url: (plant.photo_url || '').trim() || null,
         fertilizer_ec_ms: plant.fertilizer_ec_ms === '' ? null : Number(plant.fertilizer_ec_ms),
       }
@@ -152,11 +150,6 @@ export default function PlantCreate() {
         <div style={rowStyle}>
           <label style={labelStyle} htmlFor="fertilizer_ec_ms">Fertilizer EC (mS)</label>
           <input id="fertilizer_ec_ms" name="fertilizer_ec_ms" type="number" step="0.01" value={plant.fertilizer_ec_ms} onChange={onChange} style={inputStyle} placeholder="Optional" />
-        </div>
-
-        <div style={rowStyle}>
-          <label style={labelStyle} htmlFor="sort_order">Sort order</label>
-          <input id="sort_order" name="sort_order" type="number" value={plant.sort_order} onChange={onChange} style={inputStyle} />
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
