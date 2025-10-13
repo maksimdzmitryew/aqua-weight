@@ -6,5 +6,15 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    watch: {
+      usePolling: true,
+      interval: 300,
+    },
+    // Ensure HMR works when accessed via HTTPS through nginx at https://aw.max
+    hmr: {
+      host: 'aw.max',
+      protocol: 'wss',
+      clientPort: 443,
+    },
   },
 })

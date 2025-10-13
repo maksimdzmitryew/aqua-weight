@@ -1,10 +1,15 @@
 AW multi-container setup (Ubuntu-based)
 
 Overview
-- 4 containers: backend (FastAPI), frontend (React via Vite dev server), db (MySQL 8 official image), nginx (TLS termination + reverse proxy)
+- 4 containers: backend (FastAPI), frontend (React via Vite dev server), db (MariaDB 10.11 LTS official image), nginx (TLS termination + reverse proxy)
 - Domain: https://aw.max
 - SSL: locally signed certs live in ./ssl
 - One Nginx container proxies both frontend and backend
+
+Background: collation and engine choice
+- MySQL offers some of the most accurate modern Unicode collations (e.g., utf8mb4_0900_ai_ci), delivering high‑quality multilingual sorting, case/diacritic handling, and consistent comparisons across scripts.
+- However, to avoid reliance on closed‑source stewardship and keep the stack community‑governed, this project uses MariaDB by default.
+- MariaDB provides a comparable level of UTF‑8 collation quality (e.g., utf8mb4_uca1400_ai_ci), and end users are welcome to choose the engine/collation that best fits their needs and preferences.
 
 Project layout
 - backend/
@@ -33,7 +38,7 @@ Prerequisites
 Quick start
 1) Copy env defaults (optional):
    cp .env.example .env
-   # edit .env to customize MySQL credentials
+   # edit .env to customize MariaDB credentials
 
 2) Build and start:
    docker compose up --build
@@ -54,7 +59,7 @@ Services
   - URL (internal): http://frontend:5173
   - Exposed via nginx at: https://aw.max/
   - Source: frontend/
-- Database (MySQL 8 official image):
+- Database (MariaDB 10.11 LTS official image):
   - Internal hostname: db
   - Credentials via .env or defaults in .env.example
 - Nginx:
@@ -62,11 +67,57 @@ Services
   - Proxies /api/* to backend and everything else to frontend
 
 Notes
-- All app containers (backend, frontend, nginx) use Ubuntu base images. MySQL uses the official mysql:8 image (Debian-based) as agreed.
+- All app containers (backend, frontend, nginx) use Ubuntu base images. MariaDB uses the official mariadb:10.11 image (Debian-based).
 - For local development with HTTPS, your browser may require trusting the locally signed CA/cert.
 - Frontend fetches the API via the same origin and path prefix /api to avoid CORS in the browser; backend CORS also allows https://aw.max explicitly.
 - To stop: docker compose down
-- To clean DB data: docker volume rm aw_mysql_data (careful: destroys data)
+- To clean DB data: docker volume rm aw_mariadb_data (careful: destroys data)
+
+---
+
+Do I need to restart any containers for changes to take effect?
+Short answer: It depends on what changed. Use the guidance below.
+
+- Frontend (Vite dev server inside container):
+  - Source edits under frontend/ (JSX/TSX/CSS): no restart needed — hot reload updates automatically via Vite. docker-compose mounts ./frontend into the container and Vite uses polling to detect changes reliably inside Docker.
+  - package.json changes (adding deps like react-router-dom) or frontend/Dockerfile changes: rebuild the image and recreate the container.
+    - Commands:
+      - docker compose build frontend
+      - docker compose up -d frontend
+      - Or in one go: docker compose up -d --build frontend
+
+- Backend (FastAPI via Uvicorn):
+  - The container runs Uvicorn without --reload. Code changes under backend/app will not auto-reload; restart the container to apply.
+    - Commands:
+      - docker compose restart backend
+      - If you changed Python deps or backend/Dockerfile: docker compose up -d --build backend
+
+- Nginx (reverse proxy and TLS):
+  - nginx.conf changes: rebuild or at least restart nginx container.
+    - docker compose up -d --build nginx
+  - SSL cert/key files under ./ssl: container mounts them as a volume. Usually a restart is enough.
+    - docker compose restart nginx
+
+- Database (MariaDB):
+  - Files in db/init/ run only on first database initialization. Changing them later won’t affect an existing data volume.
+    - To re-run init scripts, you must remove the volume (DESTROYS DATA) and recreate:
+      - docker compose down
+      - docker volume rm aw_mariadb_data
+      - docker compose up -d
+  - Routine schema/data changes applied via SQL/migrations do not require restarting the DB container.
+
+- docker-compose.yml or environment variable changes:
+  - When you change docker-compose.yml or env used by a service, recreate affected services:
+    - docker compose up -d --build <service>
+  - For multiple services: docker compose up -d --build
+
+- Unsure what to restart? Safe catch‑all:
+  - docker compose up -d --build
+
+Examples for recent changes in this repo:
+- Added React Router and new Dashboard route (frontend source only): no restarts; Vite hot reload handles it. If you changed package.json, rebuild frontend.
+- Edited nginx/nginx.conf to add a new proxy path: docker compose up -d --build nginx
+- Updated db/init/schema.sql and want it to re-run: remove the DB volume (see above) and then docker compose up -d
 
 Generating local TLS certificates (using your existing local CA)
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).
