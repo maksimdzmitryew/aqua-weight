@@ -39,6 +39,9 @@ export default function PlantEdit() {
   }
 
   const [plant, setPlant] = useState(initialPlant ? normalize(initialPlant) : null)
+  const [locations, setLocations] = useState([])
+  const [locLoading, setLocLoading] = useState(true)
+  const [locError, setLocError] = useState('')
   const numericId = Number(id)
 
   useEffect(() => {
@@ -65,17 +68,34 @@ export default function PlantEdit() {
     }
   }, [numericId, plant])
 
+  useEffect(() => {
+    let cancelled = false
+    async function loadLocations() {
+      try {
+        const res = await fetch('/api/locations')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!cancelled) setLocations(data)
+      } catch (e) {
+        if (!cancelled) setLocError('Failed to load locations')
+      } finally {
+        if (!cancelled) setLocLoading(false)
+      }
+    }
+    loadLocations()
+    return () => { cancelled = true }
+  }, [])
+
   function onChange(e) {
     const { name, value } = e.target
     setPlant((prev) => ({ ...prev, [name]: value }))
   }
 
-  function onSave(e) {
+  async function onSave(e) {
     e.preventDefault()
     if (!plant) return
     const trimmedName = (plant.name || '').trim() || plant.name
-    const trimmed = {
-      ...plant,
+    const payload = {
       // General
       name: trimmedName,
       description: (plant.description || '').trim() || null,
@@ -94,12 +114,26 @@ export default function PlantEdit() {
       light_level_id: (plant.light_level_id || '').trim() || null,
       pest_status_id: (plant.pest_status_id || '').trim() || null,
       health_status_id: (plant.health_status_id || '').trim() || null,
-      // Legacy mirror for list compatibility
-      species: (plant.species_name || '').trim() || null,
-      location: (plant.location_id || '').trim() || null,
     }
-    // No backend to persist yet; navigate back to list with updated item in state
-    navigate('/plants', { state: { updatedPlant: trimmed } })
+    try {
+      const idHex = plant.uuid
+      if (!idHex) throw new Error('Missing plant id')
+      const res = await fetch(`/api/plants/${idHex}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        let detail = ''
+        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
+        window.alert(detail || `Failed to save (HTTP ${res.status})`)
+        return
+      }
+      // Navigate back to list; list will refresh from server
+      navigate('/plants')
+    } catch (err) {
+      window.alert(err.message || 'Failed to save')
+    }
   }
 
   function onCancel(e) {
@@ -173,8 +207,14 @@ export default function PlantEdit() {
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="location_id">Location ID</label>
-                <input id="location_id" name="location_id" value={plant.location_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="location_id">Location</label>
+                <select id="location_id" name="location_id" value={plant.location_id || ''} onChange={onChange} style={inputStyle} disabled={locLoading}>
+                  <option value="">— Select location —</option>
+                  {locations.map((loc) => (
+                    <option key={loc.uuid} value={loc.uuid}>{loc.name}</option>
+                  ))}
+                </select>
+                {locError && <div style={{ color: 'crimson', marginTop: 6 }}>{locError}</div>}
               </div>
 
               <div style={rowStyle}>

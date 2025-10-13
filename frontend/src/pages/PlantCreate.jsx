@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
@@ -30,7 +30,28 @@ export default function PlantCreate() {
     pest_status_id: '',
     health_status_id: '',
   })
+  const [locations, setLocations] = useState([])
+  const [locLoading, setLocLoading] = useState(true)
+  const [locError, setLocError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch('/api/locations')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!cancelled) setLocations(data)
+      } catch (e) {
+        if (!cancelled) setLocError('Failed to load locations')
+      } finally {
+        if (!cancelled) setLocLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
 
   function onChange(e) {
     const { name, value, type } = e.target
@@ -164,8 +185,14 @@ export default function PlantCreate() {
             </div>
 
             <div style={rowStyle}>
-              <label style={labelStyle} htmlFor="location_id">Location ID</label>
-              <input id="location_id" name="location_id" value={plant.location_id} onChange={onChange} style={inputStyle} placeholder="ULID or free text for now" />
+              <label style={labelStyle} htmlFor="location_id">Location</label>
+              <select id="location_id" name="location_id" value={plant.location_id} onChange={onChange} style={inputStyle} disabled={locLoading}>
+                <option value="">— Select location —</option>
+                {locations.map((loc) => (
+                  <option key={loc.uuid} value={loc.uuid}>{loc.name}</option>
+                ))}
+              </select>
+              {locError && <div style={{ color: 'crimson', marginTop: 6 }}>{locError}</div>}
             </div>
 
             <div style={rowStyle}>

@@ -36,8 +36,10 @@ class Plant(BaseModel):
     id: int  # synthetic sequential id for UI
     uuid: str | None = None  # stable DB id (hex) for mutations like reordering
     name: str
+    description: str | None = None
     species: str | None = None
     location: str | None = None
+    location_id: str | None = None
     created_at: datetime
 
 
@@ -66,7 +68,7 @@ async def list_plants() -> list[Plant]:
                 # Prefer sort_order then name for stable listing; exclude archived plants
                 cur.execute(
                     """
-                    SELECT p.id, p.name, p.species_name, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    SELECT p.id, p.name, p.description, p.species_name, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
                     FROM plants p
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.archive = 0
@@ -77,14 +79,17 @@ async def list_plants() -> list[Plant]:
                 results: list[Plant] = []
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
-                    # row = (id, name, species_name, location_name, created_at)
+                    # row = (id, name, description, species_name, location_id, location_name, created_at)
                     pid = row[0]
                     name = row[1]
-                    species_name = row[2]
-                    location_name = row[3]
-                    created_at = row[4] or now
+                    description = row[2]
+                    species_name = row[3]
+                    location_id_bytes = row[4]
+                    location_name = row[5]
+                    created_at = row[6] or now
                     uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                    results.append(Plant(id=idx, uuid=uuid_hex, name=name, species=species_name, location=location_name, created_at=created_at))
+                    location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
+                    results.append(Plant(id=idx, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at))
                 return results
         finally:
             conn.close()
@@ -238,21 +243,48 @@ async def update_location_by_name(payload: LocationUpdateByName):
 
 
 class PlantCreate(BaseModel):
+    # General
     name: str
     description: str | None = None
+    location_id: str | None = None  # hex ULID/UUID-like 32 chars
+    photo_url: str | None = None
+    default_measurement_method_id: str | None = None
+    # Advanced
     species_name: str | None = None
     botanical_name: str | None = None
     cultivar: str | None = None
-    location: str | None = None  # free text; we'll map to location_id if exists
-    sort_order: int = 0
-    photo_url: str | None = None
+    substrate_type_id: str | None = None
+    substrate_last_refresh_at: str | None = None
+    fertilized_last_at: str | None = None
     fertilizer_ec_ms: float | None = Field(default=None, ge=0)
+    # Health
+    light_level_id: str | None = None
+    pest_status_id: str | None = None
+    health_status_id: str | None = None
 
 
 @app.post("/plants")
 async def create_plant(payload: PlantCreate):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
+
+    def hex_to_bytes(h: str | None):
+        if not h:
+            return None
+        hs = (h or "").strip().lower()
+        if re.fullmatch(r"[0-9a-f]{32}", hs):
+            try:
+                return bytes.fromhex(hs)
+            except Exception:
+                return None
+        return None
+
+    def to_dt(s: str | None):
+        if not s:
+            return None
+        # Accept HTML datetime-local value like 'YYYY-MM-DDTHH:MM' or with seconds
+        ss = s.strip().replace("T", " ")
+        return ss
 
     name = normalize(payload.name)
     if not name:
@@ -262,31 +294,30 @@ async def create_plant(payload: PlantCreate):
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                # Resolve location_id by name if provided
-                location_id = None
-                loc_name = normalize(payload.location) if payload.location else None
-                if loc_name:
-                    cur.execute("SELECT id FROM locations WHERE name=%s LIMIT 1", (loc_name,))
-                    row = cur.fetchone()
-                    if row:
-                        location_id = row[0]
                 new_id = uuid.uuid4().bytes
                 cur.execute(
                     (
-                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, photo_url, fertilizer_ec_ms) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     ),
                     (
                         new_id,
                         name,
-                        payload.description,
-                        payload.species_name,
-                        payload.botanical_name,
-                        payload.cultivar,
-                        int(payload.sort_order or 0),
-                        location_id,
-                        payload.photo_url,
+                        (payload.description or None),
+                        (payload.species_name or None),
+                        (payload.botanical_name or None),
+                        (payload.cultivar or None),
+                        0,
+                        hex_to_bytes(payload.location_id),
+                        hex_to_bytes(payload.substrate_type_id),
+                        to_dt(payload.substrate_last_refresh_at),
+                        hex_to_bytes(payload.light_level_id),
+                        to_dt(payload.fertilized_last_at),
                         payload.fertilizer_ec_ms,
+                        hex_to_bytes(payload.pest_status_id),
+                        hex_to_bytes(payload.health_status_id),
+                        (payload.photo_url or None),
+                        hex_to_bytes(payload.default_measurement_method_id),
                     ),
                 )
                 # Fetch created_at
@@ -400,4 +431,85 @@ async def delete_location(id_hex: str):
             conn.close()
 
     await run_in_threadpool(do_delete)
+    return {"ok": True}
+
+
+class PlantUpdate(BaseModel):
+    # Same fields as create; all optional
+    name: str | None = None
+    description: str | None = None
+    location_id: str | None = None
+    photo_url: str | None = None
+    default_measurement_method_id: str | None = None
+    species_name: str | None = None
+    botanical_name: str | None = None
+    cultivar: str | None = None
+    substrate_type_id: str | None = None
+    substrate_last_refresh_at: str | None = None
+    fertilized_last_at: str | None = None
+    fertilizer_ec_ms: float | None = Field(default=None, ge=0)
+    light_level_id: str | None = None
+    pest_status_id: str | None = None
+    health_status_id: str | None = None
+
+
+@app.put("/plants/{id_hex}")
+async def update_plant(id_hex: str, payload: PlantUpdate):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def normalize(s: str) -> str:
+        return " ".join((s or "").split())
+
+    def hex_to_bytes(h: str | None):
+        if not h:
+            return None
+        hs = (h or "").strip().lower()
+        if re.fullmatch(r"[0-9a-f]{32}", hs):
+            try:
+                return bytes.fromhex(hs)
+            except Exception:
+                return None
+        return None
+
+    def to_dt(s: str | None):
+        if not s:
+            return None
+        return s.strip().replace("T", " ")
+
+    if payload.name is not None and not normalize(payload.name):
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+    def do_update():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                sql = (
+                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
+                )
+                params = (
+                    (normalize(payload.name) if payload.name is not None else None),
+                    (payload.description if payload.description is not None else None),
+                    (payload.species_name if payload.species_name is not None else None),
+                    (payload.botanical_name if payload.botanical_name is not None else None),
+                    (payload.cultivar if payload.cultivar is not None else None),
+                    hex_to_bytes(payload.location_id) if payload.location_id is not None else None,
+                    hex_to_bytes(payload.substrate_type_id) if payload.substrate_type_id is not None else None,
+                    to_dt(payload.substrate_last_refresh_at) if payload.substrate_last_refresh_at is not None else None,
+                    hex_to_bytes(payload.light_level_id) if payload.light_level_id is not None else None,
+                    to_dt(payload.fertilized_last_at) if payload.fertilized_last_at is not None else None,
+                    payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
+                    hex_to_bytes(payload.pest_status_id) if payload.pest_status_id is not None else None,
+                    hex_to_bytes(payload.health_status_id) if payload.health_status_id is not None else None,
+                    (payload.photo_url if payload.photo_url is not None else None),
+                    hex_to_bytes(payload.default_measurement_method_id) if payload.default_measurement_method_id is not None else None,
+                    id_hex,
+                )
+                cur.execute(sql, params)
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+        finally:
+            conn.close()
+
+    await run_in_threadpool(do_update)
     return {"ok": True}
