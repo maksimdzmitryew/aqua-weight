@@ -64,7 +64,7 @@ export default function LocationsList() {
   }, [routerLocation.state, routerLocation.pathname])
 
   function handleView(l) {
-    const details = `Location #${l.id}\nName: ${l.name}\nType: ${l.type || '—'}\nCreated: ${formatDateTime(l.created_at)}`
+    const details = `Location #${l.id}\nName: ${l.name}\nDescription: ${l.description || '—'}\nCreated: ${formatDateTime(l.created_at)}`
     window.alert(details)
   }
 
@@ -182,7 +182,7 @@ export default function LocationsList() {
               <tr>
                 <th style={th}></th>
                 <th style={th}>Name</th>
-                <th style={th}>Type</th>
+                <th style={th}>Description</th>
                 <th style={th}>Created</th>
                 <th style={{ ...th, textAlign: 'right' }}>Actions</th>
               </tr>
@@ -199,7 +199,7 @@ export default function LocationsList() {
                     <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
                   </td>
                   <td style={td}>{l.name}</td>
-                  <td style={td}>{l.type || '—'}</td>
+                  <td style={td}>{l.description || '—'}</td>
                   <td style={td}>{formatDateTime(l.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
                     <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />

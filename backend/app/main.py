@@ -101,7 +101,7 @@ class Location(BaseModel):
     id: int  # synthetic sequential id for UI
     uuid: str | None = None  # stable DB id (hex)
     name: str
-    type: str | None = None
+    description: str | None = None
     created_at: datetime
 
 
@@ -113,17 +113,18 @@ async def list_locations() -> list[Location]:
         try:
             with conn.cursor() as cur:
                 # Prefer sort_order, then newest first, then name for stable listing
-                cur.execute("SELECT id, name, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC")
+                cur.execute("SELECT id, name, description, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC")
                 rows = cur.fetchall() or []
                 results: list[Location] = []
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
-                    # row = (id, name, created_at)
+                    # row = (id, name, description, created_at)
                     lid = row[0]
                     name = row[1]
-                    created_at = row[2] or now
+                    description = row[2]
+                    created_at = row[3] or now
                     uuid_hex = lid.hex() if isinstance(lid, (bytes, bytearray)) else None
-                    results.append(Location(id=idx, uuid=uuid_hex, name=name, type=None, created_at=created_at))
+                    results.append(Location(id=idx, uuid=uuid_hex, name=name, description=description, created_at=created_at))
                 return results
         finally:
             conn.close()

@@ -65,7 +65,7 @@ export default function PlantsList() {
   }, [routerLocation.state, routerLocation.pathname])
 
   function handleView(p) {
-    const details = `Plant #${p.id}\nName: ${p.name}\nSpecies: ${p.species || '—'}\nLocation: ${p.location || '—'}\nCreated: ${formatDateTime(p.created_at)}`
+    const details = `Plant #${p.id}\nName: ${p.name}\nDescription: ${p.description || '—'}\nLocation: ${p.location || '—'}\nCreated: ${formatDateTime(p.created_at)}`
     window.alert(details)
   }
 
@@ -183,7 +183,7 @@ export default function PlantsList() {
               <tr>
                 <th style={th}></th>
                 <th style={th}>Name</th>
-                <th style={th}>Species</th>
+                <th style={th}>Description</th>
                 <th style={th}>Location</th>
                 <th style={th}>Created</th>
                 <th style={{ ...th, textAlign: 'right' }}>Actions</th>
@@ -201,7 +201,7 @@ export default function PlantsList() {
                     <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
                   </td>
                   <td style={td}>{p.name}</td>
-                  <td style={td}>{p.species || '—'}</td>
+                  <td style={td}>{p.description || '—'}</td>
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
