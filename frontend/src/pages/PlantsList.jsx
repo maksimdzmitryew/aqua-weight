@@ -205,6 +205,9 @@ export default function PlantsList() {
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <IconButton icon="beaker" label={`Measurement for ${p.name}`} onClick={() => navigate(`/measurement/measurement?plant=${p.uuid}`)} variant="primary" />
+                    <IconButton icon="droplet" label={`Watering for ${p.name}`} onClick={() => navigate(`/measurement/watering?plant=${p.uuid}`)} variant="primary" />
+                    <IconButton icon="box" label={`Repotting for ${p.name}`} onClick={() => navigate(`/measurement/repotting?plant=${p.uuid}`)} variant="primary" />
                     <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />

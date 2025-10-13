@@ -514,3 +514,178 @@ async def update_plant(id_hex: str, payload: PlantUpdate):
 
     await run_in_threadpool(do_update)
     return {"ok": True}
+
+
+# Measurements API
+class MeasurementCreate(BaseModel):
+    plant_id: str
+    measured_at: str
+    measured_weight_g: int | None = None
+    method_id: str | None = None
+    use_last_method: bool = False
+    scale_id: str | None = None
+    note: str | None = None
+    # Optional fields for watering/repotting flows
+    last_dry_weight_g: int | None = None
+    last_wet_weight_g: int | None = None
+    water_added_g: int | None = None
+
+
+def _hex_to_bytes(h: str | None):
+    if not h:
+        return None
+    hs = (h or "").strip().lower()
+    if re.fullmatch(r"[0-9a-f]{32}", hs):
+        try:
+            return bytes.fromhex(hs)
+        except Exception:
+            return None
+    return None
+
+
+def _to_dt_string(s: str | None):
+    if not s:
+        return None
+    return s.strip().replace("T", " ")
+
+
+@app.get("/api/measurements/last")
+async def get_last_measurement(plant_id: str):
+    if not HEX_RE.match(plant_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant_id")
+
+    def do_fetch():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g, method_id, scale_id, note
+                    FROM plants_measurements
+                    WHERE plant_id=UNHEX(%s)
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                    """,
+                    (plant_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return None
+                def to_hex(b):
+                    return b.hex() if isinstance(b, (bytes, bytearray)) else None
+                return {
+                    "measured_at": row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None,
+                    "measured_weight_g": row[1],
+                    "last_dry_weight_g": row[2],
+                    "last_wet_weight_g": row[3],
+                    "water_added_g": row[4],
+                    "method_id": to_hex(row[5]),
+                    "scale_id": to_hex(row[6]),
+                    "note": row[7],
+                }
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_fetch)
+
+
+@app.post("/api/measurements")
+async def create_measurement(payload: MeasurementCreate):
+    if not HEX_RE.match(payload.plant_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant_id")
+
+    # Normalize inputs
+    measured_at = _to_dt_string(payload.measured_at) or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    mw = payload.measured_weight_g
+    ld = payload.last_dry_weight_g
+    lw = payload.last_wet_weight_g
+    wa = payload.water_added_g if payload.water_added_g is not None else 0
+
+    def do_insert():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Fetch previous last record for this plant (by measured_at)
+                cur.execute(
+                    """
+                    SELECT measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g
+                    FROM plants_measurements
+                    WHERE plant_id=UNHEX(%s)
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                    """,
+                    (payload.plant_id,),
+                )
+                prev = cur.fetchone()
+                prev_measured_weight = prev[1] if prev else None
+                prev_last_dry = prev[2] if prev else None
+                prev_last_wet = prev[3] if prev else None
+                prev_water_added = prev[4] if prev else 0
+
+                # For A flow: copy previous last_* and water_added if not provided
+                if ld is None:
+                    ld_local = prev_last_dry
+                else:
+                    ld_local = ld
+                if lw is None:
+                    lw_local = prev_last_wet
+                else:
+                    lw_local = lw
+                if payload.water_added_g is None:
+                    wa_local = prev_water_added or 0
+                else:
+                    wa_local = wa
+
+                # Calculations
+                water_loss_total_g = None
+                water_loss_total_pct = None
+                water_loss_day_g = None
+                water_loss_day_pct = None
+
+                if mw is not None and lw_local is not None:
+                    try:
+                        diff = max(lw_local - mw, 0)
+                        water_loss_total_g = diff
+                        if lw_local > 0:
+                            water_loss_total_pct = round((diff / lw_local) * 100.0, 2)
+                    except Exception:
+                        pass
+
+                if mw is not None and prev_measured_weight is not None:
+                    try:
+                        daydiff = max(prev_measured_weight - mw, 0)
+                        water_loss_day_g = daydiff
+                        if prev_measured_weight > 0:
+                            water_loss_day_pct = round((daydiff / prev_measured_weight) * 100.0, 2)
+                    except Exception:
+                        pass
+
+                new_id = uuid.uuid4().bytes
+                cur.execute(
+                    (
+                        "INSERT INTO plants_measurements (id, plant_id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g, water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g, method_id, use_last_method, scale_id, note) "
+                        "VALUES (%s, UNHEX(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                    ),
+                    (
+                        new_id,
+                        payload.plant_id,
+                        measured_at,
+                        mw,
+                        ld_local,
+                        lw_local,
+                        int(wa_local or 0),
+                        water_loss_total_pct,
+                        water_loss_total_g,
+                        water_loss_day_pct,
+                        water_loss_day_g,
+                        _hex_to_bytes(payload.method_id),
+                        1 if payload.use_last_method else 0,
+                        _hex_to_bytes(payload.scale_id),
+                        (payload.note or None),
+                    ),
+                )
+                return {"ok": True}
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_insert)

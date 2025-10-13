@@ -11,6 +11,9 @@ import PlantEdit from './pages/PlantEdit.jsx'
 import LocationEdit from './pages/LocationEdit.jsx'
 import PlantCreate from './pages/PlantCreate.jsx'
 import LocationCreate from './pages/LocationCreate.jsx'
+import MeasurementCreate from './pages/MeasurementCreate.jsx'
+import WateringCreate from './pages/WateringCreate.jsx'
+import RepottingCreate from './pages/RepottingCreate.jsx'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -26,6 +29,9 @@ createRoot(document.getElementById('root')).render(
           <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/measurement/measurement" element={<MeasurementCreate />} />
+          <Route path="/measurement/watering" element={<WateringCreate />} />
+          <Route path="/measurement/repotting" element={<RepottingCreate />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>
