@@ -3,6 +3,7 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import { useTheme } from '../ThemeContext.jsx'
 import IconButton from '../components/IconButton.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 
 export default function PlantsList() {
@@ -15,6 +16,8 @@ export default function PlantsList() {
   const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [toDelete, setToDelete] = useState(null)
 
   const th = {
     textAlign: 'left',
@@ -71,8 +74,8 @@ export default function PlantsList() {
   }
 
   function handleDelete(p) {
-    if (!window.confirm(`Delete plant "${p.name}"? This cannot be undone.`)) return
-    setPlants((prev) => prev.filter((it) => it.id !== p.id))
+    setToDelete(p)
+    setConfirmOpen(true)
   }
 
   function reorder(list, startIndex, endIndex) {
@@ -124,6 +127,35 @@ export default function PlantsList() {
     color: isDark ? '#9ca3af' : '#6b7280',
     paddingRight: 6,
     userSelect: 'none',
+  }
+
+  function closeDialog() {
+    setConfirmOpen(false)
+    setToDelete(null)
+  }
+
+  async function confirmDelete() {
+    if (!toDelete) { closeDialog(); return }
+    try {
+      setSaveError('')
+      const uuid = toDelete.uuid
+      if (!uuid) {
+        setSaveError('Cannot delete this plant: missing identifier')
+        return
+      }
+      const res = await fetch(`/api/plants/${uuid}`, { method: 'DELETE' })
+      if (!res.ok) {
+        let detail = ''
+        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
+        setSaveError(detail || `Failed to delete (HTTP ${res.status})`)
+      } else {
+        setPlants((prev) => prev.filter((it) => it.id !== toDelete.id))
+      }
+    } catch (e) {
+      setSaveError(e.message || 'Failed to delete plant')
+    } finally {
+      closeDialog()
+    }
   }
 
   return (
@@ -188,6 +220,17 @@ export default function PlantsList() {
           </table>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title={toDelete ? `Delete ${toDelete.name}` : 'Delete'}
+        message="This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        tone="danger"
+        icon="danger"
+        onConfirm={confirmDelete}
+        onCancel={closeDialog}
+      />
     </DashboardLayout>
   )
 }

@@ -6,6 +6,7 @@ from starlette.concurrency import run_in_threadpool
 import os
 import pymysql
 import uuid
+import re
 
 app = FastAPI()
 
@@ -351,4 +352,52 @@ async def reorder_plants(payload: ReorderPayload):
         finally:
             conn.close()
     await run_in_threadpool(do_update)
+    return {"ok": True}
+
+
+HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
+
+
+@app.delete("/plants/{id_hex}")
+async def delete_plant(id_hex: str):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def do_delete():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Try delete and check affected rows
+                cur.execute("DELETE FROM plants WHERE id=UNHEX(%s)", (id_hex,))
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+        finally:
+            conn.close()
+
+    await run_in_threadpool(do_delete)
+    return {"ok": True}
+
+
+@app.delete("/locations/{id_hex}")
+async def delete_location(id_hex: str):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def do_delete():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Check for any plants assigned to this location (regardless of archive status)
+                cur.execute("SELECT COUNT(*) FROM plants WHERE location_id=UNHEX(%s)", (id_hex,))
+                count = cur.fetchone()[0]
+                if count and count > 0:
+                    raise HTTPException(status_code=409, detail="Cannot delete location: it has plants assigned")
+                # Proceed to delete
+                cur.execute("DELETE FROM locations WHERE id=UNHEX(%s)", (id_hex,))
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Location not found")
+        finally:
+            conn.close()
+
+    await run_in_threadpool(do_delete)
     return {"ok": True}
