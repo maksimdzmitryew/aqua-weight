@@ -38,13 +38,15 @@ services:
     image: mariadb:10.11
     container_name: aw-mariadb
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:3316:3306"
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpass}
       MARIADB_DATABASE: ${MARIADB_DATABASE:-appdb}
       MARIADB_USER: ${MARIADB_USER:-appuser}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:-apppass}
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - ${MARIADB_DATA_DIR:-./data/mariadb}:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
     networks:
       - aw-net
@@ -78,7 +80,6 @@ services:
       - aw-net
 
 volumes:
-  mariadb_data:
   frontend_node_modules:
 
 networks:
