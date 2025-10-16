@@ -599,6 +599,46 @@ async def get_last_measurement(plant_id: str):
     return await run_in_threadpool(do_fetch)
 
 
+@app.get("/api/plants/{id_hex}/measurements")
+async def list_measurements_for_plant(id_hex: str):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant id")
+
+    def do_fetch():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g,
+                           water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g
+                    FROM plants_measurements
+                    WHERE plant_id=UNHEX(%s)
+                    ORDER BY measured_at DESC
+                    """,
+                    (id_hex,),
+                )
+                rows = cur.fetchall() or []
+                results = []
+                for r in rows:
+                    results.append({
+                        "measured_at": r[0].isoformat(sep=" ", timespec="seconds") if r[0] else None,
+                        "measured_weight_g": r[1],
+                        "last_dry_weight_g": r[2],
+                        "last_wet_weight_g": r[3],
+                        "water_added_g": r[4],
+                        "water_loss_total_pct": float(r[5]) if r[5] is not None else None,
+                        "water_loss_total_g": r[6],
+                        "water_loss_day_pct": float(r[7]) if r[7] is not None else None,
+                        "water_loss_day_g": r[8],
+                    })
+                return results
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_fetch)
+
+
 @app.post("/api/measurements")
 async def create_measurement(payload: MeasurementCreate):
     if not HEX_RE.match(payload.plant_id or ""):
