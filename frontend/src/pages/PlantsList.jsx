@@ -65,8 +65,8 @@ export default function PlantsList() {
   }, [routerLocation.state, routerLocation.pathname])
 
   function handleView(p) {
-    const details = `Plant #${p.id}\nName: ${p.name}\nDescription: ${p.description || '—'}\nLocation: ${p.location || '—'}\nCreated: ${formatDateTime(p.created_at)}`
-    window.alert(details)
+    if (!p?.uuid) return
+    navigate(`/plants/${p.uuid}`, { state: { plant: p } })
   }
 
   function handleEdit(p) {
@@ -200,8 +200,12 @@ export default function PlantsList() {
                   <td style={{ ...td, width: 24 }}>
                     <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
                   </td>
-                  <td style={td}>{p.name}</td>
-                  <td style={td}>{p.description || '—'}</td>
+                  <td style={{ ...td, cursor: p.uuid ? 'pointer' : 'default' }} onClick={() => p.uuid && handleView(p)} title={p.uuid ? 'View plant' : undefined}>
+                    {p.name}
+                  </td>
+                  <td style={{ ...td, cursor: p.uuid ? 'pointer' : 'default' }} onClick={() => p.uuid && handleView(p)} title={p.uuid ? 'View plant' : undefined}>
+                    {p.description || '—'}
+                  </td>
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>

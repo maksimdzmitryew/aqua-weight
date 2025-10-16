@@ -699,3 +699,44 @@ async def create_measurement(payload: MeasurementCreate):
             conn.close()
 
     return await run_in_threadpool(do_insert)
+
+
+
+@app.get("/plants/{id_hex}")
+@app.get("/api/plants/{id_hex}")
+async def get_plant(id_hex: str) -> Plant:
+    def fetch_one():
+        # Validate UUID hex (16 bytes = 32 hex chars)
+        if not re.fullmatch(r"[0-9a-fA-F]{32}", id_hex or ""):
+            raise HTTPException(status_code=400, detail="Invalid plant id")
+        def hex_to_bytes(h: str | None):
+            return bytes.fromhex(h) if h else None
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT p.id, p.name, p.description, p.species_name, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    FROM plants p
+                    LEFT JOIN locations l ON l.id = p.location_id
+                    WHERE p.id = %s
+                    """,
+                    (hex_to_bytes(id_hex),),
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+                pid = row[0]
+                name = row[1]
+                description = row[2]
+                species_name = row[3]
+                location_id_bytes = row[4]
+                location_name = row[5]
+                created_at = row[6] or datetime.utcnow()
+                uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
+                location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
+                # For a single item, keep id as 1 to avoid implying order; UI uses uuid
+                return Plant(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at)
+        finally:
+            conn.close()
+    return await run_in_threadpool(fetch_one)
