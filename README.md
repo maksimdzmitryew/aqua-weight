@@ -73,53 +73,7 @@ Notes
 - To stop: docker compose down
 - To clean DB data: docker volume rm aw_mariadb_data (careful: destroys data)
 
----
-
-Do I need to restart any containers for changes to take effect?
-Short answer: It depends on what changed. Use the guidance below.
-
-- Frontend (Vite dev server inside container):
-  - Source edits under frontend/ (JSX/TSX/CSS): no restart needed — hot reload updates automatically via Vite. docker-compose mounts ./frontend into the container and Vite uses polling to detect changes reliably inside Docker.
-  - package.json changes (adding deps like react-router-dom) or frontend/Dockerfile changes: rebuild the image and recreate the container.
-    - Commands:
-      - docker compose build frontend
-      - docker compose up -d frontend
-      - Or in one go: docker compose up -d --build frontend
-
-- Backend (FastAPI via Uvicorn):
-  - The container runs Uvicorn without --reload. Code changes under backend/app will not auto-reload; restart the container to apply.
-    - Commands:
-      - docker compose restart backend
-      - If you changed Python deps or backend/Dockerfile: docker compose up -d --build backend
-
-- Nginx (reverse proxy and TLS):
-  - nginx.conf changes: rebuild or at least restart nginx container.
-    - docker compose up -d --build nginx
-  - SSL cert/key files under ./ssl: container mounts them as a volume. Usually a restart is enough.
-    - docker compose restart nginx
-
-- Database (MariaDB):
-  - Files in db/init/ run only on first database initialization. Changing them later won’t affect an existing data volume.
-    - To re-run init scripts, you must remove the volume (DESTROYS DATA) and recreate:
-      - docker compose down
-      - docker volume rm aw_mariadb_data
-      - docker compose up -d
-  - Routine schema/data changes applied via SQL/migrations do not require restarting the DB container.
-
-- docker-compose.yml or environment variable changes:
-  - When you change docker-compose.yml or env used by a service, recreate affected services:
-    - docker compose up -d --build <service>
-  - For multiple services: docker compose up -d --build
-
-- Unsure what to restart? Safe catch‑all:
-  - docker compose up -d --build
-
-Examples for recent changes in this repo:
-- Added React Router and new Dashboard route (frontend source only): no restarts; Vite hot reload handles it. If you changed package.json, rebuild frontend.
-- Edited nginx/nginx.conf to add a new proxy path: docker compose up -d --build nginx
-- Updated db/init/schema.sql and want it to re-run: remove the DB volume (see above) and then docker compose up -d
-
-Generating local TLS certificates (using your existing local CA)
+## Generating local TLS certificates (using your existing local CA)
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).
 
 Prerequisites
@@ -171,64 +125,16 @@ Recommended (optional):
 - Enable dependency and container image scanning in CI (e.g. Dependabot, Trivy).
 - Follow the guidelines in `SECURITY.md`.
 
+## DB healthcheck mariadb-admin vs mysqladmin.
 
-## Git upstream configuration (set once, works for current and future branches)
-
-You don’t have to set the upstream manually for every branch. You can configure Git to do it automatically on the first push, and you can also bulk‑set upstreams for your existing local branches.
-
-One‑time global setup (Git 2.37+ recommended):
-
-- Automatically set upstream on the first push of a new branch:
-  git config --global push.autoSetupRemote true
-
-- (Optional) Set the default remote used by plain `git push` if multiple remotes exist:
-  git config --global remote.pushDefault origin
-
-With these settings, when you create a new branch locally and simply run `git push` for the first time, Git will create the branch on `origin` and set the upstream automatically. Future pushes/pulls on that branch will “just work.”
-
-For the current branch only (without changing global settings):
-- One‑time for the current branch:
-  git push -u origin HEAD
-
-Bulk set upstream for all existing local branches (run once):
-- This will create the remote branches (if missing) and set tracking for each local branch.
-  for br in $(git for-each-ref --format='%(refname:short)' refs/heads); do \
-    git push -u origin "$br"; \
-  done
-
-Notes:
-- Git version: `push.autoSetupRemote` was introduced in Git 2.37. Check your version with `git --version`.
-- If you can’t upgrade Git, you can make an alias that always sets upstream for the current branch:
-  git config --global alias.pu 'push -u origin HEAD'
-  # usage: git pu
-- These settings are safe for both local development and CI. In CI, prefer explicit `git push origin HEAD:refs/heads/<branch>` if you need strict control.
-
-
-## Default branch naming: main vs master
-
-- Industry standard (2025): “main” is the widely adopted default branch name across major platforms (GitHub, GitLab, Bitbucket). “master” persists only in legacy repos.
-- Recommendation: Use “main” for new repositories. For existing repos on “master,” migrate when convenient to reduce friction and align with ecosystem defaults.
-
-Migration guide (safe steps):
-1) Create/push main from your current default branch locally:
-   git branch -m master main
-   git push -u origin main
-
-2) On your Git hosting (e.g., GitHub):
-   - Settings → Branches → change Default branch to “main”.
-   - Update branch protection rules to apply to “main”.
-
-3) Update CI/CD and docs that explicitly reference “master”. Prefer using the symbolic default branch ref when possible (e.g., GitHub’s default branch setting or refs/heads/$(git symbolic-ref --short refs/remotes/origin/HEAD)).
-
-4) Optionally remove the old branch (after switching default and updating PRs):
-   git push origin --delete master
-
-5) For existing local clones (teammates/CI runners):
-   git branch -m master main
-   git fetch origin
-   git branch -u origin/main main
-   git remote set-head origin -a
-
-Notes:
-- If your current default branch is already “main,” no action is needed.
-- Some CI and branch protection configs are name-sensitive; review them during the migration.
+Using "mariadb-admin" is more robust, explicit, and quiet, which makes health status more accurate and logs cleaner. 
+- Uses the MariaDB-native client: `mariadb-admin` is the preferred binary in MariaDB images; `mysqladmin` is a compatibility alias and may not be present/consistent across versions. Using `mariadb-admin` aligns with the image running.
+- Forces a real TCP check: `-h 127.0.0.1 --protocol=TCP` ensures the healthcheck validates the TCP listener and authentication path. Without this, a client might fall back to the local Unix socket (depending on host and defaults), which can report healthy even if TCP isn’t accepting connections yet.
+- Faster failure, avoids hangs: `--connect-timeout=3` prevents the healthcheck from stalling when the server isn’t reachable, so Compose can retry promptly.
+- Quieter logs: `--silent` suppresses normal output so you don’t get noisy logs on each check.
+- Explicit non‑zero exit on failure: `|| exit 1` guarantees a failing status if the command doesn’t succeed (the admin tool already exits non‑zero on failure, but this keeps the intention crystal-clear in a shell context).
+- Works well with `start_period`: When paired with a reasonable `start_period` (e.g., 20s), it avoids early unauthenticated pings during server bootstrap that can generate “Access denied” noise.
+ 
+### Optional refinements
+- If you don’t want to use root for health checks, create a dedicated low‑privilege user and use that in the command.
+- If you specifically want to validate the container’s network namespace loopback and TCP stack (not Docker DNS), `127.0.0.1` is fine. If you instead want to verify inter‑container name resolution and networking, you could target `-h db` (service name) without publishing the port; just keep `--protocol=TCP`.

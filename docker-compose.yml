@@ -40,21 +40,17 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3316:3306"
-    environment:
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-rootpass}
-      MARIADB_DATABASE: ${MARIADB_DATABASE:-appdb}
-      MARIADB_USER: ${MARIADB_USER:-appuser}
-      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-apppass}
     volumes:
       - ${MARIADB_DATA_DIR:-./data/mariadb}:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
     networks:
       - aw-net
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 --protocol=TCP -uroot -p\"$MARIADB_ROOT_PASSWORD\" --connect-timeout=3 --silent || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 20s
 
   nginx:
     build:
