@@ -610,7 +610,7 @@ async def list_measurements_for_plant(id_hex: str):
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g,
+                    SELECT id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g,
                            water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g
                     FROM plants_measurements
                     WHERE plant_id=UNHEX(%s)
@@ -621,16 +621,18 @@ async def list_measurements_for_plant(id_hex: str):
                 rows = cur.fetchall() or []
                 results = []
                 for r in rows:
+                    _id = r[0]
                     results.append({
-                        "measured_at": r[0].isoformat(sep=" ", timespec="seconds") if r[0] else None,
-                        "measured_weight_g": r[1],
-                        "last_dry_weight_g": r[2],
-                        "last_wet_weight_g": r[3],
-                        "water_added_g": r[4],
-                        "water_loss_total_pct": float(r[5]) if r[5] is not None else None,
-                        "water_loss_total_g": r[6],
-                        "water_loss_day_pct": float(r[7]) if r[7] is not None else None,
-                        "water_loss_day_g": r[8],
+                        "id": _id.hex() if isinstance(_id, (bytes, bytearray)) else None,
+                        "measured_at": r[1].isoformat(sep=" ", timespec="seconds") if r[1] else None,
+                        "measured_weight_g": r[2],
+                        "last_dry_weight_g": r[3],
+                        "last_wet_weight_g": r[4],
+                        "water_added_g": r[5],
+                        "water_loss_total_pct": float(r[6]) if r[6] is not None else None,
+                        "water_loss_total_g": r[7],
+                        "water_loss_day_pct": float(r[8]) if r[8] is not None else None,
+                        "water_loss_day_g": r[9],
                     })
                 return results
         finally:
@@ -780,3 +782,194 @@ async def get_plant(id_hex: str) -> Plant:
         finally:
             conn.close()
     return await run_in_threadpool(fetch_one)
+
+
+# Measurement item endpoints
+class MeasurementUpdate(BaseModel):
+    measured_at: str | None = None
+    measured_weight_g: int | None = None
+    last_dry_weight_g: int | None = None
+    last_wet_weight_g: int | None = None
+    water_added_g: int | None = None
+    method_id: str | None = None
+    use_last_method: bool | None = None
+    scale_id: str | None = None
+    note: str | None = None
+
+
+@app.get("/api/measurements/{id_hex}")
+async def get_measurement(id_hex: str):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def do_fetch():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, plant_id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g,
+                           water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g, method_id, use_last_method, scale_id, note
+                    FROM plants_measurements
+                    WHERE id=UNHEX(%s)
+                    LIMIT 1
+                    """,
+                    (id_hex,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Not found")
+                def to_hex(b):
+                    return b.hex() if isinstance(b, (bytes, bytearray)) else None
+                return {
+                    "id": to_hex(row[0]),
+                    "plant_id": to_hex(row[1]),
+                    "measured_at": row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None,
+                    "measured_weight_g": row[3],
+                    "last_dry_weight_g": row[4],
+                    "last_wet_weight_g": row[5],
+                    "water_added_g": row[6],
+                    "water_loss_total_pct": float(row[7]) if row[7] is not None else None,
+                    "water_loss_total_g": row[8],
+                    "water_loss_day_pct": float(row[9]) if row[9] is not None else None,
+                    "water_loss_day_g": row[10],
+                    "method_id": to_hex(row[11]),
+                    "use_last_method": bool(row[12]) if row[12] is not None else False,
+                    "scale_id": to_hex(row[13]),
+                    "note": row[14],
+                }
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_fetch)
+
+
+@app.delete("/api/measurements/{id_hex}")
+async def delete_measurement(id_hex: str):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def do_delete():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Not found")
+        finally:
+            conn.close()
+
+    await run_in_threadpool(do_delete)
+    return {"ok": True}
+
+
+@app.put("/api/measurements/{id_hex}")
+async def update_measurement(id_hex: str, payload: MeasurementUpdate):
+    if not HEX_RE.match(id_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid id")
+
+    def do_update():
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                # Fetch existing row to determine plant and previous measurement
+                cur.execute(
+                    "SELECT plant_id, measured_at FROM plants_measurements WHERE id=UNHEX(%s) LIMIT 1",
+                    (id_hex,)
+                )
+                base = cur.fetchone()
+                if not base:
+                    raise HTTPException(status_code=404, detail="Not found")
+                plant_id_bytes = base[0]
+                current_measured_at = base[1]
+                plant_hex = plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else None
+
+                # Normalize incoming values
+                measured_at = _to_dt_string(payload.measured_at) if payload.measured_at is not None else None
+                mw = payload.measured_weight_g if payload.measured_weight_g is not None else None
+                ld = payload.last_dry_weight_g if payload.last_dry_weight_g is not None else None
+                lw = payload.last_wet_weight_g if payload.last_wet_weight_g is not None else None
+                wa = payload.water_added_g if payload.water_added_g is not None else None
+
+                # Determine previous measurement (by time) for day loss calc
+                prev_row = None
+                if plant_hex:
+                    cur.execute(
+                        """
+                        SELECT measured_weight_g
+                        FROM plants_measurements
+                        WHERE plant_id=UNHEX(%s) AND id<>UNHEX(%s)
+                        ORDER BY measured_at DESC
+                        LIMIT 1
+                        """,
+                        (plant_hex, id_hex)
+                    )
+                    prev_row = cur.fetchone()
+                prev_measured_weight = prev_row[0] if prev_row else None
+
+                # For totals, need lw and mw
+                water_loss_total_g = None
+                water_loss_total_pct = None
+                water_loss_day_g = None
+                water_loss_day_pct = None
+
+                # Use DB current values if some fields not provided
+                cur.execute(
+                    "SELECT measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g FROM plants_measurements WHERE id=UNHEX(%s)",
+                    (id_hex,)
+                )
+                curr_vals = cur.fetchone()
+                curr_mw = curr_vals[0] if curr_vals else None
+                curr_ld = curr_vals[1] if curr_vals else None
+                curr_lw = curr_vals[2] if curr_vals else None
+                curr_wa = curr_vals[3] if curr_vals else 0
+
+                mw_eff = mw if mw is not None else curr_mw
+                lw_eff = lw if lw is not None else curr_lw
+
+                if mw_eff is not None and lw_eff is not None:
+                    try:
+                        diff = max(lw_eff - mw_eff, 0)
+                        water_loss_total_g = diff
+                        if lw_eff > 0:
+                            water_loss_total_pct = round((diff / lw_eff) * 100.0, 2)
+                    except Exception:
+                        pass
+
+                if mw_eff is not None and prev_measured_weight is not None:
+                    try:
+                        daydiff = max(prev_measured_weight - mw_eff, 0)
+                        water_loss_day_g = daydiff
+                        if prev_measured_weight > 0:
+                            water_loss_day_pct = round((daydiff / prev_measured_weight) * 100.0, 2)
+                    except Exception:
+                        pass
+
+                sql = (
+                    "UPDATE plants_measurements SET measured_at=COALESCE(%s, measured_at), measured_weight_g=%s, last_dry_weight_g=%s, last_wet_weight_g=%s, water_added_g=%s, "
+                    "water_loss_total_pct=%s, water_loss_total_g=%s, water_loss_day_pct=%s, water_loss_day_g=%s, method_id=%s, use_last_method=COALESCE(%s, use_last_method), scale_id=%s, note=%s WHERE id=UNHEX(%s)"
+                )
+                params = (
+                    (measured_at if measured_at is not None else None),
+                    mw if payload.measured_weight_g is not None else curr_mw,
+                    ld if payload.last_dry_weight_g is not None else curr_ld,
+                    lw if payload.last_wet_weight_g is not None else curr_lw,
+                    (int(wa) if wa is not None else curr_wa),
+                    water_loss_total_pct,
+                    water_loss_total_g,
+                    water_loss_day_pct,
+                    water_loss_day_g,
+                    _hex_to_bytes(payload.method_id) if payload.method_id is not None else None,
+                    (1 if payload.use_last_method else 0) if payload.use_last_method is not None else None,
+                    _hex_to_bytes(payload.scale_id) if payload.scale_id is not None else None,
+                    (payload.note if payload.note is not None else None),
+                    id_hex,
+                )
+                cur.execute(sql, params)
+                if cur.rowcount == 0:
+                    raise HTTPException(status_code=404, detail="Not found")
+        finally:
+            conn.close()
+
+    await run_in_threadpool(do_update)
+    return {"ok": True}

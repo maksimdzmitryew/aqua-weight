@@ -17,6 +17,7 @@ function nowLocalValue() {
 export default function MeasurementCreate() {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
+  const editId = search.get('id')
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -31,6 +32,7 @@ export default function MeasurementCreate() {
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const isEdit = !!editId
 
   useEffect(() => {
     let cancelled = false
@@ -52,6 +54,35 @@ export default function MeasurementCreate() {
     if (preselect) setPlantId(preselect)
   }, [preselect])
 
+  // Load existing measurement in edit mode
+  useEffect(() => {
+    let cancelled = false
+    async function loadExisting() {
+      if (!isEdit) return
+      try {
+        const res = await fetch(`/api/measurements/${editId}`)
+        if (!res.ok) throw new Error('load failed')
+        const data = await res.json()
+        if (cancelled) return
+        if (data?.plant_id) setPlantId(data.plant_id)
+        if (data?.measured_at) {
+          // convert "YYYY-MM-DD HH:MM:SS" to datetime-local "YYYY-MM-DDTHH:MM"
+          const s = String(data.measured_at).replace(' ', 'T').slice(0, 16)
+          setMeasuredAt(s)
+        }
+        if (data?.measured_weight_g != null) setMeasuredWeight(String(data.measured_weight_g))
+        if (data?.method_id) setMethodId(data.method_id)
+        if (data?.use_last_method != null) setUseLastMethod(!!data.use_last_method)
+        if (data?.scale_id) setScaleId(data.scale_id)
+        if (data?.note != null) setNote(String(data.note))
+      } catch (_) {
+        // ignore for now
+      }
+    }
+    loadExisting()
+    return () => { cancelled = true }
+  }, [isEdit, editId])
+
   const canSave = useMemo(() => {
     return plantId && measuredAt
   }, [plantId, measuredAt])
@@ -71,8 +102,10 @@ export default function MeasurementCreate() {
         scale_id: scaleId || null,
         note: note || null,
       }
-      const res = await fetch('/api/measurements', {
-        method: 'POST',
+      const url = isEdit ? `/api/measurements/${editId}` : '/api/measurements'
+      const method = isEdit ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
@@ -97,13 +130,13 @@ export default function MeasurementCreate() {
   }
 
   return (
-    <DashboardLayout title="New Measurement">
+    <DashboardLayout title={isEdit ? 'Edit Measurement' : 'New Measurement'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
+            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
               <option value="">Select plant…</option>
               {plants.map(p => (
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>
@@ -136,7 +169,7 @@ export default function MeasurementCreate() {
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>Save measurement</button>
+          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update measurement' : 'Save measurement'}</button>
           <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
         </div>
       </form>

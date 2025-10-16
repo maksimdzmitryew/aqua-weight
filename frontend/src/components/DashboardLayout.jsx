@@ -54,6 +54,7 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
                   borderRadius: 6,
                   marginBottom: 6,
                   background: active ? colors.linkBgActive : colors.linkBg,
+                  cursor: 'pointer',
                 }}
               >
                 {item.label}

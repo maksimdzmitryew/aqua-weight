@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useLocation as useRouterLocation } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import { useTheme } from '../ThemeContext.jsx'
+import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
+import IconButton from '../components/IconButton.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 export default function PlantDetails() {
   const { uuid } = useParams()
@@ -17,6 +20,8 @@ export default function PlantDetails() {
   const [measurements, setMeasurements] = useState([])
   const [measLoading, setMeasLoading] = useState(false)
   const [measError, setMeasError] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [toDeleteMeas, setToDeleteMeas] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -37,26 +42,25 @@ export default function PlantDetails() {
     return () => { cancelled = true }
   }, [uuid])
 
-  useEffect(() => {
-    let cancelled = false
-    async function loadMeasurements() {
-      if (!uuid) return
-      setMeasLoading(true)
-      setMeasError('')
-      try {
-        const res = await fetch(`/api/plants/${uuid}/measurements`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setMeasurements(Array.isArray(data) ? data : [])
-      } catch (e) {
-        if (!cancelled) setMeasError('Failed to load measurements')
-      } finally {
-        if (!cancelled) setMeasLoading(false)
-      }
+  const fetchMeasurements = useCallback(async () => {
+    if (!uuid) return
+    setMeasLoading(true)
+    setMeasError('')
+    try {
+      const res = await fetch(`/api/plants/${uuid}/measurements`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setMeasurements(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setMeasError('Failed to load measurements')
+    } finally {
+      setMeasLoading(false)
     }
-    loadMeasurements()
-    return () => { cancelled = true }
   }, [uuid])
+
+  useEffect(() => {
+    fetchMeasurements()
+  }, [fetchMeasurements])
 
   const box = {
     background: isDark ? '#0b0f16' : '#ffffff',
@@ -65,21 +69,61 @@ export default function PlantDetails() {
     padding: 16,
   }
 
+  // Set browser tab title to "<Plant Name> – AW Frontend" with project name last
+  useEffect(() => {
+    if (plant?.name) {
+      document.title = `${plant.name} – AW Frontend`
+    }
+  }, [plant?.name])
+
+  function handleEditMeasurement(m) {
+    if (!m?.id) return
+    navigate(`/measurement/new?id=${m.id}`)
+  }
+
+  function handleDeleteMeasurement(m) {
+    setToDeleteMeas(m)
+    setConfirmOpen(true)
+  }
+
+  function closeMeasDialog() {
+    setConfirmOpen(false)
+    setToDeleteMeas(null)
+  }
+
+  async function confirmDeleteMeasurement() {
+    if (!toDeleteMeas?.id) { closeMeasDialog(); return }
+    try {
+      const res = await fetch(`/api/measurements/${toDeleteMeas.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        // optional: could show error
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      await fetchMeasurements()
+      closeMeasDialog()
+    }
+  }
+
   return (
     <DashboardLayout title={plant ? plant.name : 'Plant details'}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ marginTop: 0, marginBottom: 0 }}>{plant ? plant.name : 'Plant details'}</h1>
-        <div>
+      <div>
+        <h1 style={{ marginTop: 0, marginBottom: 8 }}>{plant ? plant.name : 'Plant details'}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {plant?.uuid && (
-            <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white', marginRight: 8 }}>
-              Edit
-            </button>
+            <>
+              <button type="button" onClick={() => navigate('/plants')}
+                      style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}>
+                ← Back
+              </button>
+              <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
+                      style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}>
+                Edit
+              </button>
+              <QuickCreateButtons plantUuid={plant.uuid} plantName={plant.name} />
+            </>
           )}
-          <button type="button" onClick={() => navigate('/plants')}
-                  style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}>
-            ← Back
-          </button>
         </div>
       </div>
 
@@ -90,8 +134,6 @@ export default function PlantDetails() {
         <>
           <div style={box}>
             <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', rowGap: 10, columnGap: 16 }}>
-              <div style={{ fontWeight: 600 }}>Name</div>
-              <div>{plant.name}</div>
               <div style={{ fontWeight: 600 }}>Description</div>
               <div>{plant.description || '—'}</div>
               <div style={{ fontWeight: 600 }}>Location</div>
@@ -110,6 +152,7 @@ export default function PlantDetails() {
                 <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                   <thead>
                     <tr>
+                      <th style={{ textAlign: 'right', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>Actions</th>
                       <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_at</th>
                       <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_weight_g</th>
                       <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>last_dry_weight_g</th>
@@ -123,7 +166,11 @@ export default function PlantDetails() {
                   </thead>
                   <tbody>
                     {measurements.map((m, i) => (
-                      <tr key={i}>
+                      <tr key={m.id || i}>
+                        <td style={{ padding: '6px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
+                          <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
+                        </td>
                         <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{formatDateTime(m.measured_at)}</td>
                         <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.measured_weight_g ?? '—'}</td>
                         <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.last_dry_weight_g ?? '—'}</td>
@@ -137,7 +184,7 @@ export default function PlantDetails() {
                     ))}
                     {measurements.length === 0 && (
                       <tr>
-                        <td colSpan={9} style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>No measurements yet</td>
+                        <td colSpan={10} style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>No measurements yet</td>
                       </tr>
                     )}
                   </tbody>
@@ -147,6 +194,17 @@ export default function PlantDetails() {
           </div>
         </>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title={toDeleteMeas ? `Delete measurement` : 'Delete'}
+        message="This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        tone="danger"
+        icon="danger"
+        onConfirm={confirmDeleteMeasurement}
+        onCancel={closeMeasDialog}
+      />
     </DashboardLayout>
   )
 }

@@ -5,6 +5,7 @@ import { useTheme } from '../ThemeContext.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
+import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -194,24 +195,38 @@ export default function PlantsList() {
                 <tr key={p.id}
                     draggable
                     onDragStart={() => onDragStart(idx)}
-                    onDragOver={(e) => onDragOver(e, idx)}
                     onDragEnd={onDragEnd}
+                    onDragOver={(e) => onDragOver(e, idx)}
                 >
                   <td style={{ ...td, width: 24 }}>
-                    <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
+                    <span
+                      style={handleStyle}
+                      title="Drag to reorder"
+                      aria-label="Drag to reorder"
+                    >⋮⋮</span>
                   </td>
-                  <td style={{ ...td, cursor: p.uuid ? 'pointer' : 'default' }} onClick={() => p.uuid && handleView(p)} title={p.uuid ? 'View plant' : undefined}>
-                    {p.name}
+                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                    {p.uuid ? (
+                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                        {p.name}
+                      </a>
+                    ) : (
+                      p.name
+                    )}
                   </td>
-                  <td style={{ ...td, cursor: p.uuid ? 'pointer' : 'default' }} onClick={() => p.uuid && handleView(p)} title={p.uuid ? 'View plant' : undefined}>
-                    {p.description || '—'}
+                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                    {p.uuid ? (
+                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                        {p.description || '—'}
+                      </a>
+                    ) : (
+                      p.description || '—'
+                    )}
                   </td>
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <IconButton icon="beaker" label={`Measurement for ${p.name}`} onClick={() => navigate(`/measurement/new?plant=${p.uuid}`)} variant="primary" />
-                    <IconButton icon="droplet" label={`Watering for ${p.name}`} onClick={() => navigate(`/measurement/watering?plant=${p.uuid}`)} variant="primary" />
-                    <IconButton icon="box" label={`Repotting for ${p.name}`} onClick={() => navigate(`/measurement/repotting?plant=${p.uuid}`)} variant="primary" />
+                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} />
                     <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
