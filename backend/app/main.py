@@ -59,6 +59,7 @@ async def health():
 
 
 @app.get("/plants")
+@app.get("/api/plants")
 async def list_plants() -> list[Plant]:
     # Load real plants from the database but keep a simple integer id for UI purposes
     def fetch_plants():
@@ -106,6 +107,7 @@ class Location(BaseModel):
 
 
 @app.get("/locations")
+@app.get("/api/locations")
 async def list_locations() -> list[Location]:
     # Load real locations from the database but keep a simple integer id for UI purposes
     def fetch_locations():
@@ -139,6 +141,7 @@ class LocationCreate(BaseModel):
 
 
 @app.post("/locations")
+@app.post("/api/locations")
 async def create_location(payload: LocationCreate):
     # Normalize name: trim and collapse spaces
     def normalize(s: str) -> str:
@@ -183,6 +186,7 @@ class LocationUpdateByName(BaseModel):
 
 
 @app.put("/locations/by-name")
+@app.put("/api/locations/by-name")
 async def update_location_by_name(payload: LocationUpdateByName):
     # Normalize names: trim and collapse internal whitespace
     def normalize(s: str) -> str:
@@ -265,6 +269,7 @@ class PlantCreate(BaseModel):
 
 
 @app.post("/plants")
+@app.post("/api/plants")
 async def create_plant(payload: PlantCreate):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
@@ -359,12 +364,14 @@ def _validate_and_update_order(table: str, ids: list[str]):
 
 
 @app.put("/locations/order")
+@app.put("/api/locations/order")
 async def reorder_locations(payload: ReorderPayload):
     await run_in_threadpool(_validate_and_update_order, "locations", payload.ordered_ids)
     return {"ok": True}
 
 
 @app.put("/plants/order")
+@app.put("/api/plants/order")
 async def reorder_plants(payload: ReorderPayload):
     # Only reorder non-archived plants in the provided list
     def do_update():
@@ -391,6 +398,7 @@ HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 @app.delete("/plants/{id_hex}")
+@app.delete("/api/plants/{id_hex}")
 async def delete_plant(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -411,6 +419,7 @@ async def delete_plant(id_hex: str):
 
 
 @app.delete("/locations/{id_hex}")
+@app.delete("/api/locations/{id_hex}")
 async def delete_location(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -455,6 +464,7 @@ class PlantUpdate(BaseModel):
 
 
 @app.put("/plants/{id_hex}")
+@app.put("/api/plants/{id_hex}")
 async def update_plant(id_hex: str, payload: PlantUpdate):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")

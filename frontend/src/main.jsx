@@ -29,7 +29,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/measurement/measurement" element={<MeasurementCreate />} />
+          <Route path="/measurement/new" element={<MeasurementCreate />} />
           <Route path="/measurement/watering" element={<WateringCreate />} />
           <Route path="/measurement/repotting" element={<RepottingCreate />} />
         </Routes>
