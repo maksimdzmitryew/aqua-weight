@@ -707,7 +707,7 @@ async def create_measurement(payload: MeasurementCreate):
                     wa_local = int(payload.water_added_g)
                 else:
                     # Use from last watering event for calculations
-                    wa_local = last_watering_water_added
+                    wa_local = lw_local - ld_local if payload.measured_weight_g is None else last_watering_water_added
 
                 # Calculate water loss using helper
                 loss_calc = calculate_water_loss(
@@ -809,12 +809,24 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                 measured_at_eff = measured_at if measured_at is not None else current_measured_at
 
                 # Determine effective water_added_g
-                if wa_eff_payload is not None and int(wa_eff_payload) > 0:
-                    # Explicitly provided (watering or repotting event)
-                    wa_eff = int(wa_eff_payload)
+                # Watering event
+                if payload.measured_weight_g is None:
+                    if lw is not None and int(lw) > 0:
+                        # calculate added water if wet weight is provided
+                        wa_eff = lw_eff - ld_eff
+                    else:
+                        if wa is not None and int(wa) > 0 and ld_eff is not None and int(ld_eff) > 0:
+                            wa_eff = wa
+                            # calculate wet weight if not provided
+                            lw_eff = wa + ld_eff
+                # Measurement event
                 else:
-                    # Use from last watering event for calculations
-                    wa_eff = last_watering_water_added
+                    if wa_eff_payload is not None and int(wa_eff_payload) > 0:
+                        # Explicitly provided (watering or repotting event)
+                        wa_eff = int(wa_eff_payload)
+                    else:
+                        # Use from last watering event for calculations
+                        wa_eff = last_watering_water_added
 
                 # Determine previous measurement (by time) for day loss calc
                 prev_row = None
