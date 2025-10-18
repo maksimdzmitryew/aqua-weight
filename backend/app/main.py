@@ -709,6 +709,22 @@ async def create_measurement(payload: MeasurementCreate):
                     # Use from last watering event for calculations
                     wa_local = lw_local - ld_local if payload.measured_weight_g is None else last_watering_water_added
 
+                # Determine effective water_added_g
+                # Watering event
+                if payload.measured_weight_g is None:
+                    if lw is not None and int(lw) > 0:
+                        # calculate added water if wet weight is provided
+                        wa_local = lw_local - ld_local
+                    else:
+                        if wa is not None and int(wa) > 0 and ld_local is not None and int(ld_local) > 0:
+                            wa_local = wa
+                            # calculate wet weight if not provided
+                            lw_local = wa + ld_local
+                # Measurement event
+                else:
+                    # Use from last watering event for calculations
+                    wa_local = last_watering_water_added
+
                 # Calculate water loss using helper
                 loss_calc = calculate_water_loss(
                     cursor=cur,
@@ -821,12 +837,8 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                             lw_eff = wa + ld_eff
                 # Measurement event
                 else:
-                    if wa_eff_payload is not None and int(wa_eff_payload) > 0:
-                        # Explicitly provided (watering or repotting event)
-                        wa_eff = int(wa_eff_payload)
-                    else:
-                        # Use from last watering event for calculations
-                        wa_eff = last_watering_water_added
+                    # Use from last watering event for calculations
+                    wa_eff = last_watering_water_added
 
                 # Determine previous measurement (by time) for day loss calc
                 prev_row = None
