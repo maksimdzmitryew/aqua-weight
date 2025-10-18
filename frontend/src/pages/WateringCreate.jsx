@@ -17,6 +17,8 @@ function nowLocalValue() {
 export default function WateringCreate() {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
+  const editId = search.get('id')
+  const isEdit = !!editId
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -29,19 +31,6 @@ export default function WateringCreate() {
   const [waterAdded, setWaterAdded] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [lastDryPrefilled, setLastDryPrefilled] = useState(false)
-  // Track manual edits to avoid overwriting and to drive disable logic
-  const [manualDry, setManualDry] = useState(false)
-  const [manualWet, setManualWet] = useState(false)
-  const [manualAdded, setManualAdded] = useState(false)
-  // Track which fields were auto-computed in the current state
-  const [computedDry, setComputedDry] = useState(false)
-  const [computedWet, setComputedWet] = useState(false)
-  const [computedAdded, setComputedAdded] = useState(false)
-  // Suppress immediate auto-fill after user clears a field
-  const [suppressAutoDry, setSuppressAutoDry] = useState(false)
-  const [suppressAutoWet, setSuppressAutoWet] = useState(false)
-  const [suppressAutoAdded, setSuppressAutoAdded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -63,129 +52,34 @@ export default function WateringCreate() {
     if (preselect) setPlantId(preselect)
   }, [preselect])
 
-  // Prefill last dry weight when plant changes (prefer measured_weight_g, else last_dry_weight_g)
+  // Load existing watering in edit mode (reuse this page for add/edit)
   useEffect(() => {
     let cancelled = false
-    async function fetchLast() {
+    async function loadExisting() {
+      if (!isEdit) return
       try {
-        if (!plantId) {
-          setLastDry('')
-          setLastDryPrefilled(false)
-          return
-        }
-        const res = await fetch(`/api/measurements/last?plant_id=${plantId}`)
+        const res = await fetch(`/api/measurements/${editId}`)
         if (!res.ok) throw new Error('load failed')
         const data = await res.json()
         if (cancelled) return
-        const mw = data?.measured_weight_g
-        const ld = data?.last_dry_weight_g
-        const val = (mw ?? null) != null ? mw : ((ld ?? null) != null ? ld : null)
-        if (val != null) {
-          setLastDry(String(val))
-          setLastDryPrefilled(true)
-          setManualDry(false)
-          setComputedDry(false)
-        } else {
-          setLastDry('')
-          setLastDryPrefilled(false)
-          setManualDry(false)
-          setComputedDry(false)
+        if (data?.plant_id) setPlantId(data.plant_id)
+        if (data?.measured_at) {
+          const s = String(data.measured_at).replace(' ', 'T').slice(0, 16)
+          setMeasuredAt(s)
         }
+        setLastDry(data?.last_dry_weight_g != null ? String(data.last_dry_weight_g) : '')
+        setLastWet(data?.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '')
+        setWaterAdded(data?.water_added_g != null ? String(data.water_added_g) : '')
       } catch (_) {
-        if (!cancelled) {
-          // On error, do not prefill
-          setLastDryPrefilled(false)
-        }
+        // ignore
       }
     }
-    fetchLast()
+    loadExisting()
     return () => { cancelled = true }
-  }, [plantId])
+  }, [isEdit, editId])
 
-  // Disable logic per spec (with preference to keep manually-entered fields enabled)
-  const hasDry = lastDry !== ''
-  const hasWet = lastWet !== ''
-  const hasAdded = waterAdded !== ''
-
-  let disableAdded = false, disableWet = false, disableDry = false
-
-  if (hasDry && hasAdded) {
-    // When user enters Added with Dry present, keep Added enabled and disable Wet
-    if (manualAdded) {
-      disableWet = true
-      disableAdded = false
-    } else if (manualWet) {
-      disableAdded = true
-    } else if (computedWet) {
-      disableWet = true
-    } else {
-      // Default: disable Wet (third value) when computed from Dry+Added
-      disableWet = true
-    }
-  } else if (hasDry && hasWet) {
-    if (manualWet) {
-      disableAdded = true
-    } else if (manualAdded) {
-      // Wet likely computed from Dry+Added; keep Added editable
-      disableWet = true
-      disableAdded = false
-    } else if (computedWet) {
-      disableWet = true
-    } else {
-      // Default: disable Added (third value) when Dry+Wet are present
-      disableAdded = true
-    }
-  } else if (hasWet && hasAdded) {
-    if (manualAdded) {
-      disableDry = true
-    } else if (manualDry) {
-      disableAdded = true
-    } else if (computedDry) {
-      disableDry = true
-    } else {
-      // Default: disable Dry (third value) when Wet+Added are present
-      disableDry = true
-    }
-  }
-
-  const disableDryInput = lastDryPrefilled || disableDry
-  const dryLabel = (!lastDryPrefilled && !disableDryInput) ? 'Current dry weight (g)' : 'Last dry weight (g)'
-
-  // Auto-calc values based on pairs, but never overwrite manually entered fields.
-  // Recompute computed fields even if all three have values, so they stay in sync when sources change.
-  useEffect(() => {
-    // Compute Added from Dry + Wet
-    if (hasDry && hasWet && !manualAdded && !suppressAutoAdded) {
-      const v = Number(lastWet) - Number(lastDry)
-      if (!Number.isNaN(v)) {
-        setWaterAdded(String(Math.max(0, v)))
-        setComputedAdded(true)
-        setManualAdded(false)
-      }
-    }
-
-    // Compute Wet from Dry + Added
-    if (hasDry && hasAdded && !manualWet && !suppressAutoWet) {
-      const v = Number(lastDry) + Number(waterAdded)
-      if (!Number.isNaN(v)) {
-        setLastWet(String(Math.max(0, v)))
-        setComputedWet(true)
-        setManualWet(false)
-      }
-    }
-
-    // Compute Dry from Wet + Added
-    if (hasWet && hasAdded && !manualDry && !suppressAutoDry) {
-      const v = Number(lastWet) - Number(waterAdded)
-      if (!Number.isNaN(v)) {
-        setLastDry(String(Math.max(0, v)))
-        setComputedDry(true)
-        setManualDry(false)
-      }
-    }
-  }, [hasDry, hasWet, hasAdded, lastDry, lastWet, waterAdded, manualAdded, manualWet, manualDry, suppressAutoAdded, suppressAutoWet, suppressAutoDry])
-
-  const canSave = useMemo(() => plantId && measuredAt && (hasDry || hasWet || hasAdded), [plantId, measuredAt, hasDry, hasWet, hasAdded])
+  // No real-time calculations or dynamic disabling — plain inputs only
+  const canSave = useMemo(() => !!plantId && !!measuredAt, [plantId, measuredAt])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -193,22 +87,26 @@ export default function WateringCreate() {
     setSaving(true)
     setError('')
     try {
-      const payload = {
-        plant_id: plantId,
+      const common = {
         measured_at: measuredAt,
         last_dry_weight_g: lastDry !== '' ? Number(lastDry) : null,
         last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
-        water_added_g: waterAdded !== '' ? Number(waterAdded) : 0,
+        water_added_g: waterAdded !== '' ? Number(waterAdded) : null, 
       }
-      const res = await fetch('/api/measurements', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      const payload = isEdit ? common : { plant_id: plantId, ...common }
+      const url = isEdit ? `/api/measurements/${editId}` : '/api/measurements'
+      const method = isEdit ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         let detail = ''
         try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
         throw new Error(detail || `Save failed (HTTP ${res.status})`)
       }
-      navigate('/plants')
+      navigate(`/plants/${plantId}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
@@ -222,18 +120,15 @@ export default function WateringCreate() {
     border: isDark ? '1px solid #374151' : '1px solid #d1d5db',
     background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827'
   }
-  const disabledInputStyle = isDark
-    ? { background: '#1f2937', color: '#9ca3af' }
-    : { background: '#f3f4f6', color: '#6b7280' }
 
   return (
-    <DashboardLayout title="Watering">
+    <DashboardLayout title={isEdit ? 'Edit Watering' : 'Watering'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
+            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
               <option value="">Select plant…</option>
               {plants.map(p => (
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>
@@ -245,41 +140,38 @@ export default function WateringCreate() {
             <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>{dryLabel}</label>
+            <label style={labelStyle}>Last dry weight (g)</label>
             <input
-              disabled={disableDryInput}
               type="number"
               value={lastDry}
-              onChange={(e)=>{ const v = e.target.value; setLastDry(v); if (v === '') { setManualDry(false); setSuppressAutoDry(true); if (computedWet) setLastWet(''); if (computedAdded) setWaterAdded(''); setComputedDry(false); setComputedWet(false); setComputedAdded(false); } else { setManualDry(true); setComputedDry(false); setSuppressAutoDry(false); if (waterAdded !== '' && lastWet === '' && !manualWet) { setSuppressAutoWet(false) } if (lastWet !== '' && waterAdded === '' && !manualAdded) { setSuppressAutoAdded(false) } } }}
-              style={{...inputStyle, ...(disableDryInput ? disabledInputStyle : {})}}
+              onChange={(e)=>setLastDry(e.target.value)}
+              style={inputStyle}
               min={0}
             />
           </div>
           <div>
             <label style={labelStyle}>Current Wet weight (g)</label>
             <input
-              disabled={disableWet}
               type="number"
               value={lastWet}
-              onChange={(e)=>{ const v = e.target.value; setLastWet(v); if (v === '') { setManualWet(false); setSuppressAutoWet(true); if (computedAdded) setWaterAdded(''); if (computedDry) setLastDry(''); setComputedWet(false); setComputedAdded(false); setComputedDry(false); } else { setManualWet(true); setComputedWet(false); setSuppressAutoWet(false); if (lastDry !== '' && waterAdded === '' && !manualAdded) { setSuppressAutoAdded(false) } if (waterAdded !== '' && lastDry === '' && !manualDry) { setSuppressAutoDry(false) } } }}
-              style={{...inputStyle, ...(disableWet ? disabledInputStyle : {})}}
+              onChange={(e)=>setLastWet(e.target.value)}
+              style={inputStyle}
               min={0}
             />
           </div>
           <div>
             <label style={labelStyle}>Water added (g)</label>
             <input
-              disabled={disableAdded}
               type="number"
               value={waterAdded}
-              onChange={(e)=>{ const v = e.target.value; setWaterAdded(v); if (v === '') { setManualAdded(false); setSuppressAutoAdded(true); if (computedWet) setLastWet(''); if (computedDry) setLastDry(''); setComputedAdded(false); setComputedWet(false); setComputedDry(false); } else { setManualAdded(true); setComputedAdded(false); setSuppressAutoAdded(false); if (lastDry !== '' && lastWet === '' && !manualWet) { setSuppressAutoWet(false) } if (lastWet !== '' && lastDry === '' && !manualDry) { setSuppressAutoDry(false) } } }}
-              style={{...inputStyle, ...(disableAdded ? disabledInputStyle : {})}}
+              onChange={(e)=>setWaterAdded(e.target.value)}
+              style={inputStyle}
               min={0}
             />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>Save watering</button>
+          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>
           <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
         </div>
       </form>

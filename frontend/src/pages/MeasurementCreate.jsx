@@ -114,7 +114,7 @@ export default function MeasurementCreate() {
         try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
         throw new Error(detail || `Save failed (HTTP ${res.status})`)
       }
-      navigate('/plants')
+      navigate(`/plants/${plantId}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
