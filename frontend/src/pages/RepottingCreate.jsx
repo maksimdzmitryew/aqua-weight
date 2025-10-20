@@ -24,9 +24,7 @@ export default function RepottingCreate() {
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState(preselect || '')
   const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
-  const [lastDry, setLastDry] = useState('')
   const [lastWet, setLastWet] = useState('')
-  const [waterAdded, setWaterAdded] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -50,36 +48,7 @@ export default function RepottingCreate() {
     if (preselect) setPlantId(preselect)
   }, [preselect])
 
-  // Load last record to prefill water_added_g on plant change
-  useEffect(() => {
-    let cancelled = false
-    async function loadLast() {
-      if (!plantId) return
-      try {
-        const res = await fetch(`/api/measurements/last?plant_id=${plantId}`)
-        if (!res.ok) return
-        const data = await res.json()
-        if (!cancelled && data) {
-          if (data.water_added_g != null) setWaterAdded(String(data.water_added_g))
-          if (data.last_dry_weight_g != null) setLastDry(String(data.last_dry_weight_g))
-        }
-      } catch (_) {
-        // ignore
-      }
-    }
-    loadLast()
-    return () => { cancelled = true }
-  }, [plantId])
-
-  // last_dry_weight_g is disabled; compute from last_wet - water_added
-  useEffect(() => {
-    if (lastWet !== '' && waterAdded !== '') {
-      const v = Number(lastWet) - Number(waterAdded)
-      if (!Number.isNaN(v)) setLastDry(String(Math.max(0, v)))
-    }
-  }, [lastWet, waterAdded])
-
-  const canSave = useMemo(() => plantId && measuredAt && lastWet !== '' && waterAdded !== '', [plantId, measuredAt, lastWet, waterAdded])
+  const canSave = useMemo(() => plantId && measuredAt && lastWet !== '', [plantId, measuredAt, lastWet])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -90,11 +59,9 @@ export default function RepottingCreate() {
       const payload = {
         plant_id: plantId,
         measured_at: measuredAt,
-        last_dry_weight_g: lastDry !== '' ? Number(lastDry) : null,
         last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
-        water_added_g: waterAdded !== '' ? Number(waterAdded) : 0,
       }
-      const res = await fetch('/api/measurements', {
+      const res = await fetch('/api/events/repotting', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
       })
       if (!res.ok) {
@@ -136,16 +103,8 @@ export default function RepottingCreate() {
             <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>Water added (g)</label>
-            <input disabled type="number" value={waterAdded} onChange={(e)=>setWaterAdded(e.target.value)} style={inputStyle} min={0} />
-          </div>
-          <div>
             <label style={labelStyle}>Last wet weight (g)</label>
             <input type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
-          </div>
-          <div>
-            <label style={labelStyle}>Last dry weight (g)</label>
-            <input disabled type="number" value={lastDry} onChange={(e)=>setLastDry(e.target.value)} style={inputStyle} min={0} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
