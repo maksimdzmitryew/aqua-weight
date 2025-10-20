@@ -94,7 +94,7 @@ export default function WateringCreate() {
         water_added_g: waterAdded !== '' ? Number(waterAdded) : null, 
       }
       const payload = isEdit ? common : { plant_id: plantId, ...common }
-      const url = isEdit ? `/api/measurements/${editId}` : '/api/measurements'
+      const url = isEdit ? `/api/measurements/watering/${editId}` : '/api/measurements/watering'
       const method = isEdit ? 'PUT' : 'POST'
       const res = await fetch(url, {
         method,

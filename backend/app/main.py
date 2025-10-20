@@ -656,7 +656,7 @@ async def list_measurements_for_plant(id_hex: str):
     return await run_in_threadpool(do_fetch)
 
 
-@app.post("/api/measurements")
+@app.post("/api/measurements/weight")
 async def create_measurement(payload: MeasurementCreate):
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -774,7 +774,7 @@ async def create_measurement(payload: MeasurementCreate):
 
     return await run_in_threadpool(do_insert)
 
-@app.put("/api/measurements/{id_hex}")
+@app.put("/api/measurements/weight/{id_hex}")
 async def update_measurement(id_hex: str, payload: MeasurementUpdate):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")

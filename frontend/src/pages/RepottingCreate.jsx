@@ -17,6 +17,7 @@ function nowLocalValue() {
 export default function RepottingCreate() {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
+  const editId = search.get('id') // Check for 'id' parameter in search query
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -27,6 +28,9 @@ export default function RepottingCreate() {
   const [lastWet, setLastWet] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [weightBeforeRepotting, setWeightBeforeRepotting] = useState('') // Rename lastDryWeightBeforeRepotting to weightBeforeRepotting
+
+  const isEdit = !!editId
 
   useEffect(() => {
     let cancelled = false
@@ -45,10 +49,32 @@ export default function RepottingCreate() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    async function loadRepottingEvent() {
+      if (!isEdit) return
+      try {
+        const res = await fetch(`/api/events/repotting/${editId}`)
+        if (!res.ok) throw new Error('load failed')
+        const data = await res.json()
+        if (cancelled) return
+        setPlantId(data.plant_id)
+        setMeasuredAt(data.measured_at)
+        setWeightBeforeRepotting(String(data.weight_before_repotting_g))
+        setLastWet(String(data.last_wet_weight_g))
+      } catch (_) {
+        if (!cancelled) setError('Failed to load repotting event')
+      }
+    }
+    loadRepottingEvent()
+    return () => { cancelled = true }
+  }, [isEdit, editId])
+
+  useEffect(() => {
     if (preselect) setPlantId(preselect)
   }, [preselect])
 
-  const canSave = useMemo(() => plantId && measuredAt && lastWet !== '', [plantId, measuredAt, lastWet])
+  // Update the canSave useMemo hook
+  const canSave = useMemo(() => plantId && measuredAt && lastWet !== '' && weightBeforeRepotting !== '', [plantId, measuredAt, lastWet, weightBeforeRepotting])
 
   async function onSubmit(e) {
     e.preventDefault()
@@ -59,17 +85,22 @@ export default function RepottingCreate() {
       const payload = {
         plant_id: plantId,
         measured_at: measuredAt,
+        measured_weight_g: weightBeforeRepotting !== '' ? Number(weightBeforeRepotting) : null,
         last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
       }
-      const res = await fetch('/api/events/repotting', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      const url = isEdit ? `/api/measurements/repotting/${editId}` : '/api/measurements/repotting'
+      const method = isEdit ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         let detail = ''
         try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
         throw new Error(detail || `Save failed (HTTP ${res.status})`)
       }
-      navigate('/plants')
+      navigate(`/plants/${plantId}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
@@ -102,8 +133,14 @@ export default function RepottingCreate() {
             <label style={labelStyle}>Measured at</label>
             <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
+
           <div>
-            <label style={labelStyle}>Last wet weight (g)</label>
+            <label style={labelStyle}>Weight before repotting (g)</label> {/* No need to rename the label as it already matches the new variable name */}
+            <input type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
+          </div>
+          
+          <div>
+            <label style={labelStyle}>Weight after repotting (g)</label>
             <input type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
           </div>
         </div>

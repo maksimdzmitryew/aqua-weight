@@ -102,7 +102,7 @@ export default function MeasurementCreate() {
         scale_id: scaleId || null,
         note: note || null,
       }
-      const url = isEdit ? `/api/measurements/${editId}` : '/api/measurements'
+      const url = isEdit ? `/api/measurements/weight/${editId}` : '/api/measurements/weight'
       const method = isEdit ? 'PUT' : 'POST'
       const res = await fetch(url, {
         method,
