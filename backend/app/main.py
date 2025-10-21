@@ -9,6 +9,7 @@ import uuid
 import re
 from app.helpers.watering import get_last_watering_event
 from app.helpers.water_loss import calculate_water_loss
+from .routes.repotting import app as repotting_app
 
 app = FastAPI()
 
@@ -33,6 +34,8 @@ def get_db_connection():
     database = os.getenv("DB_NAME", "appdb")
     return pymysql.connect(host=host, user=user, password=password, database=database, autocommit=True)
 
+# Add the new routes to the main app instance of FastAPI
+app.include_router(repotting_app)
 
 class Plant(BaseModel):
     id: int  # synthetic sequential id for UI

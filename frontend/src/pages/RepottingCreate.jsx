@@ -14,14 +14,14 @@ function nowLocalValue() {
   return `${y}-${m}-${day}T${hh}:${mm}`
 }
 
-export default function RepottingCreate() {
+const RepottingCreate = () => {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
   const editId = search.get('id') // Check for 'id' parameter in search query
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
-
+  
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState(preselect || '')
   const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
@@ -152,3 +152,5 @@ export default function RepottingCreate() {
     </DashboardLayout>
   )
 }
+
+export default RepottingCreate
