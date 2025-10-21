@@ -183,6 +183,7 @@ export default function PlantsList() {
             <thead>
               <tr>
                 <th style={th}></th>
+                <th style={th}>Water loss</th>
                 <th style={th}>Name</th>
                 <th style={th}>Description</th>
                 <th style={th}>Location</th>
@@ -204,6 +205,15 @@ export default function PlantsList() {
                       title="Drag to reorder"
                       aria-label="Drag to reorder"
                     >⋮⋮</span>
+                  </td>
+                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                    {p.uuid ? (
+                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                        {p.water_loss_total_pct}
+                      </a>
+                    ) : (
+                      p.water_loss_total_pct
+                    )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (

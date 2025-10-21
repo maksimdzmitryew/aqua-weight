@@ -659,6 +659,7 @@ async def list_measurements_for_plant(id_hex: str):
     return await run_in_threadpool(do_fetch)
 
 
+@app.post("/api/measurements/watering")
 @app.post("/api/measurements/weight")
 async def create_measurement(payload: MeasurementCreate):
     if not HEX_RE.match(payload.plant_id or ""):
@@ -669,7 +670,7 @@ async def create_measurement(payload: MeasurementCreate):
     mw = payload.measured_weight_g
     ld = payload.last_dry_weight_g
     lw = payload.last_wet_weight_g
-    wa = payload.water_added_g if payload.water_added_g is not None else 0
+    wa = payload.water_added_g #if payload.water_added_g is not None else 0
 
     def do_insert():
         conn = get_db_connection()
@@ -692,11 +693,18 @@ async def create_measurement(payload: MeasurementCreate):
 
                 # For A flow: copy previous last_* if not provided
                 if ld is None:
-                    ld_local = prev_last_dry
+                    if prev_measured_weight is None:
+                        ld_local = prev_last_dry
+                    else:
+                        ld_local = prev_measured_weight
                 else:
                     ld_local = ld
+
                 if lw is None:
-                    lw_local = prev_last_wet
+                    if prev_last_wet is None:
+                        lw_local = ld_local + last_watering_water_added
+                    else:
+                        lw_local = prev_last_wet
                 else:
                     lw_local = lw
 
@@ -773,6 +781,7 @@ async def create_measurement(payload: MeasurementCreate):
 
     return await run_in_threadpool(do_insert)
 
+@app.put("/api/measurements/watering/{id_hex}")
 @app.put("/api/measurements/weight/{id_hex}")
 async def update_measurement(id_hex: str, payload: MeasurementUpdate):
     if not HEX_RE.match(id_hex or ""):

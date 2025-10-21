@@ -127,6 +127,10 @@ export default function WateringCreate() {
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
+            <label style={labelStyle}>Measured at</label>
+            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
             <label style={labelStyle}>Plant</label>
             <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
               <option value="">Select plant…</option>
@@ -136,21 +140,7 @@ export default function WateringCreate() {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Last dry weight (g)</label>
-            <input
-              type="number"
-              value={lastDry}
-              onChange={(e)=>setLastDry(e.target.value)}
-              style={inputStyle}
-              min={0}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Current Wet weight (g)</label>
+            <label style={labelStyle}>Current weight (g)</label>
             <input
               type="number"
               value={lastWet}
@@ -160,7 +150,19 @@ export default function WateringCreate() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Water added (g)</label>
+            <label style={labelStyle}>[optional] Weight before watering (g)</label>
+            <input
+              type="number"
+              value={lastDry}
+              onChange={(e)=>setLastDry(e.target.value)}
+              style={inputStyle}
+              min={0}
+            />
+          </div>
+          <div>
+          </div>
+          <div>
+            <label style={labelStyle}>[optional] Water added (g)</label>
             <input
               type="number"
               value={waterAdded}

@@ -135,6 +135,10 @@ export default function MeasurementCreate() {
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
+            <label style={labelStyle}>Measured at</label>
+            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
             <label style={labelStyle}>Plant</label>
             <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
               <option value="">Select plant…</option>
@@ -142,10 +146,6 @@ export default function MeasurementCreate() {
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>
               ))}
             </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>Measured weight (g)</label>
@@ -156,8 +156,12 @@ export default function MeasurementCreate() {
             <input type="checkbox" checked={useLastMethod} onChange={(e)=>setUseLastMethod(e.target.checked)} />
           </div>
           <div>
+          </div>
+          <div>
             <label style={labelStyle}>Method (optional, hex id)</label>
             <input type="text" value={methodId} onChange={(e)=>setMethodId(e.target.value)} style={inputStyle} placeholder="32-char hex" />
+          </div>
+          <div>
           </div>
           <div>
             <label style={labelStyle}>Scale (optional, hex id)</label>
