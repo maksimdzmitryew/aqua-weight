@@ -46,7 +46,7 @@ class Plant(BaseModel):
     location: str | None = None
     location_id: str | None = None
     created_at: datetime
-
+    water_loss_total_pct: float | None = None
 
 @app.get("/")
 async def root():
@@ -74,9 +74,23 @@ async def list_plants() -> list[Plant]:
                 # Prefer sort_order then name for stable listing; exclude archived plants
                 cur.execute(
                     """
-                    SELECT p.id, p.name, p.description, p.species_name, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    SELECT p.id,
+                           p.name,
+                           p.description,
+                           p.species_name,
+                           p.location_id,
+                           COALESCE(l.name, NULL) AS location_name,
+                           p.created_at,
+                           latest_pm.water_loss_total_pct
                     FROM plants p
-                    LEFT JOIN locations l ON l.id = p.location_id
+                             LEFT JOIN locations l ON l.id = p.location_id
+                             LEFT JOIN (SELECT plant_id,
+                                               water_loss_total_pct,
+                                               ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
+                                        FROM plants_measurements
+                                        WHERE water_loss_total_pct IS NOT NULL
+                                          AND water_loss_total_pct != '') latest_pm
+                                       ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
                     ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
                     """
@@ -93,9 +107,20 @@ async def list_plants() -> list[Plant]:
                     location_id_bytes = row[4]
                     location_name = row[5]
                     created_at = row[6] or now
+                    water_loss_total_pct = row[7]
                     uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                     location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                    results.append(Plant(id=idx, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at))
+                    results.append(Plant(
+                        id=idx,
+                        uuid=uuid_hex,
+                        name=name,
+                        description=description,
+                        species=species_name,
+                        location=location_name,
+                        location_id=location_id_hex,
+                        created_at=created_at,
+                        water_loss_total_pct=water_loss_total_pct
+                    ))
                 return results
         finally:
             conn.close()

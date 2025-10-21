@@ -130,6 +130,28 @@ export default function PlantsList() {
     userSelect: 'none',
   }
 
+  function getWaterLossCellStyle(waterLossPct) {
+    if (waterLossPct > 100) {
+      return {
+        background: '#dc2626',
+        color: 'white',
+      }
+    } else if (waterLossPct > 80) {
+      return {
+        background: '#fecaca',
+      }
+    } else if (waterLossPct > 40) {
+      return {
+        background: '#fef3c7',
+      }
+    } else if (waterLossPct > 0) {
+      return {
+        background: '#bbf7d0',
+      }
+    }
+    return {}
+  }
+
   function closeDialog() {
     setConfirmOpen(false)
     setToDelete(null)
@@ -206,10 +228,10 @@ export default function PlantsList() {
                       aria-label="Drag to reorder"
                     >⋮⋮</span>
                   </td>
-                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                  <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
                       <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.water_loss_total_pct}
+                        {p.water_loss_total_pct}%
                       </a>
                     ) : (
                       p.water_loss_total_pct
