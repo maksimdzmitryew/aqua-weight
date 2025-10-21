@@ -1,10 +1,15 @@
 AW multi-container setup (Ubuntu-based)
 
 Overview
-- 4 containers: backend (FastAPI), frontend (React via Vite dev server), db (MySQL 8 official image), nginx (TLS termination + reverse proxy)
+- 4 containers: backend (FastAPI), frontend (React via Vite dev server), db (MariaDB 10.11 LTS official image), nginx (TLS termination + reverse proxy)
 - Domain: https://aw.max
 - SSL: locally signed certs live in ./ssl
 - One Nginx container proxies both frontend and backend
+
+Background: collation and engine choice
+- MySQL offers some of the most accurate modern Unicode collations (e.g., utf8mb4_0900_ai_ci), delivering high‑quality multilingual sorting, case/diacritic handling, and consistent comparisons across scripts.
+- However, to avoid reliance on closed‑source stewardship and keep the stack community‑governed, this project uses MariaDB by default.
+- MariaDB provides a comparable level of UTF‑8 collation quality (e.g., utf8mb4_uca1400_ai_ci), and end users are welcome to choose the engine/collation that best fits their needs and preferences.
 
 Project layout
 - backend/
@@ -33,7 +38,7 @@ Prerequisites
 Quick start
 1) Copy env defaults (optional):
    cp .env.example .env
-   # edit .env to customize MySQL credentials
+   # edit .env to customize MariaDB credentials
 
 2) Build and start:
    docker compose up --build
@@ -54,7 +59,7 @@ Services
   - URL (internal): http://frontend:5173
   - Exposed via nginx at: https://aw.max/
   - Source: frontend/
-- Database (MySQL 8 official image):
+- Database (MariaDB 10.11 LTS official image):
   - Internal hostname: db
   - Credentials via .env or defaults in .env.example
 - Nginx:
@@ -62,13 +67,13 @@ Services
   - Proxies /api/* to backend and everything else to frontend
 
 Notes
-- All app containers (backend, frontend, nginx) use Ubuntu base images. MySQL uses the official mysql:8 image (Debian-based) as agreed.
+- All app containers (backend, frontend, nginx) use Ubuntu base images. MariaDB uses the official mariadb:10.11 image (Debian-based).
 - For local development with HTTPS, your browser may require trusting the locally signed CA/cert.
 - Frontend fetches the API via the same origin and path prefix /api to avoid CORS in the browser; backend CORS also allows https://aw.max explicitly.
 - To stop: docker compose down
-- To clean DB data: docker volume rm aw_mysql_data (careful: destroys data)
+- To clean DB data: docker volume rm aw_mariadb_data (careful: destroys data)
 
-Generating local TLS certificates (using your existing local CA)
+## Generating local TLS certificates (using your existing local CA)
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).
 
 Prerequisites
@@ -120,64 +125,16 @@ Recommended (optional):
 - Enable dependency and container image scanning in CI (e.g. Dependabot, Trivy).
 - Follow the guidelines in `SECURITY.md`.
 
+## DB healthcheck mariadb-admin vs mysqladmin.
 
-## Git upstream configuration (set once, works for current and future branches)
-
-You don’t have to set the upstream manually for every branch. You can configure Git to do it automatically on the first push, and you can also bulk‑set upstreams for your existing local branches.
-
-One‑time global setup (Git 2.37+ recommended):
-
-- Automatically set upstream on the first push of a new branch:
-  git config --global push.autoSetupRemote true
-
-- (Optional) Set the default remote used by plain `git push` if multiple remotes exist:
-  git config --global remote.pushDefault origin
-
-With these settings, when you create a new branch locally and simply run `git push` for the first time, Git will create the branch on `origin` and set the upstream automatically. Future pushes/pulls on that branch will “just work.”
-
-For the current branch only (without changing global settings):
-- One‑time for the current branch:
-  git push -u origin HEAD
-
-Bulk set upstream for all existing local branches (run once):
-- This will create the remote branches (if missing) and set tracking for each local branch.
-  for br in $(git for-each-ref --format='%(refname:short)' refs/heads); do \
-    git push -u origin "$br"; \
-  done
-
-Notes:
-- Git version: `push.autoSetupRemote` was introduced in Git 2.37. Check your version with `git --version`.
-- If you can’t upgrade Git, you can make an alias that always sets upstream for the current branch:
-  git config --global alias.pu 'push -u origin HEAD'
-  # usage: git pu
-- These settings are safe for both local development and CI. In CI, prefer explicit `git push origin HEAD:refs/heads/<branch>` if you need strict control.
-
-
-## Default branch naming: main vs master
-
-- Industry standard (2025): “main” is the widely adopted default branch name across major platforms (GitHub, GitLab, Bitbucket). “master” persists only in legacy repos.
-- Recommendation: Use “main” for new repositories. For existing repos on “master,” migrate when convenient to reduce friction and align with ecosystem defaults.
-
-Migration guide (safe steps):
-1) Create/push main from your current default branch locally:
-   git branch -m master main
-   git push -u origin main
-
-2) On your Git hosting (e.g., GitHub):
-   - Settings → Branches → change Default branch to “main”.
-   - Update branch protection rules to apply to “main”.
-
-3) Update CI/CD and docs that explicitly reference “master”. Prefer using the symbolic default branch ref when possible (e.g., GitHub’s default branch setting or refs/heads/$(git symbolic-ref --short refs/remotes/origin/HEAD)).
-
-4) Optionally remove the old branch (after switching default and updating PRs):
-   git push origin --delete master
-
-5) For existing local clones (teammates/CI runners):
-   git branch -m master main
-   git fetch origin
-   git branch -u origin/main main
-   git remote set-head origin -a
-
-Notes:
-- If your current default branch is already “main,” no action is needed.
-- Some CI and branch protection configs are name-sensitive; review them during the migration.
+Using "mariadb-admin" is more robust, explicit, and quiet, which makes health status more accurate and logs cleaner. 
+- Uses the MariaDB-native client: `mariadb-admin` is the preferred binary in MariaDB images; `mysqladmin` is a compatibility alias and may not be present/consistent across versions. Using `mariadb-admin` aligns with the image running.
+- Forces a real TCP check: `-h 127.0.0.1 --protocol=TCP` ensures the healthcheck validates the TCP listener and authentication path. Without this, a client might fall back to the local Unix socket (depending on host and defaults), which can report healthy even if TCP isn’t accepting connections yet.
+- Faster failure, avoids hangs: `--connect-timeout=3` prevents the healthcheck from stalling when the server isn’t reachable, so Compose can retry promptly.
+- Quieter logs: `--silent` suppresses normal output so you don’t get noisy logs on each check.
+- Explicit non‑zero exit on failure: `|| exit 1` guarantees a failing status if the command doesn’t succeed (the admin tool already exits non‑zero on failure, but this keeps the intention crystal-clear in a shell context).
+- Works well with `start_period`: When paired with a reasonable `start_period` (e.g., 20s), it avoids early unauthenticated pings during server bootstrap that can generate “Access denied” noise.
+ 
+### Optional refinements
+- If you don’t want to use root for health checks, create a dedicated low‑privilege user and use that in the command.
+- If you specifically want to validate the container’s network namespace loopback and TCP stack (not Docker DNS), `127.0.0.1` is fine. If you instead want to verify inter‑container name resolution and networking, you could target `-h db` (service name) without publishing the port; just keep `--protocol=TCP`.

@@ -17,6 +17,10 @@ export default function App() {
       <p>
         Try <code>/api/hello/YourName</code> via this domain: <a href="https://aw.max">https://aw.max</a>
       </p>
+      <hr style={{ margin: '24px 0' }} />
+      <p>
+        Go to your <a href="/dashboard">Dashboard</a>
+      </p>
     </div>
   )
 }
