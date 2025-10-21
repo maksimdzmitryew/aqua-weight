@@ -726,7 +726,7 @@ async def create_measurement(payload: MeasurementCreate):
                     ld_local = ld
 
                 if lw is None:
-                    if prev_last_wet is None:
+                    if prev_last_wet is None and ld_local is not None:
                         lw_local = ld_local + last_watering_water_added
                     else:
                         lw_local = prev_last_wet
