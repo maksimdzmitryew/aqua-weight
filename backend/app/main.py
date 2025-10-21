@@ -679,20 +679,16 @@ async def create_measurement(payload: MeasurementCreate):
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
 
-                # Fetch previous last record for this plant (by measured_at)
-                cur.execute(
-                    """
-                    SELECT measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g
-                    FROM plants_measurements
-                    WHERE plant_id = UNHEX(%s)
-                    ORDER BY measured_at DESC LIMIT 1
-                    """,
-                    (payload.plant_id,),
-                )
-                prev = cur.fetchone()
-                prev_measured_weight = prev[1] if prev else None
-                prev_last_dry = prev[2] if prev else None
-                prev_last_wet = prev[3] if prev else None
+                from app.helpers.last_plant_event import LastPlantEvent
+
+                # Fetch previous last record for this plant using the helper class
+                last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
+                if last_plant_event:
+                    prev_measured_weight = last_plant_event["measured_weight_g"]
+                    prev_last_dry = last_plant_event["last_dry_weight_g"]
+                    prev_last_wet = last_plant_event["last_wet_weight_g"]
+                else:
+                    prev_measured_weight, prev_last_dry, prev_last_wet = None, None, None
 
                 # For A flow: copy previous last_* if not provided
                 if ld is None:
