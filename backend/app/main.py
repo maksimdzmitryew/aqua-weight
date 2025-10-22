@@ -80,6 +80,7 @@ async def list_plants() -> list[Plant]:
                            p.species_name,
                            p.location_id,
                            COALESCE(l.name, NULL) AS location_name,
+                           p.created_at,
                            latest_pm.measured_at,
                            latest_pm.water_loss_total_pct
                     FROM plants p
@@ -106,8 +107,8 @@ async def list_plants() -> list[Plant]:
                     species_name = row[3]
                     location_id_bytes = row[4]
                     location_name = row[5]
-                    created_at = row[6] or now
-                    water_loss_total_pct = row[7]
+                    created_at = row[7] or row[6] or now
+                    water_loss_total_pct = row[8]
                     uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                     location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
                     results.append(Plant(
