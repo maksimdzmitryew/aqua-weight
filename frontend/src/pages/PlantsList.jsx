@@ -209,7 +209,7 @@ export default function PlantsList() {
                 <th style={th}>Name</th>
                 <th style={th}>Description</th>
                 <th style={th}>Location</th>
-                <th style={th}>Created</th>
+                <th style={th}>Updated</th>
                 <th style={{ ...th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>

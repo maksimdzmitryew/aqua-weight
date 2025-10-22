@@ -80,11 +80,11 @@ async def list_plants() -> list[Plant]:
                            p.species_name,
                            p.location_id,
                            COALESCE(l.name, NULL) AS location_name,
-                           p.created_at,
+                           latest_pm.measured_at,
                            latest_pm.water_loss_total_pct
                     FROM plants p
                              LEFT JOIN locations l ON l.id = p.location_id
-                             LEFT JOIN (SELECT plant_id,
+                             LEFT JOIN (SELECT measured_at, plant_id,
                                                water_loss_total_pct,
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
                                         FROM plants_measurements
@@ -92,7 +92,7 @@ async def list_plants() -> list[Plant]:
                                           AND water_loss_total_pct != '') latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
+                    ORDER BY p.sort_order ASC, p.updated_at DESC, p.name ASC
                     """
                 )
                 rows = cur.fetchall() or []
