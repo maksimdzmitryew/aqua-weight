@@ -93,7 +93,7 @@ async def list_plants() -> list[Plant]:
                                           AND water_loss_total_pct != '') latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.updated_at DESC, p.name ASC
+                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
                     """
                 )
                 rows = cur.fetchall() or []
