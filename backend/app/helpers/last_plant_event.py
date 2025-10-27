@@ -1,4 +1,4 @@
-from app.utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
+from ..utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
 
 class LastPlantEvent:
     """

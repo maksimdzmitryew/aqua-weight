@@ -4,7 +4,7 @@ Helper functions for measurement calculations.
 
 from typing import Optional, Dict, Any, Tuple
 import pymysql
-from .helpers.watering import get_last_watering_event
+from ..helpers.watering import get_last_watering_event
 
 
 class WaterLossCalculation:
@@ -55,6 +55,7 @@ def calculate_water_loss(
 
     # If this is a watering event, all loss fields should be NULL
     if is_watering_event:
+        result.water_loss_total_pct = 0
         return result
 
     # Calculate daily loss

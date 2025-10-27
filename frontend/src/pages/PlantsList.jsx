@@ -148,6 +148,10 @@ export default function PlantsList() {
       return {
         background: '#bbf7d0',
       }
+    } else if (waterLossPct > -1) {
+      return {
+        background: '#EEE',
+      }
     }
     return {}
   }

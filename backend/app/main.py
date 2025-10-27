@@ -89,8 +89,7 @@ async def list_plants() -> list[Plant]:
                                                water_loss_total_pct,
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
                                         FROM plants_measurements
-                                        WHERE water_loss_total_pct IS NOT NULL
-                                          AND water_loss_total_pct != '') latest_pm
+                                        WHERE water_loss_total_pct IS NOT NULL) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
                     ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
@@ -696,7 +695,7 @@ async def create_measurement(payload: MeasurementCreate):
     mw = payload.measured_weight_g
     ld = payload.last_dry_weight_g
     lw = payload.last_wet_weight_g
-    wa = payload.water_added_g #if payload.water_added_g is not None else 0
+    payload_water_added = payload.water_added_g #if payload.water_added_g is not None else 0
 
     def do_insert():
         conn = get_db_connection()
@@ -735,9 +734,9 @@ async def create_measurement(payload: MeasurementCreate):
                     lw_local = lw
 
                 # Determine water_added_g to use
-                if payload.water_added_g is not None and int(payload.water_added_g) > 0:
+                if payload_water_added is not None and int(payload_water_added) > 0:
                     # Explicitly provided (watering or repotting event)
-                    wa_local = int(payload.water_added_g)
+                    wa_local = int(payload_water_added)
                 else:
                     # Use from last watering event for calculations
                     wa_local = lw_local - ld_local if payload.measured_weight_g is None else last_watering_water_added
@@ -749,10 +748,10 @@ async def create_measurement(payload: MeasurementCreate):
                         # calculate added water if wet weight is provided
                         wa_local = lw_local - ld_local
                     else:
-                        if wa is not None and int(wa) > 0 and ld_local is not None and int(ld_local) > 0:
-                            wa_local = wa
+                        if payload_water_added is not None and int(payload_water_added) > 0 and ld_local is not None and int(ld_local) > 0:
+                            wa_local = payload_water_added
                             # calculate wet weight if not provided
-                            lw_local = wa + ld_local
+                            lw_local = payload_water_added + ld_local
                 # Measurement event
                 else:
                     # Use from last watering event for calculations
@@ -765,7 +764,7 @@ async def create_measurement(payload: MeasurementCreate):
                     measured_at=measured_at,
                     measured_weight_g=mw,
                     last_wet_weight_g=lw_local,
-                    water_added_g=payload.water_added_g,
+                    water_added_g=payload_water_added,
                     last_watering_water_added=last_watering_water_added,
                     prev_measured_weight=prev_measured_weight,
                     exclude_measurement_id=None
