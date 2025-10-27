@@ -4,7 +4,7 @@ Helper functions for measurement calculations.
 
 from typing import Optional, Dict, Any, Tuple
 import pymysql
-from app.helpers.watering import get_last_watering_event
+from .helpers.watering import get_last_watering_event
 
 
 class WaterLossCalculation:

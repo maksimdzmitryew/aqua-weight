@@ -7,8 +7,8 @@ import os
 import pymysql
 import uuid
 import re
-from app.helpers.watering import get_last_watering_event
-from app.helpers.water_loss import calculate_water_loss
+from .helpers.watering import get_last_watering_event
+from .helpers.water_loss import calculate_water_loss
 from .routes.repotting import app as repotting_app
 
 app = FastAPI()
@@ -706,7 +706,7 @@ async def create_measurement(payload: MeasurementCreate):
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
 
-                from app.helpers.last_plant_event import LastPlantEvent
+                from .helpers.last_plant_event import LastPlantEvent
 
                 # Fetch previous last record for this plant using the helper class
                 last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)

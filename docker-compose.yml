@@ -41,7 +41,8 @@ services:
     ports:
       - "127.0.0.1:3316:3306"
     volumes:
-      - ${MARIADB_DATA_DIR:-./data/mariadb}:/var/lib/mysql
+      - ./db/my.cnf:/etc/mysql/my.cnf
+      - mariadb_data:/var/lib/mysql:consistent
       - ./db/init:/docker-entrypoint-initdb.d:ro
     networks:
       - aw-net
@@ -77,6 +78,12 @@ services:
 
 volumes:
   frontend_node_modules:
+  mariadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${MARIADB_DATA_DIR:-:/data/mariadb}
+      o: bind
 
 networks:
   aw-net:

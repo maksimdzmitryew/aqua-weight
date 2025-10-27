@@ -7,10 +7,10 @@ from pytz import timezone
 from starlette.concurrency import run_in_threadpool
 import uuid
 import re
-from app.helpers.watering import get_last_watering_event
-from app.helpers.water_loss import calculate_water_loss
-from app.utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
-from app.utils.date_time import normalize_measured_at
+from .helpers.watering import get_last_watering_event
+from .helpers.water_loss import calculate_water_loss
+from .utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
+from .utils.date_time import normalize_measured_at
 
 app = APIRouter()
 
@@ -53,7 +53,7 @@ async def create_repotting_event(payload: RepottingCreate):
 
             with conn.cursor() as cur:
 
-                from app.helpers.last_plant_event import LastPlantEvent
+                from .helpers.last_plant_event import LastPlantEvent
 
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
