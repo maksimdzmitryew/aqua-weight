@@ -144,16 +144,19 @@ export default function PlantsList() {
       return {
         background: '#fef3c7',
       }
-    } else if (waterLossPct > 0) {
+    } else if (waterLossPct > 3) {
       return {
         background: '#bbf7d0',
       }
     } else if (waterLossPct > -1) {
       return {
-        background: '#EEE',
+        color: 'green',
+      }
+    } else {
+      return {
+        color: 'red',
       }
     }
-    return {}
   }
 
   function closeDialog() {
