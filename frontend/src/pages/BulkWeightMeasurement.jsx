@@ -12,6 +12,8 @@ export default function BulkWeightMeasurement() {
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
+  // State to track the status of each input field
+  const [inputStatus, setInputStatus] = useState({});
 
   useEffect(() => {
     let cancelled = false
@@ -36,7 +38,7 @@ export default function BulkWeightMeasurement() {
     navigate(`/plants/${p.uuid}`, { state: { plant: p } })
   }
 
-  async function handleWeightMeasurement(plantId, weightValue) {
+  async function handleWeightMeasurement(plantId, weightValue, inputElement) {
       try {
         const payload = {
           plant_id: plantId,
@@ -58,8 +60,23 @@ export default function BulkWeightMeasurement() {
         setPlants(prevPlants => prevPlants.map(p =>
           p.uuid === plantId ? { ...p, current_weight: weightValue } : p
         ));
+
+        // Set success status for this input
+        setInputStatus(prev => ({
+          ...prev,
+          [plantId]: { status: 'success', element: inputElement }
+        }));
+
+
       } catch (error) {
         console.error('Error saving measurement:', error);
+
+        // Set error status for this input
+        setInputStatus(prev => ({
+          ...prev,
+          [plantId]: { status: 'error', element: inputElement }
+        }));
+
       }
   }
 
@@ -136,7 +153,7 @@ export default function BulkWeightMeasurement() {
                             defaultValue={p.current_weight || ''}
                             onBlur={(e) => {
                               if (e.target.value && p.uuid) {
-                                handleWeightMeasurement(p.uuid, e.target.value);
+                                handleWeightMeasurement(p.uuid, e.target.value, e.target);
                               }
                             }}
                             onChange={(e) => {
