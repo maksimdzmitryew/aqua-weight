@@ -11,6 +11,7 @@ from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
 from ..utils.date_time import normalize_measured_at
+from ..helpers.last_plant_event import LastPlantEvent
 
 app = APIRouter()
 
@@ -52,8 +53,6 @@ async def create_repotting_event(payload: RepottingCreate):
         try:
 
             with conn.cursor() as cur:
-
-                from .helpers.last_plant_event import LastPlantEvent
 
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
