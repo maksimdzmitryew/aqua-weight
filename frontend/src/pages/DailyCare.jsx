@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 import { useTheme } from '../ThemeContext.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 
@@ -56,31 +57,17 @@ export default function DailyCare() {
 
   return (
     <DashboardLayout title="Daily care">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Daily care</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}
-          >
-            ← Dashboard
-          </button>
-          <button
-            type="button"
-            onClick={load}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Daily care"
+        onBack={() => navigate('/')}
+        onRefresh={load}
+        isDark={isDark}
+      />
 
-      <p>Today’s suggested care actions for your plants.</p>
+      <p>Today's suggested care actions for your plants.</p>
 
       {loading && <div>Loading…</div>}
       {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
-
 
       {!loading && !error && (
         <div style={{ overflowX: 'auto' }}>
@@ -113,6 +100,7 @@ export default function DailyCare() {
           </table>
         </div>
       )}
+
     </DashboardLayout>
   )
 }
