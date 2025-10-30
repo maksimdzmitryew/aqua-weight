@@ -9,6 +9,7 @@ import uuid
 import re
 from .helpers.watering import get_last_watering_event
 from .helpers.water_loss import calculate_water_loss
+from .helpers.plants_list import PlantsList
 from .routes.repotting import app as repotting_app
 from .routes.daily import app as daily_app
 app = FastAPI()
@@ -67,67 +68,11 @@ async def health():
 @app.get("/plants")
 @app.get("/api/plants")
 async def list_plants() -> list[Plant]:
-    # Load real plants from the database but keep a simple integer id for UI purposes
-    def fetch_plants():
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                # Prefer sort_order then name for stable listing; exclude archived plants
-                cur.execute(
-                    """
-                    SELECT p.id,
-                           p.name,
-                           p.description,
-                           p.species_name,
-                           p.location_id,
-                           COALESCE(l.name, NULL) AS location_name,
-                           p.created_at,
-                           latest_pm.measured_at,
-                           latest_pm.water_loss_total_pct
-                    FROM plants p
-                             LEFT JOIN locations l ON l.id = p.location_id
-                             LEFT JOIN (SELECT measured_at, plant_id,
-                                               water_loss_total_pct,
-                                               ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
-                                        FROM plants_measurements
-                                        WHERE water_loss_total_pct IS NOT NULL) latest_pm
-                                       ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
-                    WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
-                    """
-                )
-                rows = cur.fetchall() or []
-                results: list[Plant] = []
-                now = datetime.utcnow()
-                for idx, row in enumerate(rows, start=1):
-                    # row = (id, name, description, species_name, location_id, location_name, created_at)
-                    pid = row[0]
-                    name = row[1]
-                    description = row[2]
-                    species_name = row[3]
-                    location_id_bytes = row[4]
-                    location_name = row[5]
-                    created_at = row[7] or row[6] or now
-                    water_loss_total_pct = row[8]
-                    uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                    location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                    results.append(Plant(
-                        id=idx,
-                        uuid=uuid_hex,
-                        name=name,
-                        description=description,
-                        species=species_name,
-                        location=location_name,
-                        location_id=location_id_hex,
-                        created_at=created_at,
-                        water_loss_total_pct=water_loss_total_pct
-                    ))
-                return results
-        finally:
-            conn.close()
+    # Delegate the blocking DB work to the helper inside a threadpool
+    def fetch():
+        return PlantsList.fetch_all()
 
-    return await run_in_threadpool(fetch_plants)
-
+    return await run_in_threadpool(fetch)
 
 class Location(BaseModel):
     id: int  # synthetic sequential id for UI
