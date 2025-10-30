@@ -7,6 +7,7 @@ import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
+import { Link } from 'react-router-dom'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -235,27 +236,27 @@ export default function PlantsList() {
                   </td>
                   <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.water_loss_total_pct}%
-                      </a>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                          {p.water_loss_total_pct}%
+                      </Link>
                     ) : (
                       p.water_loss_total_pct
                     )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.name}
-                      </a>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                          {p.name}
+                      </Link>
                     ) : (
                       p.name
                     )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.description || '—'}
-                      </a>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                          {p.description || '—'}
+                      </Link>
                     ) : (
                       p.description || '—'
                     )}

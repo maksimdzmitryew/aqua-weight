@@ -16,6 +16,7 @@ import WateringCreate from './pages/WateringCreate.jsx'
 import RepottingCreate from './pages/RepottingCreate.jsx'
 import PlantDetails from './pages/PlantDetails.jsx'
 import DailyCare from './pages/DailyCare.jsx'
+import BulkWeightMeasurement from './pages/BulkWeightMeasurement.jsx'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/measurement/weight" element={<MeasurementCreate />} />
           <Route path="/measurement/watering" element={<WateringCreate />} />
           <Route path="/measurement/repotting" element={<RepottingCreate />} />
+          <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

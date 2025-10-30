@@ -63,7 +63,7 @@ export default function DailyCare() {
         onRefresh={load}
         isDark={isDark}
       />
-
+      <button onClick={() => navigate('/measurements/bulk/weight')}>Start Bulk Measurement</button>
       <p>Today's suggested care actions for your plants.</p>
 
       {loading && <div>Loading…</div>}
