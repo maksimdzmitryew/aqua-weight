@@ -11,12 +11,11 @@ class PlantsList:
     """
 
     @staticmethod
-    def fetch_all() -> list[dict]:
+    def fetch_all(min_water_loss_total_pct: float = None) -> list[dict]:
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
-                cur.execute(
-                    """
+                query = """
                     SELECT p.id,
                            p.name,
                            p.description,
@@ -35,9 +34,16 @@ class PlantsList:
                                         WHERE water_loss_total_pct IS NOT NULL) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
-                    """
-                )
+                """
+                params = []
+                if min_water_loss_total_pct is not None:
+                    query += " AND latest_pm.water_loss_total_pct > %s"
+                    params.append(min_water_loss_total_pct)
+
+                query += " ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC"
+
+                cur.execute(query, params)
+
                 rows = cur.fetchall() or []
                 results: list[dict] = []
                 now = datetime.utcnow()

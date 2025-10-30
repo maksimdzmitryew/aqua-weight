@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import { formatDateTime } from '../utils/datetime.js'
 
 export default function DailyCare() {
   const navigate = useNavigate()
@@ -86,18 +87,20 @@ export default function DailyCare() {
           <table style={{ borderCollapse: 'collapse', width: '100%' }}>
             <thead>
               <tr>
-                <th style={th}>Plant</th>
-                <th style={th}>Task</th>
-                <th style={th}>When</th>
+                  <th style={th}>Location</th>
+                  <th style={th}>Plant</th>
+                  <th style={th}>Task</th>
+                  <th style={th}>When</th>
                 <th style={th}>Notes</th>
               </tr>
             </thead>
             <tbody>
               {tasks.map((t, i) => (
                 <tr key={t.id ?? t.uuid ?? i}>
-                  <td style={td}>{t.plant_name || t.plant || '—'}</td>
-                  <td style={td}>{t.task || t.type || t.action || '—'}</td>
-                  <td style={td}>{t.when || t.due_at || t.scheduled_for || 'Today'}</td>
+                    <td style={td}>{t.location || '—'}</td>
+                    <td style={td}>{t.name || t.plant || '—'}</td>
+                    <td style={td}>{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
+                    <td style={td}>{formatDateTime(t.scheduled_for || t.due_at || t.created_at || t.updated_at) || '—'}</td>
                   <td style={td}>{t.notes || t.reason || '—'}</td>
                 </tr>
               ))}
