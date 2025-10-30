@@ -59,7 +59,7 @@ export default function DailyCare() {
     <DashboardLayout title="Daily care">
       <PageHeader
         title="Daily care"
-        onBack={() => navigate('/')}
+        onBack={() => navigate('/dashboard')}
         onRefresh={load}
         isDark={isDark}
       />

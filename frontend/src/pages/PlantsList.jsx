@@ -6,6 +6,7 @@ import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
+import PageHeader from '../components/PageHeader.jsx'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -190,16 +191,13 @@ export default function PlantsList() {
 
   return (
     <DashboardLayout title="Plants">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Plants</h1>
-        <button
-          type="button"
-          onClick={() => navigate('/plants/new')}
-          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
-        >
-          + Create
-        </button>
-      </div>
+      <PageHeader
+        title="Plants"
+        onBack={() => navigate('/dashboard')}
+        onCreate={() => navigate('/plants/new')}
+        isDark={isDark}
+      />
+
       <p>List of all available plants fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
@@ -295,4 +293,3 @@ export default function PlantsList() {
     </DashboardLayout>
   )
 }
-
