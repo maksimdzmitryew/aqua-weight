@@ -10,7 +10,7 @@ import re
 from .helpers.watering import get_last_watering_event
 from .helpers.water_loss import calculate_water_loss
 from .routes.repotting import app as repotting_app
-
+from .routes.daily import app as daily_app
 app = FastAPI()
 
 # Allow frontend served at https://aw.max
@@ -36,6 +36,7 @@ def get_db_connection():
 
 # Add the new routes to the main app instance of FastAPI
 app.include_router(repotting_app)
+app.include_router(daily_app)
 
 class Plant(BaseModel):
     id: int  # synthetic sequential id for UI

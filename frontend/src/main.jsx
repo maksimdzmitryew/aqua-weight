@@ -15,6 +15,7 @@ import MeasurementCreate from './pages/MeasurementCreate.jsx'
 import WateringCreate from './pages/WateringCreate.jsx'
 import RepottingCreate from './pages/RepottingCreate.jsx'
 import PlantDetails from './pages/PlantDetails.jsx'
+import DailyCare from './pages/DailyCare.jsx'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/daily" element={<DailyCare />} />
           <Route path="/plants" element={<PlantsList />} />
           <Route path="/plants/new" element={<PlantCreate />} />
           <Route path="/plants/:uuid" element={<PlantDetails />} />
