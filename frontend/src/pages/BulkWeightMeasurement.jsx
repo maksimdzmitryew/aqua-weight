@@ -36,6 +36,33 @@ export default function BulkWeightMeasurement() {
     navigate(`/plants/${p.uuid}`, { state: { plant: p } })
   }
 
+  async function handleWeightMeasurement(plantId, weightValue) {
+      try {
+        const payload = {
+          plant_id: plantId,
+          measured_weight_g: Number(weightValue),
+          measured_at: new Date().toISOString().replace('Z', '') // Remove the 'Z' from the ISO string
+        };
+
+        const response = await fetch('/api/measurements/weight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save measurement');
+        }
+
+        // Find the plant in the state and update its current_weight
+        setPlants(prevPlants => prevPlants.map(p =>
+          p.uuid === plantId ? { ...p, current_weight: weightValue } : p
+        ));
+      } catch (error) {
+        console.error('Error saving measurement:', error);
+      }
+  }
+
   const th = {
     textAlign: 'left',
     padding: '8px 10px',
@@ -94,21 +121,31 @@ export default function BulkWeightMeasurement() {
                 <tbody>
                   {plants.map((p) => (
                     <tr key={p.id}>
-                      <td style={td}>
-                        <input
-                          type="number"
-                          style={{
-                            width: '100%',
-                            padding: '8px 10px',
-                            border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-                            borderRadius: '4px',
-                            background: isDark ? '#1f2937' : '#ffffff',
-                            color: isDark ? '#e5e7eb' : '#111827',
-                            boxSizing: 'border-box'
-                          }}
-                          defaultValue={p.current_weight || ''}
-                        />
-                      </td>
+                        <td style={td}>
+                          <input
+                            type="number"
+                            style={{
+                              width: '100%',
+                              padding: '8px 10px',
+                              border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
+                              borderRadius: '4px',
+                              background: isDark ? '#1f2937' : '#ffffff',
+                              color: isDark ? '#e5e7eb' : '#111827',
+                              boxSizing: 'border-box'
+                            }}
+                            defaultValue={p.current_weight || ''}
+                            onBlur={(e) => {
+                              if (e.target.value && p.uuid) {
+                                handleWeightMeasurement(p.uuid, e.target.value);
+                              }
+                            }}
+                            onChange={(e) => {
+                              // Update the value in the input field immediately
+                              const input = e.target;
+                              input.value = e.target.value;
+                            }}
+                          />
+                        </td>
                       <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
