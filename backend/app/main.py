@@ -746,7 +746,7 @@ async def create_measurement(payload: MeasurementCreate):
                         (payload.note or None),
                     ),
                 )
-                return {"ok": True}
+                return {"ok": True, "id": new_id.hex()}
         finally:
             conn.close()
 

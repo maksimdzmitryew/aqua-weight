@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -14,6 +15,8 @@ export default function BulkWeightMeasurement() {
   const isDark = effectiveTheme === 'dark'
   // State to track the status of each input field
   const [inputStatus, setInputStatus] = useState({});
+  // State to track measurement IDs for each plant
+  const [measurementIds, setMeasurementIds] = useState({});
 
   useEffect(() => {
     let cancelled = false
@@ -39,45 +42,72 @@ export default function BulkWeightMeasurement() {
   }
 
   async function handleWeightMeasurement(plantId, weightValue) {
-      try {
+    try {
+      // Check if we already have a measurement ID for this plant
+      const existingId = measurementIds[plantId];
+
+      let response;
+      if (existingId) {
+        // Update existing measurement
         const payload = {
           plant_id: plantId,
           measured_weight_g: Number(weightValue),
-          measured_at: new Date().toISOString().replace('Z', '') // Remove the 'Z' from the ISO string
+          measured_at: new Date().toISOString().replace('Z', '')
         };
 
-        const response = await fetch('/api/measurements/weight', {
+        response = await fetch(`/api/measurements/weight/${existingId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // Create new measurement
+        const payload = {
+          plant_id: plantId,
+          measured_weight_g: Number(weightValue),
+          measured_at: new Date().toISOString().replace('Z', '')
+        };
+
+        response = await fetch('/api/measurements/weight', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to save measurement');
+        // Get the ID from the response and store it
+        const result = await response.json();
+        if (result.id) {
+          setMeasurementIds(prev => ({
+            ...prev,
+            [plantId]: result.id
+          }));
         }
-
-        // Find the plant in the state and update its current_weight
-        setPlants(prevPlants => prevPlants.map(p =>
-          p.uuid === plantId ? { ...p, current_weight: weightValue } : p
-        ));
-
-        // Set success status for this input
-        setInputStatus(prev => ({
-          ...prev,
-          [plantId]: 'success'
-        }));
-
-
-      } catch (error) {
-        console.error('Error saving measurement:', error);
-
-        // Set error status for this input
-        setInputStatus(prev => ({
-          ...prev,
-          [plantId]: 'error'
-        }));
-
       }
+
+      if (!response.ok) {
+        throw new Error('Failed to save measurement');
+      }
+
+      // Find the plant in the state and update its current_weight
+      setPlants(prevPlants => prevPlants.map(p =>
+        p.uuid === plantId ? { ...p, current_weight: weightValue } : p
+      ));
+
+      // Set success status for this input
+      setInputStatus(prev => ({
+        ...prev,
+        [plantId]: 'success'
+      }));
+
+    } catch (error) {
+      console.error('Error saving measurement:', error);
+
+      // Set error status for this input
+      setInputStatus(prev => ({
+        ...prev,
+        [plantId]: 'error'
+      }));
+    }
   }
 
   const th = {
