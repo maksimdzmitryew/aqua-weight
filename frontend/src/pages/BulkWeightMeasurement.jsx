@@ -38,7 +38,7 @@ export default function BulkWeightMeasurement() {
     navigate(`/plants/${p.uuid}`, { state: { plant: p } })
   }
 
-  async function handleWeightMeasurement(plantId, weightValue, inputElement) {
+  async function handleWeightMeasurement(plantId, weightValue) {
       try {
         const payload = {
           plant_id: plantId,
@@ -64,7 +64,7 @@ export default function BulkWeightMeasurement() {
         // Set success status for this input
         setInputStatus(prev => ({
           ...prev,
-          [plantId]: { status: 'success', element: inputElement }
+          [plantId]: 'success'
         }));
 
 
@@ -74,7 +74,7 @@ export default function BulkWeightMeasurement() {
         // Set error status for this input
         setInputStatus(prev => ({
           ...prev,
-          [plantId]: { status: 'error', element: inputElement }
+          [plantId]: 'error'
         }));
 
       }
@@ -146,14 +146,18 @@ export default function BulkWeightMeasurement() {
                               padding: '8px 10px',
                               border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
                               borderRadius: '4px',
-                              background: isDark ? '#1f2937' : '#ffffff',
+                                  background: inputStatus[p.uuid] === 'success'
+                                    ? '#d1fae5'
+                                    : inputStatus[p.uuid] === 'error'
+                                    ? '#fee2e2'
+                                    : isDark ? '#1f2937' : '#ffffff',
                               color: isDark ? '#e5e7eb' : '#111827',
                               boxSizing: 'border-box'
                             }}
                             defaultValue={p.current_weight || ''}
                             onBlur={(e) => {
                               if (e.target.value && p.uuid) {
-                                handleWeightMeasurement(p.uuid, e.target.value, e.target);
+                                handleWeightMeasurement(p.uuid, e.target.value);
                               }
                             }}
                             onChange={(e) => {
