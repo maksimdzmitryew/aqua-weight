@@ -646,7 +646,7 @@ async def create_measurement(payload: MeasurementCreate):
     def do_insert():
         conn = get_db_connection()
         try:
-            with conn.cursor() as cur:
+            with (conn.cursor() as cur):
                 # Use the helper to get last watering event for water_added_g reference
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
@@ -746,7 +746,26 @@ async def create_measurement(payload: MeasurementCreate):
                         (payload.note or None),
                     ),
                 )
-                return {"ok": True, "id": new_id.hex()}
+
+                # Fetch the inserted record to get water_loss_total_pct
+                # cur.execute(
+                #     "SELECT water_loss_total_pct FROM plants_measurements WHERE id=%s",
+                #     (new_id,)
+                # )
+                # row = cur.fetchone()
+                # water_loss_total_pct = float(row[0]) if row and row[0] is not None else None
+
+                return {
+                    "status": "success",
+                    "data": {
+                        "id": new_id.hex(),
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                    },
+                    "meta": {
+                        "timestamp": measured_at,
+                        "version": "1.0"
+                    }
+                }
         finally:
             conn.close()
 
@@ -855,6 +874,8 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                 # Determine water_added_g to store
                 wa_update = int(wa_eff) if wa_eff else 0
 
+                print (id_hex)
+
                 sql = (
                     "UPDATE plants_measurements SET measured_at=COALESCE(%s, measured_at), measured_weight_g=%s, last_dry_weight_g=%s, last_wet_weight_g=%s, water_added_g=%s, "
                     "water_loss_total_pct=%s, water_loss_total_g=%s, water_loss_day_pct=%s, water_loss_day_g=%s, method_id=%s, use_last_method=COALESCE(%s, use_last_method), scale_id=%s, note=%s WHERE id=UNHEX(%s)"
@@ -876,11 +897,24 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                     id_hex,
                 )
                 cur.execute(sql, params)
+
+                return {
+                    "status": "success",
+                    "data": {
+                        "id": id_hex,
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                    },
+                    "meta": {
+                        "timestamp": measured_at,
+                        "version": "1.0"
+                    }
+                }
+
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
-    return {"ok": True}
+    return await run_in_threadpool(do_update)
+
 
 @app.get("/api/plants/{id_hex}")
 async def get_plant(id_hex: str) -> Plant:

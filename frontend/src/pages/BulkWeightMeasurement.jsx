@@ -74,24 +74,38 @@ export default function BulkWeightMeasurement() {
           body: JSON.stringify(payload),
         });
 
-        // Get the ID from the response and store it
-        const result = await response.json();
-        if (result.id) {
-          setMeasurementIds(prev => ({
-            ...prev,
-            [plantId]: result.id
-          }));
-        }
       }
 
       if (!response.ok) {
         throw new Error('Failed to save measurement');
       }
 
-      // Find the plant in the state and update its current_weight
-      setPlants(prevPlants => prevPlants.map(p =>
-        p.uuid === plantId ? { ...p, current_weight: weightValue } : p
-      ));
+      // Get the response data
+      const result = await response.json();
+
+      // Handle new response structure
+      const data = result.status === 'success' ? result.data : result;
+
+      // Update the plant state with new water loss and weight data
+      setPlants(prevPlants => prevPlants.map(p => {
+        if (p.uuid === plantId) {
+          // Merge the updated data with the existing plant data
+          return {
+            ...p,
+            current_weight: weightValue,
+            water_loss_total_pct: data.water_loss_total_pct
+          };
+        }
+        return p;
+      }));
+
+      // If this was a new measurement, store the ID
+      if (data?.id && !existingId) {
+        setMeasurementIds(prev => ({
+          ...prev,
+          [plantId]: data.id
+        }));
+      }
 
       // Set success status for this input
       setInputStatus(prev => ({
