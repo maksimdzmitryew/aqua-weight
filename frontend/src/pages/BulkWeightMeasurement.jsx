@@ -173,6 +173,7 @@ export default function BulkWeightMeasurement() {
                             type="number"
                             style={{
                               width: '100%',
+                              minWidth: '55px',
                               padding: '8px 10px',
                               border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
                               borderRadius: '4px',
