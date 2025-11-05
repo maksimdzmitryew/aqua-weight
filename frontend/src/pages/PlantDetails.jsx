@@ -8,6 +8,9 @@ import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
+import Loader from '../components/feedback/Loader.jsx'
+import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 
 export default function PlantDetails() {
   const { uuid } = useParams()
@@ -122,8 +125,8 @@ export default function PlantDetails() {
         </div>
       </div>
 
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div className="text-danger">{error}</div>}
+      {loading && <Loader label="Loading plant…" />}
+      {error && !loading && <ErrorNotice message={error} />}
 
       {plant && !loading && !error && (
         <>
@@ -140,51 +143,50 @@ export default function PlantDetails() {
 
           <div className="mt-4">
             <h3 className="mt-0">Measurements</h3>
-            {measLoading && <div>Loading measurements…</div>}
-            {measError && !measLoading && <div className="text-danger">{measError}</div>}
+            {measLoading && <Loader label="Loading measurements…" />}
+            {measError && !measLoading && <ErrorNotice message={measError} onRetry={fetchMeasurements} />}
             {!measLoading && !measError && (
-              <div className="overflow-x-auto">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th className="th right">Actions</th>
-                      <th className="th">measured_at</th>
-                      <th className="th">measured_weight</th>
-                      <th className="th">last_dry_weight_g</th>
-                      <th className="th">last_wet_weight_g</th>
-                      <th className="th">water_added_g</th>
-                      <th className="th">water_loss_total_pct</th>
-                      <th className="th">water_loss_total_g</th>
-                      <th className="th">water_loss_day_pct</th>
-                      <th className="th">water_loss_day_g</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {measurements.map((m, i) => (
-                      <tr key={m.id || i}>
-                        <td className="td text-right nowrap">
-                          <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
-                          <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
-                        </td>
-                        <td className="td">{formatDateTime(m.measured_at)}</td>
-                        <td className="td">{m.measured_weight_g ?? '—'}</td>
-                        <td className="td">{m.last_dry_weight_g ?? '—'}</td>
-                        <td className="td">{m.last_wet_weight_g ?? '—'}</td>
-                        <td className="td">{m.water_added_g ?? 0}</td>
-                        <td className="td">{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
-                        <td className="td">{m.water_loss_total_g ?? '—'}</td>
-                        <td className="td">{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
-                        <td className="td">{m.water_loss_day_g ?? '—'}</td>
-                      </tr>
-                    ))}
-                    {measurements.length === 0 && (
+              measurements.length === 0 ? (
+                <EmptyState title="No measurements yet" description="Record a watering or weight measurement to see history here." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="table">
+                    <thead>
                       <tr>
-                        <td colSpan={10} className="td">No measurements yet</td>
+                        <th className="th right">Actions</th>
+                        <th className="th">measured_at</th>
+                        <th className="th">measured_weight</th>
+                        <th className="th">last_dry_weight_g</th>
+                        <th className="th">last_wet_weight_g</th>
+                        <th className="th">water_added_g</th>
+                        <th className="th">water_loss_total_pct</th>
+                        <th className="th">water_loss_total_g</th>
+                        <th className="th">water_loss_day_pct</th>
+                        <th className="th">water_loss_day_g</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {measurements.map((m, i) => (
+                        <tr key={m.id || i}>
+                          <td className="td text-right nowrap">
+                            <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
+                            <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
+                          </td>
+                          <td className="td">{formatDateTime(m.measured_at)}</td>
+                          <td className="td">{m.measured_weight_g ?? '—'}</td>
+                          <td className="td">{m.last_dry_weight_g ?? '—'}</td>
+                          <td className="td">{m.last_wet_weight_g ?? '—'}</td>
+                          <td className="td">{m.water_added_g ?? 0}</td>
+                          <td className="td">{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
+                          <td className="td">{m.water_loss_total_g ?? '—'}</td>
+                          <td className="td">{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
+                          <td className="td">{m.water_loss_day_g ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
           </div>
         </>

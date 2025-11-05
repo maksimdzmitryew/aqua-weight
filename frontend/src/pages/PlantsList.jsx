@@ -8,6 +8,9 @@ import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { Link } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
+import Loader from '../components/feedback/Loader.jsx'
+import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -166,84 +169,85 @@ export default function PlantsList() {
 
       <p>List of all available plants fetched from the API.</p>
 
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div className="text-danger">{error}</div>}
-      {saveError && !loading && <div className="text-danger">{saveError}</div>}
+      {loading && <Loader label="Loading plants…" />}
+      {error && !loading && <ErrorNotice message={error} onRetry={() => window.location.reload()} />}
+      {saveError && !loading && <ErrorNotice message={saveError} />}
 
       {!loading && !error && (
-        <div className="overflow-x-auto">
-          <table className="table">
-            <thead>
-              <tr>
-                <th className="th"></th>
-                <th className="th">Care and Water loss</th>
-                <th className="th">Name</th>
-                <th className="th">Description</th>
-                <th className="th">Location</th>
-                <th className="th">Updated</th>
-                <th className="th right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plants.map((p, idx) => (
-                <tr key={p.uuid || idx}
-                    draggable
-                    onDragStart={() => onDragStart(idx)}
-                    onDragEnd={onDragEnd}
-                    onDragOver={(e) => onDragOver(e, idx)}
-                >
-                  <td className="td" style={{ width: 24 }}>
-                    <span
-                      className="drag-handle"
-                      title="Drag to reorder"
-                      aria-label="Drag to reorder"
-                    >⋮⋮</span>
-                  </td>
-                  <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
-                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
-                    {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                          {p.water_loss_total_pct}%
-                      </Link>
-                    ) : (
-                      p.water_loss_total_pct
-                    )}
-                  </td>
-                  <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                      {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                          {p.name}
-                      </Link>
-                    ) : (
-                      p.name
-                    )}
-                  </td>
-                  <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                    {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                          {p.description || '—'}
-                      </Link>
-                    ) : (
-                      p.description || '—'
-                    )}
-                  </td>
-                  <td className="td">{p.location || '—'}</td>
-                  <td className="td">{formatDateTime(p.created_at)}</td>
-                  <td className="td text-right nowrap">
-                    <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
-                    <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
-                    <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
-                  </td>
-                </tr>
-              ))}
-              {plants.length === 0 && (
+        plants.length === 0 ? (
+          <EmptyState title="No plants" description="Get started by creating your first plant.">
+            <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>New plant</button>
+          </EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td className="td" colSpan={6}>No plants found</td>
+                  <th className="th"></th>
+                  <th className="th">Care and Water loss</th>
+                  <th className="th">Name</th>
+                  <th className="th">Description</th>
+                  <th className="th">Location</th>
+                  <th className="th">Updated</th>
+                  <th className="th right">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {plants.map((p, idx) => (
+                  <tr key={p.uuid || idx}
+                      draggable
+                      onDragStart={() => onDragStart(idx)}
+                      onDragEnd={onDragEnd}
+                      onDragOver={(e) => onDragOver(e, idx)}
+                  >
+                    <td className="td" style={{ width: 24 }}>
+                      <span
+                        className="drag-handle"
+                        title="Drag to reorder"
+                        aria-label="Drag to reorder"
+                      >⋮⋮</span>
+                    </td>
+                    <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+                      <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
+                      {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.water_loss_total_pct}%
+                        </Link>
+                      ) : (
+                        p.water_loss_total_pct
+                      )}
+                    </td>
+                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
+                        {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.name}
+                        </Link>
+                      ) : (
+                        p.name
+                      )}
+                    </td>
+                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
+                      {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.description || '—'}
+                        </Link>
+                      ) : (
+                        p.description || '—'
+                      )}
+                    </td>
+                    <td className="td">{p.location || '—'}</td>
+                    <td className="td">{formatDateTime(p.created_at)}</td>
+                    <td className="td text-right nowrap">
+                      <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
+                      <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
+                      <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
       <ConfirmDialog
         open={confirmOpen}
