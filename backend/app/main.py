@@ -874,8 +874,6 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                 # Determine water_added_g to store
                 wa_update = int(wa_eff) if wa_eff else 0
 
-                print (id_hex)
-
                 sql = (
                     "UPDATE plants_measurements SET measured_at=COALESCE(%s, measured_at), measured_weight_g=%s, last_dry_weight_g=%s, last_wet_weight_g=%s, water_added_g=%s, "
                     "water_loss_total_pct=%s, water_loss_total_g=%s, water_loss_day_pct=%s, water_loss_day_g=%s, method_id=%s, use_last_method=COALESCE(%s, use_last_method), scale_id=%s, note=%s WHERE id=UNHEX(%s)"

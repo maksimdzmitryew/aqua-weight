@@ -163,6 +163,7 @@ export default function LocationsList() {
       <PageHeader
         title="Locations"
         onBack={() => navigate('/dashboard')}
+        titleBack="Dashboard"
         onCreate={() => navigate('/locations/new')}
         isDark={isDark}
       />

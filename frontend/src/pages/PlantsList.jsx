@@ -195,6 +195,7 @@ export default function PlantsList() {
       <PageHeader
         title="Plants"
         onBack={() => navigate('/dashboard')}
+        titleBack="Dashboard"
         onCreate={() => navigate('/plants/new')}
         isDark={isDark}
       />
@@ -211,7 +212,7 @@ export default function PlantsList() {
             <thead>
               <tr>
                 <th style={th}></th>
-                <th style={th}>Water loss</th>
+                <th style={th}>Care and Water loss</th>
                 <th style={th}>Name</th>
                 <th style={th}>Description</th>
                 <th style={th}>Location</th>
@@ -235,8 +236,9 @@ export default function PlantsList() {
                     >⋮⋮</span>
                   </td>
                   <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
+                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                     {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'inline-block', textAlign: 'right', width: '40%', paddingTop: '4px' }}>
                           {p.water_loss_total_pct}%
                       </Link>
                     ) : (
@@ -244,7 +246,7 @@ export default function PlantsList() {
                     )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
-                    {p.uuid ? (
+                      {p.uuid ? (
                       <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
                           {p.name}
                       </Link>
@@ -264,7 +266,6 @@ export default function PlantsList() {
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} />
                     <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />

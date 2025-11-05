@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useParams, useLocation as useRouterLocation } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
@@ -113,14 +114,16 @@ export default function PlantDetails() {
   return (
     <DashboardLayout title={plant ? plant.name : 'Plant details'}>
       <div>
-        <h1 style={{ marginTop: 0, marginBottom: 8 }}>{plant ? plant.name : 'Plant details'}</h1>
+        <PageHeader
+          title={plant ? plant.name : 'Plants details'}
+          onBack={() => navigate('/plants')}
+          titleBack="Plants"
+          isDark={isDark}
+        />
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {plant?.uuid && (
             <>
-              <button type="button" onClick={() => navigate('/plants')}
-                      style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}>
-                ← Back
-              </button>
               <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
                       style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}>
                 Edit

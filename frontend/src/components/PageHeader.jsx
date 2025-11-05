@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTheme } from '../ThemeContext.jsx'
 
-const PageHeader = ({ title, onBack, onRefresh, onCreate, isDark, children }) => {
+const PageHeader = ({ title, onBack, titleBack, onRefresh, onCreate, isDark, children }) => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <h1 style={{ marginTop: 0, marginBottom: 0 }}>{title}</h1>
@@ -12,7 +12,7 @@ const PageHeader = ({ title, onBack, onRefresh, onCreate, isDark, children }) =>
             onClick={onBack}
             style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}
           >
-            ← Dashboard
+            ← {titleBack}
           </button>
         )}
         {onRefresh && (

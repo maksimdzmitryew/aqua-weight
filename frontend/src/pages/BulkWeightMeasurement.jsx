@@ -158,7 +158,8 @@ export default function BulkWeightMeasurement() {
     <DashboardLayout title="Bulk weight measurement">
       <PageHeader
         title="Bulk weight measurement"
-        onBack={() => navigate('/dashboard')}
+        onBack={() => navigate('/daily')}
+        titleBack="Daily Care"
         isDark={isDark}
       />
 
