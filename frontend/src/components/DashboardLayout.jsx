@@ -20,10 +20,10 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
 
   const menuItems = [
     { key: 'overview', label: 'Overview', to: '/dashboard' },
+    { key: 'daily', label: 'Daily Care', to: '/daily' },
     { key: 'plants', label: 'Plants', to: '/plants' },
     { key: 'locations', label: 'Locations', to: '/locations' },
     { key: 'settings', label: 'Settings', to: '/settings' },
-    // Future items can be added here
   ]
 
   return (

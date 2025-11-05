@@ -174,7 +174,7 @@ export default function WateringCreate() {
         </div>
         <div style={{ marginTop: 16 }}>
           <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>
-          <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
+          <button type="button" onClick={()=>navigate(document.referrer)} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
         </div>
       </form>
     </DashboardLayout>

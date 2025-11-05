@@ -7,10 +7,11 @@ import os
 import pymysql
 import uuid
 import re
-from app.helpers.watering import get_last_watering_event
-from app.helpers.water_loss import calculate_water_loss
+from .helpers.watering import get_last_watering_event
+from .helpers.water_loss import calculate_water_loss
+from .helpers.plants_list import PlantsList
 from .routes.repotting import app as repotting_app
-
+from .routes.daily import app as daily_app
 app = FastAPI()
 
 # Allow frontend served at https://aw.max
@@ -36,6 +37,7 @@ def get_db_connection():
 
 # Add the new routes to the main app instance of FastAPI
 app.include_router(repotting_app)
+app.include_router(daily_app)
 
 class Plant(BaseModel):
     id: int  # synthetic sequential id for UI
@@ -66,67 +68,11 @@ async def health():
 @app.get("/plants")
 @app.get("/api/plants")
 async def list_plants() -> list[Plant]:
-    # Load real plants from the database but keep a simple integer id for UI purposes
-    def fetch_plants():
-        conn = get_db_connection()
-        try:
-            with conn.cursor() as cur:
-                # Prefer sort_order then name for stable listing; exclude archived plants
-                cur.execute(
-                    """
-                    SELECT p.id,
-                           p.name,
-                           p.description,
-                           p.species_name,
-                           p.location_id,
-                           COALESCE(l.name, NULL) AS location_name,
-                           p.created_at,
-                           latest_pm.water_loss_total_pct
-                    FROM plants p
-                             LEFT JOIN locations l ON l.id = p.location_id
-                             LEFT JOIN (SELECT plant_id,
-                                               water_loss_total_pct,
-                                               ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
-                                        FROM plants_measurements
-                                        WHERE water_loss_total_pct IS NOT NULL
-                                          AND water_loss_total_pct != '') latest_pm
-                                       ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
-                    WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
-                    """
-                )
-                rows = cur.fetchall() or []
-                results: list[Plant] = []
-                now = datetime.utcnow()
-                for idx, row in enumerate(rows, start=1):
-                    # row = (id, name, description, species_name, location_id, location_name, created_at)
-                    pid = row[0]
-                    name = row[1]
-                    description = row[2]
-                    species_name = row[3]
-                    location_id_bytes = row[4]
-                    location_name = row[5]
-                    created_at = row[6] or now
-                    water_loss_total_pct = row[7]
-                    uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                    location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                    results.append(Plant(
-                        id=idx,
-                        uuid=uuid_hex,
-                        name=name,
-                        description=description,
-                        species=species_name,
-                        location=location_name,
-                        location_id=location_id_hex,
-                        created_at=created_at,
-                        water_loss_total_pct=water_loss_total_pct
-                    ))
-                return results
-        finally:
-            conn.close()
+    # Delegate the blocking DB work to the helper inside a threadpool
+    def fetch():
+        return PlantsList.fetch_all()
 
-    return await run_in_threadpool(fetch_plants)
-
+    return await run_in_threadpool(fetch)
 
 class Location(BaseModel):
     id: int  # synthetic sequential id for UI
@@ -695,17 +641,17 @@ async def create_measurement(payload: MeasurementCreate):
     mw = payload.measured_weight_g
     ld = payload.last_dry_weight_g
     lw = payload.last_wet_weight_g
-    wa = payload.water_added_g #if payload.water_added_g is not None else 0
+    payload_water_added = payload.water_added_g #if payload.water_added_g is not None else 0
 
     def do_insert():
         conn = get_db_connection()
         try:
-            with conn.cursor() as cur:
+            with (conn.cursor() as cur):
                 # Use the helper to get last watering event for water_added_g reference
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
                 last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
 
-                from app.helpers.last_plant_event import LastPlantEvent
+                from .helpers.last_plant_event import LastPlantEvent
 
                 # Fetch previous last record for this plant using the helper class
                 last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
@@ -726,7 +672,7 @@ async def create_measurement(payload: MeasurementCreate):
                     ld_local = ld
 
                 if lw is None:
-                    if prev_last_wet is None:
+                    if prev_last_wet is None and ld_local is not None:
                         lw_local = ld_local + last_watering_water_added
                     else:
                         lw_local = prev_last_wet
@@ -734,9 +680,9 @@ async def create_measurement(payload: MeasurementCreate):
                     lw_local = lw
 
                 # Determine water_added_g to use
-                if payload.water_added_g is not None and int(payload.water_added_g) > 0:
+                if payload_water_added is not None and int(payload_water_added) > 0:
                     # Explicitly provided (watering or repotting event)
-                    wa_local = int(payload.water_added_g)
+                    wa_local = int(payload_water_added)
                 else:
                     # Use from last watering event for calculations
                     wa_local = lw_local - ld_local if payload.measured_weight_g is None else last_watering_water_added
@@ -748,10 +694,10 @@ async def create_measurement(payload: MeasurementCreate):
                         # calculate added water if wet weight is provided
                         wa_local = lw_local - ld_local
                     else:
-                        if wa is not None and int(wa) > 0 and ld_local is not None and int(ld_local) > 0:
-                            wa_local = wa
+                        if payload_water_added is not None and int(payload_water_added) > 0 and ld_local is not None and int(ld_local) > 0:
+                            wa_local = payload_water_added
                             # calculate wet weight if not provided
-                            lw_local = wa + ld_local
+                            lw_local = payload_water_added + ld_local
                 # Measurement event
                 else:
                     # Use from last watering event for calculations
@@ -764,7 +710,7 @@ async def create_measurement(payload: MeasurementCreate):
                     measured_at=measured_at,
                     measured_weight_g=mw,
                     last_wet_weight_g=lw_local,
-                    water_added_g=payload.water_added_g,
+                    water_added_g=payload_water_added,
                     last_watering_water_added=last_watering_water_added,
                     prev_measured_weight=prev_measured_weight,
                     exclude_measurement_id=None
@@ -800,7 +746,26 @@ async def create_measurement(payload: MeasurementCreate):
                         (payload.note or None),
                     ),
                 )
-                return {"ok": True}
+
+                # Fetch the inserted record to get water_loss_total_pct
+                # cur.execute(
+                #     "SELECT water_loss_total_pct FROM plants_measurements WHERE id=%s",
+                #     (new_id,)
+                # )
+                # row = cur.fetchone()
+                # water_loss_total_pct = float(row[0]) if row and row[0] is not None else None
+
+                return {
+                    "status": "success",
+                    "data": {
+                        "id": new_id.hex(),
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                    },
+                    "meta": {
+                        "timestamp": measured_at,
+                        "version": "1.0"
+                    }
+                }
         finally:
             conn.close()
 
@@ -930,11 +895,24 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                     id_hex,
                 )
                 cur.execute(sql, params)
+
+                return {
+                    "status": "success",
+                    "data": {
+                        "id": id_hex,
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                    },
+                    "meta": {
+                        "timestamp": measured_at,
+                        "version": "1.0"
+                    }
+                }
+
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
-    return {"ok": True}
+    return await run_in_threadpool(do_update)
+
 
 @app.get("/api/plants/{id_hex}")
 async def get_plant(id_hex: str) -> Plant:

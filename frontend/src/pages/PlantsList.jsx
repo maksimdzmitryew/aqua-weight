@@ -6,6 +6,8 @@ import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
+import PageHeader from '../components/PageHeader.jsx'
+import { Link } from 'react-router-dom'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -144,12 +146,19 @@ export default function PlantsList() {
       return {
         background: '#fef3c7',
       }
-    } else if (waterLossPct > 0) {
+    } else if (waterLossPct > 3) {
       return {
         background: '#bbf7d0',
       }
+    } else if (waterLossPct > -1) {
+      return {
+        color: 'green',
+      }
+    } else {
+      return {
+        color: 'red',
+      }
     }
-    return {}
   }
 
   function closeDialog() {
@@ -183,16 +192,14 @@ export default function PlantsList() {
 
   return (
     <DashboardLayout title="Plants">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ marginTop: 0, marginBottom: 0 }}>Plants</h1>
-        <button
-          type="button"
-          onClick={() => navigate('/plants/new')}
-          style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
-        >
-          + Create
-        </button>
-      </div>
+      <PageHeader
+        title="Plants"
+        onBack={() => navigate('/dashboard')}
+        titleBack="Dashboard"
+        onCreate={() => navigate('/plants/new')}
+        isDark={isDark}
+      />
+
       <p>List of all available plants fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
@@ -205,11 +212,11 @@ export default function PlantsList() {
             <thead>
               <tr>
                 <th style={th}></th>
-                <th style={th}>Water loss</th>
+                <th style={th}>Care and Water loss</th>
                 <th style={th}>Name</th>
                 <th style={th}>Description</th>
                 <th style={th}>Location</th>
-                <th style={th}>Created</th>
+                <th style={th}>Updated</th>
                 <th style={{ ...th, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -229,28 +236,29 @@ export default function PlantsList() {
                     >⋮⋮</span>
                   </td>
                   <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
+                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                     {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.water_loss_total_pct}%
-                      </a>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'inline-block', textAlign: 'right', width: '40%', paddingTop: '4px' }}>
+                          {p.water_loss_total_pct}%
+                      </Link>
                     ) : (
                       p.water_loss_total_pct
                     )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
-                    {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.name}
-                      </a>
+                      {p.uuid ? (
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                          {p.name}
+                      </Link>
                     ) : (
                       p.name
                     )}
                   </td>
                   <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
-                      <a href={`/plants/${p.uuid}`} onClick={(e) => { e.preventDefault(); handleView(p) }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                        {p.description || '—'}
-                      </a>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                          {p.description || '—'}
+                      </Link>
                     ) : (
                       p.description || '—'
                     )}
@@ -258,7 +266,6 @@ export default function PlantsList() {
                   <td style={td}>{p.location || '—'}</td>
                   <td style={td}>{formatDateTime(p.created_at)}</td>
                   <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} />
                     <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
@@ -288,4 +295,3 @@ export default function PlantsList() {
     </DashboardLayout>
   )
 }
-

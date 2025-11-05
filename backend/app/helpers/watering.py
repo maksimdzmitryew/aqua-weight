@@ -16,7 +16,7 @@ def get_last_watering_event(
     
     A watering event is identified by:
     - measured_weight_g IS NULL
-    - water_loss_total_pct IS NULL
+    - water_loss_total_pct IS 0
     - water_loss_total_g IS NULL
     - water_loss_day_pct IS NULL
     - water_loss_day_g IS NULL
@@ -54,7 +54,7 @@ def get_last_watering_event(
         FROM plants_measurements
         WHERE plant_id = UNHEX(%s)
           AND measured_weight_g IS NULL
-          AND water_loss_total_pct IS NULL
+          AND water_loss_total_pct = 0
           AND water_loss_total_g IS NULL
           AND water_loss_day_pct IS NULL
           AND water_loss_day_g IS NULL

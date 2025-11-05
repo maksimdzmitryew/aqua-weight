@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 
 function nowLocalValue() {
@@ -18,6 +18,7 @@ export default function MeasurementCreate() {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
   const editId = search.get('id')
+  const location = useLocation();
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -114,7 +115,9 @@ export default function MeasurementCreate() {
         try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
         throw new Error(detail || `Save failed (HTTP ${res.status})`)
       }
-      navigate(`/plants/${plantId}`)
+      const from = location.state?.from;
+      if (from) navigate(from);
+      else navigate(-1); // fallback to browser history
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
