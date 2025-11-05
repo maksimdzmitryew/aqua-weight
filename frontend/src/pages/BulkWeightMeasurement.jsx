@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../ThemeContext.jsx'
-import { formatDateTime } from '../utils/datetime.js'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 
@@ -13,8 +11,6 @@ export default function BulkWeightMeasurement() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   // State to track the status of each input field
   const [inputStatus, setInputStatus] = useState({});
   // State to track measurement IDs for each plant
@@ -102,19 +98,6 @@ export default function BulkWeightMeasurement() {
     }
   }
 
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
 
   function getWaterLossCellStyle(waterLossPct) {
     if (waterLossPct > 100) {
@@ -138,46 +121,32 @@ export default function BulkWeightMeasurement() {
         title="Bulk weight measurement"
         onBack={() => navigate('/daily')}
         titleBack="Daily Care"
-        isDark={isDark}
       />
 
       <p>Start bulk weight measurement for all plants.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
                 <thead>
                   <tr>
-                    <th style={th}>New weight</th>
-                    <th style={th}>Water loss</th>
-                    <th style={th}>Name</th>
-                    <th style={th}>Description</th>
-                    <th style={th}>Location</th>
+                    <th className="th">New weight</th>
+                    <th className="th">Water loss</th>
+                    <th className="th">Name</th>
+                    <th className="th">Description</th>
+                    <th className="th">Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {plants.map((p) => (
                     <tr key={p.id}>
-                        <td style={td}>
+                        <td className="td">
                           <input
                             type="number"
-                            style={{
-                              width: '100%',
-                              minWidth: '55px',
-                              padding: '8px 10px',
-                              border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-                              borderRadius: '4px',
-                                  background: inputStatus[p.uuid] === 'success'
-                                    ? '#d1fae5'
-                                    : inputStatus[p.uuid] === 'error'
-                                    ? '#fee2e2'
-                                    : isDark ? '#1f2937' : '#ffffff',
-                              color: isDark ? '#e5e7eb' : '#111827',
-                              boxSizing: 'border-box'
-                            }}
+                            className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
                             defaultValue={p.current_weight || ''}
                             onBlur={(e) => {
                               if (e.target.value && p.uuid) {
@@ -185,18 +154,17 @@ export default function BulkWeightMeasurement() {
                               }
                             }}
                             onChange={(e) => {
-                              // Update the value in the input field immediately
                               const input = e.target;
                               input.value = e.target.value;
                             }}
                           />
                         </td>
-                      <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.water_loss_total_pct}%
                           </a>
@@ -204,12 +172,12 @@ export default function BulkWeightMeasurement() {
                           p.water_loss_total_pct
                         )}
                       </td>
-                      <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.name}
                           </a>
@@ -217,12 +185,12 @@ export default function BulkWeightMeasurement() {
                           p.name
                         )}
                       </td>
-                      <td style={td} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.description || '—'}
                           </a>
@@ -230,12 +198,12 @@ export default function BulkWeightMeasurement() {
                           p.description || '—'
                         )}
                       </td>
-                      <td style={td}>{p.location || '—'}</td>
+                      <td className="td">{p.location || '—'}</td>
                     </tr>
                   ))}
                   {plants.length === 0 && (
                     <tr>
-                      <td style={td} colSpan={5}>No plants found</td>
+                      <td className="td" colSpan={5}>No plants found</td>
                     </tr>
                   )}
             </tbody>

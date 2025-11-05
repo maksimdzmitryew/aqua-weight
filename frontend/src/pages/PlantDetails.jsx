@@ -3,7 +3,6 @@ import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useParams, useLocation as useRouterLocation } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
@@ -14,8 +13,6 @@ export default function PlantDetails() {
   const { uuid } = useParams()
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
 
   const [plant, setPlant] = useState(routerLocation.state?.plant || null)
   const [loading, setLoading] = useState(!routerLocation.state?.plant)
@@ -64,12 +61,6 @@ export default function PlantDetails() {
     fetchMeasurements()
   }, [fetchMeasurements])
 
-  const box = {
-    background: isDark ? '#0b0f16' : '#ffffff',
-    border: isDark ? '1px solid #1f2937' : '1px solid #e5e7eb',
-    borderRadius: 8,
-    padding: 16,
-  }
 
   // Set browser tab title to "<Plant Name> – AW Frontend" with project name last
   useEffect(() => {
@@ -116,14 +107,13 @@ export default function PlantDetails() {
           title={plant ? plant.name : 'Plants details'}
           onBack={() => navigate('/plants')}
           titleBack="Plants"
-          isDark={isDark}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {plant?.uuid && (
             <>
               <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
-                      style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}>
+                      className="btn btn-primary">
                 Edit
               </button>
               <QuickCreateButtons plantUuid={plant.uuid} plantName={plant.name} />
@@ -133,63 +123,63 @@ export default function PlantDetails() {
       </div>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
 
       {plant && !loading && !error && (
         <>
-          <div style={box}>
-            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', rowGap: 10, columnGap: 16 }}>
-              <div style={{ fontWeight: 600 }}>Description</div>
+          <div className="card">
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+              <div className="fw-600">Description</div>
               <div>{plant.description || '—'}</div>
-              <div style={{ fontWeight: 600 }}>Location</div>
+              <div className="fw-600">Location</div>
               <div>{plant.location || '—'}</div>
-              <div style={{ fontWeight: 600 }}>Created</div>
+              <div className="fw-600">Created</div>
               <div>{formatDateTime(plant.created_at)}</div>
             </div>
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Measurements</h3>
+          <div className="mt-4">
+            <h3 className="mt-0">Measurements</h3>
             {measLoading && <div>Loading measurements…</div>}
-            {measError && !measLoading && <div style={{ color: 'crimson' }}>{measError}</div>}
+            {measError && !measLoading && <div className="text-danger">{measError}</div>}
             {!measLoading && !measError && (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+              <div className="overflow-x-auto">
+                <table className="table">
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'right', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>Actions</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_at</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_weight</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>last_dry_weight_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>last_wet_weight_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_added_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_total_pct</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_total_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_day_pct</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_day_g</th>
+                      <th className="th right">Actions</th>
+                      <th className="th">measured_at</th>
+                      <th className="th">measured_weight</th>
+                      <th className="th">last_dry_weight_g</th>
+                      <th className="th">last_wet_weight_g</th>
+                      <th className="th">water_added_g</th>
+                      <th className="th">water_loss_total_pct</th>
+                      <th className="th">water_loss_total_g</th>
+                      <th className="th">water_loss_day_pct</th>
+                      <th className="th">water_loss_day_g</th>
                     </tr>
                   </thead>
                   <tbody>
                     {measurements.map((m, i) => (
                       <tr key={m.id || i}>
-                        <td style={{ padding: '6px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <td className="td text-right nowrap">
                           <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
                           <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
                         </td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{formatDateTime(m.measured_at)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.measured_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.last_dry_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.last_wet_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_added_g ?? 0}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_total_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_day_g ?? '—'}</td>
+                        <td className="td">{formatDateTime(m.measured_at)}</td>
+                        <td className="td">{m.measured_weight_g ?? '—'}</td>
+                        <td className="td">{m.last_dry_weight_g ?? '—'}</td>
+                        <td className="td">{m.last_wet_weight_g ?? '—'}</td>
+                        <td className="td">{m.water_added_g ?? 0}</td>
+                        <td className="td">{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
+                        <td className="td">{m.water_loss_total_g ?? '—'}</td>
+                        <td className="td">{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
+                        <td className="td">{m.water_loss_day_g ?? '—'}</td>
                       </tr>
                     ))}
                     {measurements.length === 0 && (
                       <tr>
-                        <td colSpan={10} style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>No measurements yet</td>
+                        <td colSpan={10} className="td">No measurements yet</td>
                       </tr>
                     )}
                   </tbody>

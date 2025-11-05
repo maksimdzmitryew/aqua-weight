@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
@@ -14,26 +13,10 @@ export default function LocationsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
-
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -115,13 +98,6 @@ export default function LocationsList() {
     setDragIndex(null)
   }
 
-  const handleStyle = {
-    cursor: 'grab',
-    color: isDark ? '#9ca3af' : '#6b7280',
-    paddingRight: 6,
-    userSelect: 'none',
-  }
-
   function closeDialog() {
     setConfirmOpen(false)
     setToDelete(null)
@@ -152,25 +128,24 @@ export default function LocationsList() {
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
         onCreate={() => navigate('/locations/new')}
-        isDark={isDark}
       />
 
       <p>List of all available locations fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
-      {saveError && !loading && <div style={{ color: 'crimson' }}>{saveError}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
+      {saveError && !loading && <div className="text-danger">{saveError}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
               <tr>
-                <th style={th}></th>
-                <th style={th}>Name</th>
-                <th style={th}>Description</th>
-                <th style={th}>Created</th>
-                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                <th className="th"></th>
+                <th className="th">Name</th>
+                <th className="th">Description</th>
+                <th className="th">Created</th>
+                <th className="th right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -181,13 +156,13 @@ export default function LocationsList() {
                     onDragOver={(e) => onDragOver(e, idx)}
                     onDragEnd={onDragEnd}
                 >
-                  <td style={{ ...td, width: 24 }}>
-                    <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
+                  <td className="td" style={{ width: 24 }}>
+                    <span className="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
                   </td>
-                  <td style={td}>{l.name}</td>
-                  <td style={td}>{l.description || '—'}</td>
-                  <td style={td}>{formatDateTime(l.created_at)}</td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="td">{l.name}</td>
+                  <td className="td">{l.description || '—'}</td>
+                  <td className="td">{formatDateTime(l.created_at)}</td>
+                  <td className="td text-right nowrap">
                     <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit location ${l.name}`} onClick={() => handleEdit(l)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete location ${l.name}`} onClick={() => handleDelete(l)} variant="danger" />
@@ -196,7 +171,7 @@ export default function LocationsList() {
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={5}>No locations found</td>
+                  <td className="td" colSpan={5}>No locations found</td>
                 </tr>
               )}
             </tbody>

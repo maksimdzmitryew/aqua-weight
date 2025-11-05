@@ -2,32 +2,15 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import { useTheme } from '../ThemeContext.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import { dailyApi } from '../api/daily'
 
 export default function DailyCare() {
   const navigate = useNavigate()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
 
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,39 +43,38 @@ export default function DailyCare() {
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
         onRefresh={load}
-        isDark={isDark}
       />
-      <button onClick={() => navigate('/measurements/bulk/weight')}>Start Bulk Measurement</button>
+      <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Start Bulk Measurement</button>
       <p>Today's suggested care actions for your plants.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
               <tr>
-                  <th style={th}>Location</th>
-                  <th style={th}>Plant</th>
-                  <th style={th}>Task</th>
-                  <th style={th}>When</th>
-                <th style={th}>Notes</th>
+                  <th className="th">Location</th>
+                  <th className="th">Plant</th>
+                  <th className="th">Task</th>
+                  <th className="th">When</th>
+                <th className="th">Notes</th>
               </tr>
             </thead>
             <tbody>
               {tasks.map((t, i) => (
                 <tr key={t.id ?? t.uuid ?? i}>
-                    <td style={td}>{t.location || '—'}</td>
-                    <td style={td}>{t.name || t.plant || '—'}</td>
-                    <td style={td}>{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
-                    <td style={td}>{formatDateTime(t.scheduled_for || t.due_at || t.created_at || t.updated_at) || '—'}</td>
-                  <td style={td}>{t.notes || t.reason || '—'}</td>
+                    <td className="td">{t.location || '—'}</td>
+                    <td className="td">{t.name || t.plant || '—'}</td>
+                    <td className="td">{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
+                    <td className="td">{formatDateTime(t.scheduled_for || t.due_at || t.created_at || t.updated_at) || '—'}</td>
+                  <td className="td">{t.notes || t.reason || '—'}</td>
                 </tr>
               ))}
               {tasks.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={4}>No tasks for today</td>
+                  <td className="td" colSpan={4}>No tasks for today</td>
                 </tr>
               )}
             </tbody>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
@@ -16,26 +15,10 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
-
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -120,13 +103,6 @@ export default function PlantsList() {
     setDragIndex(null)
   }
 
-  const handleStyle = {
-    cursor: 'grab',
-    color: isDark ? '#9ca3af' : '#6b7280',
-    paddingRight: 6,
-    userSelect: 'none',
-  }
-
   function getWaterLossCellStyle(waterLossPct) {
     if (waterLossPct > 100) {
       return {
@@ -186,27 +162,26 @@ export default function PlantsList() {
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
         onCreate={() => navigate('/plants/new')}
-        isDark={isDark}
       />
 
       <p>List of all available plants fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
-      {saveError && !loading && <div style={{ color: 'crimson' }}>{saveError}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
+      {saveError && !loading && <div className="text-danger">{saveError}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
               <tr>
-                <th style={th}></th>
-                <th style={th}>Care and Water loss</th>
-                <th style={th}>Name</th>
-                <th style={th}>Description</th>
-                <th style={th}>Location</th>
-                <th style={th}>Updated</th>
-                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                <th className="th"></th>
+                <th className="th">Care and Water loss</th>
+                <th className="th">Name</th>
+                <th className="th">Description</th>
+                <th className="th">Location</th>
+                <th className="th">Updated</th>
+                <th className="th right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -217,44 +192,44 @@ export default function PlantsList() {
                     onDragEnd={onDragEnd}
                     onDragOver={(e) => onDragOver(e, idx)}
                 >
-                  <td style={{ ...td, width: 24 }}>
+                  <td className="td" style={{ width: 24 }}>
                     <span
-                      style={handleStyle}
+                      className="drag-handle"
                       title="Drag to reorder"
                       aria-label="Drag to reorder"
                     >⋮⋮</span>
                   </td>
-                  <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
+                  <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
                     <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                     {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'inline-block', textAlign: 'right', width: '40%', paddingTop: '4px' }}>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                           {p.water_loss_total_pct}%
                       </Link>
                     ) : (
                       p.water_loss_total_pct
                     )}
                   </td>
-                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                  <td className="td" title={p.uuid ? 'View plant' : undefined}>
                       {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                           {p.name}
                       </Link>
                     ) : (
                       p.name
                     )}
                   </td>
-                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                  <td className="td" title={p.uuid ? 'View plant' : undefined}>
                     {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                           {p.description || '—'}
                       </Link>
                     ) : (
                       p.description || '—'
                     )}
                   </td>
-                  <td style={td}>{p.location || '—'}</td>
-                  <td style={td}>{formatDateTime(p.created_at)}</td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="td">{p.location || '—'}</td>
+                  <td className="td">{formatDateTime(p.created_at)}</td>
+                  <td className="td text-right nowrap">
                     <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
@@ -263,7 +238,7 @@ export default function PlantsList() {
               ))}
               {plants.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={6}>No plants found</td>
+                  <td className="td" colSpan={6}>No plants found</td>
                 </tr>
               )}
             </tbody>

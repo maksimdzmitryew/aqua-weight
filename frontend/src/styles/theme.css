@@ -1,0 +1,186 @@
+/* Theme variables and basic UI classes */
+
+:root {
+  --bg: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --sidebar-bg: #f3f4f6;
+  --sidebar-text: #111827;
+  --link-bg: #e5e7eb;
+  --link-bg-active: #d1d5db;
+  --link-text: #111827;
+  --back-link: #1d4ed8;
+  --border: #e5e7eb;
+  --table-row-border: #f3f4f6;
+  --table-head-bg: #f9fafb;
+  --button-primary-bg: #111827;
+  --button-primary-text: #ffffff;
+  --button-secondary-bg: #ffffff;
+  --button-secondary-text: #111827;
+  --danger: #dc2626;
+  --success-bg: #d1fae5;
+  --error-bg: #fee2e2;
+  --warning-bg: #fef3c7;
+  --info-bg: #bbf7d0;
+  --input-bg: #ffffff;
+  --input-text: #111827;
+}
+
+[data-theme="dark"] {
+  --bg: #0b1220;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --sidebar-bg: #0f172a;
+  --sidebar-text: #ffffff;
+  --link-bg: #111827;
+  --link-bg-active: #1f2937;
+  --link-text: inherit;
+  --back-link: #93c5fd;
+  --border: #374151;
+  --table-row-border: #1f2937;
+  --table-head-bg: #111827;
+  --button-primary-bg: #1f2937;
+  --button-primary-text: #ffffff;
+  --button-secondary-bg: #0b0f16;
+  --button-secondary-text: #e5e7eb;
+  --input-bg: #1f2937;
+  --input-text: #e5e7eb;
+}
+
+/* Layout */
+.layout {
+  display: flex;
+  min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  background: var(--bg);
+  color: var(--text);
+}
+.sidebar {
+  width: 240px;
+  background: var(--sidebar-bg);
+  color: var(--sidebar-text);
+  padding: 16px;
+  box-sizing: border-box;
+}
+.sidebar-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.nav-link {
+  display: block;
+  color: var(--link-text);
+  text-decoration: none;
+  padding: 10px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  background: var(--link-bg);
+  cursor: pointer;
+}
+.nav-link.active {
+  background: var(--link-bg-active);
+}
+.back-link {
+  color: var(--back-link);
+}
+.main {
+  flex: 1;
+  padding: 24px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Page header */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-header h1 {
+  margin: 0;
+}
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-primary {
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+}
+.btn-secondary {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border-color: var(--border);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Tables */
+.table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.th {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--table-head-bg);
+  color: var(--text);
+  font-weight: 600;
+}
+.th.right { text-align: right; }
+.td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--table-row-border);
+}
+
+/* Text */
+.text-danger { color: var(--danger); }
+.text-muted { color: var(--muted); }
+
+/* Helpers */
+.overflow-x-auto { overflow-x: auto; }
+.grid { display: grid; }
+.grid-cols-2 { grid-template-columns: 160px 1fr; }
+.gap-x-4 { column-gap: 16px; }
+.gap-y-2 { row-gap: 10px; }
+.mt-0 { margin-top: 0; }
+.mt-4 { margin-top: 16px; }
+.mb-0 { margin-bottom: 0; }
+.flex { display: flex; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.text-right { text-align: right; }
+.nowrap { white-space: nowrap; }
+.block-link { cursor: pointer; color: inherit; text-decoration: none; display: block; }
+.drag-handle { cursor: grab; padding-right: 6px; user-select: none; color: var(--muted); }
+.input {
+  width: 100%;
+  min-width: 55px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--input-text);
+  box-sizing: border-box;
+}
+.bg-success { background: var(--success-bg) !important; }
+.bg-error { background: var(--error-bg) !important; }
+.card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+.fw-600 { font-weight: 600; }

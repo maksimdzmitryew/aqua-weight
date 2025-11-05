@@ -17,6 +17,7 @@ import RepottingCreate from './pages/RepottingCreate.jsx'
 import PlantDetails from './pages/PlantDetails.jsx'
 import DailyCare from './pages/DailyCare.jsx'
 import BulkWeightMeasurement from './pages/BulkWeightMeasurement.jsx'
+import './styles/theme.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

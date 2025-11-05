@@ -1,35 +1,22 @@
 import React from 'react'
-import { useTheme } from '../ThemeContext.jsx'
 
-const PageHeader = ({ title, onBack, titleBack, onRefresh, onCreate, isDark, children }) => {
+const PageHeader = ({ title, onBack, titleBack, onRefresh, onCreate, children }) => {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <h1 style={{ marginTop: 0, marginBottom: 0 }}>{title}</h1>
-      <div style={{ display: 'flex', gap: 8 }}>
+    <div className="page-header">
+      <h1 className="mb-0">{title}</h1>
+      <div className="actions">
         {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', cursor: 'pointer', background: isDark ? '#0b0f16' : '#fff', color: isDark ? '#e5e7eb' : '#111827' }}
-          >
+          <button type="button" onClick={onBack} className="btn btn-secondary">
             ← {titleBack}
           </button>
         )}
         {onRefresh && (
-          <button
-            type="button"
-            onClick={onRefresh}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
-          >
+          <button type="button" onClick={onRefresh} className="btn btn-primary">
             Refresh
           </button>
         )}
         {onCreate && (
-          <button
-            type="button"
-            onClick={onCreate}
-            style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}
-          >
+          <button type="button" onClick={onCreate} className="btn btn-primary">
             + Create
           </button>
         )}
