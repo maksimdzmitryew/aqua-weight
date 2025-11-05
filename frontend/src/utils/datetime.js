@@ -22,3 +22,15 @@ export function formatDateTime(v) {
     return String(v)
   }
 }
+
+// Returns current local datetime formatted for <input type="datetime-local">, to minutes precision.
+export function nowLocalISOMinutes() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const y = d.getFullYear()
+  const m = pad(d.getMonth() + 1)
+  const day = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mm = pad(d.getMinutes())
+  return `${y}-${m}-${day}T${hh}:${mm}`
+}

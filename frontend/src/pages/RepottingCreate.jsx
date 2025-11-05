@@ -4,17 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
+import { nowLocalISOMinutes } from '../utils/datetime.js'
 
-function nowLocalValue() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  const y = d.getFullYear()
-  const m = pad(d.getMonth() + 1)
-  const day = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mm = pad(d.getMinutes())
-  return `${y}-${m}-${day}T${hh}:${mm}`
-}
 
 const RepottingCreate = () => {
   const [search] = useSearchParams()
@@ -26,7 +17,7 @@ const RepottingCreate = () => {
   
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState(preselect || '')
-  const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
+  const [measuredAt, setMeasuredAt] = useState(nowLocalISOMinutes())
   const [lastWet, setLastWet] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)

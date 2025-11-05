@@ -4,17 +4,13 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
-
-function nowLocalValue() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  const y = d.getFullYear()
-  const m = pad(d.getMonth() + 1)
-  const day = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mm = pad(d.getMinutes())
-  return `${y}-${m}-${day}T${hh}:${mm}`
-}
+import { nowLocalISOMinutes } from '../utils/datetime.js'
+import { useForm, required, minNumber, optionalHexLen } from '../components/form/useForm.js'
+import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
+import Select from '../components/form/fields/Select.jsx'
+import NumberInput from '../components/form/fields/NumberInput.jsx'
+import Checkbox from '../components/form/fields/Checkbox.jsx'
+import TextInput from '../components/form/fields/TextInput.jsx'
 
 export default function MeasurementCreate() {
   const [search] = useSearchParams()
@@ -26,16 +22,19 @@ export default function MeasurementCreate() {
   const isDark = effectiveTheme === 'dark'
 
   const [plants, setPlants] = useState([])
-  const [plantId, setPlantId] = useState(preselect || '')
-  const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
-  const [measuredWeight, setMeasuredWeight] = useState('')
-  const [methodId, setMethodId] = useState('')
-  const [useLastMethod, setUseLastMethod] = useState(true)
-  const [scaleId, setScaleId] = useState('')
-  const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const isEdit = !!editId
+
+  const form = useForm({
+    plant_id: preselect || '',
+    measured_at: nowLocalISOMinutes(),
+    measured_weight_g: '',
+    method_id: '',
+    use_last_method: true,
+    scale_id: '',
+    note: '',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -52,7 +51,7 @@ export default function MeasurementCreate() {
   }, [])
 
   useEffect(() => {
-    if (preselect) setPlantId(preselect)
+    if (preselect) form.setValue('plant_id', preselect)
   }, [preselect])
 
   // Load existing measurement in edit mode
@@ -63,17 +62,17 @@ export default function MeasurementCreate() {
       try {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
-        if (data?.plant_id) setPlantId(data.plant_id)
-        if (data?.measured_at) {
-          // convert "YYYY-MM-DD HH:MM:SS" to datetime-local "YYYY-MM-DDTHH:MM"
-          const s = String(data.measured_at).replace(' ', 'T').slice(0, 16)
-          setMeasuredAt(s)
-        }
-        if (data?.measured_weight_g != null) setMeasuredWeight(String(data.measured_weight_g))
-        if (data?.method_id) setMethodId(data.method_id)
-        if (data?.use_last_method != null) setUseLastMethod(!!data.use_last_method)
-        if (data?.scale_id) setScaleId(data.scale_id)
-        if (data?.note != null) setNote(String(data.note))
+        const measured_at = data?.measured_at ? String(data.measured_at).replace(' ', 'T').slice(0, 16) : form.values.measured_at
+        form.setValues({
+          ...form.values,
+          plant_id: data?.plant_id || form.values.plant_id,
+          measured_at,
+          measured_weight_g: data?.measured_weight_g != null ? String(data.measured_weight_g) : '',
+          method_id: data?.method_id || '',
+          use_last_method: data?.use_last_method != null ? !!data.use_last_method : true,
+          scale_id: data?.scale_id || '',
+          note: data?.note != null ? String(data.note) : '',
+        })
       } catch (_) {
         // ignore for now
       }
@@ -82,24 +81,18 @@ export default function MeasurementCreate() {
     return () => { cancelled = true }
   }, [isEdit, editId])
 
-  const canSave = useMemo(() => {
-    return plantId && measuredAt
-  }, [plantId, measuredAt])
-
-  async function onSubmit(e) {
-    e.preventDefault()
-    if (!canSave) return
+  const onSubmit = form.handleSubmit(async (vals) => {
     setSaving(true)
     setError('')
     try {
       const payload = {
-        plant_id: plantId,
-        measured_at: measuredAt,
-        measured_weight_g: measuredWeight ? Number(measuredWeight) : null,
-        method_id: methodId || null,
-        use_last_method: !!useLastMethod,
-        scale_id: scaleId || null,
-        note: note || null,
+        plant_id: vals.plant_id,
+        measured_at: vals.measured_at,
+        measured_weight_g: vals.measured_weight_g !== '' ? Number(vals.measured_weight_g) : null,
+        method_id: vals.method_id || null,
+        use_last_method: !!vals.use_last_method,
+        scale_id: vals.scale_id || null,
+        note: vals.note || null,
       }
       if (isEdit) {
         await measurementsApi.weight.update(editId, payload)
@@ -114,60 +107,33 @@ export default function MeasurementCreate() {
     } finally {
       setSaving(false)
     }
-  }
-
-  const labelStyle = { display: 'block', marginBottom: 4, fontWeight: 600 }
-  const inputStyle = {
-    width: '100%', padding: '8px 10px', borderRadius: 6,
-    border: isDark ? '1px solid #374151' : '1px solid #d1d5db',
-    background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827'
-  }
+  })
 
   return (
     <DashboardLayout title={isEdit ? 'Edit Measurement' : 'New Measurement'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
-              <option value="">Select plant…</option>
-              {plants.map(p => (
-                <option key={p.uuid} value={p.uuid}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Measured weight (g)</label>
-            <input type="number" value={measuredWeight} onChange={(e)=>setMeasuredWeight(e.target.value)} style={inputStyle} min={0} />
-          </div>
-          <div>
-            <label style={labelStyle}>Use last method</label>
-            <input type="checkbox" checked={useLastMethod} onChange={(e)=>setUseLastMethod(e.target.checked)} />
-          </div>
-          <div>
-          </div>
-          <div>
-            <label style={labelStyle}>Method (optional, hex id)</label>
-            <input type="text" value={methodId} onChange={(e)=>setMethodId(e.target.value)} style={inputStyle} placeholder="32-char hex" />
-          </div>
-          <div>
-          </div>
-          <div>
-            <label style={labelStyle}>Scale (optional, hex id)</label>
-            <input type="text" value={scaleId} onChange={(e)=>setScaleId(e.target.value)} style={inputStyle} placeholder="32-char hex" />
-          </div>
+          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
+          <Select form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit}>
+            <option value="">Select plant…</option>
+            {plants.map(p => (
+              <option key={p.uuid} value={p.uuid}>{p.name}</option>
+            ))}
+          </Select>
+          <NumberInput form={form} name="measured_weight_g" label="Measured weight (g)" min={0} validators={[minNumber(0)]} />
+          <Checkbox form={form} name="use_last_method" label="Use last method" />
+          <div />
+          <TextInput form={form} name="method_id" label="Method (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
+          <div />
+          <TextInput form={form} name="scale_id" label="Scale (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={labelStyle}>Note</label>
-            <textarea value={note} onChange={(e)=>setNote(e.target.value)} style={{...inputStyle, height: 100}} />
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Note</label>
+            <textarea {...form.register('note')} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: isDark ? '1px solid #374151' : '1px solid #d1d5db', background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827', height: 100 }} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update measurement' : 'Save measurement'}</button>
+          <button disabled={!form.valid || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update measurement' : 'Save measurement'}</button>
           <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
         </div>
       </form>
