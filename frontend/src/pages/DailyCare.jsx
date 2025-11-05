@@ -4,6 +4,7 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useTheme } from '../ThemeContext.jsx'
 import { formatDateTime } from '../utils/datetime.js'
+import { dailyApi } from '../api/daily'
 
 export default function DailyCare() {
   const navigate = useNavigate()
@@ -32,14 +33,11 @@ export default function DailyCare() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/daily')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      // Accept either an array or an object with a `items` array
+      const data = await dailyApi.list()
       const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
       setTasks(list)
     } catch (e) {
-      setError('Failed to load today\'s tasks')
+      setError(e?.message || 'Failed to load today\'s tasks')
     } finally {
       setLoading(false)
     }

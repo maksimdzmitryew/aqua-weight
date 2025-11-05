@@ -5,6 +5,8 @@ import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { formatDateTime } from '../utils/datetime.js'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])
@@ -22,10 +24,8 @@ export default function BulkWeightMeasurement() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -46,45 +46,23 @@ export default function BulkWeightMeasurement() {
       // Check if we already have a measurement ID for this plant
       const existingId = measurementIds[plantId];
 
-      let response;
+      let data;
+      const payload = {
+        plant_id: plantId,
+        measured_weight_g: Number(weightValue),
+        measured_at: new Date().toISOString().replace('Z', ''),
+      };
+
       if (existingId) {
-        // Update existing measurement
-        const payload = {
-          plant_id: plantId,
-          measured_weight_g: Number(weightValue),
-          measured_at: new Date().toISOString().replace('Z', '')
-        };
-
-        response = await fetch(`/api/measurements/weight/${existingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        data = await measurementsApi.weight.update(existingId, payload)
       } else {
-        // Create new measurement
-        const payload = {
-          plant_id: plantId,
-          measured_weight_g: Number(weightValue),
-          measured_at: new Date().toISOString().replace('Z', '')
-        };
-
-        response = await fetch('/api/measurements/weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
+        data = await measurementsApi.weight.create(payload)
       }
 
-      if (!response.ok) {
-        throw new Error('Failed to save measurement');
+      // Handle possible wrapped structure { status, data }
+      if (data && data.status === 'success' && data.data) {
+        data = data.data
       }
-
-      // Get the response data
-      const result = await response.json();
-
-      // Handle new response structure
-      const data = result.status === 'success' ? result.data : result;
 
       // Update the plant state with new water loss and weight data
       setPlants(prevPlants => prevPlants.map(p => {

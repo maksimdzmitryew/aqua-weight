@@ -6,6 +6,7 @@ import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader.jsx'
+import { locationsApi } from '../api/locations'
 
 export default function LocationsList() {
   const [locations, setLocations] = useState([])
@@ -35,22 +36,23 @@ export default function LocationsList() {
   }
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
-        const res = await fetch('/api/locations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setLocations(data)
+        const data = await locationsApi.list(controller.signal)
+        setLocations(Array.isArray(data) ? data : [])
       } catch (e) {
-        if (!cancelled) setError('Failed to load locations')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load locations')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [])
 
@@ -90,18 +92,9 @@ export default function LocationsList() {
     const orderedIds = newList.map((l) => l.uuid).filter(Boolean)
     if (orderedIds.length !== newList.length) return // cannot persist without uuids
     try {
-      const res = await fetch('/api/locations/order', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordered_ids: orderedIds }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to save order (HTTP ${res.status})`)
-      }
+      await locationsApi.reorder(orderedIds)
     } catch (e) {
-      setSaveError(e.message || 'Failed to save order')
+      setSaveError(e?.message || 'Failed to save order')
     }
   }
 
@@ -143,16 +136,10 @@ export default function LocationsList() {
         setSaveError('Cannot delete this location: missing identifier')
         return
       }
-      const res = await fetch(`/api/locations/${uuid}`, { method: 'DELETE' })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to delete (HTTP ${res.status})`)
-      } else {
-        setLocations((prev) => prev.filter((it) => it.id !== toDelete.id))
-      }
+      await locationsApi.remove(uuid)
+      setLocations((prev) => prev.filter((it) => it.id !== toDelete.id))
     } catch (e) {
-      setSaveError(e.message || 'Failed to delete location')
+      setSaveError(e?.message || 'Failed to delete location')
     } finally {
       closeDialog()
     }

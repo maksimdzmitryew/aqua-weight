@@ -29,7 +29,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/plants" element={<PlantsList />} />
           <Route path="/plants/new" element={<PlantCreate />} />
           <Route path="/plants/:uuid" element={<PlantDetails />} />
-          <Route path="/plants/:id/edit" element={<PlantEdit />} />
+          <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
           <Route path="/locations" element={<LocationsList />} />
           <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />

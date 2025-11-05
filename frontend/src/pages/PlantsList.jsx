@@ -8,6 +8,7 @@ import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { Link } from 'react-router-dom'
+import { plantsApi } from '../api/plants'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -37,22 +38,23 @@ export default function PlantsList() {
   }
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list(controller.signal)
+        setPlants(Array.isArray(data) ? data : [])
       } catch (e) {
-        if (!cancelled) setError('Failed to load plants')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load plants')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [])
 
@@ -73,7 +75,9 @@ export default function PlantsList() {
   }
 
   function handleEdit(p) {
-    navigate(`/plants/${p.id}/edit`, { state: { plant: p } })
+    const uid = p?.uuid || p?.id
+    if (!uid) return
+    navigate(`/plants/${uid}/edit`, { state: { plant: p } })
   }
 
   function handleDelete(p) {
@@ -93,18 +97,9 @@ export default function PlantsList() {
     const orderedIds = newList.map((p) => p.uuid).filter(Boolean)
     if (orderedIds.length !== newList.length) return
     try {
-      const res = await fetch('/api/plants/order', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordered_ids: orderedIds }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to save order (HTTP ${res.status})`)
-      }
+      await plantsApi.reorder(orderedIds)
     } catch (e) {
-      setSaveError(e.message || 'Failed to save order')
+      setSaveError(e?.message || 'Failed to save order')
     }
   }
 
@@ -175,16 +170,10 @@ export default function PlantsList() {
         setSaveError('Cannot delete this plant: missing identifier')
         return
       }
-      const res = await fetch(`/api/plants/${uuid}`, { method: 'DELETE' })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to delete (HTTP ${res.status})`)
-      } else {
-        setPlants((prev) => prev.filter((it) => it.id !== toDelete.id))
-      }
+      await plantsApi.remove(uuid)
+      setPlants((prev) => prev.filter((it) => it.id !== toDelete.id))
     } catch (e) {
-      setSaveError(e.message || 'Failed to delete plant')
+      setSaveError(e?.message || 'Failed to delete plant')
     } finally {
       closeDialog()
     }

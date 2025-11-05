@@ -471,6 +471,13 @@ async def update_plant(id_hex: str, payload: PlantUpdate):
         conn = get_db_connection()
         try:
             with conn.cursor() as cur:
+                # First, verify that the plant exists. MySQL may return rowcount=0 when values are unchanged,
+                # so we cannot rely on UPDATE rowcount to decide existence.
+                cur.execute("SELECT 1 FROM plants WHERE id=UNHEX(%s) LIMIT 1", (id_hex,))
+                exists = cur.fetchone()
+                if not exists:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+
                 sql = (
                     "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
                 )
@@ -493,8 +500,7 @@ async def update_plant(id_hex: str, payload: PlantUpdate):
                     id_hex,
                 )
                 cur.execute(sql, params)
-                if cur.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Plant not found")
+                # Do not raise 404 on rowcount=0; it can happen when data is unchanged.
         finally:
             conn.close()
 

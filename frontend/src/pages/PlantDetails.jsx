@@ -7,6 +7,8 @@ import { useTheme } from '../ThemeContext.jsx'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
 
 export default function PlantDetails() {
   const { uuid } = useParams()
@@ -25,22 +27,23 @@ export default function PlantDetails() {
   const [toDeleteMeas, setToDeleteMeas] = useState(null)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       if (!uuid) { setError('Missing id'); setLoading(false); return }
       try {
-        const res = await fetch(`/api/plants/${uuid}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlant(data)
+        const data = await plantsApi.getByUuid(uuid, controller.signal)
+        setPlant(data)
       } catch (e) {
-        if (!cancelled) setError('Failed to load plant')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load plant')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     if (!plant) load()
-    return () => { cancelled = true }
+    return () => { controller.abort() }
   }, [uuid])
 
   const fetchMeasurements = useCallback(async () => {
@@ -48,12 +51,10 @@ export default function PlantDetails() {
     setMeasLoading(true)
     setMeasError('')
     try {
-      const res = await fetch(`/api/plants/${uuid}/measurements`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data = await measurementsApi.listByPlant(uuid)
       setMeasurements(Array.isArray(data) ? data : [])
     } catch (e) {
-      setMeasError('Failed to load measurements')
+      setMeasError(e?.message || 'Failed to load measurements')
     } finally {
       setMeasLoading(false)
     }
@@ -99,12 +100,9 @@ export default function PlantDetails() {
   async function confirmDeleteMeasurement() {
     if (!toDeleteMeas?.id) { closeMeasDialog(); return }
     try {
-      const res = await fetch(`/api/measurements/${toDeleteMeas.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        // optional: could show error
-      }
+      await measurementsApi.delete(toDeleteMeas.id)
     } catch (e) {
-      // ignore
+      // ignore optional error display
     } finally {
       await fetchMeasurements()
       closeMeasDialog()

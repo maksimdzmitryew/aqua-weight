@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
 
 function nowLocalValue() {
   const d = new Date()
@@ -36,10 +38,8 @@ const RepottingCreate = () => {
     let cancelled = false
     async function loadPlants() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (_) {
         if (!cancelled) setError('Failed to load plants')
       }
@@ -53,9 +53,7 @@ const RepottingCreate = () => {
     async function loadRepottingEvent() {
       if (!isEdit) return
       try {
-        const res = await fetch(`/api/events/repotting/${editId}`)
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
+        const data = await measurementsApi.repotting.get(editId)
         if (cancelled) return
         setPlantId(data.plant_id)
         setMeasuredAt(data.measured_at)
@@ -88,17 +86,10 @@ const RepottingCreate = () => {
         measured_weight_g: weightBeforeRepotting !== '' ? Number(weightBeforeRepotting) : null,
         last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
       }
-      const url = isEdit ? `/api/measurements/repotting/${editId}` : '/api/measurements/repotting'
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
-        throw new Error(detail || `Save failed (HTTP ${res.status})`)
+      if (isEdit) {
+        await measurementsApi.repotting.update(editId, payload)
+      } else {
+        await measurementsApi.repotting.create(payload)
       }
       navigate(`/plants/${plantId}`)
     } catch (e) {

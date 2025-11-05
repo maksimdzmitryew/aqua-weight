@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
 
 function nowLocalValue() {
   const d = new Date()
@@ -39,10 +41,8 @@ export default function MeasurementCreate() {
     let cancelled = false
     async function loadPlants() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (_) {
         if (!cancelled) setError('Failed to load plants')
       }
@@ -61,9 +61,7 @@ export default function MeasurementCreate() {
     async function loadExisting() {
       if (!isEdit) return
       try {
-        const res = await fetch(`/api/measurements/${editId}`)
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
+        const data = await measurementsApi.getById(editId)
         if (cancelled) return
         if (data?.plant_id) setPlantId(data.plant_id)
         if (data?.measured_at) {
@@ -103,17 +101,10 @@ export default function MeasurementCreate() {
         scale_id: scaleId || null,
         note: note || null,
       }
-      const url = isEdit ? `/api/measurements/weight/${editId}` : '/api/measurements/weight'
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
-        throw new Error(detail || `Save failed (HTTP ${res.status})`)
+      if (isEdit) {
+        await measurementsApi.weight.update(editId, payload)
+      } else {
+        await measurementsApi.weight.create(payload)
       }
       const from = location.state?.from;
       if (from) navigate(from);

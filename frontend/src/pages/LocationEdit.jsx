@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
 import { formatDateTime } from '../utils/datetime.js'
+import { locationsApi } from '../api/locations'
 
 export default function LocationEdit() {
   const { id } = useParams()
@@ -20,29 +21,25 @@ export default function LocationEdit() {
   const numericId = Number(id)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       if (loc) return
       setLoading(true)
       try {
-        const res = await fetch('/api/locations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        const found = data.find((l) => l.id === numericId)
+        const data = await locationsApi.list(controller.signal)
+        const found = (Array.isArray(data) ? data : []).find((l) => l.id === numericId)
         if (!found) throw new Error('Location not found')
-        if (!cancelled) {
-          setLoc(found)
-          setOriginalName(found.name || '')
-        }
+        setLoc(found)
+        setOriginalName(found.name || '')
       } catch (e) {
-        if (!cancelled) setError('Failed to load location')
+        setError(e?.message || 'Failed to load location')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [numericId, loc])
 
@@ -66,28 +63,16 @@ export default function LocationEdit() {
     try {
       setError('')
       setFieldErrors({})
-      const res = await fetch('/api/locations/by-name', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ original_name: originalName || loc.name, name: newName }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try {
-          const data = await res.json()
-          detail = (data && data.detail) || ''
-        } catch (_) {
-          try {
-            detail = await res.text()
-          } catch (_) {
-            detail = ''
-          }
-        }
-        if (res.status === 400 || res.status === 409) {
-          setFieldErrors({ name: detail || (res.status === 409 ? 'Location name already exists' : 'Invalid name') })
+      try {
+        await locationsApi.updateByName(originalName || loc.name, newName)
+      } catch (e) {
+        const msg = e?.detail || e?.message || 'Failed to save'
+        // Map known validation/conflict to field error
+        if (e?.status === 400 || e?.status === 409) {
+          setFieldErrors({ name: msg })
           return
         }
-        setError(detail || `Failed to save (HTTP ${res.status})`)
+        setError(msg)
         return
       }
       // Optimistically navigate back with updated state for UI
