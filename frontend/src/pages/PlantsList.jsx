@@ -61,7 +61,7 @@ export default function PlantsList() {
   useEffect(() => {
     const updated = routerLocation.state && routerLocation.state.updatedPlant
     if (updated) {
-      setPlants((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
+      setPlants((prev) => prev.map((it) => (it.uuid === updated.uuid ? updated : it)))
       // clear navigation state to avoid reapplying on refresh/back
       try {
         window.history.replaceState({}, document.title, routerLocation.pathname)
@@ -75,7 +75,7 @@ export default function PlantsList() {
   }
 
   function handleEdit(p) {
-    const uid = p?.uuid || p?.id
+    const uid = p?.uuid
     if (!uid) return
     navigate(`/plants/${uid}/edit`, { state: { plant: p } })
   }
@@ -171,7 +171,7 @@ export default function PlantsList() {
         return
       }
       await plantsApi.remove(uuid)
-      setPlants((prev) => prev.filter((it) => it.id !== toDelete.id))
+      setPlants((prev) => prev.filter((it) => it.uuid !== toDelete.uuid))
     } catch (e) {
       setSaveError(e?.message || 'Failed to delete plant')
     } finally {
@@ -211,7 +211,7 @@ export default function PlantsList() {
             </thead>
             <tbody>
               {plants.map((p, idx) => (
-                <tr key={p.id}
+                <tr key={p.uuid || idx}
                     draggable
                     onDragStart={() => onDragStart(idx)}
                     onDragEnd={onDragEnd}

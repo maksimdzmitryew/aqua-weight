@@ -29,7 +29,7 @@ export default function PlantDetails() {
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
-      if (!uuid) { setError('Missing id'); setLoading(false); return }
+      if (!uuid) { setError('Missing uuid'); setLoading(false); return }
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(data)
