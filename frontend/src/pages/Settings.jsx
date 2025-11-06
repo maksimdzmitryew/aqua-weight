@@ -49,8 +49,9 @@ export default function Settings() {
 
       <form onSubmit={save} style={{ maxWidth: 520 }}>
         <div style={fieldRow}>
-          <label style={label}>Display name</label>
+          <label style={label} htmlFor="display_name">Display name</label>
           <input
+            id="display_name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -59,16 +60,16 @@ export default function Settings() {
           />
         </div>
         <div style={fieldRow}>
-          <label style={label}>Theme</label>
-          <select value={theme} onChange={(e) => setTheme(e.target.value)} style={styles.input}>
+          <label style={label} htmlFor="theme">Theme</label>
+          <select id="theme" value={theme} onChange={(e) => setTheme(e.target.value)} style={styles.input}>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
             <option value="system">System</option>
           </select>
         </div>
         <div style={fieldRow}>
-          <label style={label}>Date/Time format</label>
-          <select value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={styles.input}>
+          <label style={label} htmlFor="dt_format">Date/Time format</label>
+          <select id="dt_format" value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={styles.input}>
             <option value="europe">Europe (DD/MM/YYYY 24h)</option>
             <option value="usa">USA (MM/DD/YYYY 12h)</option>
           </select>

@@ -128,8 +128,8 @@ export default function MeasurementCreate() {
           <div />
           <TextInput form={form} name="scale_id" label="Scale (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Note</label>
-            <textarea {...form.register('note')} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: isDark ? '1px solid #374151' : '1px solid #d1d5db', background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827', height: 100 }} />
+            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Note</label>
+            <textarea id="note" {...form.register('note')} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: isDark ? '1px solid #374151' : '1px solid #d1d5db', background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827', height: 100 }} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>

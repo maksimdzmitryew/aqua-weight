@@ -103,8 +103,8 @@ const RepottingCreate = () => {
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
+            <label style={labelStyle} htmlFor="plant_id">Plant</label>
+            <select id="plant_id" value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
               <option value="">Select plant…</option>
               {plants.map(p => (
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>
@@ -112,18 +112,18 @@ const RepottingCreate = () => {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
+            <label style={labelStyle} htmlFor="measured_at">Measured at</label>
+            <input id="measured_at" type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
 
           <div>
-            <label style={labelStyle}>Weight before repotting (g)</label> {/* No need to rename the label as it already matches the new variable name */}
-            <input type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
+            <label style={labelStyle} htmlFor="weight_before_repotting_g">Weight before repotting (g)</label>
+            <input id="weight_before_repotting_g" type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
           </div>
           
           <div>
-            <label style={labelStyle}>Weight after repotting (g)</label>
-            <input type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
+            <label style={labelStyle} htmlFor="last_wet_weight_g">Weight after repotting (g)</label>
+            <input id="last_wet_weight_g" type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>

@@ -106,6 +106,21 @@ export default function PlantsList() {
     setDragIndex(null)
   }
 
+  function moveItem(from, to) {
+    if (from === to || from < 0 || to < 0 || from >= plants.length || to >= plants.length) return
+    const newList = reorder(plants, from, to)
+    setPlants(newList)
+    persistOrder(newList)
+  }
+
+  function moveUp(index) {
+    moveItem(index, index - 1)
+  }
+
+  function moveDown(index) {
+    moveItem(index, index + 1)
+  }
+
   function getWaterLossCellStyle(waterLossPct) {
     if (waterLossPct > 100) {
       return {
@@ -183,13 +198,13 @@ export default function PlantsList() {
             <table className="table">
               <thead>
                 <tr>
-                  <th className="th"></th>
-                  <th className="th">Care and Water loss</th>
-                  <th className="th">Name</th>
-                  <th className="th">Description</th>
-                  <th className="th">Location</th>
-                  <th className="th">Updated</th>
-                  <th className="th right">Actions</th>
+                  <th className="th" scope="col"></th>
+                  <th className="th" scope="col">Care and Water loss</th>
+                  <th className="th" scope="col">Name</th>
+                  <th className="th" scope="col">Description</th>
+                  <th className="th" scope="col">Location</th>
+                  <th className="th" scope="col">Updated</th>
+                  <th className="th right" scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -200,12 +215,29 @@ export default function PlantsList() {
                       onDragEnd={onDragEnd}
                       onDragOver={(e) => onDragOver(e, idx)}
                   >
-                    <td className="td" style={{ width: 24 }}>
+                    <td className="td" style={{ width: 80 }}>
                       <span
                         className="drag-handle"
                         title="Drag to reorder"
                         aria-label="Drag to reorder"
+                        style={{ marginRight: 8 }}
                       >⋮⋮</span>
+                      <button
+                        type="button"
+                        onClick={() => moveUp(idx)}
+                        disabled={idx === 0}
+                        aria-label={`Move ${p.name} up`}
+                        title="Move up"
+                        style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
+                      >↑</button>
+                      <button
+                        type="button"
+                        onClick={() => moveDown(idx)}
+                        disabled={idx === plants.length - 1}
+                        aria-label={`Move ${p.name} down`}
+                        title="Move down"
+                        style={{ padding: '2px 6px', borderRadius: 4 }}
+                      >↓</button>
                     </td>
                     <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
                       <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTheme } from '../../../ThemeContext.jsx'
 
-export default function Checkbox({ form, name, label, disabled, validators, ...rest }) {
+export default function Checkbox({ form, name, label, disabled, validators, required, ...rest }) {
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
   const reg = form.register(name, { validators, type: 'checkbox' })
@@ -12,11 +12,20 @@ export default function Checkbox({ form, name, label, disabled, validators, ...r
 
   return (
     <div>
-      <label style={labelStyle}>
-        <input type="checkbox" disabled={disabled} {...reg} {...rest} />
+      <label htmlFor={name} style={labelStyle}>
+        <input
+          id={name}
+          type="checkbox"
+          disabled={disabled}
+          aria-invalid={!!error}
+          aria-describedby={error ? `${name}-error` : undefined}
+          required={required}
+          {...reg}
+          {...rest}
+        />
         <span>{label}</span>
       </label>
-      {error && <div style={errStyle}>{error}</div>}
+      {error && <div id={`${name}-error`} style={errStyle}>{error}</div>}
     </div>
   )
 }
