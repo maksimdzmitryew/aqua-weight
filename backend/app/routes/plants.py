@@ -5,7 +5,7 @@ from starlette.concurrency import run_in_threadpool
 import uuid
 import re
 from ..helpers.plants_list import PlantsList
-from ..utils.db_utils import get_db_connection
+from ..db import get_conn, hex_to_bin, HEX_RE, bin_to_hex
 
 app = APIRouter()
 
@@ -80,7 +80,7 @@ async def create_plant(payload: PlantCreate):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
     def do_insert():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 new_id = uuid.uuid4().bytes
@@ -97,16 +97,16 @@ async def create_plant(payload: PlantCreate):
                         (payload.botanical_name or None),
                         (payload.cultivar or None),
                         0,
-                        hex_to_bytes(payload.location_id),
-                        hex_to_bytes(payload.substrate_type_id),
+                        hex_to_bin(payload.location_id),
+                        hex_to_bin(payload.substrate_type_id),
                         to_dt(payload.substrate_last_refresh_at),
-                        hex_to_bytes(payload.light_level_id),
+                        hex_to_bin(payload.light_level_id),
                         to_dt(payload.fertilized_last_at),
                         payload.fertilizer_ec_ms,
-                        hex_to_bytes(payload.pest_status_id),
-                        hex_to_bytes(payload.health_status_id),
+                        hex_to_bin(payload.pest_status_id),
+                        hex_to_bin(payload.health_status_id),
                         (payload.photo_url or None),
-                        hex_to_bytes(payload.default_measurement_method_id),
+                        hex_to_bin(payload.default_measurement_method_id),
                     ),
                 )
                 # Fetch created_at
@@ -129,7 +129,7 @@ def _validate_and_update_order(table: str, ids: list[str]):
     if not ids:
         raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
 
-    conn = get_db_connection()
+    conn = get_conn()
     try:
         with conn.cursor() as cur:
             placeholders = ",".join(["UNHEX(%s)"] * len(ids))
@@ -148,7 +148,7 @@ def _validate_and_update_order(table: str, ids: list[str]):
 async def reorder_plants(payload: ReorderPayload):
     # Only reorder non-archived plants in the provided list
     def do_update():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 if not payload.ordered_ids:
@@ -166,7 +166,6 @@ async def reorder_plants(payload: ReorderPayload):
     return {"ok": True}
 
 
-HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 @app.delete("/plants/{id_hex}")
@@ -176,7 +175,7 @@ async def delete_plant(id_hex: str):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_delete():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants WHERE id=UNHEX(%s)", (id_hex,))
@@ -218,7 +217,7 @@ async def update_plant(id_hex: str, payload: "PlantUpdate"):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
     def do_update():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1 FROM plants WHERE id=UNHEX(%s) LIMIT 1", (id_hex,))
@@ -235,16 +234,16 @@ async def update_plant(id_hex: str, payload: "PlantUpdate"):
                     (payload.species_name if payload.species_name is not None else None),
                     (payload.botanical_name if payload.botanical_name is not None else None),
                     (payload.cultivar if payload.cultivar is not None else None),
-                    hex_to_bytes(payload.location_id) if payload.location_id is not None else None,
-                    hex_to_bytes(payload.substrate_type_id) if payload.substrate_type_id is not None else None,
+                    hex_to_bin(payload.location_id) if payload.location_id is not None else None,
+                    hex_to_bin(payload.substrate_type_id) if payload.substrate_type_id is not None else None,
                     to_dt(payload.substrate_last_refresh_at) if payload.substrate_last_refresh_at is not None else None,
-                    hex_to_bytes(payload.light_level_id) if payload.light_level_id is not None else None,
+                    hex_to_bin(payload.light_level_id) if payload.light_level_id is not None else None,
                     to_dt(payload.fertilized_last_at) if payload.fertilized_last_at is not None else None,
                     payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
-                    hex_to_bytes(payload.pest_status_id) if payload.pest_status_id is not None else None,
-                    hex_to_bytes(payload.health_status_id) if payload.health_status_id is not None else None,
+                    hex_to_bin(payload.pest_status_id) if payload.pest_status_id is not None else None,
+                    hex_to_bin(payload.health_status_id) if payload.health_status_id is not None else None,
                     (payload.photo_url if payload.photo_url is not None else None),
-                    hex_to_bytes(payload.default_measurement_method_id) if payload.default_measurement_method_id is not None else None,
+                    hex_to_bin(payload.default_measurement_method_id) if payload.default_measurement_method_id is not None else None,
                     id_hex,
                 )
                 cur.execute(sql, params)
@@ -258,11 +257,9 @@ async def update_plant(id_hex: str, payload: "PlantUpdate"):
 @app.get("/api/plants/{id_hex}")
 async def get_plant(id_hex: str) -> Plant:
     def fetch_one():
-        if not re.fullmatch(r"[0-9a-fA-F]{32}", id_hex or ""):
+        if not HEX_RE.match(id_hex or ""):
             raise HTTPException(status_code=400, detail="Invalid plant id")
-        def hex_to_bytes(h: str | None):
-            return bytes.fromhex(h) if h else None
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -274,7 +271,7 @@ async def get_plant(id_hex: str) -> Plant:
                     WHERE p.id = %s
                     """
                     ),
-                    (hex_to_bytes(id_hex),),
+                    (hex_to_bin(id_hex),),
                 )
                 row = cur.fetchone()
                 if not row:

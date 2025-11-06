@@ -5,7 +5,7 @@ from starlette.concurrency import run_in_threadpool
 import re
 import uuid
 import pymysql
-from ..utils.db_utils import get_db_connection
+from ..db import get_conn, bin_to_hex, HEX_RE
 
 app = APIRouter()
 
@@ -23,7 +23,7 @@ class Location(BaseModel):
 async def list_locations() -> list[Location]:
     # Load real locations from the database but keep a simple integer id for UI purposes
     def fetch_locations():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 # Prefer sort_order, then newest first, then name for stable listing
@@ -64,7 +64,7 @@ async def create_location(payload: LocationCreate):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
     def do_insert():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 # Check duplicate
@@ -111,7 +111,7 @@ async def update_location_by_name(payload: LocationUpdateByName):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
     def do_update():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 # Look up rows for original and new names (normalized)
@@ -157,7 +157,6 @@ async def update_location_by_name(payload: LocationUpdateByName):
     return {"ok": True, "rows_affected": affected, "name": new_name, "created": created}
 
 
-HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 @app.delete("/locations/{id_hex}")
@@ -167,7 +166,7 @@ async def delete_location(id_hex: str):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_delete():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 # Check for any plants assigned to this location (regardless of archive status)
@@ -196,7 +195,7 @@ async def reorder_locations(payload: ReorderPayload):
     async def do_update():
         if not payload.ordered_ids:
             raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))

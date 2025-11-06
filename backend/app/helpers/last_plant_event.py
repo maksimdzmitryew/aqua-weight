@@ -1,4 +1,4 @@
-from ..utils.db_utils import get_db_connection, return_db_connection  # Import from db utility module
+from ..db import get_conn, bin_to_hex
 
 class LastPlantEvent:
     """
@@ -11,7 +11,7 @@ class LastPlantEvent:
     """
     @staticmethod
     def get_last_event(plant_id: str):
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -27,17 +27,18 @@ class LastPlantEvent:
                 row = cur.fetchone()
                 if not row:
                     return None
-                def to_hex(b):
-                    return b.hex() if isinstance(b, (bytes, bytearray)) else None
                 return {
                     "measured_at": row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None,
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
                     "last_wet_weight_g": row[3],
                     "water_added_g": row[4],
-                    "method_id": to_hex(row[5]),
-                    "scale_id": to_hex(row[6]),
+                    "method_id": bin_to_hex(row[5]),
+                    "scale_id": bin_to_hex(row[6]),
                     "note": row[7],
                 }
         finally:
-            return_db_connection(conn)  # Return the connection to the pool
+            try:
+                conn.close()
+            except Exception:
+                pass

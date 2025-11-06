@@ -4,7 +4,7 @@ from datetime import datetime
 from starlette.concurrency import run_in_threadpool
 import re
 import uuid
-from ..utils.db_utils import get_db_connection
+from ..db import get_conn, HEX_RE, hex_to_bin, bin_to_hex
 from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
@@ -12,7 +12,6 @@ from ..helpers.last_plant_event import LastPlantEvent
 app = APIRouter()
 
 
-HEX_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 
 
 class MeasurementCreate(BaseModel):
@@ -41,16 +40,6 @@ class MeasurementUpdate(BaseModel):
     note: str | None = None
 
 
-def _hex_to_bytes(h: str | None):
-    if not h:
-        return None
-    hs = (h or "").strip().lower()
-    if re.fullmatch(r"[0-9a-f]{32}", hs):
-        try:
-            return bytes.fromhex(hs)
-        except Exception:
-            return None
-    return None
 
 
 def _to_dt_string(s: str | None):
@@ -65,7 +54,7 @@ async def get_last_measurement(plant_id: str):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     def do_fetch():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -83,16 +72,14 @@ async def get_last_measurement(plant_id: str):
                 row = cur.fetchone()
                 if not row:
                     return None
-                def to_hex(b):
-                    return b.hex() if isinstance(b, (bytes, bytearray)) else None
                 return {
                     "measured_at": row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None,
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
                     "last_wet_weight_g": row[3],
                     "water_added_g": row[4],
-                    "method_id": to_hex(row[5]),
-                    "scale_id": to_hex(row[6]),
+                    "method_id": bin_to_hex(row[5]),
+                    "scale_id": bin_to_hex(row[6]),
                     "note": row[7],
                 }
         finally:
@@ -107,7 +94,7 @@ async def list_measurements_for_plant(id_hex: str):
         raise HTTPException(status_code=400, detail="Invalid plant id")
 
     def do_fetch():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -127,7 +114,7 @@ async def list_measurements_for_plant(id_hex: str):
                 for r in rows:
                     _id = r[0]
                     results.append({
-                        "id": _id.hex() if isinstance(_id, (bytes, bytearray)) else None,
+                        "id": bin_to_hex(_id),
                         "measured_at": r[1].isoformat(sep=" ", timespec="seconds") if r[1] else None,
                         "measured_weight_g": r[2],
                         "last_dry_weight_g": r[3],
@@ -159,7 +146,7 @@ async def create_measurement(payload: MeasurementCreate):
     payload_water_added = payload.water_added_g
 
     def do_insert():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with (conn.cursor() as cur):
                 # Use the helper to get last watering event for water_added_g reference
@@ -253,9 +240,9 @@ async def create_measurement(payload: MeasurementCreate):
                         loss_calc.water_loss_total_g,
                         loss_calc.water_loss_day_pct,
                         loss_calc.water_loss_day_g,
-                        _hex_to_bytes(payload.method_id),
+                        hex_to_bin(payload.method_id),
                         1 if payload.use_last_method else 0,
-                        _hex_to_bytes(payload.scale_id),
+                        hex_to_bin(payload.scale_id),
                         (payload.note or None),
                     ),
                 )
@@ -284,7 +271,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_update():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 # Fetch existing row to determine plant and previous measurement
@@ -396,9 +383,9 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
                     loss_calc.water_loss_total_g,
                     loss_calc.water_loss_day_pct,
                     loss_calc.water_loss_day_g,
-                    _hex_to_bytes(payload.method_id) if payload.method_id is not None else None,
+                    hex_to_bin(payload.method_id) if payload.method_id is not None else None,
                     (1 if payload.use_last_method else 0) if payload.use_last_method is not None else None,
-                    _hex_to_bytes(payload.scale_id) if payload.scale_id is not None else None,
+                    hex_to_bin(payload.scale_id) if payload.scale_id is not None else None,
                     (payload.note if payload.note is not None else None),
                     id_hex,
                 )
@@ -428,7 +415,7 @@ async def get_measurement(id_hex: str):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_fetch():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -446,11 +433,9 @@ async def get_measurement(id_hex: str):
                 row = cur.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Not found")
-                def to_hex(b):
-                    return b.hex() if isinstance(b, (bytes, bytearray)) else None
                 return {
-                    "id": to_hex(row[0]),
-                    "plant_id": to_hex(row[1]),
+                    "id": bin_to_hex(row[0]),
+                    "plant_id": bin_to_hex(row[1]),
                     "measured_at": row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None,
                     "measured_weight_g": row[3],
                     "last_dry_weight_g": row[4],
@@ -460,9 +445,9 @@ async def get_measurement(id_hex: str):
                     "water_loss_total_g": row[8],
                     "water_loss_day_pct": float(row[9]) if row[9] is not None else None,
                     "water_loss_day_g": row[10],
-                    "method_id": to_hex(row[11]),
+                    "method_id": bin_to_hex(row[11]),
                     "use_last_method": bool(row[12]) if row[12] is not None else False,
-                    "scale_id": to_hex(row[13]),
+                    "scale_id": bin_to_hex(row[13]),
                     "note": row[14],
                 }
         finally:
@@ -477,7 +462,7 @@ async def delete_measurement(id_hex: str):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_delete():
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
