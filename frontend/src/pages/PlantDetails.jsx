@@ -65,13 +65,6 @@ export default function PlantDetails() {
   }, [fetchMeasurements])
 
 
-  // Set browser tab title to "<Plant Name> – AW Frontend" with project name last
-  useEffect(() => {
-    if (plant?.name) {
-      document.title = `${plant.name} – AW Frontend`
-    }
-  }, [plant?.name])
-
   function handleEditMeasurement(m) {
     if (!m?.id) return
     if ((m?.measured_weight_g || 0) > 0) {

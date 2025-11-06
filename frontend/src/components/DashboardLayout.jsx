@@ -1,8 +1,12 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import useDocumentTitle from '../hooks/useDocumentTitle.js'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
+
+  // Keep browser tab title in sync for all dashboard pages
+  useDocumentTitle(title)
 
   const menuItems = [
     { key: 'overview', label: 'Overview', to: '/dashboard' },

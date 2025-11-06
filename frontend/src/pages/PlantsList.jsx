@@ -50,7 +50,8 @@ export default function PlantsList() {
       setPlants((prev) => prev.map((it) => (it.uuid === updated.uuid ? updated : it)))
       // clear navigation state to avoid reapplying on refresh/back
       try {
-        window.history.replaceState({}, document.title, routerLocation.pathname)
+      // Replace current entry and clear transient state the React Router way
+        navigate(routerLocation.pathname, { replace: true, state: null })
       } catch {}
     }
   }, [routerLocation.state, routerLocation.pathname])
@@ -182,7 +183,7 @@ export default function PlantsList() {
         onCreate={() => navigate('/plants/new')}
       />
 
-      <p>List of all available plants fetched from the API.</p>
+      <p>List of all available plants.</p>
 
       {loading && <Loader label="Loading plants…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={() => window.location.reload()} />}
