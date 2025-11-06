@@ -4,7 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
-import { nowLocalISOMinutes } from '../utils/datetime.js'
+import { nowLocalISOMinutes, toLocalISOMinutes } from '../utils/datetime.js'
 import { useForm, required, minNumber } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
 import Select from '../components/form/fields/Select.jsx'
@@ -57,7 +57,7 @@ export default function WateringCreate() {
       try {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
-        const measured_at = data?.measured_at ? String(data.measured_at).replace(' ', 'T').slice(0, 16) : form.values.measured_at
+        const measured_at = data?.measured_at ? toLocalISOMinutes(data.measured_at) || form.values.measured_at : form.values.measured_at
         form.setValues({
           ...form.values,
           plant_id: data?.plant_id || form.values.plant_id,
