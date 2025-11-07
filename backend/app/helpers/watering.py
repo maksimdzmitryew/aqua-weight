@@ -73,10 +73,12 @@ def get_last_watering_event(
         return None
     
     # Convert to dictionary
+    from ..utils.date_time import to_iso_utc
+
     return {
         "id": bin_to_hex(row[0]),
         "plant_id": bin_to_hex(row[1]),
-        "measured_at": row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None,
+        "measured_at": to_iso_utc(row[2]) if row[2] else None,
         "measured_weight_g": row[3],
         "last_dry_weight_g": row[4],
         "last_wet_weight_g": row[5],
@@ -89,6 +91,6 @@ def get_last_watering_event(
         "use_last_method": bool(row[12]) if row[12] is not None else False,
         "scale_id": bin_to_hex(row[13]),
         "note": row[14],
-        "created_at": row[15].isoformat(sep=" ", timespec="seconds") if row[15] else None,
-        "updated_at": row[16].isoformat(sep=" ", timespec="seconds") if row[16] else None,
+        "created_at": to_iso_utc(row[15]) if row[15] else None,
+        "updated_at": to_iso_utc(row[16]) if row[16] else None,
     }

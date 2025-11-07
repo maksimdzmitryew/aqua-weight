@@ -1,5 +1,55 @@
 from datetime import datetime, timezone, timedelta
 
+
+def to_iso_utc(dt: datetime | None) -> str | None:
+    """
+    Serialize a datetime to UTC ISO 8601 with trailing 'Z'.
+    - If dt is None: return None.
+    - If dt is naive: assume it is already UTC (DB boundary) and set tzinfo=UTC.
+    - If dt has TZ: convert to UTC.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt.isoformat().replace("+00:00", "Z")
+
+
+def parse_dt(value: datetime | str) -> datetime:
+    """
+    Parse various datetime formats and return a tz-aware UTC datetime.
+    Accepted inputs:
+    - datetime (naive or tz-aware). Naive assumed UTC.
+    - ISO 8601 strings, with or without 'Z' or offsets, with 'T' or space separator.
+    - SQL-like strings 'YYYY-MM-DD HH:MM[:SS][.ffffff]'.
+    """
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        s = value.strip()
+        # normalize 'Z' to '+00:00' for fromisoformat
+        s_norm = s.replace("Z", "+00:00")
+        # Try ISO first (handles both 'T' and space)
+        try:
+            dt = datetime.fromisoformat(s_norm)
+        except ValueError:
+            # Attempt to convert SQL-like by replacing space with 'T' and try again
+            try:
+                s2 = s_norm.replace(" ", "T", 1)
+                dt = datetime.fromisoformat(s2)
+            except ValueError as e:
+                raise ValueError(f"Unsupported datetime format: {value}") from e
+
+    # Normalize to UTC tz-aware
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    return dt
+
+
 def normalize_measured_at(raw: str,
                          *,
                          tz: timezone = timezone.utc,
