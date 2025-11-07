@@ -12,25 +12,14 @@ from ..helpers.water_loss import calculate_water_loss
 from ..db import get_conn, HEX_RE
 from ..utils.date_time import normalize_measured_at
 from ..helpers.last_plant_event import LastPlantEvent
+from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
 
 app = APIRouter()
 
 
-class RepottingCreate(BaseModel):
-    plant_id: str
-    measured_at: str
-    measured_weight_g: int | None = None
-    last_wet_weight_g: int | None = None
-    note: str | None = None
-
-class RepottingUpdate(BaseModel):
-    measured_at: str | None = None
-    measured_weight_g: int | None = None
-    last_wet_weight_g: int | None = None
-    note: str | None = None
-
-@app.post("/api/measurements/repotting")
-async def create_repotting_event(payload: RepottingCreate):
+@app.post("/measurements/repotting", response_model=RepottingResponse)
+@app.post("/api/measurements/repotting", response_model=RepottingResponse)
+async def create_repotting_event(payload: RepottingCreateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
 
     for field in required_fields:
@@ -168,19 +157,20 @@ async def create_repotting_event(payload: RepottingCreate):
 
     return await run_in_threadpool(do_insert)
 
-@app.put("/api/measurements/repotting/{id_hex}")
-async def update_repotting_event(id_hex: int, payload: dict):
+@app.put("/measurements/repotting/{id_hex}", response_model=RepottingResponse)
+@app.put("/api/measurements/repotting/{id_hex}", response_model=RepottingResponse)
+async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
 
     for field in required_fields:
-        if not payload.get(field):
+        if getattr(payload, field, None) is None:
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
-    plant_id = payload["plant_id"]
-    measured_at = payload["measured_at"]
-    measured_weight_g = payload.get("measured_weight_g", None)
-    last_wet_weight_g = payload.get("last_wet_weight_g", None)
-    note = payload.get("note", "")
+    plant_id = payload.__dict__.get("plant_id")  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
+    measured_at = payload.measured_at
+    measured_weight_g = payload.measured_weight_g
+    last_wet_weight_g = payload.last_wet_weight_g
+    note = payload.note or ""
 
     # Convert measured_at from string to datetime object in UTC, then convert to local timezone
     utc_tz = datetime.timezone.utc
@@ -189,22 +179,17 @@ async def update_repotting_event(id_hex: int, payload: dict):
 
     conn = get_conn()
     try:
-        # NOTE: Legacy implementation retained; open a cursor for DB operations
         with conn.cursor() as cursor:
-            # This call expects a cursor; using cursor for consistency
-            last_watering_event = get_last_watering_event(cursor, plant_id)
-            # TODO: The calculate_water_loss signature has changed in helpers; keeping legacy call may fail.
-            # Minimal refactor: skip recalculation here and set water_loss_total_g from last_watering_event if available.
+            # Legacy table update retained
             water_loss_total_g = None
 
             query = """
                     UPDATE repotting_events
                     SET plant_id=%s, measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
-                    WHERE id=%s \
+                    WHERE id=%s
                     """
             data = (plant_id, local_dt, measured_weight_g, last_wet_weight_g, water_loss_total_g, note, id_hex)
             cursor.execute(query, data)
-            # autocommit is enabled in get_conn(); explicit commit not required
 
             result = {
                 "id": id_hex,
@@ -212,8 +197,7 @@ async def update_repotting_event(id_hex: int, payload: dict):
                 "measured_at": measured_at,
                 "measured_weight_g": measured_weight_g,
                 "last_wet_weight_g": last_wet_weight_g,
-                "water_loss_total_g": water_loss_total_g,
-                "note": note
+                "note": note,
             }
             return result
     finally:

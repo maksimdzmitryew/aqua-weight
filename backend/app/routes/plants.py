@@ -6,25 +6,14 @@ import uuid
 import re
 from ..helpers.plants_list import PlantsList
 from ..db import get_conn, hex_to_bin, HEX_RE, bin_to_hex
+from ..schemas.plant import PlantListItem, PlantCreateRequest, PlantUpdateRequest
 
 app = APIRouter()
 
 
-class Plant(BaseModel):
-    id: int  # synthetic sequential id for UI
-    uuid: str | None = None  # stable DB id (hex) for mutations like reordering
-    name: str
-    description: str | None = None
-    species: str | None = None
-    location: str | None = None
-    location_id: str | None = None
-    created_at: datetime
-    water_loss_total_pct: float | None = None
-
-
-@app.get("/plants")
-@app.get("/api/plants")
-async def list_plants() -> list[Plant]:
+@app.get("/plants", response_model=list[PlantListItem])
+@app.get("/api/plants", response_model=list[PlantListItem])
+async def list_plants() -> list[PlantListItem]:
     def fetch():
         return PlantsList.fetch_all()
     return await run_in_threadpool(fetch)
@@ -53,7 +42,7 @@ class PlantCreate(BaseModel):
 
 @app.post("/plants")
 @app.post("/api/plants")
-async def create_plant(payload: PlantCreate):
+async def create_plant(payload: PlantCreateRequest):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
 
@@ -190,7 +179,7 @@ async def delete_plant(id_hex: str):
 
 @app.put("/plants/{id_hex}")
 @app.put("/api/plants/{id_hex}")
-async def update_plant(id_hex: str, payload: "PlantUpdate"):
+async def update_plant(id_hex: str, payload: PlantUpdateRequest):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -254,8 +243,9 @@ async def update_plant(id_hex: str, payload: "PlantUpdate"):
     return {"ok": True}
 
 
+@app.get("/plants/{id_hex}")
 @app.get("/api/plants/{id_hex}")
-async def get_plant(id_hex: str) -> Plant:
+async def get_plant(id_hex: str) -> PlantListItem:
     def fetch_one():
         if not HEX_RE.match(id_hex or ""):
             raise HTTPException(status_code=400, detail="Invalid plant id")
@@ -285,7 +275,7 @@ async def get_plant(id_hex: str) -> Plant:
                 created_at = row[6] or datetime.utcnow()
                 uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                 location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                return Plant(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at)
+                return PlantListItem(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at)
         finally:
             conn.close()
     return await run_in_threadpool(fetch_one)

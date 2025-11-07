@@ -6,21 +6,14 @@ import re
 import uuid
 import pymysql
 from ..db import get_conn, bin_to_hex, HEX_RE
+from ..schemas.location import LocationListItem, LocationDetail, LocationCreateRequest, LocationUpdateByNameRequest
 
 app = APIRouter()
 
 
-class Location(BaseModel):
-    id: int  # synthetic sequential id for UI
-    uuid: str | None = None  # stable DB id (hex)
-    name: str
-    description: str | None = None
-    created_at: datetime
-
-
-@app.get("/locations")
-@app.get("/api/locations")
-async def list_locations() -> list[Location]:
+@app.get("/locations", response_model=list[LocationListItem])
+@app.get("/api/locations", response_model=list[LocationListItem])
+async def list_locations() -> list[LocationListItem]:
     # Load real locations from the database but keep a simple integer id for UI purposes
     def fetch_locations():
         conn = get_conn()
@@ -29,7 +22,7 @@ async def list_locations() -> list[Location]:
                 # Prefer sort_order, then newest first, then name for stable listing
                 cur.execute("SELECT id, name, description, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC")
                 rows = cur.fetchall() or []
-                results: list[Location] = []
+                results: list[LocationListItem] = []
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
                     # row = (id, name, description, created_at)
@@ -38,7 +31,7 @@ async def list_locations() -> list[Location]:
                     description = row[2]
                     created_at = row[3] or now
                     uuid_hex = lid.hex() if isinstance(lid, (bytes, bytearray)) else None
-                    results.append(Location(id=idx, uuid=uuid_hex, name=name, description=description, created_at=created_at))
+                    results.append(LocationListItem(id=idx, uuid=uuid_hex, name=name, description=description, created_at=created_at))
                 return results
         finally:
             conn.close()
@@ -52,9 +45,9 @@ class LocationCreate(BaseModel):
     sort_order: int = 0
 
 
-@app.post("/locations")
-@app.post("/api/locations")
-async def create_location(payload: LocationCreate):
+@app.post("/locations", response_model=dict)
+@app.post("/api/locations", response_model=dict)
+async def create_location(payload: LocationCreateRequest):
     # Normalize name: trim and collapse spaces
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
@@ -97,9 +90,9 @@ class LocationUpdateByName(BaseModel):
     name: str
 
 
-@app.put("/locations/by-name")
-@app.put("/api/locations/by-name")
-async def update_location_by_name(payload: LocationUpdateByName):
+@app.put("/locations/by-name", response_model=dict)
+@app.put("/api/locations/by-name", response_model=dict)
+async def update_location_by_name(payload: LocationUpdateByNameRequest):
     # Normalize names: trim and collapse internal whitespace
     def normalize(s: str) -> str:
         return " ".join((s or "").split())

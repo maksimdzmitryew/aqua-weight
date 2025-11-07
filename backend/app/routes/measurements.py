@@ -8,36 +8,14 @@ from ..db import get_conn, HEX_RE, hex_to_bin, bin_to_hex
 from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
+from ..schemas.measurement import (
+    MeasurementCreateRequest,
+    MeasurementUpdateRequest,
+    MeasurementItem,
+    LastMeasurementResponse,
+)
 
 app = APIRouter()
-
-
-
-
-class MeasurementCreate(BaseModel):
-    plant_id: str
-    measured_at: str
-    measured_weight_g: int | None = None
-    method_id: str | None = None
-    use_last_method: bool = False
-    scale_id: str | None = None
-    note: str | None = None
-    # Optional fields for watering/repotting flows
-    last_dry_weight_g: int | None = None
-    last_wet_weight_g: int | None = None
-    water_added_g: int | None = None
-
-
-class MeasurementUpdate(BaseModel):
-    measured_at: str | None = None
-    measured_weight_g: int | None = None
-    last_dry_weight_g: int | None = None
-    last_wet_weight_g: int | None = None
-    water_added_g: int | None = None
-    method_id: str | None = None
-    use_last_method: bool | None = None
-    scale_id: str | None = None
-    note: str | None = None
 
 
 
@@ -48,7 +26,8 @@ def _to_dt_string(s: str | None):
     return s.strip().replace("T", " ")
 
 
-@app.get("/api/measurements/last")
+@app.get("/measurements/last", response_model=LastMeasurementResponse | None)
+@app.get("/api/measurements/last", response_model=LastMeasurementResponse | None)
 async def get_last_measurement(plant_id: str):
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -88,7 +67,8 @@ async def get_last_measurement(plant_id: str):
     return await run_in_threadpool(do_fetch)
 
 
-@app.get("/api/plants/{id_hex}/measurements")
+@app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
+@app.get("/api/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
 async def list_measurements_for_plant(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid plant id")
@@ -132,9 +112,11 @@ async def list_measurements_for_plant(id_hex: str):
     return await run_in_threadpool(do_fetch)
 
 
+@app.post("/measurements/watering")
 @app.post("/api/measurements/watering")
+@app.post("/measurements/weight")
 @app.post("/api/measurements/weight")
-async def create_measurement(payload: MeasurementCreate):
+async def create_measurement(payload: MeasurementCreateRequest):
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -264,9 +246,11 @@ async def create_measurement(payload: MeasurementCreate):
     return await run_in_threadpool(do_insert)
 
 
+@app.put("/measurements/watering/{id_hex}")
 @app.put("/api/measurements/watering/{id_hex}")
+@app.put("/measurements/weight/{id_hex}")
 @app.put("/api/measurements/weight/{id_hex}")
-async def update_measurement(id_hex: str, payload: MeasurementUpdate):
+async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -409,6 +393,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdate):
     return await run_in_threadpool(do_update)
 
 
+@app.get("/measurements/{id_hex}")
 @app.get("/api/measurements/{id_hex}")
 async def get_measurement(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
@@ -456,6 +441,7 @@ async def get_measurement(id_hex: str):
     return await run_in_threadpool(do_fetch)
 
 
+@app.delete("/measurements/{id_hex}")
 @app.delete("/api/measurements/{id_hex}")
 async def delete_measurement(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
