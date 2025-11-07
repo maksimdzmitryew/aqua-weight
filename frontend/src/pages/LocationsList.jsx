@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
+import DateTimeText from '../components/DateTimeText.jsx'
 import { formatDateTime } from '../utils/datetime.js'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
@@ -161,7 +162,7 @@ export default function LocationsList() {
                   </td>
                   <td className="td">{l.name}</td>
                   <td className="td">{l.description || '—'}</td>
-                  <td className="td">{formatDateTime(l.created_at)}</td>
+                  <td className="td"><DateTimeText value={l.created_at} /></td>
                   <td className="td text-right nowrap">
                     <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit location ${l.name}`} onClick={() => handleEdit(l)} variant="subtle" />

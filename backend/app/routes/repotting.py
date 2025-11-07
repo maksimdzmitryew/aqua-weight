@@ -9,7 +9,7 @@ import uuid
 import re
 from ..helpers.watering import get_last_watering_event
 from ..db import get_conn, HEX_RE
-from ..services.measurements import parse_timestamp_utc, compute_water_losses, DerivedWeights
+from ..services.measurements import parse_timestamp_local, compute_water_losses, DerivedWeights
 from ..helpers.last_plant_event import LastPlantEvent
 from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
 
@@ -55,7 +55,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     raise HTTPException(status_code=404, detail="Last Plant event not found")
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
-                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=1)
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=1)
 
                 new_id = uuid.uuid4().bytes
 
@@ -92,7 +92,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     exclude_measurement_id=None,
                 )
 
-                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=2)
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=2)
 
                 new_id = uuid.uuid4().bytes
 
@@ -119,7 +119,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     ),
                 )
 
-                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=3)
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=3)
                 new_measured_weight_g = repotted_weight_g - prev_last_water
 
                 new_id = uuid.uuid4().bytes

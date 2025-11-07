@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
@@ -269,7 +269,7 @@ export default function PlantsList() {
                       )}
                     </td>
                     <td className="td">{p.location || '—'}</td>
-                    <td className="td">{formatDateTime(p.created_at)}</td>
+                    <td className="td"><DateTimeText value={p.created_at} /></td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />

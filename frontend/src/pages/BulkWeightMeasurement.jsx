@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
+import { nowLocalISOMinutes } from '../utils/datetime.js'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])
@@ -46,7 +47,8 @@ export default function BulkWeightMeasurement() {
       const payload = {
         plant_id: plantId,
         measured_weight_g: Number(weightValue),
-        measured_at: new Date().toISOString().replace('Z', ''),
+        // Use local wall-clock time in HTML datetime-local format (minutes precision)
+        measured_at: nowLocalISOMinutes(),
       };
 
       if (existingId) {

@@ -99,3 +99,59 @@ def normalize_measured_at(raw: str,
         return dt.replace(second=sec, microsecond=ms * 1000)
 
     raise ValueError("unsupported fill_with value")
+
+
+def normalize_measured_at_local(raw: str,
+                                *,
+                                fill_with: str = "zeros",
+                                fixed_seconds: int | None = None,
+                                fixed_milliseconds: int | None = None) -> datetime:
+    """
+    Parse FE ISO datetime like "2025-10-21T19:33" and return a timezone-naive datetime
+    representing the user's local wall-clock time. This value is suitable for inserting
+    into SQL DATETIME columns (which are timezone-agnostic).
+
+    Behavior:
+    - If the input has no timezone (e.g., from <input type="datetime-local">), keep values as-is.
+    - If the input has a timezone or 'Z', convert to local time and then drop tzinfo.
+    - Seconds default to 0 unless specified via fill_with/fixed_* arguments.
+    - Milliseconds can be set deterministically via fixed_milliseconds (0..999), stored as microseconds.
+    """
+    raw = raw.strip()
+    dt = datetime.fromisoformat(raw)
+
+    # If tz-aware, convert to local time and drop tzinfo; if naive, leave as-is
+    if dt.tzinfo is not None:
+        # Convert to OS local time then strip tzinfo
+        local_dt = dt.astimezone()  # system local timezone
+        dt = local_dt.replace(tzinfo=None)
+
+    # helpers and normalization
+    def clamp_ms(ms: int) -> int:
+        if ms < 0:
+            return 0
+        if ms > 999:
+            return 999
+        return ms
+
+    if fill_with == "zeros":
+        sec = 0 if fixed_seconds is None else int(fixed_seconds)
+        ms = 0 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
+        return dt.replace(second=sec, microsecond=ms * 1000)
+
+    if fill_with == "server":
+        now = datetime.now()  # local time
+        sec = now.second if fixed_seconds is None else int(fixed_seconds)
+        ms = now.microsecond // 1000 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
+        return dt.replace(second=sec, microsecond=ms * 1000)
+
+    if fill_with == "fixed":
+        if fixed_seconds is None:
+            raise ValueError("fixed_seconds must be provided for fill_with='fixed'")
+        if fixed_milliseconds is None:
+            raise ValueError("fixed_milliseconds must be provided for fill_with='fixed'")
+        sec = int(fixed_seconds)
+        ms = clamp_ms(int(fixed_milliseconds))
+        return dt.replace(second=sec, microsecond=ms * 1000)
+
+    raise ValueError("unsupported fill_with value")

@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS locations (
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
-  UNIQUE KEY uq_locations_name (name)
+  UNIQUE KEY uq_locations_name (name),
+  KEY idx_locations_sort (sort_order)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Plants master
@@ -159,6 +160,7 @@ CREATE TABLE IF NOT EXISTS plants_measurements (
   PRIMARY KEY (id),
   KEY idx_meas_plant_time (plant_id, measured_at),
   KEY idx_meas_scale (scale_id),
+  KEY idx_meas_method (method_id),
   CONSTRAINT fk_meas_plant FOREIGN KEY (plant_id) REFERENCES plants(id) ON UPDATE CASCADE ON DELETE CASCADE,
   CONSTRAINT fk_meas_method FOREIGN KEY (method_id) REFERENCES measurement_methods(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT fk_meas_scale FOREIGN KEY (scale_id) REFERENCES scales(id) ON UPDATE CASCADE ON DELETE SET NULL

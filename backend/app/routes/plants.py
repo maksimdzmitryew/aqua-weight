@@ -69,6 +69,7 @@ async def create_plant(payload: PlantCreateRequest):
     def do_insert():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 new_id = uuid.uuid4().bytes
                 cur.execute(
@@ -100,7 +101,14 @@ async def create_plant(payload: PlantCreateRequest):
                 cur.execute("SELECT created_at FROM plants WHERE id=%s", (new_id,))
                 row = cur.fetchone()
                 created_at = row[0] if row else datetime.utcnow()
+                conn.commit()
                 return {"ok": True, "name": name, "created_at": created_at}
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 
@@ -118,6 +126,7 @@ def _validate_and_update_order(table: str, ids: list[str]):
 
     conn = get_conn()
     try:
+        conn.autocommit(False)
         with conn.cursor() as cur:
             placeholders = ",".join(["UNHEX(%s)"] * len(ids))
             cur.execute(f"SELECT COUNT(*) FROM {table} WHERE id IN ({placeholders})", ids)
@@ -126,6 +135,13 @@ def _validate_and_update_order(table: str, ids: list[str]):
                 raise HTTPException(status_code=400, detail="Some ids do not exist")
             for idx, hex_id in enumerate(ids, start=1):
                 cur.execute(f"UPDATE {table} SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
         conn.close()
 
@@ -136,6 +152,7 @@ async def reorder_plants(payload: ReorderPayload):
     def do_update():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 if not payload.ordered_ids:
                     raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
@@ -146,6 +163,13 @@ async def reorder_plants(payload: ReorderPayload):
                     raise HTTPException(status_code=400, detail="Some ids do not exist or are archived")
                 for idx, hex_id in enumerate(payload.ordered_ids, start=1):
                     cur.execute("UPDATE plants SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
     await run_in_threadpool(do_update)
@@ -203,6 +227,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
     def do_update():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 cur.execute("SELECT 1 FROM plants WHERE id=UNHEX(%s) LIMIT 1", (id_hex,))
                 exists = cur.fetchone()
@@ -231,6 +256,13 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     id_hex,
                 )
                 cur.execute(sql, params)
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 

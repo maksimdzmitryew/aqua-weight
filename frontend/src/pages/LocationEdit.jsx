@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
 import { locationsApi } from '../api/locations'
 
 export default function LocationEdit() {
@@ -158,7 +158,7 @@ export default function LocationEdit() {
 
           <div style={rowStyle}>
             <div style={labelStyle}>Created</div>
-            <div>{formatDateTime(loc.created_at)}</div>
+            <DateTimeText as="div" value={loc.created_at} />
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>

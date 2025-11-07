@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional, Tuple
 import pymysql
 
-from ..utils.date_time import normalize_measured_at
+from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 from ..helpers.watering import get_last_watering_event
 
 
@@ -22,6 +22,14 @@ def parse_timestamp_utc(raw: str, *, fixed_milliseconds: int | None = None) -> d
     optional fixed milliseconds for deterministic ordering.
     """
     return normalize_measured_at(raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds)
+
+
+def parse_timestamp_local(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
+    """
+    Parse FE ISO string and return a timezone-naive LOCAL datetime with zeroed seconds and
+    optional fixed milliseconds for deterministic ordering, suitable for SQL DATETIME.
+    """
+    return normalize_measured_at_local(raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds)
 
 
 def ts_to_db_string(dt: datetime) -> str:

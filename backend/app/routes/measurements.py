@@ -9,7 +9,7 @@ from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
 from ..services.measurements import (
-    parse_timestamp_utc,
+    parse_timestamp_local,
     ensure_exclusive_water_vs_weight,
     derive_weights,
     compute_water_losses,
@@ -129,8 +129,8 @@ async def create_measurement(payload: MeasurementCreateRequest):
         raise HTTPException(status_code=400, detail=str(e))
 
     # Use deterministic milliseconds so multiple events at the same minute can be ordered
-    measured_at_dt = parse_timestamp_utc(payload.measured_at, fixed_milliseconds=0)
-    measured_at = measured_at_dt  # pass tz-aware datetime directly to DB driver
+    measured_at_dt = parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
+    measured_at = measured_at_dt  # pass timezone-naive local datetime directly to DB driver
 
     mw = payload.measured_weight_g
     ld = payload.last_dry_weight_g
@@ -140,6 +140,7 @@ async def create_measurement(payload: MeasurementCreateRequest):
     def do_insert():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with (conn.cursor() as cur):
                 # Derive effective weights and water_added
                 derived = derive_weights(
@@ -197,6 +198,8 @@ async def create_measurement(payload: MeasurementCreateRequest):
                         (payload.note or None),
                     ),
                 )
+                # Commit transaction after all statements succeed
+                conn.commit()
 
                 return {
                     "status": "success",
@@ -209,6 +212,12 @@ async def create_measurement(payload: MeasurementCreateRequest):
                         "version": "1.0"
                     }
                 }
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 
@@ -224,6 +233,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
     def do_update():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 # Fetch existing row to determine plant and previous measurement
                 cur.execute(
@@ -246,7 +256,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
 
                 # Normalize incoming values
                 measured_at = (
-                    parse_timestamp_utc(payload.measured_at, fixed_milliseconds=0)
+                    parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
                     if payload.measured_at is not None
                     else None
                 )
@@ -308,6 +318,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
                     id_hex,
                 )
                 cur.execute(sql, params)
+                conn.commit()
 
                 return {
                     "status": "success",
@@ -321,6 +332,12 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
                     }
                 }
 
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 

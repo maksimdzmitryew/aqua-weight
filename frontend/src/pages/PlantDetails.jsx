@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useParams, useLocation as useRouterLocation } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
@@ -130,7 +130,7 @@ export default function PlantDetails() {
               <div className="fw-600">Location</div>
               <div>{plant.location || '—'}</div>
               <div className="fw-600">Created</div>
-              <div>{formatDateTime(plant.created_at)}</div>
+              <DateTimeText as="div" value={plant.created_at} />
             </div>
           </div>
 
@@ -165,7 +165,7 @@ export default function PlantDetails() {
                             <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
                             <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
                           </td>
-                          <td className="td">{formatDateTime(m.measured_at)}</td>
+                          <td className="td"><DateTimeText value={m.measured_at} /></td>
                           <td className="td">{m.measured_weight_g ?? '—'}</td>
                           <td className="td">{m.last_dry_weight_g ?? '—'}</td>
                           <td className="td">{m.last_wet_weight_g ?? '—'}</td>

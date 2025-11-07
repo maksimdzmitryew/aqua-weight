@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
 import { dailyApi } from '../api/daily'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
@@ -74,7 +74,7 @@ export default function DailyCare() {
                       <td className="td">{t.location || '—'}</td>
                       <td className="td">{t.name || t.plant || '—'}</td>
                       <td className="td">{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
-                      <td className="td">{formatDateTime(t.scheduled_for || t.due_at || t.created_at || t.updated_at) || '—'}</td>
+                      <td className="td"><DateTimeText value={t.scheduled_for || t.due_at || t.created_at || t.updated_at} /></td>
                     <td className="td">{t.notes || t.reason || '—'}</td>
                   </tr>
                 ))}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
 import { plantsApi } from '../api/plants'
 import { locationsApi } from '../api/locations'
 
@@ -260,7 +260,7 @@ export default function PlantEdit() {
 
               <div style={rowStyle}>
                 <div style={labelStyle}>Created</div>
-                <div>{formatDateTime(plant.created_at)}</div>
+                <DateTimeText as="div" value={plant.created_at} />
               </div>
             </div>
           )}

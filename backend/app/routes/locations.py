@@ -57,6 +57,7 @@ async def create_location(payload: LocationCreateRequest):
     def do_insert():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 # Check duplicate
                 cur.execute("SELECT 1 FROM locations WHERE name=%s LIMIT 1", (name,))
@@ -71,7 +72,14 @@ async def create_location(payload: LocationCreateRequest):
                 cur.execute("SELECT created_at FROM locations WHERE name=%s LIMIT 1", (name,))
                 row = cur.fetchone()
                 created_at = row[0] if row else datetime.utcnow()
+                conn.commit()
                 return {"ok": True, "name": name, "created_at": created_at}
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 
@@ -103,6 +111,7 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
     def do_update():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 # Look up rows for original and new names (normalized)
                 cur.execute("SELECT id FROM locations WHERE name=%s LIMIT 1", (orig_name,))
@@ -113,6 +122,7 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
                 if orig_row:
                     # If the new name resolves to the same row (per DB collation), treat as no-op
                     if new_row and new_row == orig_row:
+                        conn.commit()
                         return 0, False
                     # If the new name is used by a different row, it's a conflict
                     if new_row and new_row != orig_row:
@@ -122,6 +132,7 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
                         "UPDATE locations SET name=%s WHERE name=%s",
                         (new_name, orig_name),
                     )
+                    conn.commit()
                     return cur.rowcount, False
                 else:
                     # Original name not found
@@ -134,7 +145,14 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
                         "INSERT INTO locations (id, name) VALUES (%s, %s)",
                         (new_id, new_name),
                     )
+                    conn.commit()
                     return 1, True
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 
@@ -157,6 +175,7 @@ async def delete_location(id_hex: str):
     def do_delete():
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 # Check for any plants assigned to this location (regardless of archive status)
                 cur.execute("SELECT COUNT(*) FROM plants WHERE location_id=UNHEX(%s)", (id_hex,))
@@ -167,6 +186,13 @@ async def delete_location(id_hex: str):
                 cur.execute("DELETE FROM locations WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail="Location not found")
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
 
@@ -185,6 +211,7 @@ async def reorder_locations(payload: ReorderPayload):
             raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
         conn = get_conn()
         try:
+            conn.autocommit(False)
             with conn.cursor() as cur:
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
                 cur.execute(f"SELECT COUNT(*) FROM locations WHERE id IN ({placeholders})", payload.ordered_ids)
@@ -193,6 +220,13 @@ async def reorder_locations(payload: ReorderPayload):
                     raise HTTPException(status_code=400, detail="Some ids do not exist")
                 for idx, hex_id in enumerate(payload.ordered_ids, start=1):
                     cur.execute("UPDATE locations SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+            conn.commit()
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
         finally:
             conn.close()
     await run_in_threadpool(lambda: None)  # ensure async context preserved
