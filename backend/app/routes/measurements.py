@@ -8,6 +8,12 @@ from ..db import get_conn, HEX_RE, hex_to_bin, bin_to_hex
 from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
+from ..services.measurements import (
+    parse_timestamp_utc,
+    ensure_exclusive_water_vs_weight,
+    derive_weights,
+    compute_water_losses,
+)
 from ..schemas.measurement import (
     MeasurementCreateRequest,
     MeasurementUpdateRequest,
@@ -120,8 +126,16 @@ async def create_measurement(payload: MeasurementCreateRequest):
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
-    # Normalize inputs
-    measured_at = _to_dt_string(payload.measured_at) or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    # Normalize inputs using services
+    try:
+        ensure_exclusive_water_vs_weight(payload.measured_weight_g, payload.water_added_g)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    # Use deterministic milliseconds so multiple events at the same minute can be ordered
+    measured_at_dt = parse_timestamp_utc(payload.measured_at, fixed_milliseconds=0)
+    measured_at = measured_at_dt  # pass tz-aware datetime directly to DB driver
+
     mw = payload.measured_weight_g
     ld = payload.last_dry_weight_g
     lw = payload.last_wet_weight_g
@@ -131,72 +145,29 @@ async def create_measurement(payload: MeasurementCreateRequest):
         conn = get_conn()
         try:
             with (conn.cursor() as cur):
-                # Use the helper to get last watering event for water_added_g reference
-                last_watering_event = get_last_watering_event(cur, payload.plant_id)
-                last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
-
-                # Fetch previous last record for this plant using the helper class
-                last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
-                if last_plant_event:
-                    prev_measured_weight = last_plant_event["measured_weight_g"]
-                    prev_last_dry = last_plant_event["last_dry_weight_g"]
-                    prev_last_wet = last_plant_event["last_wet_weight_g"]
-                else:
-                    prev_measured_weight, prev_last_dry, prev_last_wet = None, None, None
-
-                # For A flow: copy previous last_* if not provided
-                if ld is None:
-                    if prev_measured_weight is None:
-                        ld_local = prev_last_dry
-                    else:
-                        ld_local = prev_measured_weight
-                else:
-                    ld_local = ld
-
-                if lw is None:
-                    if prev_last_wet is None and ld_local is not None:
-                        lw_local = ld_local + last_watering_water_added
-                    else:
-                        lw_local = prev_last_wet
-                else:
-                    lw_local = lw
-
-                # Determine water_added_g to use
-                if payload_water_added is not None and int(payload_water_added) > 0:
-                    # Explicitly provided (watering or repotting event)
-                    wa_local = int(payload_water_added)
-                else:
-                    # Use from last watering event for calculations
-                    wa_local = lw_local - ld_local if payload.measured_weight_g is None else last_watering_water_added
-
-                # Determine effective water_added_g
-                # Watering event
-                if payload.measured_weight_g is None:
-                    if lw is not None and int(lw) > 0:
-                        # calculate added water if wet weight is provided
-                        wa_local = lw_local - ld_local
-                    else:
-                        if payload_water_added is not None and int(payload_water_added) > 0 and ld_local is not None and int(ld_local) > 0:
-                            wa_local = payload_water_added
-                            # calculate wet weight if not provided
-                            lw_local = payload_water_added + ld_local
-                # Measurement event
-                else:
-                    # Use from last watering event for calculations
-                    wa_local = last_watering_water_added
-
-                # Calculate water loss using helper
-                loss_calc = calculate_water_loss(
+                # Derive effective weights and water_added
+                derived = derive_weights(
                     cursor=cur,
                     plant_id_hex=payload.plant_id,
-                    measured_at=measured_at,
                     measured_weight_g=mw,
-                    last_wet_weight_g=lw_local,
-                    water_added_g=payload_water_added,
-                    last_watering_water_added=last_watering_water_added,
-                    prev_measured_weight=prev_measured_weight,
-                    exclude_measurement_id=None
+                    last_dry_weight_g=ld,
+                    last_wet_weight_g=lw,
+                    payload_water_added_g=payload_water_added,
                 )
+
+                # Calculate water loss using shared service
+                loss_calc = compute_water_losses(
+                    cursor=cur,
+                    plant_id_hex=payload.plant_id,
+                    measured_at_db=measured_at,
+                    measured_weight_g=mw,
+                    derived=derived,
+                    exclude_measurement_id=None,
+                )
+
+                ld_local = derived.last_dry_weight_g
+                lw_local = derived.last_wet_weight_g
+                wa_local = derived.water_added_g
 
                 # For watering events, measured_weight_g must be NULL
                 mw_insert = None if loss_calc.is_watering_event else mw
@@ -260,7 +231,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
             with conn.cursor() as cur:
                 # Fetch existing row to determine plant and previous measurement
                 cur.execute(
-                    "SELECT plant_id, measured_at FROM plants_measurements WHERE id=UNHEX(%s) LIMIT 1",
+                    "SELECT plant_id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g FROM plants_measurements WHERE id=UNHEX(%s) LIMIT 1",
                     (id_hex,)
                 )
                 base = cur.fetchone()
@@ -268,90 +239,55 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
                     raise HTTPException(status_code=404, detail="Not found")
                 plant_id_bytes = base[0]
                 current_measured_at = base[1]
+                current_mw, current_ld, current_lw, current_wa = base[2], base[3], base[4], base[5]
                 plant_hex = plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else None
 
-                # Use the helper to get last watering event for water_added_g reference
-                last_watering_event = get_last_watering_event(cur, plant_hex)
-                last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
+                # Validate exclusivity
+                try:
+                    ensure_exclusive_water_vs_weight(payload.measured_weight_g, payload.water_added_g)
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
                 # Normalize incoming values
-                measured_at = _to_dt_string(payload.measured_at) if payload.measured_at is not None else None
+                measured_at = (
+                    parse_timestamp_utc(payload.measured_at, fixed_milliseconds=0)
+                    if payload.measured_at is not None
+                    else None
+                )
                 mw = payload.measured_weight_g if payload.measured_weight_g is not None else None
                 ld = payload.last_dry_weight_g if payload.last_dry_weight_g is not None else None
                 lw = payload.last_wet_weight_g if payload.last_wet_weight_g is not None else None
                 wa = payload.water_added_g if payload.water_added_g is not None else None
 
-                # Use DB current values if some fields not provided
-                cur.execute(
-                    "SELECT measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g FROM plants_measurements WHERE id=UNHEX(%s)",
-                    (id_hex,)
-                )
-                curr_vals = cur.fetchone()
-                curr_mw = curr_vals[0] if curr_vals else None
-                curr_ld = curr_vals[1] if curr_vals else None
-                curr_lw = curr_vals[2] if curr_vals else None
-                curr_wa = curr_vals[3] if curr_vals else 0
-
-                mw_eff = mw if mw is not None else curr_mw
-                lw_eff = lw if lw is not None else curr_lw
-                ld_eff = ld if ld is not None else curr_ld
-                wa_eff_payload = wa if wa is not None else curr_wa
-                # Determine effective measured_at
+                # Effective values fallback to current DB row
+                mw_eff = mw if mw is not None else current_mw
+                ld_eff = ld if ld is not None else current_ld
+                lw_eff = lw if lw is not None else current_lw
+                wa_eff_payload = wa if wa is not None else current_wa
                 measured_at_eff = measured_at if measured_at is not None else current_measured_at
 
-                # Determine effective water_added_g
-                # Watering event
-                if payload.measured_weight_g is None:
-                    if lw is not None and int(lw) > 0:
-                        # calculate added water if wet weight is provided
-                        wa_eff = lw_eff - ld_eff
-                    else:
-                        if wa is not None and int(wa) > 0 and ld_eff is not None and int(ld_eff) > 0:
-                            wa_eff = wa
-                            # calculate wet weight if not provided
-                            lw_eff = wa + ld_eff
-                # Measurement event
-                else:
-                    # Use from last watering event for calculations
-                    wa_eff = last_watering_water_added
-
-                # Determine previous measurement (by time) for day loss calc
-                prev_row = None
-                if plant_hex:
-                    cur.execute(
-                        (
-                            """
-                        SELECT measured_weight_g
-                        FROM plants_measurements
-                        WHERE plant_id = UNHEX(%s)
-                          AND id <> UNHEX(%s)
-                          AND measured_at < %s
-                        ORDER BY measured_at DESC LIMIT 1
-                        """
-                        ),
-                        (plant_hex, id_hex, measured_at_eff)
-                    )
-                    prev_row = cur.fetchone()
-                prev_measured_weight = prev_row[0] if prev_row else None
-
-                # Calculate water loss using helper
-                loss_calc = calculate_water_loss(
+                # Use derivation helper to recompute consistent fields
+                derived = derive_weights(
                     cursor=cur,
                     plant_id_hex=plant_hex,
-                    measured_at=measured_at_eff,
                     measured_weight_g=mw_eff,
+                    last_dry_weight_g=ld_eff,
                     last_wet_weight_g=lw_eff,
-                    water_added_g=wa_eff_payload,
-                    last_watering_water_added=last_watering_water_added,
-                    prev_measured_weight=prev_measured_weight,
-                    exclude_measurement_id=id_hex
+                    payload_water_added_g=wa_eff_payload,
                 )
 
-                # For watering events, measured_weight_g must be NULL
-                mw_update = None if loss_calc.is_watering_event else (mw if payload.measured_weight_g is not None else curr_mw)
+                # Determine previous measurement (by time) for day loss calc happens in compute
+                loss_calc = compute_water_losses(
+                    cursor=cur,
+                    plant_id_hex=plant_hex,
+                    measured_at_db=measured_at_eff,
+                    measured_weight_g=mw_eff,
+                    derived=derived,
+                    exclude_measurement_id=id_hex,
+                )
 
-                # Determine water_added_g to store
-                wa_update = int(wa_eff) if wa_eff else 0
+                mw_update = None if loss_calc.is_watering_event else mw_eff
+                wa_update = int(derived.water_added_g) if derived.water_added_g else 0
 
                 sql = (
                     "UPDATE plants_measurements SET measured_at=COALESCE(%s, measured_at), measured_weight_g=%s, last_dry_weight_g=%s, last_wet_weight_g=%s, water_added_g=%s, "
@@ -360,8 +296,8 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
                 params = (
                     (measured_at if measured_at is not None else None),
                     mw_update,
-                    ld_eff,
-                    lw_eff,
+                    derived.last_dry_weight_g,
+                    derived.last_wet_weight_g,
                     wa_update,
                     loss_calc.water_loss_total_pct,
                     loss_calc.water_loss_total_g,

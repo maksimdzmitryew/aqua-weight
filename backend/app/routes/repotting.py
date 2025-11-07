@@ -8,9 +8,8 @@ from starlette.concurrency import run_in_threadpool
 import uuid
 import re
 from ..helpers.watering import get_last_watering_event
-from ..helpers.water_loss import calculate_water_loss
 from ..db import get_conn, HEX_RE
-from ..utils.date_time import normalize_measured_at
+from ..services.measurements import parse_timestamp_utc, compute_water_losses, DerivedWeights
 from ..helpers.last_plant_event import LastPlantEvent
 from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
 
@@ -57,7 +56,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     raise HTTPException(status_code=404, detail="Last Plant event not found")
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
-                measured_at_shift = normalize_measured_at(measured_at, fill_with="zeros", fixed_milliseconds=1)
+                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=1)
 
                 new_id = uuid.uuid4().bytes
 
@@ -77,20 +76,24 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     ),
                 )
 
-                # Calculate water loss using helper
-                loss_calc = calculate_water_loss(
+                # Calculate water loss using shared services
+                derived = DerivedWeights(
+                    last_dry_weight_g=prev_last_dry,
+                    last_wet_weight_g=prev_last_wet,
+                    water_added_g=prev_last_water or 0,
+                    prev_measured_weight=prev_measured_weight,
+                    last_watering_water_added=prev_last_water or 0,
+                )
+                loss_calc = compute_water_losses(
                     cursor=cur,
                     plant_id_hex=plant_id,
-                    measured_at=measured_at,
+                    measured_at_db=measured_at,
                     measured_weight_g=measured_weight_g,
-                    last_wet_weight_g=prev_last_wet,
-                    water_added_g=None,
-                    last_watering_water_added=prev_last_water,
-                    prev_measured_weight=prev_measured_weight,
-                    exclude_measurement_id=None
+                    derived=derived,
+                    exclude_measurement_id=None,
                 )
 
-                measured_at_shift = normalize_measured_at(measured_at, fill_with="zeros", fixed_milliseconds=2)
+                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=2)
 
                 new_id = uuid.uuid4().bytes
 
@@ -117,7 +120,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     ),
                 )
 
-                measured_at_shift = normalize_measured_at(measured_at, fill_with="zeros", fixed_milliseconds=3)
+                measured_at_shift = parse_timestamp_utc(measured_at, fixed_milliseconds=3)
                 new_measured_weight_g = repotted_weight_g - prev_last_water
 
                 new_id = uuid.uuid4().bytes
