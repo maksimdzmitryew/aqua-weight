@@ -149,10 +149,12 @@ async def create_measurement(payload: MeasurementCreateRequest):
                 derived = derive_weights(
                     cursor=cur,
                     plant_id_hex=payload.plant_id,
+                    measured_at_db=measured_at,
                     measured_weight_g=mw,
                     last_dry_weight_g=ld,
                     last_wet_weight_g=lw,
                     payload_water_added_g=payload_water_added,
+                    exclude_measurement_id=None,
                 )
 
                 # Calculate water loss using shared service
@@ -270,10 +272,12 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
                 derived = derive_weights(
                     cursor=cur,
                     plant_id_hex=plant_hex,
+                    measured_at_db=measured_at_eff,
                     measured_weight_g=mw_eff,
                     last_dry_weight_g=ld_eff,
                     last_wet_weight_g=lw_eff,
                     payload_water_added_g=wa_eff_payload,
+                    exclude_measurement_id=id_hex,
                 )
 
                 # Determine previous measurement (by time) for day loss calc happens in compute

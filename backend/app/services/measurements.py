@@ -12,7 +12,6 @@ import pymysql
 
 from ..utils.date_time import normalize_measured_at
 from ..helpers.watering import get_last_watering_event
-from ..helpers.last_plant_event import LastPlantEvent
 
 
 # --- Timestamp helpers -------------------------------------------------------
@@ -58,25 +57,47 @@ class DerivedWeights:
 def derive_weights(
     cursor: pymysql.cursors.Cursor,
     plant_id_hex: str,
+    measured_at_db,
     measured_weight_g: Optional[int],
     last_dry_weight_g: Optional[int],
     last_wet_weight_g: Optional[int],
     payload_water_added_g: Optional[int],
+    exclude_measurement_id: Optional[str] = None,
 ) -> DerivedWeights:
     """
     Derive effective last_dry/last_wet/water_added and previous measured weight.
     Mirrors legacy routers' behavior while consolidating logic.
+    Uses the previous measurement BEFORE the current measured_at and excludes
+    the current record (by id) when updating to avoid zero day loss baselines.
     """
     # Get last watering event
     last_watering_event = get_last_watering_event(cursor, plant_id_hex)
     last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
 
-    # Fetch previous last record for this plant using the helper class
-    last_plant_event = LastPlantEvent.get_last_event(plant_id_hex)
-    if last_plant_event:
-        prev_measured_weight = last_plant_event["measured_weight_g"]
-        prev_last_dry = last_plant_event["last_dry_weight_g"]
-        prev_last_wet = last_plant_event["last_wet_weight_g"]
+    # Fetch previous measurement BEFORE the current timestamp, excluding current id when provided
+    where_exclude = ""
+    params = [plant_id_hex, measured_at_db]
+    if exclude_measurement_id:
+        where_exclude = " AND id <> UNHEX(%s)"
+        params = [plant_id_hex, exclude_measurement_id, measured_at_db]
+
+    cursor.execute(
+        f"""
+        SELECT measured_weight_g, last_dry_weight_g, last_wet_weight_g
+        FROM plants_measurements
+        WHERE plant_id=UNHEX(%s)
+          {where_exclude}
+          AND measured_at < %s
+        ORDER BY measured_at DESC
+        LIMIT 1
+        """,
+        params,
+    )
+    row = cursor.fetchone()
+    if row:
+        prev_measured_weight = row[0]
+        prev_last_dry = row[1]
+        prev_last_wet = row[2]
     else:
         prev_measured_weight, prev_last_dry, prev_last_wet = None, None, None
 
