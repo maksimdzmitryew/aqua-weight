@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from .errors import register_exception_handlers
 from .routes.repotting import app as repotting_app
@@ -26,10 +26,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
-app.include_router(repotting_app)
-app.include_router(daily_app)
-app.include_router(health_app)
-app.include_router(plants_app)
-app.include_router(locations_app)
-app.include_router(measurements_app)
+# Mount all routers under /api
+api_router = APIRouter(prefix="/api")
+api_router.include_router(repotting_app)
+api_router.include_router(daily_app)
+api_router.include_router(health_app)
+api_router.include_router(plants_app)
+api_router.include_router(locations_app)
+api_router.include_router(measurements_app)
+
+app.include_router(api_router)

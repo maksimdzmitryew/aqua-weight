@@ -12,7 +12,6 @@ app = APIRouter()
 
 
 @app.get("/plants", response_model=list[PlantListItem])
-@app.get("/api/plants", response_model=list[PlantListItem])
 async def list_plants() -> list[PlantListItem]:
     def fetch():
         return PlantsList.fetch_all()
@@ -41,7 +40,6 @@ class PlantCreate(BaseModel):
 
 
 @app.post("/plants")
-@app.post("/api/plants")
 async def create_plant(payload: PlantCreateRequest):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
@@ -133,7 +131,6 @@ def _validate_and_update_order(table: str, ids: list[str]):
 
 
 @app.put("/plants/order")
-@app.put("/api/plants/order")
 async def reorder_plants(payload: ReorderPayload):
     # Only reorder non-archived plants in the provided list
     def do_update():
@@ -158,7 +155,6 @@ async def reorder_plants(payload: ReorderPayload):
 
 
 @app.delete("/plants/{id_hex}")
-@app.delete("/api/plants/{id_hex}")
 async def delete_plant(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -178,7 +174,6 @@ async def delete_plant(id_hex: str):
 
 
 @app.put("/plants/{id_hex}")
-@app.put("/api/plants/{id_hex}")
 async def update_plant(id_hex: str, payload: PlantUpdateRequest):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -244,7 +239,6 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
 
 
 @app.get("/plants/{id_hex}")
-@app.get("/api/plants/{id_hex}")
 async def get_plant(id_hex: str) -> PlantListItem:
     def fetch_one():
         if not HEX_RE.match(id_hex or ""):

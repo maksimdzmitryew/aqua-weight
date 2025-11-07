@@ -17,7 +17,6 @@ app = APIRouter()
 
 
 @app.post("/measurements/repotting", response_model=RepottingResponse)
-@app.post("/api/measurements/repotting", response_model=RepottingResponse)
 async def create_repotting_event(payload: RepottingCreateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
 
@@ -161,7 +160,6 @@ async def create_repotting_event(payload: RepottingCreateRequest):
     return await run_in_threadpool(do_insert)
 
 @app.put("/measurements/repotting/{id_hex}", response_model=RepottingResponse)
-@app.put("/api/measurements/repotting/{id_hex}", response_model=RepottingResponse)
 async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
 

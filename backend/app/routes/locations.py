@@ -12,7 +12,6 @@ app = APIRouter()
 
 
 @app.get("/locations", response_model=list[LocationListItem])
-@app.get("/api/locations", response_model=list[LocationListItem])
 async def list_locations() -> list[LocationListItem]:
     # Load real locations from the database but keep a simple integer id for UI purposes
     def fetch_locations():
@@ -46,7 +45,6 @@ class LocationCreate(BaseModel):
 
 
 @app.post("/locations", response_model=dict)
-@app.post("/api/locations", response_model=dict)
 async def create_location(payload: LocationCreateRequest):
     # Normalize name: trim and collapse spaces
     def normalize(s: str) -> str:
@@ -91,7 +89,6 @@ class LocationUpdateByName(BaseModel):
 
 
 @app.put("/locations/by-name", response_model=dict)
-@app.put("/api/locations/by-name", response_model=dict)
 async def update_location_by_name(payload: LocationUpdateByNameRequest):
     # Normalize names: trim and collapse internal whitespace
     def normalize(s: str) -> str:
@@ -153,7 +150,6 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
 
 
 @app.delete("/locations/{id_hex}")
-@app.delete("/api/locations/{id_hex}")
 async def delete_location(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -183,7 +179,6 @@ class ReorderPayload(BaseModel):
 
 
 @app.put("/locations/order")
-@app.put("/api/locations/order")
 async def reorder_locations(payload: ReorderPayload):
     async def do_update():
         if not payload.ordered_ids:
