@@ -1,0 +1,18 @@
+[run]
+branch = True
+source = backend/app
+# Suppress warning when no data is collected during a coverage run
+# (e.g., empty test suite or no Python files executed)
+disable_warnings = no-data-collected
+omit =
+    backend/app/__init__.py
+    backend/app/main.py
+    backend/app/main_monolith.py
+    backend/app/routes/__init__.py
+
+[report]
+show_missing = True
+skip_covered = True
+exclude_lines =
+    pragma: no cover
+    if TYPE_CHECKING:

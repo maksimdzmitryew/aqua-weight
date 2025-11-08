@@ -1,0 +1,23 @@
+#explicit Compose project name to isolate the test stack from the primary stack
+name: aw-tests
+
+services:
+  tests:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.test
+    container_name: aw-tests
+    restart: unless-stopped
+    working_dir: /app
+    # Mount entire repo so pytest sees backend/, pyproject.toml, etc.
+    volumes:
+      - ./:/app
+    # Keep the container running persistently; tests are executed via `docker compose exec`.
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - aw-net
+
+networks:
+  aw-net:
+    external: true
+    name: aw_aw-net

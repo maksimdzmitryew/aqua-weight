@@ -36,3 +36,9 @@ api_router.include_router(locations_app)
 api_router.include_router(measurements_app)
 
 app.include_router(api_router)
+
+
+# Top-level health endpoint for container health checks and uptime probes
+@app.get("/health")
+async def health_root():
+    return {"status": "ok"}
