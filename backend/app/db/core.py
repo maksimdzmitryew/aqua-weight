@@ -1,4 +1,5 @@
 import os
+import time
 from contextlib import contextmanager
 import pymysql
 
@@ -10,14 +11,51 @@ __all__ = [
 
 
 def get_conn():
-    """Create and return a new PyMySQL connection (autocommit enabled)."""
-    return pymysql.connect(
-        host=os.getenv("DB_HOST", "db"),
-        user=os.getenv("DB_USER", "appuser"),
-        password=os.getenv("DB_PASSWORD", "apppass"),
-        database=os.getenv("DB_NAME", "appdb"),
-        autocommit=True,
-    )
+    """Create and return a new PyMySQL connection (autocommit enabled).
+
+    Hardened against intermittent "server has gone away" by pinging the
+    connection (with reconnect) before returning it and retrying once on
+    transient connection errors.
+    """
+    host = os.getenv("DB_HOST", "db")
+    user = os.getenv("DB_USER", "appuser")
+    password = os.getenv("DB_PASSWORD", "apppass")
+    database = os.getenv("DB_NAME", "appdb")
+
+    last_err = None
+    for attempt in range(2):
+        try:
+            conn = pymysql.connect(
+                host=host,
+                user=user,
+                password=password,
+                database=database,
+                autocommit=True,
+                connect_timeout=int(os.getenv("DB_CONNECT_TIMEOUT", "5")),
+                read_timeout=int(os.getenv("DB_READ_TIMEOUT", "10")),
+                write_timeout=int(os.getenv("DB_WRITE_TIMEOUT", "10")),
+                charset="utf8mb4",
+                use_unicode=True,
+            )
+            # Ensure the connection is alive; reconnect transparently if needed
+            try:
+                conn.ping(reconnect=True)
+            except Exception:
+                # If ping fails on first try, close and retry once
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+                raise
+            return conn
+        except Exception as e:
+            last_err = e
+            if attempt == 0:
+                time.sleep(0.2)
+                continue
+            raise
+    # Should not reach here, but raise last error defensively
+    raise last_err  # type: ignore
 
 
 @contextmanager
@@ -25,6 +63,11 @@ def connect():
     """Context manager that yields a DB connection and closes it afterwards."""
     conn = get_conn()
     try:
+        try:
+            conn.ping(reconnect=True)
+        except Exception:
+            # If ping fails here, let get_conn on next call handle retries
+            pass
         yield conn
     finally:
         try:

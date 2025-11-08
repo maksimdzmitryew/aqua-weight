@@ -34,6 +34,31 @@
   - `docker compose -f docker-compose.test.yml exec tests pytest -q --cov=backend/app --cov-report=term-missing`
 - Network note: your test compose file uses an external network (e.g., `aw_aw-net`). If it doesn’t exist yet, bring up the main stack once: `docker compose up -d`.
 
+## Database Isolation Requirements for Runtime and Test Environments
+
+### MANDATORY RULES
+
+1. Shared Infrastructure
+   - Runtime and test environments MUST connect to the same database server instance/container
+   - No separate database servers or containers shall be provisioned for testing
+
+2. Schema Separation
+   - Runtime environment MUST use a dedicated database name (schema)
+   - Test environment MUST use a different database name (schema)
+   - The two database names MUST be distinct and non-overlapping
+   - Example: `plantapp_production` for runtime, `plantapp_test` for tests
+
+3. Zero Cross-Contamination
+   - Tests MUST NEVER perform any write operations (INSERT, UPDATE, DELETE, TRUNCATE, DROP, CREATE, ALTER) to the runtime database name
+   - Tests MUST NEVER perform any read operations from the runtime database name
+   - Any test configuration that could potentially write to the runtime database MUST fail immediately with a clear error
+   - Connection strings, environment variables, and configuration files used by tests MUST be validated to ensure they point exclusively to the test database name
+
+4. Enforcement Mechanisms Required
+   - Database connection initialization in test code MUST validate that the target database name is NOT the runtime database name
+   - Test fixtures/setup MUST include assertions verifying the correct database name is in use
+   - CI/CD pipeline MUST fail if tests attempt to access the runtime database name
+
 ### One‑liners:
 - Ensure container is up, then run tests (no forced rebuild):
   - `docker compose -f docker-compose.test.yml up -d tests && docker compose -f docker-compose.test.yml exec tests pytest -q`

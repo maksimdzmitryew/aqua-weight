@@ -30,11 +30,24 @@ def _override_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Ensure DB env vars are set to test values and isolated per test run.
 
     We don't hit the DB in smoke tests, but this prepares for DB-backed tests.
+    Also enforce safety rules: tests must never use the runtime database.
     """
+    # Point to test DB by default (can be overridden by TEST_DB_* envs)
     monkeypatch.setenv("DB_HOST", os.getenv("TEST_DB_HOST", "db"))
     monkeypatch.setenv("DB_USER", os.getenv("TEST_DB_USER", "appuser"))
     monkeypatch.setenv("DB_PASSWORD", os.getenv("TEST_DB_PASSWORD", "apppass"))
     monkeypatch.setenv("DB_NAME", os.getenv("TEST_DB_NAME", "appdb_test"))
+
+    # Safety checks: fail fast if misconfigured
+    runtime_db = os.getenv("RUNTIME_DB_NAME", "appdb")
+    test_db = os.getenv("DB_NAME")
+    assert test_db != runtime_db, (
+        f"Tests are configured to use runtime DB name '{runtime_db}'. "
+        f"Set TEST_DB_NAME to a dedicated test DB (e.g., 'appdb_test')."
+    )
+    assert test_db and test_db.endswith("_test"), (
+        "Test DB name must end with '_test' to avoid collisions (got: %r)" % test_db
+    )
     yield
 
 
