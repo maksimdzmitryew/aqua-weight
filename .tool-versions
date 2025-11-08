@@ -1,0 +1,4 @@
+# asdf tool versions for this project
+# These versions reflect local dev images used in Dockerfiles and ensure consistent tooling.
+python 3.10.12
+nodejs 20.11.1
