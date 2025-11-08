@@ -5,12 +5,16 @@ requires-python = ">=3.11"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-addopts = "-ra -q --cov=backend/app --cov-report=term-missing"
+addopts = "-ra -q --strict-markers --maxfail=1 --cov=backend/app --cov-report=term-missing"
 testpaths = [
   "backend",
 ]
 pythonpath = [
   "backend",
+]
+markers = [
+  "slow: marks tests as slow",
+  "integration: integration tests",
 ]
 # Explicitly set asyncio fixture loop scope to avoid deprecation warning
 asyncio_default_fixture_loop_scope = "function"
