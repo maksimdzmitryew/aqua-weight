@@ -71,4 +71,3 @@ docker-compose.*.local.yml
 
 # Misc
 coverage.xml
-TEST.md
