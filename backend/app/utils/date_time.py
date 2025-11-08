@@ -118,7 +118,8 @@ def normalize_measured_at_local(raw: str,
     - Milliseconds can be set deterministically via fixed_milliseconds (0..999), stored as microseconds.
     """
     raw = raw.strip()
-    dt = datetime.fromisoformat(raw)
+    s_norm = raw.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(s_norm)
 
     # If tz-aware, convert to local time and drop tzinfo; if naive, leave as-is
     if dt.tzinfo is not None:
