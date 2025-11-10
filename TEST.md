@@ -12,27 +12,47 @@
 - React frontend
   - Unit/component tests: `Jest` + `@testing-library/react`
   - Mocking network: `msw`
-  - E2E: `Playwright` (or `Cypress` if preferred)
+  - E2E: `Playwright`
   - Lint/format: `eslint` + `prettier`
   - Visual/interaction docs (optional but recommended): `Storybook`
 - Cross-cutting
   - Pre-commit hooks: `pre-commit`
   - Env mgmt: `poetry`/`uv` or `pip-tools` for Python; `pnpm`/`npm`/`yarn` for JS
-  - CI: GitHub Actions (or your platform) with caching, test matrices
+  - CI: GitHub Actions (or another platform) with caching, test matrices
   - Containers: `docker` + `docker-compose` for integration tests
 
 ### Typical workflow
 - First time (or after changing `backend/Dockerfile.test`, `backend/requirements*.txt`, or the base image):
   - `docker compose -f docker-compose.test.yml up -d --build tests`
-- Subsequent test runs (code-only changes don’t require rebuild because your repo is bind‑mounted into the container):
+- Subsequent test runs (code-only changes don’t require rebuild because repo is bind‑mounted into the container):
   - `docker compose -f docker-compose.test.yml exec tests pytest -q`
 
-### Extra tips
+### Extra tips BE
 - Run a specific test file or node:
   - `docker compose -f docker-compose.test.yml exec tests pytest -q backend/tests/test_something.py::TestClass::test_case`
-- Run with coverage (matches your `pyproject.toml` defaults too):
+- Run with coverage (matches `pyproject.toml` defaults too):
   - `docker compose -f docker-compose.test.yml exec tests pytest -q --cov=backend/app --cov-report=term-missing`
-- Network note: your test compose file uses an external network (e.g., `aw_aw-net`). If it doesn’t exist yet, bring up the main stack once: `docker compose up -d`.
+- Network note: test compose file uses an external network (e.g., `aw_aw-net`). If it doesn’t exist yet, bring up the main stack once: `docker compose up -d`.
+
+### Extra tips FE
+
+#### Install deps in the e2e container (once per container lifecycle):
+  - `docker compose -f docker-compose.test.yml exec e2e npm ci --prefix /app/frontend`
+  - `docker compose -f docker-compose.test.yml exec e2e npx playwright install --with-deps`
+
+##### Run the Playwright tests inside the e2e container
+  - `docker compose -f docker-compose.test.yml exec -e E2E_BASE_URL=http://host.docker.internal:5173 e2e npx playwright test --config /app/frontend/playwright.config.ts`
+  - If the frontend is exposed via https://aw.max `docker compose -f docker-compose.test.yml exec \
+  -e E2E_BASE_URL=https://aw.max \
+  e2e npx playwright test --config /app/frontend/playwright.config.ts`
+
+#### Open the HTML report (generated under frontend/playwright-report on the host):
+  - `npm run --prefix frontend e2e:report`
+
+#### Open the HTML report (artifacts are written under frontend/playwright-report):
+  - `docker compose -f docker-compose.test.yml exec e2e \
+  npx playwright show-report /app/frontend/playwright-report`
+  - https://aw.max/playwright-report/index.html
 
 ## Database Isolation Requirements for Runtime and Test Environments
 
@@ -65,7 +85,10 @@
 - Force rebuild only when the image changed:
   - `docker compose -f docker-compose.test.yml build tests && docker compose -f docker-compose.test.yml up -d tests && docker compose -f docker-compose.test.yml exec tests pytest -q`
 
+docker compose -f docker-compose.test.yml exec e2e npm ci --prefix /app/frontend
+
 Notes:
+- Build does nothing for services that use a prebuilt "image:". Pull/force-recreate for those above.
 - Rebuild is only necessary when dependencies or the test image definition change. Examples that require rebuild:
   - You edit `backend/requirements.txt` or `backend/requirements-dev.txt`.
   - You edit `backend/Dockerfile.test`.

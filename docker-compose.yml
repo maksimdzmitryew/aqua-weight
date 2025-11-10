@@ -13,6 +13,7 @@ services:
       - aw-net
     environment:
       - PYTHONUNBUFFERED=1
+      - TEST_MODE=1
     volumes:
       - ./backend/app:/app/app
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
@@ -82,7 +83,9 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - aw-net
+      aw-net:
+        aliases:
+          - aw.max
 
 volumes:
   frontend_node_modules:

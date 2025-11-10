@@ -7,6 +7,7 @@ from .routes.health import app as health_app
 from .routes.plants import app as plants_app
 from .routes.locations import app as locations_app
 from .routes.measurements import app as measurements_app
+from .routes.test_admin import app as test_admin_app
 
 app = FastAPI()
 
@@ -34,6 +35,11 @@ api_router.include_router(health_app)
 api_router.include_router(plants_app)
 api_router.include_router(locations_app)
 api_router.include_router(measurements_app)
+
+# Conditionally include test admin endpoints when TEST_MODE=1
+import os as _os
+if _os.getenv("TEST_MODE") == "1":
+    api_router.include_router(test_admin_app)
 
 app.include_router(api_router)
 

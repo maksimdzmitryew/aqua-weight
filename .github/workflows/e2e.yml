@@ -1,0 +1,57 @@
+name: E2E
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright deps and browsers
+        run: |
+          npm ci --prefix frontend
+          npx playwright install --with-deps
+
+      - name: Add hosts entry for aw.max
+        run: |
+          echo "127.0.0.1 aw.max" | sudo tee -a /etc/hosts
+
+      - name: Start services
+        run: |
+          docker compose up -d --build
+        env:
+          MARIADB_ROOT_PASSWORD: rootpass
+          MARIADB_DATABASE: appdb
+          MARIADB_USER: appuser
+          MARIADB_PASSWORD: apppass
+
+      - name: Wait for services
+        run: |
+          echo "Waiting for backend health..."
+          for i in {1..30}; do
+            if curl -sk https://aw.max/health | grep -q '"ok"'; then
+              echo OK; break; fi; sleep 3; done
+
+      - name: Run Playwright tests
+        env:
+          E2E_BASE_URL: https://aw.max
+        run: |
+          npx playwright test --config frontend/playwright.config.ts
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

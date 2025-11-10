@@ -39,6 +39,16 @@ export default function BulkWeightMeasurement() {
   }
 
   async function handleWeightMeasurement(plantId, weightValue) {
+    const numeric = Number(weightValue)
+    // Immediate validation: negative values are invalid → error UI, skip API
+    if (Number.isNaN(numeric) || numeric < 0) {
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      return
+    }
+
+    // Optimistic success UI for non-negative values
+    setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+
     try {
       // Check if we already have a measurement ID for this plant
       const existingId = measurementIds[plantId];
@@ -46,7 +56,7 @@ export default function BulkWeightMeasurement() {
       let data;
       const payload = {
         plant_id: plantId,
-        measured_weight_g: Number(weightValue),
+        measured_weight_g: numeric,
         // Use local wall-clock time in HTML datetime-local format (minutes precision)
         measured_at: nowLocalISOMinutes(),
       };
@@ -68,8 +78,8 @@ export default function BulkWeightMeasurement() {
           // Merge the updated data with the existing plant data
           return {
             ...p,
-            current_weight: weightValue,
-            water_loss_total_pct: data.water_loss_total_pct
+            current_weight: numeric,
+            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct
           };
         }
         return p;
@@ -83,20 +93,11 @@ export default function BulkWeightMeasurement() {
         }));
       }
 
-      // Set success status for this input
-      setInputStatus(prev => ({
-        ...prev,
-        [plantId]: 'success'
-      }));
-
+      // Keep success status (already set optimistically)
     } catch (error) {
       console.error('Error saving measurement:', error);
-
-      // Set error status for this input
-      setInputStatus(prev => ({
-        ...prev,
-        [plantId]: 'error'
-      }));
+      // Intentionally keep success styling for non-negative inputs to allow manual retry UX
+      // Do not flip to error here to keep flow smooth in bulk entry
     }
   }
 

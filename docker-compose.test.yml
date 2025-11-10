@@ -17,6 +17,16 @@ services:
     networks:
       - aw-net
 
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.48.2-jammy
+    container_name: aw-e2e
+    working_dir: /app/frontend
+    volumes:
+      - ./:/app
+    command: ["tail", "-f", "/dev/null"]
+    networks:
+      - aw-net
+
 networks:
   aw-net:
     external: true
