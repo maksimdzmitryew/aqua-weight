@@ -6,6 +6,10 @@ Overview
 - SSL: locally signed certs live in ./ssl
 - One Nginx container proxies both frontend and backend
 
+Developer workflows and tests
+- See backend/TESTING.md and frontend/TESTING.md for per-package testing guides (commands, fixtures philosophy, AAA/GWT patterns).
+- Standardized commands are available via Makefile. Run `make help` to discover targets (test-up, test, e2e, sb, etc.).
+
 Background: collation and engine choice
 - MySQL offers some of the most accurate modern Unicode collations (e.g., utf8mb4_0900_ai_ci), delivering high‑quality multilingual sorting, case/diacritic handling, and consistent comparisons across scripts.
 - However, to avoid reliance on closed‑source stewardship and keep the stack community‑governed, this project uses MariaDB by default.

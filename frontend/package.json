@@ -11,7 +11,9 @@
     "e2e": "playwright test --config ./playwright.config.ts",
     "e2e:headed": "playwright test --config ./playwright.config.ts --headed",
     "e2e:report": "playwright show-report ./playwright-report",
-    "e2e:install": "npx playwright install --with-deps"
+    "e2e:install": "npx playwright install --with-deps",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -21,6 +23,9 @@
   "devDependencies": {
     "@playwright/test": "^1.48.2",
     "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "@storybook/react-vite": "^8.3.6",
+    "@storybook/addon-essentials": "^8.3.6",
+    "storybook": "^8.3.6"
   }
 }
