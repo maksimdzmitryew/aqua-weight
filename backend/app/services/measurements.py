@@ -110,11 +110,18 @@ def derive_weights(
         prev_measured_weight, prev_last_dry, prev_last_wet = None, None, None
 
     # Fill defaults for last dry
+    # Priority:
+    # 1) explicit payload value
+    # 2) previous measurement weight (if exists)
+    # 3) when no previous, fall back to current measured_weight_g
+    # 4) otherwise previous last_dry (may be None on first record)
     if last_dry_weight_g is None:
-        if prev_measured_weight is None:
-            ld_local = prev_last_dry
-        else:
+        if prev_measured_weight is not None:
             ld_local = prev_measured_weight
+        elif measured_weight_g is not None:
+            ld_local = measured_weight_g
+        else:
+            ld_local = prev_last_dry
     else:
         ld_local = last_dry_weight_g
 

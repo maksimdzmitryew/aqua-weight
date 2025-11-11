@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from datetime import datetime
 from starlette.concurrency import run_in_threadpool
 import re
 import uuid
-from ..db import get_conn, HEX_RE, hex_to_bin, bin_to_hex
+from ..db import get_conn, get_conn_factory, HEX_RE, hex_to_bin, bin_to_hex
 from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
@@ -33,12 +33,12 @@ def _to_dt_string(s: str | None):
 
 
 @app.get("/measurements/last", response_model=LastMeasurementResponse | None)
-async def get_last_measurement(plant_id: str):
+async def get_last_measurement(plant_id: str, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     def do_fetch():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -73,12 +73,12 @@ async def get_last_measurement(plant_id: str):
 
 
 @app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
-async def list_measurements_for_plant(id_hex: str):
+async def list_measurements_for_plant(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid plant id")
 
     def do_fetch():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -118,7 +118,7 @@ async def list_measurements_for_plant(id_hex: str):
 
 @app.post("/measurements/watering")
 @app.post("/measurements/weight")
-async def create_measurement(payload: MeasurementCreateRequest):
+async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -138,7 +138,7 @@ async def create_measurement(payload: MeasurementCreateRequest):
     payload_water_added = payload.water_added_g
 
     def do_insert():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             conn.autocommit(False)
             with (conn.cursor() as cur):
@@ -226,12 +226,12 @@ async def create_measurement(payload: MeasurementCreateRequest):
 
 @app.put("/measurements/watering/{id_hex}")
 @app.put("/measurements/weight/{id_hex}")
-async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
+async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_update():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
@@ -345,12 +345,12 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest):
 
 
 @app.get("/measurements/{id_hex}")
-async def get_measurement(id_hex: str):
+async def get_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_fetch():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -392,12 +392,12 @@ async def get_measurement(id_hex: str):
 
 
 @app.delete("/measurements/{id_hex}")
-async def delete_measurement(id_hex: str):
+async def delete_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
     def do_delete():
-        conn = get_conn()
+        conn = get_conn_fn()
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
