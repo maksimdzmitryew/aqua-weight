@@ -26,6 +26,19 @@
   - `docker compose -f docker-compose.test.yml up -d --build tests`
 - Subsequent test runs (code-only changes don’t require rebuild because repo is bind‑mounted into the container):
   - `docker compose -f docker-compose.test.yml exec tests pytest -q`
+- Run tests in parallel on all CPU cores (xdist):
+  - `docker compose -f docker-compose.test.yml exec tests pytest -q -n auto`
+- Retry only known flaky tests (use sparingly and only with `@pytest.mark.flaky`):
+  - `docker compose -f docker-compose.test.yml exec tests pytest -q -m flaky --reruns 2 --reruns-delay 1`
+- Mark and run slow tests selectively:
+  - Mark: `@pytest.mark.slow`
+  - Run only slow: `docker compose -f docker-compose.test.yml exec tests pytest -q -m slow`
+  - Exclude slow: `docker compose -f docker-compose.test.yml exec tests pytest -q -m 'not slow'`
+- Mutation testing (experimental, hot paths only):
+  - Run mutmut (first run mutates and runs tests; may take time):
+    - `docker compose -f docker-compose.test.yml exec tests mutmut run`
+  - Show results:
+    - `docker compose -f docker-compose.test.yml exec tests mutmut results`
 
 ### Extra tips BE
 - Run a specific test file or node:

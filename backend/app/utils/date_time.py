@@ -63,7 +63,8 @@ def normalize_measured_at(raw: str,
     - fixed_milliseconds: integer 0..999 used when fill_with == "fixed" or when provided explicitly
     """
     raw = raw.strip()
-    dt = datetime.fromisoformat(raw)  # accepts "YYYY-MM-DDTHH:MM", "YYYY-MM-DDTHH:MM:SS", etc.
+    s_norm = raw.replace("Z", "+00:00")
+    dt = datetime.fromisoformat(s_norm)  # accepts "YYYY-MM-DDTHH:MM", "YYYY-MM-DDTHH:MM:SS", etc.
 
     # make timezone-aware in UTC
     if dt.tzinfo is None:
