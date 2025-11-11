@@ -1,6 +1,9 @@
 import os
 from fastapi import APIRouter, HTTPException
-from ..db.core import connect, cursor
+try:
+    from ..db.core import connect, cursor
+except ImportError:  # fallback when imported as a top-level module during pytest collection
+    from backend.app.db.core import connect, cursor
 
 app = APIRouter(prefix="/test", tags=["test-admin"])  # will be mounted under /api when enabled
 

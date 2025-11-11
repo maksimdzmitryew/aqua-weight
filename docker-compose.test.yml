@@ -1,33 +1,134 @@
-#explicit Compose project name to isolate the test stack from the primary stack
+# explicit Compose project name to isolate the test stack from the primary stack
 name: aw-tests
 
 services:
+  db:
+    image: mariadb:10.11
+    container_name: aw-tests-mariadb
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-rootpass}
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb_test}
+      - MARIADB_USER=${MARIADB_USER:-appuser}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
+    ports:
+      - "127.0.0.1:53316:3306"
+    volumes:
+      - ./db/my.cnf:/etc/mysql/my.cnf
+      - mariadb_data_test_appdbtest:/var/lib/mysql:consistent
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - aw-tests-net
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 --protocol=TCP -uroot -p\"$MARIADB_ROOT_PASSWORD\" --connect-timeout=3 --silent || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: aw-tests-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - aw-tests-net
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TEST_MODE=1
+      - DB_NAME=appdb_test
+      - DB_HOST=db
+      - DB_USER=appuser
+      - DB_PASSWORD=apppass
+    volumes:
+      - ./backend/app:/app/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: aw-tests-frontend
+    restart: unless-stopped
+    networks:
+      - aw-tests-net
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules_test:/app/node_modules
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    container_name: aw-tests-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "127.0.0.1:5080:80"
+    volumes:
+      - ./ssl:/etc/ssl/aw.max:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
+    
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      aw-tests-net:
+        aliases:
+          - aw.max
+
   tests:
     build:
       context: .
       dockerfile: backend/Dockerfile.test
-    container_name: aw-tests
+    container_name: aw-tests-runner
     restart: unless-stopped
     working_dir: /app
-    # Mount entire repo so pytest sees backend/, pyproject.toml, etc.
+    environment:
+      - TEST_DB_HOST=db
+      - TEST_DB_USER=appuser
+      - TEST_DB_PASSWORD=apppass
+      - TEST_DB_NAME=appdb_test
     volumes:
       - ./:/app
-    # Keep the container running persistently; tests are executed via `docker compose exec`.
     command: ["tail", "-f", "/dev/null"]
     networks:
-      - aw-net
+      - aw-tests-net
 
   e2e:
     image: mcr.microsoft.com/playwright:v1.48.2-jammy
-    container_name: aw-e2e
+    container_name: aw-tests-e2e
     working_dir: /app/frontend
+    depends_on:
+      - nginx
+    environment:
+      - E2E_BASE_URL=https://aw.max
     volumes:
       - ./:/app
     command: ["tail", "-f", "/dev/null"]
     networks:
-      - aw-net
+      - aw-tests-net
+
+volumes:
+  frontend_node_modules_test:
+  mariadb_data_test_appdbtest:
 
 networks:
-  aw-net:
-    external: true
-    name: aw_aw-net
+  aw-tests-net:
+    driver: bridge

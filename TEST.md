@@ -79,6 +79,10 @@
    - Test fixtures/setup MUST include assertions verifying the correct database name is in use
    - CI/CD pipeline MUST fail if tests attempt to access the runtime database name
 
+5. Isolate E2E from the runtime DB.
+
+6. For any kind of tests use only settings in docker-compose.test.yml and "appdb_test" for DB similarly to settings in conftest.py
+
 ### One‑liners:
 - Ensure container is up, then run tests (no forced rebuild):
   - `docker compose -f docker-compose.test.yml up -d tests && docker compose -f docker-compose.test.yml exec tests pytest -q`

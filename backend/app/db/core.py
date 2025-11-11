@@ -20,7 +20,10 @@ def get_conn():
     host = os.getenv("DB_HOST", "db")
     user = os.getenv("DB_USER", "appuser")
     password = os.getenv("DB_PASSWORD", "apppass")
-    database = os.getenv("DB_NAME", "appdb")
+    # Auto-isolate tests: when TEST_MODE=1 and DB_NAME is not explicitly set,
+    # default to appdb_test; otherwise default to appdb.
+    test_mode = os.getenv("TEST_MODE") == "1"
+    database = os.getenv("DB_NAME") or ("appdb_test" if test_mode else "appdb")
 
     last_err = None
     for attempt in range(2):
