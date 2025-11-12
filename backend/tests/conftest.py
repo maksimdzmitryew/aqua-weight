@@ -6,6 +6,8 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 
+# Ensure test admin endpoints are enabled before importing the app
+os.environ.setdefault("TEST_MODE", "1")
 # Import the real FastAPI app
 from backend.app.main import app as real_app
 
@@ -37,6 +39,8 @@ def _override_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("DB_USER", os.getenv("TEST_DB_USER", "appuser"))
     monkeypatch.setenv("DB_PASSWORD", os.getenv("TEST_DB_PASSWORD", "apppass"))
     monkeypatch.setenv("DB_NAME", os.getenv("TEST_DB_NAME", "appdb_test"))
+    # Enable test admin endpoints
+    monkeypatch.setenv("TEST_MODE", "1")
 
     # Safety checks: fail fast if misconfigured
     runtime_db = os.getenv("RUNTIME_DB_NAME", "appdb")
@@ -57,6 +61,6 @@ async def async_client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
     Prefer this for async endpoint testing.
     """
-    transport = ASGITransport(app=app)
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client

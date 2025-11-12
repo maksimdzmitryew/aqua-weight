@@ -92,8 +92,16 @@ def test_derive_weights_invariants(
         assert derived.last_watering_water_added == last_watering_added
         assert derived.water_added_g == last_watering_added
 
-    # If both last_wet and last_dry are set on watering flow, their difference should match water_added when not overridden by missing dry
-    if measured_weight_g is None and derived.last_wet_weight_g is not None and derived.last_dry_weight_g is not None:
+    # If both last_wet and last_dry are set on watering flow, their difference should
+    # match water_added only when the input explicitly provided a positive last_wet_weight_g
+    # (service prefers recomputation in that case) and no overriding payload is used.
+    if (
+        measured_weight_g is None
+        and last_wet_weight_g is not None
+        and int(last_wet_weight_g) > 0
+        and derived.last_dry_weight_g is not None
+        and (payload_water_added_g is None or int(payload_water_added_g) <= 0)
+    ):
         diff = int(derived.last_wet_weight_g) - int(derived.last_dry_weight_g)
         if diff >= 0:
             assert derived.water_added_g == diff

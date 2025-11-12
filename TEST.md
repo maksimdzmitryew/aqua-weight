@@ -112,3 +112,9 @@ Notes:
   - You change the base OS/tooling inside the image.
 - No rebuild needed when you only change Python app code or tests, since the repo is mounted as a volume (`./:/app`).
 - If the container ever stops, start it again without rebuilding: `docker compose -f docker-compose.test.yml up -d tests`.
+
+### Success Criteria
+- CI enforces style, types, tests; average pipeline < 10 minutes.
+- Coverage: backend 80%+, frontend 70%+, critical modules 90%+.
+- <2% flaky rate over 2 weeks; mean time to diagnose failed test < 30 minutes.
+- New features land with tests in the same PR; review checklist includes test scenarios.

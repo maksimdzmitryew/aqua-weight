@@ -7,6 +7,7 @@ Overview
 - One Nginx container proxies both frontend and backend
 
 Developer workflows and tests
+- High-level plan: see TEST_PLAN.md (step-by-step actions) and TESTING_STRATEGY.md (one-pager priorities).
 - See backend/TESTING.md and frontend/TESTING.md for per-package testing guides (commands, fixtures philosophy, AAA/GWT patterns).
 - Standardized commands are available via Makefile. Run `make help` to discover targets (test-up, test, e2e, sb, etc.).
 
