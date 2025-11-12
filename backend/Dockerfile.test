@@ -18,9 +18,9 @@ WORKDIR /app
 
 # Install Python deps first (better layer caching)
 COPY backend/requirements.txt /tmp/requirements.txt
-COPY backend/requirements-dev.txt /tmp/requirements-dev.txt
+COPY backend/requirements-tests.txt /tmp/requirements-tests.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt && \
-    pip3 install --no-cache-dir -r /tmp/requirements-dev.txt
+    pip3 install --no-cache-dir -r /tmp/requirements-tests.txt
 
 # Note: Source code is mounted via volume from docker-compose.test.yml
 # Default command runs pytest (can be overridden by compose)

@@ -4,7 +4,7 @@ name: aw-tests
 services:
   db:
     image: mariadb:10.11
-    container_name: aw-tests-mariadb
+    container_name: aw_test_mariadb
     restart: unless-stopped
     environment:
       - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-rootpass}
@@ -30,7 +30,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: aw-tests-backend
+    container_name: aw_test_backend
     restart: unless-stopped
     depends_on:
       db:
@@ -57,7 +57,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    container_name: aw-tests-frontend
+    container_name: aw_test_frontend
     restart: unless-stopped
     networks:
       - aw-tests-net
@@ -72,7 +72,7 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
-    container_name: aw-tests-nginx
+    container_name: aw_test_nginx
     restart: unless-stopped
     depends_on:
       - backend
@@ -93,11 +93,11 @@ services:
         aliases:
           - aw.max
 
-  tests:
+  runner:
     build:
       context: .
       dockerfile: backend/Dockerfile.test
-    container_name: aw-tests-runner
+    container_name: aw_test_runner
     restart: unless-stopped
     working_dir: /app
     environment:
@@ -112,8 +112,8 @@ services:
       - aw-tests-net
 
   e2e:
-    image: mcr.microsoft.com/playwright:v1.48.2-jammy
-    container_name: aw-tests-e2e
+    image: mcr.microsoft.com/playwright:v1.56.1-jammy
+    container_name: aw_test_e2e
     working_dir: /app/frontend
     depends_on:
       - nginx

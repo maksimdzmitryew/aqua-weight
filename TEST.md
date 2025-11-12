@@ -107,7 +107,7 @@ docker compose -f docker-compose.test.yml exec e2e npm ci --prefix /app/frontend
 Notes:
 - Build does nothing for services that use a prebuilt "image:". Pull/force-recreate for those above.
 - Rebuild is only necessary when dependencies or the test image definition change. Examples that require rebuild:
-  - You edit `backend/requirements.txt` or `backend/requirements-dev.txt`.
+  - You edit `backend/requirements.txt` or `backend/requirements-tests.txt`.
   - You edit `backend/Dockerfile.test`.
   - You change the base OS/tooling inside the image.
 - No rebuild needed when you only change Python app code or tests, since the repo is mounted as a volume (`./:/app`).
@@ -118,3 +118,12 @@ Notes:
 - Coverage: backend 80%+, frontend 70%+, critical modules 90%+.
 - <2% flaky rate over 2 weeks; mean time to diagnose failed test < 30 minutes.
 - New features land with tests in the same PR; review checklist includes test scenarios.
+
+
+### NPM version policy for CI and Docker
+- We standardize on npm 11.6.2 across CI and the frontend Docker image to avoid noisy update notices and ensure consistent lockfile semantics.
+- CI sets NPM_CONFIG_UPDATE_NOTIFIER=false to suppress update prompts in logs.
+- To update npm locally: npm install -g npm@11.6.2
+- If we bump the version later, update both places:
+  - .github/workflows/ci.yml (Use npm <version>)
+  - frontend/Dockerfile (RUN npm i -g npm@<version>)

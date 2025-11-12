@@ -23,8 +23,8 @@ COPY backend/requirements.txt /app/requirements.txt
 RUN pip3 install --no-cache-dir -r /app/requirements.txt
 
 # Optional dev tools
-COPY backend/requirements-dev.txt /app/requirements-dev.txt
-RUN if [ "$INSTALL_DEV" = "1" ]; then pip3 install --no-cache-dir -r /app/requirements-dev.txt; fi
+COPY backend/requirements-tests.txt /app/requirements-tests.txt
+RUN if [ "$INSTALL_DEV" = "1" ]; then pip3 install --no-cache-dir -r /app/requirements-tests.txt; fi
 
 # Copy app code
 COPY backend/app /app/app
