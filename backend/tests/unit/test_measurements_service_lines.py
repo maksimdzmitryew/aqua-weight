@@ -119,3 +119,46 @@ def test_compute_water_losses_wraps_and_passes_args(monkeypatch):
     assert captured["last_watering_water_added"] == 30
     assert captured["prev_measured_weight"] == 95
     assert captured["exclude_measurement_id"] == "c" * 32
+
+
+
+def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
+    # Watering flow: measured_weight_g is None
+    # Force branch 145 to be False by providing last_wet_weight_g == 0 (non-None but not > 0)
+    # Provide payload_water_added_g > 0 and ld_local > 0 so the inner branch executes
+    # Expect: wa_local equals payload, and lw_local is NOT recomputed because last_wet_weight_g is not None
+    from backend.app.services import measurements as svc
+
+    # Patch last watering event (value is not used in this branch but keep consistent)
+    monkeypatch.setattr(
+        svc,
+        "get_last_watering_event",
+        lambda cursor, plant_id_hex: {"water_added_g": 42},
+    )
+
+    # Dummy cursor with no previous row
+    class _Cur:
+        def execute(self, sql, params=None):
+            pass
+        def fetchone(self):
+            return None
+
+    cur = _Cur()
+
+    derived = svc.derive_weights(
+        cursor=cur,
+        plant_id_hex="0" * 32,
+        measured_at_db="2025-01-01 00:00:00",
+        measured_weight_g=None,            # watering flow
+        last_dry_weight_g=100,             # ld_local > 0
+        last_wet_weight_g=0,               # non-None but not > 0 to skip line 145 branch
+        payload_water_added_g=30,          # positive payload triggers inner assignment
+        exclude_measurement_id=None,
+    )
+
+    # lw_local should remain the provided 0 (no recompute at 156 because 155 condition is False)
+    assert derived.last_wet_weight_g == 0
+    # water_added should come from payload
+    assert derived.water_added_g == 30
+    # last dry preserved
+    assert derived.last_dry_weight_g == 100
