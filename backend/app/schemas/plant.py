@@ -39,6 +39,7 @@ class PlantCreateRequest(BaseModel):
     substrate_last_refresh_at: Optional[str] = None
     fertilized_last_at: Optional[str] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
+    min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None
@@ -56,6 +57,7 @@ class PlantUpdateRequest(BaseModel):
     substrate_last_refresh_at: Optional[str] = None
     fertilized_last_at: Optional[str] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
+    min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None

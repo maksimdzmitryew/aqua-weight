@@ -74,8 +74,8 @@ async def create_plant(payload: PlantCreateRequest):
                 new_id = uuid.uuid4().bytes
                 cur.execute(
                     (
-                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, min_dry_weight_g, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     ),
                     (
                         new_id,
@@ -91,6 +91,7 @@ async def create_plant(payload: PlantCreateRequest):
                         hex_to_bytes(payload.light_level_id),
                         to_dt(payload.fertilized_last_at),
                         payload.fertilizer_ec_ms,
+                        (payload.min_dry_weight_g if payload.min_dry_weight_g is not None else None),
                         hex_to_bytes(payload.pest_status_id),
                         hex_to_bytes(payload.health_status_id),
                         (payload.photo_url or None),
@@ -235,7 +236,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     raise HTTPException(status_code=404, detail="Plant not found")
 
                 sql = (
-                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
+                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, min_dry_weight_g=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
                 )
                 params = (
                     (normalize(payload.name) if payload.name is not None else None),
@@ -249,6 +250,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     hex_to_bytes(payload.light_level_id),
                     to_dt(payload.fertilized_last_at) if payload.fertilized_last_at is not None else None,
                     payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
+                    (payload.min_dry_weight_g if payload.min_dry_weight_g is not None else None),
                     hex_to_bytes(payload.pest_status_id),
                     hex_to_bytes(payload.health_status_id),
                     (payload.photo_url if payload.photo_url is not None else None),
