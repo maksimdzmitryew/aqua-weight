@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
+import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
+import { waterLossCellStyle } from '../utils/waterLoss.js'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])
@@ -132,86 +134,14 @@ export default function BulkWeightMeasurement() {
       {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
-        <div className="overflow-x-auto">
-          <table className="table">
-                <thead>
-                  <tr>
-                    <th className="th">New weight</th>
-                    <th className="th">Water loss</th>
-                    <th className="th">Name</th>
-                    <th className="th">Description</th>
-                    <th className="th">Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plants.map((p) => (
-                    <tr key={p.id}>
-                        <td className="td">
-                          <input
-                            type="number"
-                            className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                            defaultValue={p.current_weight || ''}
-                            onBlur={(e) => {
-                              if (e.target.value && p.uuid) {
-                                handleWeightMeasurement(p.uuid, e.target.value);
-                              }
-                            }}
-                            onChange={(e) => {
-                              const input = e.target;
-                              input.value = e.target.value;
-                            }}
-                          />
-                        </td>
-                      <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.water_loss_total_pct}%
-                          </a>
-                        ) : (
-                          p.water_loss_total_pct
-                        )}
-                      </td>
-                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.name}
-                          </a>
-                        ) : (
-                          p.name
-                        )}
-                      </td>
-                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.description || '—'}
-                          </a>
-                        ) : (
-                          p.description || '—'
-                        )}
-                      </td>
-                      <td className="td">{p.location || '—'}</td>
-                    </tr>
-                  ))}
-                  {plants.length === 0 && (
-                    <tr>
-                      <td className="td" colSpan={5}>No plants found</td>
-                    </tr>
-                  )}
-            </tbody>
-          </table>
-        </div>
+        <BulkMeasurementTable
+          plants={plants}
+          inputStatus={inputStatus}
+          onCommitValue={handleWeightMeasurement}
+          onViewPlant={handleView}
+          firstColumnLabel="New weight"
+          getWaterLossCellStyle={waterLossCellStyle}
+        />
       )}
     </DashboardLayout>
   )
