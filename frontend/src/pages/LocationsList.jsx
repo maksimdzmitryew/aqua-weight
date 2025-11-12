@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
+import DateTimeText from '../components/DateTimeText.jsx'
 import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/PageHeader.jsx'
+import { locationsApi } from '../api/locations'
 
 export default function LocationsList() {
   const [locations, setLocations] = useState([])
@@ -13,44 +14,29 @@ export default function LocationsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
 
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
-
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
-        const res = await fetch('/api/locations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setLocations(data)
+        const data = await locationsApi.list(controller.signal)
+        setLocations(Array.isArray(data) ? data : [])
       } catch (e) {
-        if (!cancelled) setError('Failed to load locations')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load locations')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [])
 
@@ -90,18 +76,9 @@ export default function LocationsList() {
     const orderedIds = newList.map((l) => l.uuid).filter(Boolean)
     if (orderedIds.length !== newList.length) return // cannot persist without uuids
     try {
-      const res = await fetch('/api/locations/order', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordered_ids: orderedIds }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to save order (HTTP ${res.status})`)
-      }
+      await locationsApi.reorder(orderedIds)
     } catch (e) {
-      setSaveError(e.message || 'Failed to save order')
+      setSaveError(e?.message || 'Failed to save order')
     }
   }
 
@@ -122,13 +99,6 @@ export default function LocationsList() {
     setDragIndex(null)
   }
 
-  const handleStyle = {
-    cursor: 'grab',
-    color: isDark ? '#9ca3af' : '#6b7280',
-    paddingRight: 6,
-    userSelect: 'none',
-  }
-
   function closeDialog() {
     setConfirmOpen(false)
     setToDelete(null)
@@ -143,16 +113,10 @@ export default function LocationsList() {
         setSaveError('Cannot delete this location: missing identifier')
         return
       }
-      const res = await fetch(`/api/locations/${uuid}`, { method: 'DELETE' })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to delete (HTTP ${res.status})`)
-      } else {
-        setLocations((prev) => prev.filter((it) => it.id !== toDelete.id))
-      }
+      await locationsApi.remove(uuid)
+      setLocations((prev) => prev.filter((it) => it.id !== toDelete.id))
     } catch (e) {
-      setSaveError(e.message || 'Failed to delete location')
+      setSaveError(e?.message || 'Failed to delete location')
     } finally {
       closeDialog()
     }
@@ -165,25 +129,24 @@ export default function LocationsList() {
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
         onCreate={() => navigate('/locations/new')}
-        isDark={isDark}
       />
 
       <p>List of all available locations fetched from the API.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
-      {saveError && !loading && <div style={{ color: 'crimson' }}>{saveError}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
+      {saveError && !loading && <div className="text-danger">{saveError}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
             <thead>
               <tr>
-                <th style={th}></th>
-                <th style={th}>Name</th>
-                <th style={th}>Description</th>
-                <th style={th}>Created</th>
-                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
+                <th className="th"></th>
+                <th className="th">Name</th>
+                <th className="th">Description</th>
+                <th className="th">Created</th>
+                <th className="th right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -194,13 +157,13 @@ export default function LocationsList() {
                     onDragOver={(e) => onDragOver(e, idx)}
                     onDragEnd={onDragEnd}
                 >
-                  <td style={{ ...td, width: 24 }}>
-                    <span style={handleStyle} title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
+                  <td className="td" style={{ width: 24 }}>
+                    <span className="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
                   </td>
-                  <td style={td}>{l.name}</td>
-                  <td style={td}>{l.description || '—'}</td>
-                  <td style={td}>{formatDateTime(l.created_at)}</td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="td">{l.name}</td>
+                  <td className="td">{l.description || '—'}</td>
+                  <td className="td"><DateTimeText value={l.created_at} /></td>
+                  <td className="td text-right nowrap">
                     <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />
                     <IconButton icon="edit" label={`Edit location ${l.name}`} onClick={() => handleEdit(l)} variant="subtle" />
                     <IconButton icon="delete" label={`Delete location ${l.name}`} onClick={() => handleDelete(l)} variant="danger" />
@@ -209,7 +172,7 @@ export default function LocationsList() {
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td style={td} colSpan={5}>No locations found</td>
+                  <td className="td" colSpan={5}>No locations found</td>
                 </tr>
               )}
             </tbody>

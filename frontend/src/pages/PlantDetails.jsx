@@ -2,18 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useParams, useLocation as useRouterLocation } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
+import DateTimeText from '../components/DateTimeText.jsx'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
+import Loader from '../components/feedback/Loader.jsx'
+import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 
 export default function PlantDetails() {
   const { uuid } = useParams()
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
 
   const [plant, setPlant] = useState(routerLocation.state?.plant || null)
   const [loading, setLoading] = useState(!routerLocation.state?.plant)
@@ -25,22 +27,23 @@ export default function PlantDetails() {
   const [toDeleteMeas, setToDeleteMeas] = useState(null)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
-      if (!uuid) { setError('Missing id'); setLoading(false); return }
+      if (!uuid) { setError('Missing uuid'); setLoading(false); return }
       try {
-        const res = await fetch(`/api/plants/${uuid}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlant(data)
+        const data = await plantsApi.getByUuid(uuid, controller.signal)
+        setPlant(data)
       } catch (e) {
-        if (!cancelled) setError('Failed to load plant')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load plant')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     if (!plant) load()
-    return () => { cancelled = true }
+    return () => { controller.abort() }
   }, [uuid])
 
   const fetchMeasurements = useCallback(async () => {
@@ -48,12 +51,10 @@ export default function PlantDetails() {
     setMeasLoading(true)
     setMeasError('')
     try {
-      const res = await fetch(`/api/plants/${uuid}/measurements`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data = await measurementsApi.listByPlant(uuid)
       setMeasurements(Array.isArray(data) ? data : [])
     } catch (e) {
-      setMeasError('Failed to load measurements')
+      setMeasError(e?.message || 'Failed to load measurements')
     } finally {
       setMeasLoading(false)
     }
@@ -63,19 +64,6 @@ export default function PlantDetails() {
     fetchMeasurements()
   }, [fetchMeasurements])
 
-  const box = {
-    background: isDark ? '#0b0f16' : '#ffffff',
-    border: isDark ? '1px solid #1f2937' : '1px solid #e5e7eb',
-    borderRadius: 8,
-    padding: 16,
-  }
-
-  // Set browser tab title to "<Plant Name> – AW Frontend" with project name last
-  useEffect(() => {
-    if (plant?.name) {
-      document.title = `${plant.name} – AW Frontend`
-    }
-  }, [plant?.name])
 
   function handleEditMeasurement(m) {
     if (!m?.id) return
@@ -99,12 +87,9 @@ export default function PlantDetails() {
   async function confirmDeleteMeasurement() {
     if (!toDeleteMeas?.id) { closeMeasDialog(); return }
     try {
-      const res = await fetch(`/api/measurements/${toDeleteMeas.id}`, { method: 'DELETE' })
-      if (!res.ok) {
-        // optional: could show error
-      }
+      await measurementsApi.delete(toDeleteMeas.id)
     } catch (e) {
-      // ignore
+      // ignore optional error display
     } finally {
       await fetchMeasurements()
       closeMeasDialog()
@@ -118,14 +103,13 @@ export default function PlantDetails() {
           title={plant ? plant.name : 'Plants details'}
           onBack={() => navigate('/plants')}
           titleBack="Plants"
-          isDark={isDark}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div className="flex items-center gap-2 flex-wrap">
           {plant?.uuid && (
             <>
               <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
-                      style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid transparent', cursor: 'pointer', background: isDark ? '#1f2937' : '#111827', color: 'white' }}>
+                      className="btn btn-primary">
                 Edit
               </button>
               <QuickCreateButtons plantUuid={plant.uuid} plantName={plant.name} />
@@ -134,69 +118,68 @@ export default function PlantDetails() {
         </div>
       </div>
 
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {loading && <Loader label="Loading plant…" />}
+      {error && !loading && <ErrorNotice message={error} />}
 
       {plant && !loading && !error && (
         <>
-          <div style={box}>
-            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', rowGap: 10, columnGap: 16 }}>
-              <div style={{ fontWeight: 600 }}>Description</div>
+          <div className="card">
+            <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+              <div className="fw-600">Description</div>
               <div>{plant.description || '—'}</div>
-              <div style={{ fontWeight: 600 }}>Location</div>
+              <div className="fw-600">Location</div>
               <div>{plant.location || '—'}</div>
-              <div style={{ fontWeight: 600 }}>Created</div>
-              <div>{formatDateTime(plant.created_at)}</div>
+              <div className="fw-600">Created</div>
+              <DateTimeText as="div" value={plant.created_at} />
             </div>
           </div>
 
-          <div style={{ marginTop: 16 }}>
-            <h3 style={{ marginTop: 0 }}>Measurements</h3>
-            {measLoading && <div>Loading measurements…</div>}
-            {measError && !measLoading && <div style={{ color: 'crimson' }}>{measError}</div>}
+          <div className="mt-4">
+            <h3 className="mt-0">Measurements</h3>
+            {measLoading && <Loader label="Loading measurements…" />}
+            {measError && !measLoading && <ErrorNotice message={measError} onRetry={fetchMeasurements} />}
             {!measLoading && !measError && (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'right', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>Actions</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_at</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>measured_weight</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>last_dry_weight_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>last_wet_weight_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_added_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_total_pct</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_total_g</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_day_pct</th>
-                      <th style={{ textAlign: 'left', padding: '8px 10px', borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb', background: isDark ? '#111827' : '#f9fafb', color: isDark ? '#e5e7eb' : '#111827', fontWeight: 600 }}>water_loss_day_g</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {measurements.map((m, i) => (
-                      <tr key={m.id || i}>
-                        <td style={{ padding: '6px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
-                          <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
-                        </td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{formatDateTime(m.measured_at)}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.measured_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.last_dry_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.last_wet_weight_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_added_g ?? 0}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_total_g ?? '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
-                        <td style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>{m.water_loss_day_g ?? '—'}</td>
-                      </tr>
-                    ))}
-                    {measurements.length === 0 && (
+              measurements.length === 0 ? (
+                <EmptyState title="No measurements yet" description="Record a watering or weight measurement to see history here." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="table">
+                    <thead>
                       <tr>
-                        <td colSpan={10} style={{ padding: '8px 10px', borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6' }}>No measurements yet</td>
+                        <th className="th right">Actions</th>
+                        <th className="th">measured_at</th>
+                        <th className="th">measured_weight</th>
+                        <th className="th">last_dry_weight_g</th>
+                        <th className="th">last_wet_weight_g</th>
+                        <th className="th">water_added_g</th>
+                        <th className="th">water_loss_total_pct</th>
+                        <th className="th">water_loss_total_g</th>
+                        <th className="th">water_loss_day_pct</th>
+                        <th className="th">water_loss_day_g</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {measurements.map((m, i) => (
+                        <tr key={m.id || i}>
+                          <td className="td text-right nowrap">
+                            <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
+                            <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
+                          </td>
+                          <td className="td"><DateTimeText value={m.measured_at} /></td>
+                          <td className="td">{m.measured_weight_g ?? '—'}</td>
+                          <td className="td">{m.last_dry_weight_g ?? '—'}</td>
+                          <td className="td">{m.last_wet_weight_g ?? '—'}</td>
+                          <td className="td">{m.water_added_g ?? 0}</td>
+                          <td className="td">{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
+                          <td className="td">{m.water_loss_total_g ?? '—'}</td>
+                          <td className="td">{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
+                          <td className="td">{m.water_loss_day_g ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
             )}
           </div>
         </>

@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import DateTimeText from '../components/DateTimeText.jsx'
+import { plantsApi } from '../api/plants'
+import { locationsApi } from '../api/locations'
 
 export default function PlantEdit() {
-  const { id } = useParams()
+  const { uuid } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { effectiveTheme } = useTheme()
@@ -42,40 +44,35 @@ export default function PlantEdit() {
   const [locations, setLocations] = useState([])
   const [locLoading, setLocLoading] = useState(true)
   const [locError, setLocError] = useState('')
-  const numericId = Number(id)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       if (plant) return
       setLoading(true)
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        const found = data.find((p) => p.id === numericId)
-        if (!found) throw new Error('Plant not found')
-        if (!cancelled) setPlant(normalize(found))
+        const data = await plantsApi.getByUuid(uuid, controller.signal)
+        setPlant(normalize(data))
       } catch (e) {
-        if (!cancelled) setError('Failed to load plant')
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError('Failed to load plant')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
-  }, [numericId, plant])
+  }, [uuid, plant])
 
   useEffect(() => {
     let cancelled = false
     async function loadLocations() {
       try {
-        const res = await fetch('/api/locations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setLocations(data)
+        const data = await locationsApi.list()
+        if (!cancelled) setLocations(Array.isArray(data) ? data : [])
       } catch (e) {
         if (!cancelled) setLocError('Failed to load locations')
       } finally {
@@ -118,17 +115,7 @@ export default function PlantEdit() {
     try {
       const idHex = plant.uuid
       if (!idHex) throw new Error('Missing plant id')
-      const res = await fetch(`/api/plants/${idHex}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        window.alert(detail || `Failed to save (HTTP ${res.status})`)
-        return
-      }
+      const resData = await plantsApi.update(idHex, payload)
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {
@@ -273,7 +260,7 @@ export default function PlantEdit() {
 
               <div style={rowStyle}>
                 <div style={labelStyle}>Created</div>
-                <div>{formatDateTime(plant.created_at)}</div>
+                <DateTimeText as="div" value={plant.created_at} />
               </div>
             </div>
           )}

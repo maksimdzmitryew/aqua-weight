@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { formatDateTime } from '../utils/datetime.js'
-import { useTheme } from '../ThemeContext.jsx'
+import DateTimeText from '../components/DateTimeText.jsx'
 import IconButton from '../components/IconButton.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import QuickCreateButtons from '../components/QuickCreateButtons.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { Link } from 'react-router-dom'
+import { plantsApi } from '../api/plants'
+import Loader from '../components/feedback/Loader.jsx'
+import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -15,54 +18,40 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
 
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
-
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
     async function load() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list(controller.signal)
+        setPlants(Array.isArray(data) ? data : [])
       } catch (e) {
-        if (!cancelled) setError('Failed to load plants')
+        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        const msg = e?.message || ''
+        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+        if (!isAbort) setError(msg || 'Failed to load plants')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
     load()
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [])
 
   useEffect(() => {
     const updated = routerLocation.state && routerLocation.state.updatedPlant
     if (updated) {
-      setPlants((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
+      setPlants((prev) => prev.map((it) => (it.uuid === updated.uuid ? updated : it)))
       // clear navigation state to avoid reapplying on refresh/back
       try {
-        window.history.replaceState({}, document.title, routerLocation.pathname)
+      // Replace current entry and clear transient state the React Router way
+        navigate(routerLocation.pathname, { replace: true, state: null })
       } catch {}
     }
   }, [routerLocation.state, routerLocation.pathname])
@@ -73,7 +62,9 @@ export default function PlantsList() {
   }
 
   function handleEdit(p) {
-    navigate(`/plants/${p.id}/edit`, { state: { plant: p } })
+    const uid = p?.uuid
+    if (!uid) return
+    navigate(`/plants/${uid}/edit`, { state: { plant: p } })
   }
 
   function handleDelete(p) {
@@ -93,18 +84,9 @@ export default function PlantsList() {
     const orderedIds = newList.map((p) => p.uuid).filter(Boolean)
     if (orderedIds.length !== newList.length) return
     try {
-      const res = await fetch('/api/plants/order', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ordered_ids: orderedIds }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to save order (HTTP ${res.status})`)
-      }
+      await plantsApi.reorder(orderedIds)
     } catch (e) {
-      setSaveError(e.message || 'Failed to save order')
+      setSaveError(e?.message || 'Failed to save order')
     }
   }
 
@@ -125,11 +107,19 @@ export default function PlantsList() {
     setDragIndex(null)
   }
 
-  const handleStyle = {
-    cursor: 'grab',
-    color: isDark ? '#9ca3af' : '#6b7280',
-    paddingRight: 6,
-    userSelect: 'none',
+  function moveItem(from, to) {
+    if (from === to || from < 0 || to < 0 || from >= plants.length || to >= plants.length) return
+    const newList = reorder(plants, from, to)
+    setPlants(newList)
+    persistOrder(newList)
+  }
+
+  function moveUp(index) {
+    moveItem(index, index - 1)
+  }
+
+  function moveDown(index) {
+    moveItem(index, index + 1)
   }
 
   function getWaterLossCellStyle(waterLossPct) {
@@ -175,16 +165,10 @@ export default function PlantsList() {
         setSaveError('Cannot delete this plant: missing identifier')
         return
       }
-      const res = await fetch(`/api/plants/${uuid}`, { method: 'DELETE' })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = data?.detail || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        setSaveError(detail || `Failed to delete (HTTP ${res.status})`)
-      } else {
-        setPlants((prev) => prev.filter((it) => it.id !== toDelete.id))
-      }
+      await plantsApi.remove(uuid)
+      setPlants((prev) => prev.filter((it) => it.uuid !== toDelete.uuid))
     } catch (e) {
-      setSaveError(e.message || 'Failed to delete plant')
+      setSaveError(e?.message || 'Failed to delete plant')
     } finally {
       closeDialog()
     }
@@ -197,89 +181,106 @@ export default function PlantsList() {
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
         onCreate={() => navigate('/plants/new')}
-        isDark={isDark}
       />
 
-      <p>List of all available plants fetched from the API.</p>
+      <p>List of all available plants.</p>
 
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
-      {saveError && !loading && <div style={{ color: 'crimson' }}>{saveError}</div>}
+      {loading && <Loader label="Loading plants…" />}
+      {error && !loading && <ErrorNotice message={error} onRetry={() => window.location.reload()} />}
+      {saveError && !loading && <ErrorNotice message={saveError} />}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
-            <thead>
-              <tr>
-                <th style={th}></th>
-                <th style={th}>Care and Water loss</th>
-                <th style={th}>Name</th>
-                <th style={th}>Description</th>
-                <th style={th}>Location</th>
-                <th style={th}>Updated</th>
-                <th style={{ ...th, textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {plants.map((p, idx) => (
-                <tr key={p.id}
-                    draggable
-                    onDragStart={() => onDragStart(idx)}
-                    onDragEnd={onDragEnd}
-                    onDragOver={(e) => onDragOver(e, idx)}
-                >
-                  <td style={{ ...td, width: 24 }}>
-                    <span
-                      style={handleStyle}
-                      title="Drag to reorder"
-                      aria-label="Drag to reorder"
-                    >⋮⋮</span>
-                  </td>
-                  <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
-                    <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
-                    {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'inline-block', textAlign: 'right', width: '40%', paddingTop: '4px' }}>
-                          {p.water_loss_total_pct}%
-                      </Link>
-                    ) : (
-                      p.water_loss_total_pct
-                    )}
-                  </td>
-                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
-                      {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                          {p.name}
-                      </Link>
-                    ) : (
-                      p.name
-                    )}
-                  </td>
-                  <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
-                    {p.uuid ? (
-                      <Link to={`/plants/${p.uuid}`} state={{ plant: p }} style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}>
-                          {p.description || '—'}
-                      </Link>
-                    ) : (
-                      p.description || '—'
-                    )}
-                  </td>
-                  <td style={td}>{p.location || '—'}</td>
-                  <td style={td}>{formatDateTime(p.created_at)}</td>
-                  <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
-                    <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
-                    <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
-                  </td>
-                </tr>
-              ))}
-              {plants.length === 0 && (
+        plants.length === 0 ? (
+          <EmptyState title="No plants" description="Get started by creating your first plant.">
+            <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>New plant</button>
+          </EmptyState>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
                 <tr>
-                  <td style={td} colSpan={6}>No plants found</td>
+                  <th className="th" scope="col"></th>
+                  <th className="th" scope="col">Care and Water loss</th>
+                  <th className="th" scope="col">Name</th>
+                  <th className="th" scope="col">Description</th>
+                  <th className="th" scope="col">Location</th>
+                  <th className="th" scope="col">Updated</th>
+                  <th className="th right" scope="col">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {plants.map((p, idx) => (
+                  <tr key={p.uuid || idx}
+                      draggable
+                      onDragStart={() => onDragStart(idx)}
+                      onDragEnd={onDragEnd}
+                      onDragOver={(e) => onDragOver(e, idx)}
+                  >
+                    <td className="td" style={{ width: 80 }}>
+                      <span
+                        className="drag-handle"
+                        title="Drag to reorder"
+                        aria-label="Drag to reorder"
+                        style={{ marginRight: 8 }}
+                      >⋮⋮</span>
+                      <button
+                        type="button"
+                        onClick={() => moveUp(idx)}
+                        disabled={idx === 0}
+                        aria-label={`Move ${p.name} up`}
+                        title="Move up"
+                        style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
+                      >↑</button>
+                      <button
+                        type="button"
+                        onClick={() => moveDown(idx)}
+                        disabled={idx === plants.length - 1}
+                        aria-label={`Move ${p.name} down`}
+                        title="Move down"
+                        style={{ padding: '2px 6px', borderRadius: 4 }}
+                      >↓</button>
+                    </td>
+                    <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+                      <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
+                      {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.water_loss_total_pct}%
+                        </Link>
+                      ) : (
+                        p.water_loss_total_pct
+                      )}
+                    </td>
+                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
+                        {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.name}
+                        </Link>
+                      ) : (
+                        p.name
+                      )}
+                    </td>
+                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
+                      {p.uuid ? (
+                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+                            {p.description || '—'}
+                        </Link>
+                      ) : (
+                        p.description || '—'
+                      )}
+                    </td>
+                    <td className="td">{p.location || '—'}</td>
+                    <td className="td"><DateTimeText value={p.created_at} /></td>
+                    <td className="td text-right nowrap">
+                      <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
+                      <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
+                      <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
       <ConfirmDialog
         open={confirmOpen}

@@ -6,6 +6,9 @@ services:
       dockerfile: backend/Dockerfile
     container_name: aw-backend
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - aw-net
     environment:
@@ -38,6 +41,11 @@ services:
     image: mariadb:10.11
     container_name: aw-mariadb
     restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-rootpass}
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb}
+      - MARIADB_USER=${MARIADB_USER:-appuser}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
     ports:
       - "127.0.0.1:3316:3306"
     volumes:
@@ -74,7 +82,9 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - aw-net
+      aw-net:
+        aliases:
+          - aw.max
 
 volumes:
   frontend_node_modules:

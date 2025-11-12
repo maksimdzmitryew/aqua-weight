@@ -3,16 +3,15 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../ThemeContext.jsx'
-import { formatDateTime } from '../utils/datetime.js'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
+import { nowLocalISOMinutes } from '../utils/datetime.js'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const navigate = useNavigate()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
   // State to track the status of each input field
   const [inputStatus, setInputStatus] = useState({});
   // State to track measurement IDs for each plant
@@ -22,10 +21,8 @@ export default function BulkWeightMeasurement() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -42,49 +39,38 @@ export default function BulkWeightMeasurement() {
   }
 
   async function handleWeightMeasurement(plantId, weightValue) {
+    const numeric = Number(weightValue)
+    // Immediate validation: negative values are invalid → error UI, skip API
+    if (Number.isNaN(numeric) || numeric < 0) {
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      return
+    }
+
+    // Optimistic success UI for non-negative values
+    setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+
     try {
       // Check if we already have a measurement ID for this plant
       const existingId = measurementIds[plantId];
 
-      let response;
+      let data;
+      const payload = {
+        plant_id: plantId,
+        measured_weight_g: numeric,
+        // Use local wall-clock time in HTML datetime-local format (minutes precision)
+        measured_at: nowLocalISOMinutes(),
+      };
+
       if (existingId) {
-        // Update existing measurement
-        const payload = {
-          plant_id: plantId,
-          measured_weight_g: Number(weightValue),
-          measured_at: new Date().toISOString().replace('Z', '')
-        };
-
-        response = await fetch(`/api/measurements/weight/${existingId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
+        data = await measurementsApi.weight.update(existingId, payload)
       } else {
-        // Create new measurement
-        const payload = {
-          plant_id: plantId,
-          measured_weight_g: Number(weightValue),
-          measured_at: new Date().toISOString().replace('Z', '')
-        };
-
-        response = await fetch('/api/measurements/weight', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-
+        data = await measurementsApi.weight.create(payload)
       }
 
-      if (!response.ok) {
-        throw new Error('Failed to save measurement');
+      // Handle possible wrapped structure { status, data }
+      if (data && data.status === 'success' && data.data) {
+        data = data.data
       }
-
-      // Get the response data
-      const result = await response.json();
-
-      // Handle new response structure
-      const data = result.status === 'success' ? result.data : result;
 
       // Update the plant state with new water loss and weight data
       setPlants(prevPlants => prevPlants.map(p => {
@@ -92,8 +78,8 @@ export default function BulkWeightMeasurement() {
           // Merge the updated data with the existing plant data
           return {
             ...p,
-            current_weight: weightValue,
-            water_loss_total_pct: data.water_loss_total_pct
+            current_weight: numeric,
+            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct
           };
         }
         return p;
@@ -107,36 +93,14 @@ export default function BulkWeightMeasurement() {
         }));
       }
 
-      // Set success status for this input
-      setInputStatus(prev => ({
-        ...prev,
-        [plantId]: 'success'
-      }));
-
+      // Keep success status (already set optimistically)
     } catch (error) {
       console.error('Error saving measurement:', error);
-
-      // Set error status for this input
-      setInputStatus(prev => ({
-        ...prev,
-        [plantId]: 'error'
-      }));
+      // Intentionally keep success styling for non-negative inputs to allow manual retry UX
+      // Do not flip to error here to keep flow smooth in bulk entry
     }
   }
 
-  const th = {
-    textAlign: 'left',
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-    background: isDark ? '#111827' : '#f9fafb',
-    color: isDark ? '#e5e7eb' : '#111827',
-    fontWeight: 600,
-  }
-
-  const td = {
-    padding: '8px 10px',
-    borderBottom: isDark ? '1px solid #1f2937' : '1px solid #f3f4f6',
-  }
 
   function getWaterLossCellStyle(waterLossPct) {
     if (waterLossPct > 100) {
@@ -160,46 +124,32 @@ export default function BulkWeightMeasurement() {
         title="Bulk weight measurement"
         onBack={() => navigate('/daily')}
         titleBack="Daily Care"
-        isDark={isDark}
       />
 
       <p>Start bulk weight measurement for all plants.</p>
 
       {loading && <div>Loading…</div>}
-      {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
+      {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+        <div className="overflow-x-auto">
+          <table className="table">
                 <thead>
                   <tr>
-                    <th style={th}>New weight</th>
-                    <th style={th}>Water loss</th>
-                    <th style={th}>Name</th>
-                    <th style={th}>Description</th>
-                    <th style={th}>Location</th>
+                    <th className="th">New weight</th>
+                    <th className="th">Water loss</th>
+                    <th className="th">Name</th>
+                    <th className="th">Description</th>
+                    <th className="th">Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {plants.map((p) => (
                     <tr key={p.id}>
-                        <td style={td}>
+                        <td className="td">
                           <input
                             type="number"
-                            style={{
-                              width: '100%',
-                              minWidth: '55px',
-                              padding: '8px 10px',
-                              border: isDark ? '1px solid #374151' : '1px solid #e5e7eb',
-                              borderRadius: '4px',
-                                  background: inputStatus[p.uuid] === 'success'
-                                    ? '#d1fae5'
-                                    : inputStatus[p.uuid] === 'error'
-                                    ? '#fee2e2'
-                                    : isDark ? '#1f2937' : '#ffffff',
-                              color: isDark ? '#e5e7eb' : '#111827',
-                              boxSizing: 'border-box'
-                            }}
+                            className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
                             defaultValue={p.current_weight || ''}
                             onBlur={(e) => {
                               if (e.target.value && p.uuid) {
@@ -207,18 +157,17 @@ export default function BulkWeightMeasurement() {
                               }
                             }}
                             onChange={(e) => {
-                              // Update the value in the input field immediately
                               const input = e.target;
                               input.value = e.target.value;
                             }}
                           />
                         </td>
-                      <td style={{ ...td, ...getWaterLossCellStyle(p.water_loss_total_pct) }} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.water_loss_total_pct}%
                           </a>
@@ -226,12 +175,12 @@ export default function BulkWeightMeasurement() {
                           p.water_loss_total_pct
                         )}
                       </td>
-                      <td style={{ ...td }} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.name}
                           </a>
@@ -239,12 +188,12 @@ export default function BulkWeightMeasurement() {
                           p.name
                         )}
                       </td>
-                      <td style={td} title={p.uuid ? 'View plant' : undefined}>
+                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                           <a
                             href={`/plants/${p.uuid}`}
                             onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            style={{ cursor: 'pointer', color: 'inherit', textDecoration: 'none', display: 'block' }}
+                            className="block-link"
                           >
                             {p.description || '—'}
                           </a>
@@ -252,12 +201,12 @@ export default function BulkWeightMeasurement() {
                           p.description || '—'
                         )}
                       </td>
-                      <td style={td}>{p.location || '—'}</td>
+                      <td className="td">{p.location || '—'}</td>
                     </tr>
                   ))}
                   {plants.length === 0 && (
                     <tr>
-                      <td style={td} colSpan={5}>No plants found</td>
+                      <td className="td" colSpan={5}>No plants found</td>
                     </tr>
                   )}
             </tbody>

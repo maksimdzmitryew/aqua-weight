@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import { locationsApi } from '../api/locations'
 
 export default function LocationCreate() {
   const navigate = useNavigate()
@@ -31,30 +32,12 @@ export default function LocationCreate() {
     }
     try {
       setFieldErrors({})
-      const res = await fetch('/api/locations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, description: (loc.description || '').trim() || null }),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try {
-          const data = await res.json()
-          detail = (data && data.detail) || ''
-        } catch (_) {
-          try { detail = await res.text() } catch (_) { detail = '' }
-        }
-        if (res.status === 409 || res.status === 400) {
-          setFieldErrors({ name: detail || (res.status === 409 ? 'Location name already exists' : 'Invalid name') })
-          return
-        }
-        // Generic failure: show near name as well
-        setFieldErrors({ name: detail || `Failed to save (HTTP ${res.status})` })
-        return
-      }
+      await locationsApi.create({ name, description: (loc.description || '').trim() || null })
       navigate('/locations')
     } catch (err) {
-      setFieldErrors({ name: err.message || 'Failed to save' })
+      const msg = err?.message || 'Failed to save'
+      // naive mapping for 409 already exists, rely on backend messages
+      setFieldErrors({ name: msg })
     }
   }
 

@@ -1,20 +1,31 @@
 {
   "name": "aw-frontend",
   "private": true,
-  "version": "0.1.0",
-  "type": "module",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0 --port 4173"
+    "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "e2e": "playwright test --config ./playwright.config.ts",
+    "e2e:headed": "playwright test --config ./playwright.config.ts --headed",
+    "e2e:report": "playwright show-report ./playwright-report",
+    "e2e:install": "npx playwright install --with-deps",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-router-dom": "6.26.2"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "4.3.3",
-    "vite": "5.4.8"
+    "@playwright/test": "^1.56.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^6.4.1",
+    "@storybook/react-vite": "^8.3.6",
+    "@storybook/addon-essentials": "^8.3.6",
+    "storybook": "^8.3.6"
   }
 }

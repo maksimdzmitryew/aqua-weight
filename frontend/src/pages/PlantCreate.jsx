@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import { locationsApi } from '../api/locations'
+import { plantsApi } from '../api/plants'
 
 export default function PlantCreate() {
   const navigate = useNavigate()
@@ -39,10 +41,8 @@ export default function PlantCreate() {
     let cancelled = false
     async function load() {
       try {
-        const res = await fetch('/api/locations')
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setLocations(data)
+        const data = await locationsApi.list()
+        if (!cancelled) setLocations(Array.isArray(data) ? data : [])
       } catch (e) {
         if (!cancelled) setLocError('Failed to load locations')
       } finally {
@@ -95,20 +95,12 @@ export default function PlantCreate() {
         pest_status_id: (plant.pest_status_id || '').trim() || null,
         health_status_id: (plant.health_status_id || '').trim() || null,
       }
-      const res = await fetch('/api/plants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const data = await res.json(); detail = (data && data.detail) || '' } catch (_) { try { detail = await res.text() } catch (_) { detail = '' } }
-        if (res.status === 400) {
-          setActiveTab('general')
-          setFieldErrors({ name: detail || 'Invalid name' })
-          return
-        }
-        setFieldErrors({ name: detail || `Failed to save (HTTP ${res.status})` })
+      try {
+        await plantsApi.create(payload)
+      } catch (e) {
+        const msg = e?.detail || e?.message || 'Failed to save'
+        setActiveTab('general')
+        setFieldErrors({ name: msg })
         return
       }
       navigate('/plants')

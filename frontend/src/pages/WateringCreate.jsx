@@ -2,17 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
-
-function nowLocalValue() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  const y = d.getFullYear()
-  const m = pad(d.getMonth() + 1)
-  const day = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mm = pad(d.getMinutes())
-  return `${y}-${m}-${day}T${hh}:${mm}`
-}
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
+import { nowLocalISOMinutes, toLocalISOMinutes } from '../utils/datetime.js'
+import { useForm, required, minNumber } from '../components/form/useForm.js'
+import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
+import Select from '../components/form/fields/Select.jsx'
+import NumberInput from '../components/form/fields/NumberInput.jsx'
 
 export default function WateringCreate() {
   const [search] = useSearchParams()
@@ -24,22 +20,23 @@ export default function WateringCreate() {
   const isDark = effectiveTheme === 'dark'
 
   const [plants, setPlants] = useState([])
-  const [plantId, setPlantId] = useState(preselect || '')
-  const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
-  const [lastDry, setLastDry] = useState('')
-  const [lastWet, setLastWet] = useState('')
-  const [waterAdded, setWaterAdded] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const form = useForm({
+    plant_id: preselect || '',
+    measured_at: nowLocalISOMinutes(),
+    last_dry_weight_g: '',
+    last_wet_weight_g: '',
+    water_added_g: '',
+  })
 
   useEffect(() => {
     let cancelled = false
     async function loadPlants() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (_) {
         if (!cancelled) setError('Failed to load plants')
       }
@@ -49,7 +46,7 @@ export default function WateringCreate() {
   }, [])
 
   useEffect(() => {
-    if (preselect) setPlantId(preselect)
+    if (preselect) form.setValue('plant_id', preselect)
   }, [preselect])
 
   // Load existing watering in edit mode (reuse this page for add/edit)
@@ -58,18 +55,17 @@ export default function WateringCreate() {
     async function loadExisting() {
       if (!isEdit) return
       try {
-        const res = await fetch(`/api/measurements/${editId}`)
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
+        const data = await measurementsApi.getById(editId)
         if (cancelled) return
-        if (data?.plant_id) setPlantId(data.plant_id)
-        if (data?.measured_at) {
-          const s = String(data.measured_at).replace(' ', 'T').slice(0, 16)
-          setMeasuredAt(s)
-        }
-        setLastDry(data?.last_dry_weight_g != null ? String(data.last_dry_weight_g) : '')
-        setLastWet(data?.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '')
-        setWaterAdded(data?.water_added_g != null ? String(data.water_added_g) : '')
+        const measured_at = data?.measured_at ? toLocalISOMinutes(data.measured_at) || form.values.measured_at : form.values.measured_at
+        form.setValues({
+          ...form.values,
+          plant_id: data?.plant_id || form.values.plant_id,
+          measured_at,
+          last_dry_weight_g: data?.last_dry_weight_g != null ? String(data.last_dry_weight_g) : '',
+          last_wet_weight_g: data?.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
+          water_added_g: data?.water_added_g != null ? String(data.water_added_g) : '',
+        })
       } catch (_) {
         // ignore
       }
@@ -78,102 +74,49 @@ export default function WateringCreate() {
     return () => { cancelled = true }
   }, [isEdit, editId])
 
-  // No real-time calculations or dynamic disabling — plain inputs only
-  const canSave = useMemo(() => !!plantId && !!measuredAt, [plantId, measuredAt])
-
-  async function onSubmit(e) {
-    e.preventDefault()
-    if (!canSave) return
+  const onSubmit = form.handleSubmit(async (vals) => {
     setSaving(true)
     setError('')
     try {
       const common = {
-        measured_at: measuredAt,
-        last_dry_weight_g: lastDry !== '' ? Number(lastDry) : null,
-        last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
-        water_added_g: waterAdded !== '' ? Number(waterAdded) : null, 
+        measured_at: vals.measured_at,
+        last_dry_weight_g: vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
+        last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+        water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
       }
-      const payload = isEdit ? common : { plant_id: plantId, ...common }
-      const url = isEdit ? `/api/measurements/watering/${editId}` : '/api/measurements/watering'
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
-        throw new Error(detail || `Save failed (HTTP ${res.status})`)
+      const payload = isEdit ? common : { plant_id: vals.plant_id, ...common }
+      if (isEdit) {
+        await measurementsApi.watering.update(editId, payload)
+      } else {
+        await measurementsApi.watering.create(payload)
       }
-      navigate(`/plants/${plantId}`)
+      navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
-  }
-
-  const labelStyle = { display: 'block', marginBottom: 4, fontWeight: 600 }
-  const inputStyle = {
-    width: '100%', padding: '8px 10px', borderRadius: 6,
-    border: isDark ? '1px solid #374151' : '1px solid #d1d5db',
-    background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827'
-  }
+  })
 
   return (
     <DashboardLayout title={isEdit ? 'Edit Watering' : 'Watering'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
-              <option value="">Select plant…</option>
-              {plants.map(p => (
-                <option key={p.uuid} value={p.uuid}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Current weight (g)</label>
-            <input
-              type="number"
-              value={lastWet}
-              onChange={(e)=>setLastWet(e.target.value)}
-              style={inputStyle}
-              min={0}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>[optional] Weight before watering (g)</label>
-            <input
-              type="number"
-              value={lastDry}
-              onChange={(e)=>setLastDry(e.target.value)}
-              style={inputStyle}
-              min={0}
-            />
-          </div>
-          <div>
-          </div>
-          <div>
-            <label style={labelStyle}>[optional] Water added (g)</label>
-            <input
-              type="number"
-              value={waterAdded}
-              onChange={(e)=>setWaterAdded(e.target.value)}
-              style={inputStyle}
-              min={0}
-            />
-          </div>
+          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
+          <Select form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit}>
+            <option value="">Select plant…</option>
+            {plants.map(p => (
+              <option key={p.uuid} value={p.uuid}>{p.name}</option>
+            ))}
+          </Select>
+          <NumberInput form={form} name="last_wet_weight_g" label="Current weight (g)" min={0} validators={[minNumber(0)]} />
+          <NumberInput form={form} name="last_dry_weight_g" label="[optional] Weight before watering (g)" min={0} validators={[minNumber(0)]} />
+          <div />
+          <NumberInput form={form} name="water_added_g" label="[optional] Water added (g)" min={0} validators={[minNumber(0)]} />
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>
+          <button disabled={!form.valid || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>
           <button type="button" onClick={()=>navigate(document.referrer)} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
         </div>
       </form>

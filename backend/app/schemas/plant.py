@@ -1,0 +1,65 @@
+from typing import Optional
+from datetime import datetime
+from pydantic import BaseModel, Field, constr
+
+HexID = constr(pattern=r"^[0-9a-f]{32}$")
+
+class PlantListItem(BaseModel):
+    id: int
+    uuid: Optional[HexID] = None
+    name: str
+    description: Optional[str] = None
+    species: Optional[str] = None
+    location: Optional[str] = None
+    location_id: Optional[HexID] = None
+    created_at: datetime
+    water_loss_total_pct: Optional[float] = None
+
+class PlantDetail(BaseModel):
+    id: int
+    uuid: Optional[HexID] = None
+    name: str
+    description: Optional[str] = None
+    species: Optional[str] = None
+    location: Optional[str] = None
+    location_id: Optional[HexID] = None
+    created_at: datetime
+    water_loss_total_pct: Optional[float] = None
+
+class PlantCreateRequest(BaseModel):
+    name: str
+    description: Optional[str] = None
+    location_id: Optional[HexID] = None
+    photo_url: Optional[str] = None
+    default_measurement_method_id: Optional[HexID] = None
+    species_name: Optional[str] = None
+    botanical_name: Optional[str] = None
+    cultivar: Optional[str] = None
+    substrate_type_id: Optional[HexID] = None
+    substrate_last_refresh_at: Optional[str] = None
+    fertilized_last_at: Optional[str] = None
+    fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
+    light_level_id: Optional[HexID] = None
+    pest_status_id: Optional[HexID] = None
+    health_status_id: Optional[HexID] = None
+
+class PlantUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    location_id: Optional[HexID] = None
+    photo_url: Optional[str] = None
+    default_measurement_method_id: Optional[HexID] = None
+    species_name: Optional[str] = None
+    botanical_name: Optional[str] = None
+    cultivar: Optional[str] = None
+    substrate_type_id: Optional[HexID] = None
+    substrate_last_refresh_at: Optional[str] = None
+    fertilized_last_at: Optional[str] = None
+    fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
+    light_level_id: Optional[HexID] = None
+    pest_status_id: Optional[HexID] = None
+    health_status_id: Optional[HexID] = None
+
+class DailyCareResponse(BaseModel):
+    status: str
+    items: list[PlantListItem]

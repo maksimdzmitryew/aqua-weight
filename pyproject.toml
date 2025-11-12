@@ -1,0 +1,107 @@
+[project]
+name = "aw"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers --maxfail=1 --cov=backend/app --cov-report=term-missing"
+testpaths = [
+  "backend",
+]
+pythonpath = [
+  "backend",
+]
+markers = [
+  "slow: marks tests as slow",
+  "integration: integration tests",
+  "flaky: marks known flaky tests that may be retried selectively",
+]
+# Explicitly set asyncio fixture loop scope to avoid deprecation warning
+asyncio_default_fixture_loop_scope = "function"
+# Use automatic asyncio mode for pytest-asyncio
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["backend/app"]
+branch = true
+# Suppress warning when running coverage with an empty test suite
+# or when no Python files are executed during a run.
+disable_warnings = ["no-data-collected"]
+omit = [
+  "backend/app/__init__.py",
+  "backend/app/main.py",
+  "backend/app/main_monolith.py",
+  "backend/app/routes/__init__.py",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.(py|pyi)$'
+exclude = [
+  '/(\.git|\.mypy_cache|\.ruff_cache|\.venv|venv|build|dist)/',
+]
+
+[tool.ruff]
+line-length = 100
+fix = true
+exclude = [
+  ".git",
+  ".venv",
+  "venv",
+  "build",
+  "dist",
+]
+
+[tool.ruff.lint]
+select = [
+  "E",  # pycodestyle errors
+  "F",  # pyflakes
+  "I",  # isort
+  "W",  # warnings
+  "B",  # flake8-bugbear
+  "UP", # pyupgrade
+]
+ignore = [
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_no_return = true
+disallow_untyped_defs = true
+strict_optional = true
+no_implicit_optional = true
+check_untyped_defs = true
+show_error_codes = true
+pretty = true
+mypy_path = ["backend"]
+exclude = [
+  "frontend",
+  "venv|.venv",
+  "build|dist",
+]
+
+[tool.mypy.plugins]
+
+[tool.isort]
+# If isort is used via ruff, leave minimal config; otherwise align with black
+profile = "black"
+
+[tool.mutmut]
+paths_to_mutate = [
+  "backend/app/services/measurements.py",
+  "backend/app/utils/date_time.py",
+]
+backup = false
+runner = "pytest -q"

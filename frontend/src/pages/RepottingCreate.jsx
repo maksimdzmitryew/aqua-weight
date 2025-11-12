@@ -2,17 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
+import { plantsApi } from '../api/plants'
+import { measurementsApi } from '../api/measurements'
+import { nowLocalISOMinutes } from '../utils/datetime.js'
 
-function nowLocalValue() {
-  const d = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  const y = d.getFullYear()
-  const m = pad(d.getMonth() + 1)
-  const day = pad(d.getDate())
-  const hh = pad(d.getHours())
-  const mm = pad(d.getMinutes())
-  return `${y}-${m}-${day}T${hh}:${mm}`
-}
 
 const RepottingCreate = () => {
   const [search] = useSearchParams()
@@ -24,7 +17,7 @@ const RepottingCreate = () => {
   
   const [plants, setPlants] = useState([])
   const [plantId, setPlantId] = useState(preselect || '')
-  const [measuredAt, setMeasuredAt] = useState(nowLocalValue())
+  const [measuredAt, setMeasuredAt] = useState(nowLocalISOMinutes())
   const [lastWet, setLastWet] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -36,10 +29,8 @@ const RepottingCreate = () => {
     let cancelled = false
     async function loadPlants() {
       try {
-        const res = await fetch('/api/plants')
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
-        if (!cancelled) setPlants(data)
+        const data = await plantsApi.list()
+        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
       } catch (_) {
         if (!cancelled) setError('Failed to load plants')
       }
@@ -53,9 +44,7 @@ const RepottingCreate = () => {
     async function loadRepottingEvent() {
       if (!isEdit) return
       try {
-        const res = await fetch(`/api/events/repotting/${editId}`)
-        if (!res.ok) throw new Error('load failed')
-        const data = await res.json()
+        const data = await measurementsApi.repotting.get(editId)
         if (cancelled) return
         setPlantId(data.plant_id)
         setMeasuredAt(data.measured_at)
@@ -88,17 +77,10 @@ const RepottingCreate = () => {
         measured_weight_g: weightBeforeRepotting !== '' ? Number(weightBeforeRepotting) : null,
         last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
       }
-      const url = isEdit ? `/api/measurements/repotting/${editId}` : '/api/measurements/repotting'
-      const method = isEdit ? 'PUT' : 'POST'
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let detail = ''
-        try { const d = await res.json(); detail = d?.detail || '' } catch { try { detail = await res.text() } catch { detail = '' } }
-        throw new Error(detail || `Save failed (HTTP ${res.status})`)
+      if (isEdit) {
+        await measurementsApi.repotting.update(editId, payload)
+      } else {
+        await measurementsApi.repotting.create(payload)
       }
       navigate(`/plants/${plantId}`)
     } catch (e) {
@@ -121,8 +103,8 @@ const RepottingCreate = () => {
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
-            <label style={labelStyle}>Plant</label>
-            <select value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
+            <label style={labelStyle} htmlFor="plant_id">Plant</label>
+            <select id="plant_id" value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
               <option value="">Select plant…</option>
               {plants.map(p => (
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>
@@ -130,18 +112,18 @@ const RepottingCreate = () => {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Measured at</label>
-            <input type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
+            <label style={labelStyle} htmlFor="measured_at">Measured at</label>
+            <input id="measured_at" type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
           </div>
 
           <div>
-            <label style={labelStyle}>Weight before repotting (g)</label> {/* No need to rename the label as it already matches the new variable name */}
-            <input type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
+            <label style={labelStyle} htmlFor="weight_before_repotting_g">Weight before repotting (g)</label>
+            <input id="weight_before_repotting_g" type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
           </div>
           
           <div>
-            <label style={labelStyle}>Weight after repotting (g)</label>
-            <input type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
+            <label style={labelStyle} htmlFor="last_wet_weight_g">Weight after repotting (g)</label>
+            <input id="last_wet_weight_g" type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>

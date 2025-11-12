@@ -1,6 +1,6 @@
 # app/helpers/plants_list.py
 from datetime import datetime
-from ..utils.db_utils import get_db_connection, return_db_connection
+from ..db import get_conn, bin_to_hex
 
 class PlantsList:
     """
@@ -12,7 +12,7 @@ class PlantsList:
 
     @staticmethod
     def fetch_all(min_water_loss_total_pct: float = None) -> list[dict]:
-        conn = get_db_connection()
+        conn = get_conn()
         try:
             with conn.cursor() as cur:
                 query = """
@@ -58,10 +58,8 @@ class PlantsList:
                     created_at = row[7] or row[6] or now
                     water_loss_total_pct = row[8]
 
-                    uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                    location_id_hex = (
-                        location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                    )
+                    uuid_hex = bin_to_hex(pid)
+                    location_id_hex = bin_to_hex(location_id_bytes)
 
                     results.append({
                         "id": idx,  # synthetic index for UI
@@ -76,4 +74,7 @@ class PlantsList:
                     })
                 return results
         finally:
-            return_db_connection(conn)
+            try:
+                conn.close()
+            except Exception:
+                pass

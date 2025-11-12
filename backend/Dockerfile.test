@@ -1,0 +1,27 @@
+# Backend (FastAPI) - Test image with dev tools
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# System deps
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        ca-certificates \
+        curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps first (better layer caching)
+COPY backend/requirements.txt /tmp/requirements.txt
+COPY backend/requirements-tests.txt /tmp/requirements-tests.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt && \
+    pip3 install --no-cache-dir -r /tmp/requirements-tests.txt
+
+# Note: Source code is mounted via volume from docker-compose.test.yml
+# Default command runs pytest (can be overridden by compose)
+CMD ["pytest", "-q"]
