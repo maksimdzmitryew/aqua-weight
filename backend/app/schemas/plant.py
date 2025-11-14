@@ -10,9 +10,12 @@ class PlantListItem(BaseModel):
     name: str
     description: Optional[str] = None
     species: Optional[str] = None
+    min_dry_weight_g: Optional[int] = None
+    max_water_weight_g: Optional[int] = None
     location: Optional[str] = None
     location_id: Optional[HexID] = None
     created_at: datetime
+    measured_weight_g: Optional[int] = None
     water_loss_total_pct: Optional[float] = None
 
 class PlantDetail(BaseModel):
@@ -39,7 +42,6 @@ class PlantCreateRequest(BaseModel):
     substrate_last_refresh_at: Optional[str] = None
     fertilized_last_at: Optional[str] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
-    min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None

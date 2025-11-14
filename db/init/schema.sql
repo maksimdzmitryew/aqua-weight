@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS plants (
   fertilized_last_at DATETIME(6) NULL,
   fertilizer_ec_ms DECIMAL(4,2) NULL,
   min_dry_weight_g SMALLINT UNSIGNED NULL,
+  max_water_weight_g SMALLINT UNSIGNED NULL,
   pest_status_id BINARY(16) NULL,
   health_status_id BINARY(16) NULL,
   photo_url VARCHAR(255) NULL,

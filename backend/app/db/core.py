@@ -52,6 +52,7 @@ def get_conn():
                 raise
             return conn
         except Exception as e:
+            logging.error(f"Error connecting to DB: {e}")
             last_err = e
             if attempt == 0:
                 time.sleep(0.2)

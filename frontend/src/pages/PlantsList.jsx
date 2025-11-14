@@ -200,7 +200,7 @@ export default function PlantsList() {
               <thead>
                 <tr>
                   <th className="th" scope="col"></th>
-                  <th className="th" scope="col">Care and Water loss</th>
+                  <th className="th" scope="col">Care, Weight and Water loss</th>
                   <th className="th" scope="col">Name</th>
                   <th className="th" scope="col">Description</th>
                   <th className="th" scope="col">Location</th>
@@ -244,7 +244,7 @@ export default function PlantsList() {
                       <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                       {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                            {p.water_loss_total_pct}%
+                            {p.min_dry_weight_g}gr {p.measured_weight_g}gr {p.water_loss_total_pct}%
                         </Link>
                       ) : (
                         p.water_loss_total_pct

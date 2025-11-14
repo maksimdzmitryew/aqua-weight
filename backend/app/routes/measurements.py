@@ -8,6 +8,7 @@ from ..db import get_conn, get_conn_factory, HEX_RE, hex_to_bin, bin_to_hex
 from ..helpers.watering import get_last_watering_event
 from ..helpers.water_loss import calculate_water_loss
 from ..helpers.last_plant_event import LastPlantEvent
+from ..helpers.water_weight import update_min_dry_weight_and_max_watering_added_g
 from ..services.measurements import (
     parse_timestamp_local,
     ensure_exclusive_water_vs_weight,
@@ -198,6 +199,12 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                         (payload.note or None),
                     ),
                 )
+
+                # If this is a weight measurement (not a watering event), update the min dry weight
+                if not loss_calc.is_watering_event and mw_insert is not None:
+                    # Update the plant's min_dry_weight_g if needed
+                    update_min_dry_weight_and_max_watering_added_g(conn, payload.plant_id, mw_insert, None)
+
                 # Commit transaction after all statements succeed
                 conn.commit()
 
@@ -318,6 +325,14 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                     id_hex,
                 )
                 cur.execute(sql, params)
+
+                # If this is a weight measurement (not a watering event) and the weight has changed, update the min dry weight
+                if not loss_calc.is_watering_event and (mw_update is not None or current_mw is not None):
+                    # Calculate the effective new weight (use the updated one if provided, otherwise use the old one)
+                    effective_new_weight = mw_update if mw_update is not None else current_mw
+                    if effective_new_weight is not None:
+                        update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, effective_new_weight, None)
+
                 conn.commit()
 
                 return {
@@ -331,8 +346,11 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                         "version": "1.0"
                     }
                 }
-
-        except Exception:
+        except Exception as e:
+            print(
+                "Could not update measurement: ",
+                e,
+            )
             try:
                 conn.rollback()
             except Exception:
@@ -399,10 +417,42 @@ async def delete_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory
     def do_delete():
         conn = get_conn_fn()
         try:
+
+            # First, get the measurement details to identify the plant
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT plant_id, measured_weight_g
+                    FROM plants_measurements
+                    WHERE id = UNHEX(%s)
+                    """,
+                    (id_hex,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Measurement not found")
+
+                plant_id_hex = row[0].hex() if isinstance(row[0], bytes) else row[0]
+                measured_weight_g = row[1]
+
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail="Not found")
+                # Recalculate the minimum dry weight for the plant
+                if measured_weight_g is not None:
+                    update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex, measured_weight_g, None)
+
+                conn.commit()
+
+                return {"message": "Measurement deleted successfully"}
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise HTTPException(status_code=500, detail="Internal server error")
+
         finally:
             conn.close()
 

@@ -27,6 +27,8 @@ class PlantCreate(BaseModel):
     default_measurement_method_id: str | None = None
     # Advanced
     species_name: str | None = None
+    min_dry_weight_g: str | None = None
+    max_water_weight_g: str | None = None
     botanical_name: str | None = None
     cultivar: str | None = None
     substrate_type_id: str | None = None
@@ -74,8 +76,8 @@ async def create_plant(payload: PlantCreateRequest):
                 new_id = uuid.uuid4().bytes
                 cur.execute(
                     (
-                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, min_dry_weight_g, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, min_dry_weight_g, max_water_weight_g, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     ),
                     (
                         new_id,
@@ -92,6 +94,7 @@ async def create_plant(payload: PlantCreateRequest):
                         to_dt(payload.fertilized_last_at),
                         payload.fertilizer_ec_ms,
                         (payload.min_dry_weight_g if payload.min_dry_weight_g is not None else None),
+                        (payload.max_water_weight_g if payload.max_water_weight_g is not None else None),
                         hex_to_bytes(payload.pest_status_id),
                         hex_to_bytes(payload.health_status_id),
                         (payload.photo_url or None),
@@ -236,7 +239,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     raise HTTPException(status_code=404, detail="Plant not found")
 
                 sql = (
-                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, min_dry_weight_g=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
+                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, min_dry_weight_g=%s, max_water_weight_g=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
                 )
                 params = (
                     (normalize(payload.name) if payload.name is not None else None),
@@ -251,6 +254,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     to_dt(payload.fertilized_last_at) if payload.fertilized_last_at is not None else None,
                     payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
                     (payload.min_dry_weight_g if payload.min_dry_weight_g is not None else None),
+                    (payload.max_water_weight_g if payload.max_water_weight_g is not None else None),
                     hex_to_bytes(payload.pest_status_id),
                     hex_to_bytes(payload.health_status_id),
                     (payload.photo_url if payload.photo_url is not None else None),
@@ -283,7 +287,7 @@ async def get_plant(id_hex: str) -> PlantListItem:
                 cur.execute(
                     (
                         """
-                    SELECT p.id, p.name, p.description, p.species_name, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    SELECT p.id, p.name, p.description, p.species_name, p.min_dry_weight_g, p.max_water_weight_g, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
                     FROM plants p
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.id = %s
@@ -292,18 +296,21 @@ async def get_plant(id_hex: str) -> PlantListItem:
                     (hex_to_bin(id_hex),),
                 )
                 row = cur.fetchone()
+                print(row)
                 if not row:
                     raise HTTPException(status_code=404, detail="Plant not found")
                 pid = row[0]
                 name = row[1]
                 description = row[2]
                 species_name = row[3]
-                location_id_bytes = row[4]
-                location_name = row[5]
-                created_at = row[6] or datetime.utcnow()
+                min_dry_weight_g = row[4]
+                max_water_weight_g = row[5]
+                location_id_bytes = row[6]
+                location_name = row[7]
+                created_at = row[8] or datetime.utcnow()
                 uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                 location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                return PlantListItem(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, location_id=location_id_hex, created_at=created_at)
+                return PlantListItem(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
         finally:
             conn.close()
     return await run_in_threadpool(fetch_one)
@@ -317,6 +324,8 @@ class PlantUpdate(BaseModel):
     photo_url: str | None = None
     default_measurement_method_id: str | None = None
     species_name: str | None = None
+    min_dry_weight_g: str | None = None
+    max_water_weight_g: str | None = None
     botanical_name: str | None = None
     cultivar: str | None = None
     substrate_type_id: str | None = None
