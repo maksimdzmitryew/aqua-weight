@@ -122,31 +122,32 @@ export default function PlantsList() {
     moveItem(index, index + 1)
   }
 
-  function getWaterLossCellStyle(waterLossPct) {
-    if (waterLossPct > 100) {
+  function getWaterLossCellStyle(waterRemainingPct) {
+    if (waterRemainingPct < 0) {
+      return {
+        background: 'black',
+        color: 'white',
+      }
+    } else if (waterRemainingPct < 20) {
       return {
         background: '#dc2626',
         color: 'white',
       }
-    } else if (waterLossPct > 80) {
+    } else if (waterRemainingPct < 40) {
       return {
         background: '#fecaca',
       }
-    } else if (waterLossPct > 40) {
+    } else if (waterRemainingPct < 70) {
       return {
         background: '#fef3c7',
       }
-    } else if (waterLossPct > 3) {
+    } else if (waterRemainingPct < 90) {
       return {
         background: '#bbf7d0',
       }
-    } else if (waterLossPct > -1) {
-      return {
-        color: 'green',
-      }
     } else {
       return {
-        color: 'red',
+        color: 'green',
       }
     }
   }
@@ -200,7 +201,7 @@ export default function PlantsList() {
               <thead>
                 <tr>
                   <th className="th" scope="col"></th>
-                  <th className="th" scope="col">Care, Weight and Water loss</th>
+                  <th className="th" scope="col">Care, Water remain</th>
                   <th className="th" scope="col">Name</th>
                   <th className="th" scope="col">Description</th>
                   <th className="th" scope="col">Location</th>
@@ -240,14 +241,14 @@ export default function PlantsList() {
                         style={{ padding: '2px 6px', borderRadius: 4 }}
                       >↓</button>
                     </td>
-                    <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={getWaterLossCellStyle(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
                       <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                       {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                            {p.min_dry_weight_g}gr {p.measured_weight_g}gr {p.water_loss_total_pct}%
+                            {p.water_retained_pct}%
                         </Link>
                       ) : (
-                        p.water_loss_total_pct
+                        p.water_loss_since_watering_pct
                       )}
                     </td>
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>

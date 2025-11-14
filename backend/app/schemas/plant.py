@@ -17,6 +17,7 @@ class PlantListItem(BaseModel):
     created_at: datetime
     measured_weight_g: Optional[int] = None
     water_loss_total_pct: Optional[float] = None
+    water_retained_pct: Optional[float] = None
 
 class PlantDetail(BaseModel):
     id: int
