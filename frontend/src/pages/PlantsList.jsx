@@ -126,25 +126,30 @@ export default function PlantsList() {
   function getWaterLossCellStyle(waterRemainingPct) {
     if (waterRemainingPct < 0) {
       return {
-        background: 'black',
+        background: '#dc2626',
         color: 'white',
       }
     } else if (waterRemainingPct < 20) {
       return {
-        background: '#dc2626',
+        background: '#412dfa',
         color: 'white',
       }
     } else if (waterRemainingPct < 40) {
       return {
-        background: '#fecaca',
+        background: '#538cf4',
+        color: 'white',
       }
-    } else if (waterRemainingPct < 70) {
+    } else if (waterRemainingPct < 50) {
       return {
-        background: '#fef3c7',
+        background: '#9fc3f8',
       }
-    } else if (waterRemainingPct < 90) {
+    } else if (waterRemainingPct < 60) {
       return {
         background: '#bbf7d0',
+      }
+    } else if (waterRemainingPct < 100) {
+      return {
+        color: 'black',
       }
     } else {
       return {
