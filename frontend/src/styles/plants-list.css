@@ -1,11 +1,18 @@
-@media (max-width: 999px) {
-  .plants-table .hide-column {
+.plants-table th,
+.plants-table td {
+    display: table-cell !important;
+}
+
+@media (max-width: 1340px) {
+  .plants-table .hide-column-tablet,
+  .plants-table .hide-column-tablet {
     display: none !important;
   }
 }
 
-@media (min-width: 1000px) {
-  .plants-table .hide-column {
-    display: table-cell !important;
+@media (max-width: 1160px) {
+  .plants-table .hide-column-phone,
+  .plants-table .hide-column-phone {
+    display: none !important;
   }
 }

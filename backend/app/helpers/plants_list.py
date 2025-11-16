@@ -84,7 +84,7 @@ class PlantsList:
                         # AWC = 𝑊𝑓𝑐 − 𝑊𝑑: available water at field capacity
                         available_water_g = saturated_weight_g - min_dry_weight_g
                         # frac = 𝑊𝑐 − 𝑊𝑑 / Wfc − 𝑊𝑑
-                        # current fraction of AWC remaining
+                            # current fraction of AWC remaining
                         frac_ratio = water_remain_g / available_water_g
                         water_retained_pct = frac_ratio * 100
                     else:

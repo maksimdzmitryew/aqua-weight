@@ -204,8 +204,8 @@ export default function PlantsList() {
                   <th className="th" scope="col">Care, Water remain</th>
                   <th className="th" scope="col">Name</th>
                   <th className="th" scope="col">Description</th>
-                  <th className="th" scope="col">Location</th>
-                  <th className="th hide-column" scope="col">Updated</th>
+                  <th className="th hide-column-phone" scope="col">Location</th>
+                  <th className="th hide-column-tablet" scope="col">Updated</th>
                   <th className="th right" scope="col">Actions</th>
                 </tr>
               </thead>
@@ -223,7 +223,7 @@ export default function PlantsList() {
                         {p.water_retained_pct}%
                       </span>
                     </td>
-                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={{ width: 140, ...(getWaterLossCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                             {p.name}
@@ -241,8 +241,8 @@ export default function PlantsList() {
                         p.description || '—'
                       )}
                     </td>
-                    <td className="td" style={{ width: 90 }}>{p.location || '—'}</td>
-                    <td className="td hide-column" style={{ width: 130 }}><DateTimeText value={p.created_at} /></td>
+                    <td className="td hide-column-phone" style={{ width: 90 }}>{p.location || '—'}</td>
+                    <td className="td hide-column-tablet"><DateTimeText value={p.created_at} /></td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
