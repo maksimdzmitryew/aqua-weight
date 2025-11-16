@@ -1,0 +1,11 @@
+@media (max-width: 999px) {
+  .plants-table .hide-column {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1000px) {
+  .plants-table .hide-column {
+    display: table-cell !important;
+  }
+}

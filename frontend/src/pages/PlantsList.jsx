@@ -11,6 +11,7 @@ import { plantsApi } from '../api/plants'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+import '../styles/plants-list.css'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -197,15 +198,14 @@ export default function PlantsList() {
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="table plants-table">
               <thead>
                 <tr>
-                  <th className="th" scope="col"></th>
                   <th className="th" scope="col">Care, Water remain</th>
                   <th className="th" scope="col">Name</th>
                   <th className="th" scope="col">Description</th>
                   <th className="th" scope="col">Location</th>
-                  <th className="th" scope="col">Updated</th>
+                  <th className="th hide-column" scope="col">Updated</th>
                   <th className="th right" scope="col">Actions</th>
                 </tr>
               </thead>
@@ -217,39 +217,11 @@ export default function PlantsList() {
                       onDragEnd={onDragEnd}
                       onDragOver={(e) => onDragOver(e, idx)}
                   >
-                    <td className="td" style={{ width: 80 }}>
-                      <span
-                        className="drag-handle"
-                        title="Drag to reorder"
-                        aria-label="Drag to reorder"
-                        style={{ marginRight: 8 }}
-                      >⋮⋮</span>
-                      <button
-                        type="button"
-                        onClick={() => moveUp(idx)}
-                        disabled={idx === 0}
-                        aria-label={`Move ${p.name} up`}
-                        title="Move up"
-                        style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
-                      >↑</button>
-                      <button
-                        type="button"
-                        onClick={() => moveDown(idx)}
-                        disabled={idx === plants.length - 1}
-                        aria-label={`Move ${p.name} down`}
-                        title="Move down"
-                        style={{ padding: '2px 6px', borderRadius: 4 }}
-                      >↓</button>
-                    </td>
                     <td className="td" style={getWaterLossCellStyle(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
-                      <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
-                      {p.uuid ? (
-                        <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                            {p.water_retained_pct}%
-                        </Link>
-                      ) : (
-                        p.water_loss_since_watering_pct
-                      )}
+                      <span style={{ display: 'inline-flex', gap: '10px' }}>
+                        <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
+                        {p.water_retained_pct}%
+                      </span>
                     </td>
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
@@ -269,12 +241,34 @@ export default function PlantsList() {
                         p.description || '—'
                       )}
                     </td>
-                    <td className="td">{p.location || '—'}</td>
-                    <td className="td"><DateTimeText value={p.created_at} /></td>
+                    <td className="td" style={{ width: 90 }}>{p.location || '—'}</td>
+                    <td className="td hide-column" style={{ width: 130 }}><DateTimeText value={p.created_at} /></td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />
                       <IconButton icon="delete" label={`Delete plant ${p.name}`} onClick={() => handleDelete(p)} variant="danger" />
+                      <button
+                        type="button"
+                        onClick={() => moveUp(idx)}
+                        disabled={idx === 0}
+                        aria-label={`Move ${p.name} up`}
+                        title="Move up"
+                        style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
+                      >↑</button>
+                      <button
+                        type="button"
+                        onClick={() => moveDown(idx)}
+                        disabled={idx === plants.length - 1}
+                        aria-label={`Move ${p.name} down`}
+                        title="Move down"
+                        style={{ padding: '2px 6px', borderRadius: 4 }}
+                      >↓</button>
+                      <span
+                        className="drag-handle"
+                        title="Drag to reorder"
+                        aria-label="Drag to reorder"
+                        style={{ marginLeft: 8 }}
+                      >⋮⋮</span>
                     </td>
                   </tr>
                 ))}
