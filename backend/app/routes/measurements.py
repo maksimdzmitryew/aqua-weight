@@ -133,8 +133,8 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
     measured_at_dt = parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
     measured_at = measured_at_dt  # pass timezone-naive local datetime directly to DB driver
 
-    mw = payload.measured_weight_g
-    ld = payload.last_dry_weight_g
+    measured_weight = payload.measured_weight_g
+    last_dry_weight = payload.last_dry_weight_g
     lw = payload.last_wet_weight_g
     payload_water_added = payload.water_added_g
 
@@ -148,8 +148,8 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                     cursor=cur,
                     plant_id_hex=payload.plant_id,
                     measured_at_db=measured_at,
-                    measured_weight_g=mw,
-                    last_dry_weight_g=ld,
+                    measured_weight_g=measured_weight,
+                    last_dry_weight_g=last_dry_weight,
                     last_wet_weight_g=lw,
                     payload_water_added_g=payload_water_added,
                     exclude_measurement_id=None,
@@ -160,17 +160,17 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                     cursor=cur,
                     plant_id_hex=payload.plant_id,
                     measured_at_db=measured_at,
-                    measured_weight_g=mw,
+                    measured_weight_g=measured_weight,
                     derived=derived,
                     exclude_measurement_id=None,
                 )
 
-                ld_local = derived.last_dry_weight_g
+                last_dry_weight_local = derived.last_dry_weight_g
                 lw_local = derived.last_wet_weight_g
                 wa_local = derived.water_added_g
 
                 # For watering events, measured_weight_g must be NULL
-                mw_insert = None if loss_calc.is_watering_event else mw
+                mw_insert = None if loss_calc.is_watering_event else measured_weight
 
                 # Store the water_added_g value
                 wa_insert = int(wa_local) if wa_local else 0
@@ -186,7 +186,7 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                         payload.plant_id,
                         measured_at,
                         mw_insert,
-                        ld_local,
+                        last_dry_weight_local,
                         lw_local,
                         wa_insert,
                         loss_calc.water_loss_total_pct,
@@ -200,10 +200,17 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                     ),
                 )
 
-                # If this is a weight measurement (not a watering event), update the min dry weight
+                # Check the min dry weight and max water added and Update if needed
+                # If this is a weight measurement
                 if not loss_calc.is_watering_event and mw_insert is not None:
-                    # Update the plant's min_dry_weight_g if needed
-                    update_min_dry_weight_and_max_watering_added_g(conn, payload.plant_id, mw_insert, None)
+                    check_min_weight = mw_insert
+                    check_max_water = wa_local
+                # If this is a watering event
+                else:
+                    check_min_weight = last_dry_weight_local
+                    check_max_water = wa_local
+
+                update_min_dry_weight_and_max_watering_added_g(conn, payload.plant_id, check_min_weight, check_max_water)
 
                 # Commit transaction after all statements succeed
                 conn.commit()
@@ -330,8 +337,9 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                 if not loss_calc.is_watering_event and (mw_update is not None or current_mw is not None):
                     # Calculate the effective new weight (use the updated one if provided, otherwise use the old one)
                     effective_new_weight = mw_update if mw_update is not None else current_mw
-                    if effective_new_weight is not None:
-                        update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, effective_new_weight, None)
+                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, effective_new_weight, wa_eff_payload)
+                else:
+                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, derived.last_wet_weight_g, wa_eff_payload)
 
                 conn.commit()
 

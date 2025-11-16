@@ -26,6 +26,7 @@ def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting:
 
                 return [row[0] for row in rows if row[0] is not None]
         else:
+            # might be inaccurate if repotting evevnt is the only one holding the water amount info
             # Get measurements since the last repotting event
             with conn.cursor() as cur:
                 cur.execute(
@@ -33,7 +34,7 @@ def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting:
                     SELECT water_added_g
                     FROM plants_measurements
                     WHERE plant_id = UNHEX(%s)
-                      AND measured_at > %s
+                      AND measured_at >= %s
                       AND water_added_g IS NOT NULL
                     ORDER BY measured_at ASC
                     """,

@@ -68,6 +68,10 @@ class PlantsList:
                     max_water_weight_g = row[5] # maximum water retained capacity
                     measured_weight_g = row[10] # 𝑊𝑐: Current weight = weight read any day on a scale
 
+                    # could after repotting followed by watering event
+                    if measured_weight_g is None and water_loss_total_pct == 0:
+                        measured_weight_g = last_wet_weight_g
+
                     # 𝑊𝑐 − 𝑊𝑑
                     # likely a watering event
                     if measured_weight_g is None:
@@ -102,7 +106,7 @@ class PlantsList:
                         "id": idx,  # synthetic index for UI
                         "uuid": uuid_hex,
                         "name": name,
-                        # f"min_dry_weight_g {min_dry_weight_g} + max_water_weight_g {max_water_weight_g} = Wfc {saturated_weight_g}; measured_weight_g {measured_weight_g}; AWC_g {available_water_g} frac_ratio {frac_ratio}"
+                        #"name": f"min_dry_weight_g {min_dry_weight_g} + max_water_weight_g {max_water_weight_g} = Wfc {saturated_weight_g}; measured_weight_g {measured_weight_g}; AWC_g {available_water_g} frac_ratio {frac_ratio}",
                         "description": description,
                         "species": species_name,
                         "min_dry_weight_g": min_dry_weight_g,

@@ -246,7 +246,7 @@ export default function PlantsList() {
                         p.description || '—'
                       )}
                     </td>
-                    <td className="td hide-column-phone" style={{ width: 90 }}>{p.location || '—'}</td>
+                    <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>
                     <td className="td hide-column-tablet"><DateTimeText value={p.created_at} /></td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
