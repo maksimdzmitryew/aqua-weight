@@ -48,7 +48,7 @@ export default function DailyCare() {
         onRefresh={load}
       />
       <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Start Bulk Measurement</button>
+        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Bulk Measurement</button>
         <button className="btn" onClick={() => navigate('/measurements/bulk/watering')}>Bulk watering</button>
       </div>
       <p>Today's suggested care actions for your plants.</p>
