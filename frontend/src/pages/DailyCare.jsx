@@ -111,8 +111,12 @@ export default function DailyCare() {
         onRefresh={load}
       />
       <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Bulk Measurement</button>
-        <button className="btn" onClick={() => navigate('/measurements/bulk/watering')}>Bulk watering</button>
+        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>
+            Bulk Measurement {tasks.filter(t => t.needsMeasure).length > 0 ? ` (${tasks.filter(t => t.needsMeasure).length})` : ''}
+        </button>
+        <button className="btn"  style={{ background: '#2c4fff', color: 'white'}} onClick={() => navigate('/measurements/bulk/watering')}>
+            Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
+        </button>
       </div>
       <p>Today's suggested care actions for your plants that need watering (retained &lt; 30%).</p>
 
