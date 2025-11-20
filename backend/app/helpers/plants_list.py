@@ -60,8 +60,8 @@ class PlantsList:
                     species_name = row[3]
                     location_id_bytes = row[6]
                     location_name = row[7]
-                    # Prefer latest measurement time, then created_at, then now
-                    created_at = row[9] or row[8] or now
+                    # Prefer latest measurement time, then created_at, then now as a fallback
+                    latest_at = row[9] or row[8] or now
                     last_wet_weight_g = row[11]
                     water_loss_total_pct = row[12]
 
@@ -99,7 +99,7 @@ class PlantsList:
                         "max_water_weight_g": max_water_weight_g,
                         "location": location_name,
                         "location_id": location_id_hex,
-                        "created_at": created_at,
+                        "latest_at": latest_at,
                         "measured_weight_g": measured_weight_g,
                         "water_loss_total_pct": water_loss_total_pct,
                         "water_retained_pct": round(water_retained_pct, 0),

@@ -133,7 +133,7 @@ export default function PlantDetails() {
               <div>{plant.min_dry_weight_g ? `${plant.min_dry_weight_g}g` : '—'}</div>
               <div className="fw-600">Maximum Water</div>
               <div>{plant.max_water_weight_g ? `${plant.max_water_weight_g}g` : '—'}</div>
-              <div className="fw-600">Created</div>
+              <div className="fw-600">Added to collection</div>
               <DateTimeText as="div" value={plant.created_at} />
             </div>
           </div>

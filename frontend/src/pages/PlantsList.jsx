@@ -213,7 +213,7 @@ export default function PlantsList() {
                       )}
                     </td>
                     <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>
-                    <td className="td hide-column-tablet"><DateTimeText value={p.created_at} /></td>
+                    <td className="td hide-column-tablet"><DateTimeText value={p.latest_at} /></td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />

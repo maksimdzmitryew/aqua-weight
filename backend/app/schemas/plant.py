@@ -14,7 +14,7 @@ class PlantListItem(BaseModel):
     max_water_weight_g: Optional[int] = None
     location: Optional[str] = None
     location_id: Optional[HexID] = None
-    created_at: datetime
+    latest_at: datetime
     measured_weight_g: Optional[int] = None
     water_loss_total_pct: Optional[float] = None
     water_retained_pct: Optional[float] = None
@@ -25,6 +25,8 @@ class PlantDetail(BaseModel):
     name: str
     description: Optional[str] = None
     species: Optional[str] = None
+    min_dry_weight_g: Optional[int] = None
+    max_water_weight_g: Optional[int] = None
     location: Optional[str] = None
     location_id: Optional[HexID] = None
     created_at: datetime

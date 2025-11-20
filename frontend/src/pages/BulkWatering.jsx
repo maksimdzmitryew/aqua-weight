@@ -20,11 +20,12 @@ export default function BulkWatering() {
     let cancelled = false
     async function load() {
       try {
-        const data = await plantsApi.list()
-        const list = Array.isArray(data) ? data : []
-        // Show only plants with water_loss_total_pct > 70
-        const filtered = list.filter(p => (p.water_loss_total_pct ?? -Infinity) > 70)
-        if (!cancelled) setPlants(filtered)
+        const plantsData = await plantsApi.list()
+        const allPlants = Array.isArray(plantsData) ? plantsData : []
+
+        // Show only plants with water_retained_pct < 30
+        const plantsNeedingWater = allPlants.filter(p => (p.water_retained_pct ?? -Infinity) < 30)
+        if (!cancelled) setPlants(plantsNeedingWater)
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -76,6 +77,7 @@ export default function BulkWatering() {
             ...p,
             current_weight: numeric,
             water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
+            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
           }
         }
         return p
@@ -99,7 +101,7 @@ export default function BulkWatering() {
         titleBack="Daily Care"
       />
 
-      <p>Enter the new weight after watering for plants that need water (loss > 70%).</p>
+      <p>Enter the new weight after watering for plants that need water (retained less 30%).</p>
 
       {loading && <div>Loading…</div>}
       {error && !loading && <div className="text-danger">{error}</div>}

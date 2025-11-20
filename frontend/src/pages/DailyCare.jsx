@@ -1,12 +1,21 @@
+
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
-import { dailyApi } from '../api/daily'
+import { plantsApi } from '../api/plants'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+
+function hoursSinceLocal(tsString) {
+  if (!tsString) return null;
+  const t = Date.parse(tsString); // parsed as local when no Z present
+  if (Number.isNaN(t)) return null;
+  const hours = (Date.now() - t) / (1000 * 60 * 60);
+  return hours; // fractional, can be negative for future times
+}
 
 export default function DailyCare() {
   const navigate = useNavigate()
@@ -19,9 +28,63 @@ export default function DailyCare() {
     setLoading(true)
     setError('')
     try {
-      const data = await dailyApi.list()
-      const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-      setTasks(list)
+      // First get all plants to filter by water retained percentage
+      const plantsData = await plantsApi.list()
+      const allPlants = Array.isArray(plantsData) ? plantsData : []
+
+
+        const filteredPlants = allPlants.map(plantReview => {
+          const id = plantReview.id;
+          const needsMeasure = id != null && (hoursSinceLocal(plantReview.latest_at)) > 18;
+          const needsWater = id != null && (plantReview.water_retained_pct ?? -Infinity) < 30;
+          let task_plant = {}
+
+            task_plant = {
+                ...plantReview,
+                plantId: id,
+                needsMeasure: needsMeasure,
+                needsWater: needsWater,
+                checkedAt: Date.now()
+            };
+
+          // return a new object, copy original fields and add/override
+          return task_plant;
+
+        });
+
+      //
+      // // Filter plants with water_retained_pct < 30
+      // const plantsNeedingWater = allPlants.filter(p => (p.water_retained_pct ?? -Infinity) < 30)
+      // const plantsNeedingMeasurement = allPlants.filter(p => (p.updated_at ?? -Infinity) < 33)
+      // const plantIdsNeedingWater = new Set(plantsNeedingWater.map(p => p.uuid))
+      //
+      // // Filter tasks to only include plants that need watering (water_retained_pct < 30)
+      // const filteredPlants = allPlants.filter(plantReview => {
+      //     if ((plantReview.water_retained_pct ?? -Infinity) < 30)
+      //       return {
+      //         'name': plantReview.name
+      //       }
+      //
+      //     // if ((plantReview.updated_at ?? -Infinity) < 3000000)
+      //     //   return true
+      //
+      //     console.log(plantReview.updated_at)
+      //
+      //   // If task has plant_id or plant_uuid, check if it's in our filtered list
+      //   //   console.log(task)
+      //   // if (task.plant_id || task.plant_uuid) {
+      //   //   return plantIdsNeedingWater.has(task.plant_id || task.plant_uuid)
+      //   // }
+      //   // // If no plant identifier, include the task (fallback)
+      //   // return true
+      // })
+
+      const plantsWithTasks = filteredPlants.filter(
+          plantReview => (plantReview.needsMeasure || plantReview.needsWater)
+      )
+
+      setTasks(plantsWithTasks)
+
     } catch (e) {
       setError(e?.message || 'Failed to load today\'s tasks')
     } finally {
@@ -51,7 +114,7 @@ export default function DailyCare() {
         <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Bulk Measurement</button>
         <button className="btn" onClick={() => navigate('/measurements/bulk/watering')}>Bulk watering</button>
       </div>
-      <p>Today's suggested care actions for your plants.</p>
+      <p>Today's suggested care actions for your plants that need watering (retained &lt; 30%).</p>
 
       {loading && <Loader label="Loading tasks…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
@@ -66,8 +129,9 @@ export default function DailyCare() {
                 <tr>
                     <th className="th">Location</th>
                     <th className="th">Plant</th>
-                    <th className="th">Task</th>
-                    <th className="th">When</th>
+                    <th className="th">Measure</th>
+                    <th className="th">Water</th>
+                    <th className="th">Last updated</th>
                   <th className="th">Notes</th>
                 </tr>
               </thead>
@@ -76,8 +140,9 @@ export default function DailyCare() {
                   <tr key={t.id ?? t.uuid ?? i}>
                       <td className="td">{t.location || '—'}</td>
                       <td className="td">{t.name || t.plant || '—'}</td>
-                      <td className="td">{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
-                      <td className="td"><DateTimeText value={t.scheduled_for || t.due_at || t.created_at || t.updated_at} /></td>
+                      <td className="td">{t.needsMeasure ? '+' : '—'}</td>
+                      <td className="td">{t.needsWater ? '+' : '—'}</td>
+                      <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
                     <td className="td">{t.notes || t.reason || '—'}</td>
                   </tr>
                 ))}

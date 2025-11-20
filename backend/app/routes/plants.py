@@ -6,7 +6,7 @@ import uuid
 import re
 from ..helpers.plants_list import PlantsList
 from ..db import get_conn, hex_to_bin, HEX_RE, bin_to_hex
-from ..schemas.plant import PlantListItem, PlantCreateRequest, PlantUpdateRequest
+from ..schemas.plant import PlantDetail, PlantListItem, PlantCreateRequest, PlantUpdateRequest
 
 app = APIRouter()
 
@@ -271,7 +271,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
 
 
 @app.get("/plants/{id_hex}")
-async def get_plant(id_hex: str) -> PlantListItem:
+async def get_plant(id_hex: str) -> PlantDetail:
     def fetch_one():
         if not HEX_RE.match(id_hex or ""):
             raise HTTPException(status_code=400, detail="Invalid plant id")
@@ -290,7 +290,7 @@ async def get_plant(id_hex: str) -> PlantListItem:
                     (hex_to_bin(id_hex),),
                 )
                 row = cur.fetchone()
-                print(row)
+
                 if not row:
                     raise HTTPException(status_code=404, detail="Plant not found")
                 pid = row[0]
@@ -304,7 +304,7 @@ async def get_plant(id_hex: str) -> PlantListItem:
                 created_at = row[8] or datetime.utcnow()
                 uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                 location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                return PlantListItem(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
+                return PlantDetail(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
         finally:
             conn.close()
     return await run_in_threadpool(fetch_one)
