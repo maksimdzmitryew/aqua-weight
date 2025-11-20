@@ -188,7 +188,7 @@ export default function PlantsList() {
                       onDragEnd={onDragEnd}
                       onDragOver={(e) => onDragOver(e, idx)}
                   >
-                    <td className="td" style={getWaterRetainCellStyle(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" title={p.uuid ? 'View plant' : undefined}>
                       <span style={{ display: 'inline-flex', gap: '10px' }}>
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                         {p.water_retained_pct}%

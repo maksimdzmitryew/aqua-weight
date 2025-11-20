@@ -1,5 +1,5 @@
 import React from 'react'
-import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
+import { valueStyle, getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
 
 export default function BulkMeasurementTable({
   plants,
@@ -14,33 +14,20 @@ export default function BulkMeasurementTable({
       <table className="table plants-table">
         <thead>
           <tr>
-            <th className="th">Water retained</th>
             <th className="th">{firstColumnLabel}</th>
-            <th className="th">Water loss</th>
             <th className="th">Name</th>
             <th className="th">Description</th>
             <th className="th hide-column-phone">Location</th>
+            <th className="th">Water loss</th>
           </tr>
         </thead>
         <tbody>
           {plants.map((p) => (
             <tr key={p.uuid || p.id}>
-              <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
-                {p.uuid ? (
-                  <a
-                    href={`/plants/${p.uuid}`}
-                    onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
-                    className="block-link"
-                  >
-                    {p.water_retained_pct}%
-                  </a>
-                ) : (
-                  p.water_retained_pct
-                )}
-              </td>
               <td className="td">
                 <input
                   type="number"
+                  style={{ width: 160 }}
                   className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
                   defaultValue={p.current_weight || ''}
                   onBlur={(e) => {
@@ -53,21 +40,9 @@ export default function BulkMeasurementTable({
                     input.value = e.target.value
                   }}
                 />
+               <span style={{ paddingLeft: 10 }}>{p.water_retained_pct}%</span>
               </td>
-              <td className="td" style={getWaterLossCellStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
-                {p.uuid ? (
-                  <a
-                    href={`/plants/${p.uuid}`}
-                    onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
-                    className="block-link"
-                  >
-                    {p.water_loss_total_pct}%
-                  </a>
-                ) : (
-                  p.water_loss_total_pct
-                )}
-              </td>
-              <td className="td" title={p.uuid ? 'View plant' : undefined}>
+              <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}
@@ -94,6 +69,19 @@ export default function BulkMeasurementTable({
                 )}
               </td>
               <td className="td hide-column-phone">{p.location || '—'}</td>
+              <td className="td" style={getWaterLossCellStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+                {p.uuid ? (
+                  <a
+                    href={`/plants/${p.uuid}`}
+                    onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
+                    className="block-link"
+                  >
+                    {p.water_loss_total_pct}%
+                  </a>
+                ) : (
+                  p.water_loss_total_pct
+                )}
+              </td>
             </tr>
           ))}
           {plants.length === 0 && (

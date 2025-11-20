@@ -124,7 +124,7 @@ export default function BulkWeightMeasurement() {
           inputStatus={inputStatus}
           onCommitValue={handleWeightMeasurement}
           onViewPlant={handleView}
-          firstColumnLabel="New weight"
+          firstColumnLabel="New weight and Water retain"
           getWaterLossCellStyle={waterLossCellStyle}
         />
       )}

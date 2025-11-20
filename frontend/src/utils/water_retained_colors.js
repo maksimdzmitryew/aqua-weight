@@ -1,3 +1,9 @@
+export const valueStyle = {
+  position: 'relative', // above the bar
+  zIndex: 2,
+  textAlign: 'right',
+  fontVariantNumeric: 'tabular-nums'
+};
 
 /**
  * Returns CSS styles based on water retention percentage for plant care indicators
@@ -5,6 +11,13 @@
  * @returns {Object} CSS styles object
  */
 export function getWaterRetainCellStyle(waterRemainingPct) {
+  let widthPct = Math.max(0, Math.min(100, waterRemainingPct));
+
+  return {
+    background: `linear-gradient(90deg, rgba(79, 173, 255, 0.28) ${widthPct}%, transparent ${widthPct}%)`,
+  }
+
+
   if (waterRemainingPct < 0) {
     return {
       background: '#dc2626',
@@ -13,7 +26,6 @@ export function getWaterRetainCellStyle(waterRemainingPct) {
   } else if (waterRemainingPct < 20) {
     return {
       background: '#2c4fff',
-      color: 'white',
     }
   } else if (waterRemainingPct < 40) {
     return {
