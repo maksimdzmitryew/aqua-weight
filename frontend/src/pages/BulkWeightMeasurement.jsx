@@ -8,6 +8,7 @@ import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
+import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])

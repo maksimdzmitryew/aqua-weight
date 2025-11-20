@@ -10,19 +10,22 @@ export default function BulkMeasurementTable({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="table">
+      <table className="table plants-table">
         <thead>
           <tr>
+            <th className="th">Water retained</th>
             <th className="th">{firstColumnLabel}</th>
             <th className="th">Water loss</th>
             <th className="th">Name</th>
             <th className="th">Description</th>
-            <th className="th">Location</th>
+            <th className="th hide-column-phone">Location</th>
           </tr>
         </thead>
         <tbody>
           {plants.map((p) => (
             <tr key={p.uuid || p.id}>
+              <td className="td" style={getWaterLossCellStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+              </td>
               <td className="td">
                 <input
                   type="number"
@@ -78,7 +81,7 @@ export default function BulkMeasurementTable({
                   p.description || '—'
                 )}
               </td>
-              <td className="td">{p.location || '—'}</td>
+              <td className="td hide-column-phone">{p.location || '—'}</td>
             </tr>
           ))}
           {plants.length === 0 && (

@@ -123,7 +123,7 @@ export default function PlantsList() {
     moveItem(index, index + 1)
   }
 
-  function getWaterLossCellStyle(waterRemainingPct) {
+  function getWaterRetainCellStyle(waterRemainingPct) {
     if (waterRemainingPct < 0) {
       return {
         background: '#dc2626',
@@ -131,17 +131,16 @@ export default function PlantsList() {
       }
     } else if (waterRemainingPct < 20) {
       return {
-        background: '#412dfa',
+        background: '#2c4fff',
         color: 'white',
       }
     } else if (waterRemainingPct < 40) {
       return {
-        background: '#538cf4',
-        color: 'white',
+        background: '#77bcff',
       }
     } else if (waterRemainingPct < 50) {
       return {
-        background: '#9fc3f8',
+        background: 'rgba(137,204,255,0.44)',
       }
     } else if (waterRemainingPct < 60) {
       return {
@@ -206,7 +205,7 @@ export default function PlantsList() {
             <table className="table plants-table">
               <thead>
                 <tr>
-                  <th className="th" scope="col">Care, Water remain</th>
+                  <th className="th" scope="col">Care, Water retain</th>
                   <th className="th" scope="col">Name</th>
                   <th className="th" scope="col">Description</th>
                   <th className="th hide-column-phone" scope="col">Location</th>
@@ -222,13 +221,13 @@ export default function PlantsList() {
                       onDragEnd={onDragEnd}
                       onDragOver={(e) => onDragOver(e, idx)}
                   >
-                    <td className="td" style={getWaterLossCellStyle(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={getWaterRetainCellStyle(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
                       <span style={{ display: 'inline-flex', gap: '10px' }}>
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                         {p.water_retained_pct}%
                       </span>
                     </td>
-                    <td className="td" style={{ width: 140, ...(getWaterLossCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                             {p.name}
