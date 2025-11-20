@@ -82,7 +82,8 @@ export default function BulkWeightMeasurement() {
           return {
             ...p,
             current_weight: numeric,
-            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct
+            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
+            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct
           };
         }
         return p;
@@ -101,23 +102,6 @@ export default function BulkWeightMeasurement() {
       console.error('Error saving measurement:', error);
       // Intentionally keep success styling for non-negative inputs to allow manual retry UX
       // Do not flip to error here to keep flow smooth in bulk entry
-    }
-  }
-
-
-  function getWaterLossCellStyle(waterLossPct) {
-    if (waterLossPct > 100) {
-      return { background: '#dc2626', color: 'white' }
-    } else if (waterLossPct > 80) {
-      return { background: '#fecaca' }
-    } else if (waterLossPct > 40) {
-      return { background: '#fef3c7' }
-    } else if (waterLossPct > 3) {
-      return { background: '#bbf7d0' }
-    } else if (waterLossPct > -1) {
-      return { color: 'green' }
-    } else {
-      return { color: 'red' }
     }
   }
 

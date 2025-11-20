@@ -1,4 +1,5 @@
 import React from 'react'
+import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
 
 export default function BulkMeasurementTable({
   plants,
@@ -24,7 +25,18 @@ export default function BulkMeasurementTable({
         <tbody>
           {plants.map((p) => (
             <tr key={p.uuid || p.id}>
-              <td className="td" style={getWaterLossCellStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+              <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                {p.uuid ? (
+                  <a
+                    href={`/plants/${p.uuid}`}
+                    onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
+                    className="block-link"
+                  >
+                    {p.water_retained_pct}%
+                  </a>
+                ) : (
+                  p.water_retained_pct
+                )}
               </td>
               <td className="td">
                 <input

@@ -1,6 +1,7 @@
 # app/helpers/plants_list.py
 from datetime import datetime
 from ..db import get_conn, bin_to_hex
+from ..helpers.water_retained import calculate_water_retained
 
 class PlantsList:
     """
@@ -68,31 +69,16 @@ class PlantsList:
                     max_water_weight_g = row[5] # maximum water retained capacity
                     measured_weight_g = row[10] # 𝑊𝑐: Current weight = weight read any day on a scale
 
-                    # could after repotting followed by watering event
-                    if measured_weight_g is None and water_loss_total_pct == 0:
-                        measured_weight_g = last_wet_weight_g
 
-                    # 𝑊𝑐 − 𝑊𝑑
-                    # likely a watering event
-                    if measured_weight_g is None:
-                        water_remain_g = last_wet_weight_g - min_dry_weight_g
-                    # regular measurement event
-                    else:
-                        water_remain_g = measured_weight_g - min_dry_weight_g
-
-                    if min_dry_weight_g != measured_weight_g:
-                        # Wfc: Saturated weight / field capacity
-                        # weight right after thoroughly watering and allowing free drainage to stop
-                        saturated_weight_g = min_dry_weight_g + max_water_weight_g
-
-                        # AWC = 𝑊𝑓𝑐 − 𝑊𝑑: available water at field capacity
-                        available_water_g = saturated_weight_g - min_dry_weight_g
-                        # frac = 𝑊𝑐 − 𝑊𝑑 / Wfc − 𝑊𝑑
-                            # current fraction of AWC remaining
-                        frac_ratio = water_remain_g / available_water_g
-                        water_retained_pct = frac_ratio * 100
-                    else:
-                        water_retained_pct = 100 - water_loss_total_pct
+                    # Calculate water retained percentage using the helper
+                    water_retained_calc = calculate_water_retained(
+                        min_dry_weight_g=min_dry_weight_g,
+                        max_water_weight_g=max_water_weight_g,
+                        measured_weight_g=measured_weight_g,
+                        last_wet_weight_g=last_wet_weight_g,
+                        water_loss_total_pct=water_loss_total_pct
+                    )
+                    water_retained_pct = water_retained_calc.water_retained_pct
 
                     # watering threshold (plant-dependent). Typical thresholds:
                     # Seedlings / moisture-loving plants: water when frac ≤ 0.6 (60%)

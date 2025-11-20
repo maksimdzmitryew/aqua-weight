@@ -21,6 +21,7 @@ from ..schemas.measurement import (
     MeasurementItem,
     LastMeasurementResponse,
 )
+from ..helpers.water_retained import calculate_water_retained
 
 app = APIRouter()
 
@@ -215,11 +216,34 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                 # Commit transaction after all statements succeed
                 conn.commit()
 
+                # Get plant information (you'll need to query this from the plants table)
+                # This would typically be done before the measurement insertion
+                cur.execute(
+                    "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
+                    (payload.plant_id,)
+                )
+                plant_row = cur.fetchone()
+
+                if plant_row:
+                    min_dry_weight_g = plant_row[0]
+                    max_water_weight_g = plant_row[1]
+
+                # Calculate water retained percentage using the helper
+                water_retained_calc = calculate_water_retained(
+                    min_dry_weight_g=min_dry_weight_g,
+                    max_water_weight_g=max_water_weight_g,
+                    measured_weight_g=mw_insert,
+                    last_wet_weight_g=lw_local,
+                    water_loss_total_pct=loss_calc.water_loss_total_pct
+                )
+                water_retained_pct = round(water_retained_calc.water_retained_pct,0)
+
                 return {
                     "status": "success",
                     "data": {
                         "id": new_id.hex(),
-                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct,
+                        "water_retained_pct": water_retained_pct
                     },
                     "meta": {
                         "timestamp": measured_at,
@@ -343,11 +367,34 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
 
                 conn.commit()
 
+                # Get plant information (you'll need to query this from the plants table)
+                # This would typically be done before the measurement insertion
+                cur.execute(
+                    "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
+                    (plant_hex,)
+                )
+                plant_row = cur.fetchone()
+
+                if plant_row:
+                    min_dry_weight_g = plant_row[0]
+                    max_water_weight_g = plant_row[1]
+
+                # Calculate water retained percentage using the helper
+                water_retained_calc = calculate_water_retained(
+                    min_dry_weight_g=min_dry_weight_g,
+                    max_water_weight_g=max_water_weight_g,
+                    measured_weight_g=mw_eff,
+                    last_wet_weight_g=lw_eff,
+                    water_loss_total_pct=loss_calc.water_loss_total_pct
+                )
+                water_retained_pct = round(water_retained_calc.water_retained_pct,0)
+
                 return {
                     "status": "success",
                     "data": {
                         "id": id_hex,
-                        "water_loss_total_pct": loss_calc.water_loss_total_pct
+                        "water_loss_total_pct": loss_calc.water_loss_total_pct,
+                        "water_retained_pct": water_retained_pct
                     },
                     "meta": {
                         "timestamp": measured_at,
