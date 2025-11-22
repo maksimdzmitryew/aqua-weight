@@ -24,25 +24,24 @@ export default function BulkMeasurementTable({
         <tbody>
           {plants.map((p) => (
             <tr key={p.uuid || p.id}>
-              <td className="td">
-                <input
-                  type="number"
-                  style={{ width: 160 }}
-                  className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                  defaultValue={p.current_weight || ''}
-                  onBlur={(e) => {
-                    if (e.target.value && p.uuid) {
-                      onCommitValue(p.uuid, e.target.value)
-                    }
-                  }}
-                  onChange={(e) => {
-                    const input = e.target
-                    input.value = e.target.value
-                  }}
-                />
-               <span style={{ paddingLeft: 10 }}>{p.water_retained_pct}%</span>
-              </td>
-              <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
+                  <input
+                    type="number"
+                    style={{ width: 50, verticalAlign: 'middle', display: 'inline-block' }}
+                    className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
+                    defaultValue={p.current_weight || ''}
+                    onBlur={(e) => {
+                      if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                    }}
+                    onChange={(e) => {
+                      e.target.value = e.target.value
+                    }}
+                  />
+                  <span style={{ paddingLeft: 10, verticalAlign: 'middle', display: 'inline-block' }}>
+                    {p.water_retained_pct}%
+                  </span>
+                </td>
+                <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}
