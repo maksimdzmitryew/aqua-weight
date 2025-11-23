@@ -52,33 +52,6 @@ export default function DailyCare() {
 
         });
 
-      //
-      // // Filter plants with water_retained_pct < 30
-      // const plantsNeedingWater = allPlants.filter(p => (p.water_retained_pct ?? -Infinity) < 30)
-      // const plantsNeedingMeasurement = allPlants.filter(p => (p.updated_at ?? -Infinity) < 33)
-      // const plantIdsNeedingWater = new Set(plantsNeedingWater.map(p => p.uuid))
-      //
-      // // Filter tasks to only include plants that need watering (water_retained_pct < 30)
-      // const filteredPlants = allPlants.filter(plantReview => {
-      //     if ((plantReview.water_retained_pct ?? -Infinity) < 30)
-      //       return {
-      //         'name': plantReview.name
-      //       }
-      //
-      //     // if ((plantReview.updated_at ?? -Infinity) < 3000000)
-      //     //   return true
-      //
-      //     console.log(plantReview.updated_at)
-      //
-      //   // If task has plant_id or plant_uuid, check if it's in our filtered list
-      //   //   console.log(task)
-      //   // if (task.plant_id || task.plant_uuid) {
-      //   //   return plantIdsNeedingWater.has(task.plant_id || task.plant_uuid)
-      //   // }
-      //   // // If no plant identifier, include the task (fallback)
-      //   // return true
-      // })
-
       const plantsWithTasks = filteredPlants.filter(
           plantReview => (plantReview.needsMeasure || plantReview.needsWater)
       )

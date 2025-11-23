@@ -66,7 +66,3 @@ class PlantUpdateRequest(BaseModel):
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None
-
-class DailyCareResponse(BaseModel):
-    status: str
-    items: list[PlantListItem]

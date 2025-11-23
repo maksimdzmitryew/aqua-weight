@@ -112,7 +112,7 @@ export default function BulkWatering() {
           inputStatus={inputStatus}
           onCommitValue={handleWateringCommit}
           onViewPlant={handleView}
-          firstColumnLabel="New weight after watering"
+          firstColumnLabel="New weight gr, water retention %"
           getWaterLossCellStyle={waterLossCellStyle}
         />
       )}
