@@ -173,8 +173,9 @@ export default function PlantsList() {
               <thead>
                 <tr>
                   <th className="th" scope="col">Care, Water retain</th>
+                  <th className="th" scope="col">frac</th> {/*Recommended threshold (water when frac ≤) */}
                   <th className="th" scope="col">Name</th>
-                  <th className="th" scope="col">Description</th>
+                  <th className="th" scope="col">Notes</th>
                   <th className="th hide-column-phone" scope="col">Location</th>
                   <th className="th hide-column-tablet" scope="col">Updated</th>
                   <th className="th right" scope="col">Actions</th>
@@ -194,10 +195,13 @@ export default function PlantsList() {
                         {p.water_retained_pct}%
                       </span>
                     </td>
+                    <td className="td">
+                        {p.recommended_water_threshold_pct}%
+                    </td>
                     <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                            {p.name}
+                             {p.identify_hint} {p.name}
                         </Link>
                       ) : (
                         p.name
@@ -206,10 +210,10 @@ export default function PlantsList() {
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>
                       {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-                            {p.description || '—'}
+                            {p.notes || '—'}
                         </Link>
                       ) : (
-                        p.description || '—'
+                        p.notes || '—'
                       )}
                     </td>
                     <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>

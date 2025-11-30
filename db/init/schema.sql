@@ -99,31 +99,46 @@ CREATE TABLE IF NOT EXISTS locations (
 
 -- Plants master
 CREATE TABLE IF NOT EXISTS plants (
+  -- General
   id BINARY(16) NOT NULL,
   name VARCHAR(150) NOT NULL,
-  description TEXT NULL,
+  plant_type VARCHAR(150) NULL,
+  identify_hint VARCHAR(150) NULL,
+  typical_action VARCHAR(150) NULL,
+  description VARCHAR(255) NULL,
+  notes TEXT NULL,
+  location_id BINARY(16) NULL,
+  photo_url VARCHAR(255) NULL,
+  -- Service
+  default_measurement_method_id BINARY(16) NULL,
+  scale_id BINARY(16) NULL,
+  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+  repotted TINYINT(1) NOT NULL DEFAULT 0,
+  archive TINYINT(1) NOT NULL DEFAULT 0,
+  -- Care
+  recommended_water_threshold_pct SMALLINT UNSIGNED NULL,
+  biomass_weight_g SMALLINT UNSIGNED NULL,
+  biomass_last_at DATETIME(6) NULL,
+  -- Advanced
   species_name VARCHAR(150) NULL,
   botanical_name VARCHAR(150) NULL,
   cultivar VARCHAR(150) NULL,
-  sort_order INT UNSIGNED NOT NULL DEFAULT 0,
-  location_id BINARY(16) NULL,
   substrate_type_id BINARY(16) NULL,
   substrate_last_refresh_at DATETIME(6) NULL,
-  light_level_id BINARY(16) NULL,
   fertilized_last_at DATETIME(6) NULL,
   fertilizer_ec_ms DECIMAL(4,2) NULL,
-  min_dry_weight_g SMALLINT UNSIGNED NULL,
-  max_water_weight_g SMALLINT UNSIGNED NULL,
+  -- Health
+  light_level_id BINARY(16) NULL,
   pest_status_id BINARY(16) NULL,
   health_status_id BINARY(16) NULL,
-  photo_url VARCHAR(255) NULL,
-  scale_id BINARY(16) NULL,
-  default_measurement_method_id BINARY(16) NULL,
-  repotted TINYINT(1) NOT NULL DEFAULT 0,
-  archive TINYINT(1) NOT NULL DEFAULT 0,
+  -- Calculated
+  min_dry_weight_g SMALLINT UNSIGNED NULL,
+  max_water_weight_g SMALLINT UNSIGNED NULL,
+  -- System
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   closed_at DATETIME(6) NULL,
+
   PRIMARY KEY (id),
   KEY idx_plants_location (location_id),
   KEY idx_plants_sort (sort_order),

@@ -41,10 +41,19 @@ def calculate_water_retained(
     # 𝑊𝑐 − 𝑊𝑑
     # likely a watering event
     if measured_weight_g is None:
-        water_remain_g = last_wet_weight_g - min_dry_weight_g
+        # Check if we can still calculate with available data
+        if last_wet_weight_g is not None and min_dry_weight_g is not None:
+            water_remain_g = last_wet_weight_g - min_dry_weight_g
+        else:
+            return result
     # regular measurement event
     else:
-        water_remain_g = measured_weight_g - min_dry_weight_g
+        # Check if we can calculate with available data
+        if measured_weight_g is not None and min_dry_weight_g is not None:
+            water_remain_g = measured_weight_g - min_dry_weight_g
+        else:
+            return result
+
 
     if min_dry_weight_g != measured_weight_g:
         # Wfc: Saturated weight / field capacity
@@ -58,6 +67,9 @@ def calculate_water_retained(
         frac_ratio = water_remain_g / available_water_g
         result.water_retained_pct = frac_ratio * 100
     else:
-        result.water_retained_pct = 100 - water_loss_total_pct
+        if water_loss_total_pct is not None:
+            result.water_retained_pct = 100 - water_loss_total_pct
+        else:
+            result.water_retained_pct = 100
 
     return result

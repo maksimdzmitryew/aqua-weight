@@ -8,7 +8,7 @@ class PlantListItem(BaseModel):
     id: int
     uuid: Optional[HexID] = None
     name: str
-    description: Optional[str] = None
+    notes: Optional[str] = None
     species: Optional[str] = None
     min_dry_weight_g: Optional[int] = None
     max_water_weight_g: Optional[int] = None
@@ -18,12 +18,14 @@ class PlantListItem(BaseModel):
     measured_weight_g: Optional[int] = None
     water_loss_total_pct: Optional[float] = None
     water_retained_pct: Optional[float] = None
+    recommended_water_threshold_pct: Optional[int] = None
+    identify_hint: Optional[str] = None
 
 class PlantDetail(BaseModel):
     id: int
     uuid: Optional[HexID] = None
     name: str
-    description: Optional[str] = None
+    notes: Optional[str] = None
     species: Optional[str] = None
     min_dry_weight_g: Optional[int] = None
     max_water_weight_g: Optional[int] = None

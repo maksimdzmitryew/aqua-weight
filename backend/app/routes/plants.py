@@ -19,12 +19,22 @@ async def list_plants() -> list[PlantListItem]:
 
 
 class PlantCreate(BaseModel):
+    # Minimum fields; all but name are optional
     # General
     name: str
+    plant_type: str | None = None
+    identify_hint: str | None = None
+    typical_action: str | None = None
     description: str | None = None
-    location_id: str | None = None  # hex ULID/UUID-like 32 chars
+    notes: str | None = None
+    location_id: str | None = None
     photo_url: str | None = None
+    # Service
     default_measurement_method_id: str | None = None
+    # Care
+    recommended_water_threshold_pct: int | None = None
+    biomass_weight_g: int | None = None
+    biomass_last_at: str | None = None
     # Advanced
     species_name: str | None = None
     botanical_name: str | None = None
@@ -37,7 +47,9 @@ class PlantCreate(BaseModel):
     light_level_id: str | None = None
     pest_status_id: str | None = None
     health_status_id: str | None = None
-
+    # Calculated
+    min_dry_weight_g: int | None = None
+    max_water_weight_g: int | None = None
 
 @app.post("/plants")
 async def create_plant(payload: PlantCreateRequest):
@@ -74,13 +86,13 @@ async def create_plant(payload: PlantCreateRequest):
                 new_id = uuid.uuid4().bytes
                 cur.execute(
                     (
-                        "INSERT INTO plants (id, name, description, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+                        "INSERT INTO plants (id, name, notes, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
+                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
                     ),
                     (
                         new_id,
                         name,
-                        (payload.description or None),
+                        (payload.notes or None),
                         (payload.species_name or None),
                         (payload.botanical_name or None),
                         (payload.cultivar or None),
@@ -281,7 +293,7 @@ async def get_plant(id_hex: str) -> PlantDetail:
                 cur.execute(
                     (
                         """
-                    SELECT p.id, p.name, p.description, p.species_name, p.min_dry_weight_g, p.max_water_weight_g, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    SELECT p.id, p.name, p.notes, p.species_name, p.min_dry_weight_g, p.max_water_weight_g, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
                     FROM plants p
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.id = %s
@@ -295,7 +307,7 @@ async def get_plant(id_hex: str) -> PlantDetail:
                     raise HTTPException(status_code=404, detail="Plant not found")
                 pid = row[0]
                 name = row[1]
-                description = row[2]
+                notes = row[2]
                 species_name = row[3]
                 min_dry_weight_g = row[4]
                 max_water_weight_g = row[5]
@@ -304,28 +316,41 @@ async def get_plant(id_hex: str) -> PlantDetail:
                 created_at = row[8] or datetime.utcnow()
                 uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
                 location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                return PlantDetail(id=1, uuid=uuid_hex, name=name, description=description, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
+                return PlantDetail(id=1, uuid=uuid_hex, name=name, notes=notes, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
         finally:
             conn.close()
     return await run_in_threadpool(fetch_one)
 
 
 class PlantUpdate(BaseModel):
-    # Same fields as create; all optional
+    # Extended fields from PlantCreate; all optional
+    # General
     name: str | None = None
+    plant_type: str | None = None
+    identify_hint: str | None = None
+    typical_action: str | None = None
     description: str | None = None
+    notes: str | None = None
     location_id: str | None = None
     photo_url: str | None = None
+    # Service
     default_measurement_method_id: str | None = None
+    # Care
+    recommended_water_threshold_pct: int | None = None
+    biomass_weight_g: int | None = None
+    biomass_last_at: str | None = None
+    # Advanced
     species_name: str | None = None
-    min_dry_weight_g: str | None = None
-    max_water_weight_g: str | None = None
     botanical_name: str | None = None
     cultivar: str | None = None
     substrate_type_id: str | None = None
     substrate_last_refresh_at: str | None = None
     fertilized_last_at: str | None = None
     fertilizer_ec_ms: float | None = Field(default=None, ge=0)
+    # Health
     light_level_id: str | None = None
     pest_status_id: str | None = None
     health_status_id: str | None = None
+    # Calculated
+    min_dry_weight_g: str | None = None
+    max_water_weight_g: str | None = None

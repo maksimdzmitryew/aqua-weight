@@ -19,10 +19,12 @@ class PlantsList:
                 query = """
                     SELECT p.id,
                            p.name,
-                           p.description,
+                           p.notes,
                            p.species_name,
                            p.min_dry_weight_g,
                            p.max_water_weight_g,
+                           p.recommended_water_threshold_pct,
+                           p.identify_hint,
                            p.location_id,
                            COALESCE(l.name, NULL) AS location_name,
                            p.created_at,
@@ -56,18 +58,20 @@ class PlantsList:
                 for idx, row in enumerate(rows, start=1):
                     pid = row[0]
                     name = row[1]
-                    description = row[2]
+                    notes = row[2]
                     species_name = row[3]
-                    location_id_bytes = row[6]
-                    location_name = row[7]
-                    # Prefer latest measurement time, then created_at, then now as a fallback
-                    latest_at = row[9] or row[8] or now
-                    last_wet_weight_g = row[11]
-                    water_loss_total_pct = row[12]
-
                     min_dry_weight_g = row[4] # 𝑊𝑑: Dry weight = pot + soil + plant completely dry
                     max_water_weight_g = row[5] # maximum water retained capacity
-                    measured_weight_g = row[10] # 𝑊𝑐: Current weight = weight read any day on a scale
+                    recommended_water_threshold_pct = row[6]
+                    identify_hint = row[7]
+                    location_id_bytes = row[8]
+                    location_name = row[9]
+                    # Prefer latest measurement time, then created_at, then now as a fallback
+                    latest_at = row[10] or row[11] or now
+                    measured_weight_g = row[12] # 𝑊𝑐: Current weight = weight read any day on a scale
+                    last_wet_weight_g = row[13]
+                    water_loss_total_pct = row[14]
+
 
 
                     # Calculate water retained percentage using the helper
@@ -93,7 +97,7 @@ class PlantsList:
                         "uuid": uuid_hex,
                         "name": name,
                         #"name": f"min_dry_weight_g {min_dry_weight_g} + max_water_weight_g {max_water_weight_g} = Wfc {saturated_weight_g}; measured_weight_g {measured_weight_g}; AWC_g {available_water_g} frac_ratio {frac_ratio}",
-                        "description": description,
+                        "notes": notes,
                         "species": species_name,
                         "min_dry_weight_g": min_dry_weight_g,
                         "max_water_weight_g": max_water_weight_g,
@@ -102,7 +106,9 @@ class PlantsList:
                         "latest_at": latest_at,
                         "measured_weight_g": measured_weight_g,
                         "water_loss_total_pct": water_loss_total_pct,
-                        "water_retained_pct": round(water_retained_pct, 0),
+                        "water_retained_pct": round(water_retained_pct, 0) if water_retained_pct is not None else None,
+                        "recommended_water_threshold_pct": recommended_water_threshold_pct if recommended_water_threshold_pct is not None else None,
+                        "identify_hint": identify_hint if identify_hint is not None else None,
                     })
                 return results
         finally:
