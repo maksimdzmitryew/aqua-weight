@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
 import IconButton from '../components/IconButton.jsx'
@@ -13,6 +13,8 @@ import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
 import '../styles/plants-list.css'
+import Badge from '../components/Badge.jsx'
+import SearchField from '../components/SearchField.jsx'
 
 export default function PlantsList() {
   const [plants, setPlants] = useState([])
@@ -20,10 +22,12 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
+  const [query, setQuery] = useState('')
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
+  const PAGE_LIMIT = 100
 
   useEffect(() => {
     const controller = new AbortController()
@@ -147,6 +151,28 @@ export default function PlantsList() {
     }
   }
 
+  // Derived filtered and limited list
+  const filteredPlants = useMemo(() => {
+    const q = (query || '').trim()
+    if (!q) return plants.slice(0, PAGE_LIMIT)
+
+    // If query is a number, include rows where threshold ("frac") is <= query
+    const numeric = Number(q)
+    const hasNumber = !Number.isNaN(numeric) && q !== ''
+    const lowered = q.toLowerCase()
+
+    const list = plants.filter((p) => {
+      const name = `${p.identify_hint || ''} ${p.name || ''}`.toLowerCase()
+      const notes = (p.notes || '').toLowerCase()
+      const location = (p.location || '').toLowerCase()
+      const textMatch = name.includes(lowered) || notes.includes(lowered) || location.includes(lowered)
+      const fracVal = Number(p.recommended_water_threshold_pct)
+      const fracMatch = hasNumber && !Number.isNaN(fracVal) && fracVal <= numeric
+      return textMatch || fracMatch
+    })
+    return list.slice(0, PAGE_LIMIT)
+  }, [plants, query])
+
   return (
     <DashboardLayout title="Plants">
       <PageHeader
@@ -169,30 +195,72 @@ export default function PlantsList() {
           </EmptyState>
         ) : (
           <div className="overflow-x-auto">
+            {/* Search and meta */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+              <SearchField
+                value={query}
+                onChange={setQuery}
+                placeholder="Search name, notes, location… or type a number to filter by threshold"
+                ariaLabel="Search plants"
+                autoFocus={false}
+              />
+              <div style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
+                Showing {filteredPlants.length} of {plants.length} {plants.length === 1 ? 'plant' : 'plants'} (max {PAGE_LIMIT})
+              </div>
+            </div>
+
             <table className="table plants-table">
               <thead>
                 <tr>
-                  <th className="th" scope="col">Care, Water retain</th>
-                  <th className="th" scope="col">frac</th> {/*Recommended threshold (water when frac ≤) */}
-                  <th className="th" scope="col">Name</th>
-                  <th className="th" scope="col">Notes</th>
-                  <th className="th hide-column-phone" scope="col">Location</th>
-                  <th className="th hide-column-tablet" scope="col">Updated</th>
-                  <th className="th right" scope="col">Actions</th>
+                  <th className="th" scope="col" title="Current retained water percentage and quick actions">
+                    <span>Care, Water retained</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
+                    <span>Thresh</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th" scope="col" title="Plant name">
+                    <span>Name</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th" scope="col" title="Notes">
+                    <span>Notes</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th hide-column-phone" scope="col" title="Location">
+                    <span>Location</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th hide-column-tablet" scope="col" title="Last update time">
+                    <span>Updated</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th right" scope="col" title="Row actions">
+                    <span>Actions</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {plants.map((p, idx) => (
+                {filteredPlants.map((p, idx) => {
+                  const retained = Number(p.water_retained_pct)
+                  const thresh = Number(p.recommended_water_threshold_pct)
+                  const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+                  return (
                   <tr key={p.uuid || idx}
-                      draggable
-                      onDragStart={() => onDragStart(idx)}
-                      onDragEnd={onDragEnd}
-                      onDragOver={(e) => onDragOver(e, idx)}
+                      draggable={!query}
+                      onDragStart={!query ? () => onDragStart(idx) : undefined}
+                      onDragEnd={!query ? onDragEnd : undefined}
+                      onDragOver={!query ? (e) => onDragOver(e, idx) : undefined}
                   >
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                      <span style={{ display: 'inline-flex', gap: '10px' }}>
+                      <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                         {p.water_retained_pct}%
+                        {needsWater && (
+                          <Badge tone="warning" title="Needs water based on threshold">Needs water</Badge>
+                        )}
                       </span>
                     </td>
                     <td className="td">
@@ -225,7 +293,7 @@ export default function PlantsList() {
                       <button
                         type="button"
                         onClick={() => moveUp(idx)}
-                        disabled={idx === 0}
+                        disabled={!!query || idx === 0}
                         aria-label={`Move ${p.name} up`}
                         title="Move up"
                         style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
@@ -233,7 +301,7 @@ export default function PlantsList() {
                       <button
                         type="button"
                         onClick={() => moveDown(idx)}
-                        disabled={idx === plants.length - 1}
+                        disabled={!!query || idx === filteredPlants.length - 1}
                         aria-label={`Move ${p.name} down`}
                         title="Move down"
                         style={{ padding: '2px 6px', borderRadius: 4 }}
@@ -242,11 +310,12 @@ export default function PlantsList() {
                         className="drag-handle"
                         title="Drag to reorder"
                         aria-label="Drag to reorder"
+                        tabIndex={0}
                         style={{ marginLeft: 8 }}
                       >⋮⋮</span>
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>
