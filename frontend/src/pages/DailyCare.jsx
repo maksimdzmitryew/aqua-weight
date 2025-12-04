@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
+import StatusIcon from '../components/StatusIcon.jsx'
 import { plantsApi } from '../api/plants'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
@@ -83,15 +84,15 @@ export default function DailyCare() {
         titleBack="Dashboard"
         onRefresh={load}
       />
-      <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+      <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>
-            Bulk Measurement {tasks.filter(t => t.needsMeasure).length > 0 ? ` (${tasks.filter(t => t.needsMeasure).length})` : ''}
+          Bulk measurement{tasks.filter(t => t.needsMeasure).length > 0 ? ` (${tasks.filter(t => t.needsMeasure).length})` : ''}
         </button>
-        <button className="btn"  style={{ background: '#2c4fff', color: 'white'}} onClick={() => navigate('/measurements/bulk/watering')}>
-            Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
+        <button className="btn" style={{ background: '#2c4fff', color: 'white' }} onClick={() => navigate('/measurements/bulk/watering')}>
+          Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
         </button>
       </div>
-      <p>Today's suggested care actions for your plants that need watering (retained &lt; 30%).</p>
+      <p>Today's suggested care actions for your plants. We highlight those that need measurement (older than 18h) and watering (retained &lt; 30%).</p>
 
       {loading && <Loader label="Loading tasks…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
@@ -101,26 +102,30 @@ export default function DailyCare() {
           <EmptyState title="No tasks for today" description="All caught up. Check back later for new suggestions." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="table" role="table">
               <thead>
                 <tr>
-                    <th className="th">Location</th>
-                    <th className="th">Plant</th>
-                    <th className="th">Measure</th>
-                    <th className="th">Water</th>
-                    <th className="th">Last updated</th>
-                  <th className="th">Notes</th>
+                    <th className="th" scope="col">Weight</th>
+                    <th className="th" scope="col">Water</th>
+                    <th className="th" scope="col">Plant</th>
+                    <th className="th">Notes</th>
+                    <th className="th" scope="col">Location</th>
+                    <th className="th" scope="col">Last updated</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((t, i) => (
                   <tr key={t.id ?? t.uuid ?? i}>
+                      <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
+                        <StatusIcon type="measure" active={!!t.needsMeasure} />
+                      </td>
+                      <td className="td" aria-label={t.needsWater ? 'Needs watering' : 'No watering needed'}>
+                        <StatusIcon type="water" active={!!t.needsWater} />
+                      </td>
+                      <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || '—'}</td>
+                      <td className="td">{t.notes || t.reason || '—'}</td>
                       <td className="td">{t.location || '—'}</td>
-                      <td className="td">{t.name || t.plant || '—'}</td>
-                      <td className="td">{t.needsMeasure ? '+' : '—'}</td>
-                      <td className="td">{t.needsWater ? '+' : '—'}</td>
                       <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
-                    <td className="td">{t.notes || t.reason || '—'}</td>
                   </tr>
                 ))}
               </tbody>
