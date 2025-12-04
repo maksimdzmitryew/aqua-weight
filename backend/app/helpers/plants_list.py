@@ -37,8 +37,7 @@ class PlantsList:
                              LEFT JOIN (SELECT measured_at, plant_id,
                                                measured_weight_g, last_wet_weight_g, water_loss_total_pct,
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
-                                        FROM plants_measurements
-                                        WHERE last_wet_weight_g IS NOT NULL) latest_pm
+                                        FROM plants_measurements) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
                     WHERE p.archive = 0
                 """
@@ -67,7 +66,9 @@ class PlantsList:
                     location_id_bytes = row[8]
                     location_name = row[9]
                     # Prefer latest measurement time, then created_at, then now as a fallback
-                    latest_at = row[10] or row[11] or now
+                    # Note: row[11] = latest_pm.measured_at, row[10] = p.created_at
+                    # The previous order mistakenly preferred created_at over the latest measurement.
+                    latest_at = row[11] or row[10] or now
                     measured_weight_g = row[12] # 𝑊𝑐: Current weight = weight read any day on a scale
                     last_wet_weight_g = row[13]
                     water_loss_total_pct = row[14]

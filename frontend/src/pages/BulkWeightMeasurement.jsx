@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
@@ -19,6 +19,9 @@ export default function BulkWeightMeasurement() {
   const [inputStatus, setInputStatus] = useState({});
   // State to track measurement IDs for each plant
   const [measurementIds, setMeasurementIds] = useState({});
+  // Toggle to switch between only-needs-water vs all plants
+  // Default ON for Bulk weight page: show all plants by default
+  const [showAll, setShowAll] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -83,7 +86,10 @@ export default function BulkWeightMeasurement() {
             ...p,
             current_weight: numeric,
             water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
-            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct
+            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
+            // Update timestamps so the UI can reflect the latest change
+            latest_at: data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
+            measured_at: data?.measured_at || p.measured_at,
           };
         }
         return p;
@@ -105,6 +111,19 @@ export default function BulkWeightMeasurement() {
     }
   }
 
+  // Helper: determine if a plant needs water
+  function plantNeedsWater(p) {
+    const retained = Number(p?.water_retained_pct)
+    const thresh = Number(p?.recommended_water_threshold_pct)
+    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+  }
+
+  // Derived list depending on toggle
+  const displayedPlants = useMemo(() => {
+    if (showAll) return plants
+    return plants.filter(plantNeedsWater)
+  }, [plants, showAll])
+
   return (
     <DashboardLayout title="Bulk weight measurement">
       <PageHeader
@@ -115,17 +134,34 @@ export default function BulkWeightMeasurement() {
 
       <p>Start bulk weight measurement for all plants.</p>
 
+      {/* Toggle to switch visibility mode */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+          />
+          <span>Show all plants</span>
+        </label>
+        <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
+          {showAll ? 'Showing all plants.' : 'Showing only plants that need watering (retained ≤ threshold).'}
+        </span>
+      </div>
+
       {loading && <div>Loading…</div>}
       {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
         <BulkMeasurementTable
-          plants={plants}
+          plants={displayedPlants}
           inputStatus={inputStatus}
           onCommitValue={handleWeightMeasurement}
           onViewPlant={handleView}
-          firstColumnLabel="New weight and Water retain"
-          getWaterLossCellStyle={waterLossCellStyle}
+          firstColumnLabel="Weight gr, Water %"
+          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+          waterLossCellStyle={waterLossCellStyle}
+          showUpdatedColumn={true}
         />
       )}
     </DashboardLayout>
