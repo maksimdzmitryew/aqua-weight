@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.41% </span>
+                <span class="strong">45.16% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>17/62</span>
+                <span class='fraction'>28/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">72.72% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>8/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">50% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/2</span>
+                <span class='fraction'>2/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">27.41% </span>
+                <span class="strong">45.16% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>17/62</span>
+                <span class='fraction'>28/62</span>
             </div>
         
             
@@ -143,11 +143,11 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">26x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">26x</span>
+<span class="cline-any cline-yes">26x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -183,20 +183,20 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">18x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">18x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export const valueStyle = {
   position: 'relative', // above the bar
   zIndex: 2,
@@ -249,21 +249,21 @@ export function getWaterRetainCellStyle(waterRemainingPct) {
 <span class="cstat-no" title="statement not covered" >  }</span>
 <span class="cstat-no" title="statement not covered" >}</span>
 &nbsp;
-export <span class="fstat-no" title="function not covered" >function getWaterLossCellStyle(waterLossPct) {</span>
-<span class="cstat-no" title="statement not covered" >    if (waterLossPct &gt; 100) {</span>
-<span class="cstat-no" title="statement not covered" >      return { background: '#dc2626', color: 'white' }</span>
-<span class="cstat-no" title="statement not covered" >    } else if (waterLossPct &gt; 80) {</span>
+export function getWaterLossCellStyle(waterLossPct) {
+    if (waterLossPct &gt; 100) {
+      return { background: '#dc2626', color: 'white' }
+    } else if (waterLossPct &gt; 80) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 <span class="cstat-no" title="statement not covered" >      return { background: '#fecaca' }</span>
-<span class="cstat-no" title="statement not covered" >    } else if (waterLossPct &gt; 40) {</span>
-<span class="cstat-no" title="statement not covered" >      return { background: '#fef3c7' }</span>
-<span class="cstat-no" title="statement not covered" >    } else if (waterLossPct &gt; 3) {</span>
-<span class="cstat-no" title="statement not covered" >      return { background: '#bbf7d0' }</span>
-<span class="cstat-no" title="statement not covered" >    } else if (waterLossPct &gt; -1) {</span>
-<span class="cstat-no" title="statement not covered" >      return { color: 'green' }</span>
-<span class="cstat-no" title="statement not covered" >    } else {</span>
+    } else if (waterLossPct &gt; 40) {
+      return { background: '#fef3c7' }
+    } else if (waterLossPct &gt; 3) {
+      return { background: '#bbf7d0' }
+    } else if (waterLossPct &gt; -1) {
+      return { color: 'green' }
+    }<span class="branch-0 cbranch-no" title="branch not covered" > else {</span>
 <span class="cstat-no" title="statement not covered" >      return { color: 'red' }</span>
 <span class="cstat-no" title="statement not covered" >    }</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
+  }
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -271,7 +271,7 @@ export <span class="fstat-no" title="function not covered" >function getWaterLos
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-05T20:03:32.757Z
+                at 2025-12-05T21:01:51.490Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
