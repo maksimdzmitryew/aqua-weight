@@ -5,7 +5,11 @@ export async function createApiClient(baseURL: string): Promise<APIRequestContex
   return await request.newContext({ baseURL, ignoreHTTPSErrors: true });
 }
 
-export async function waitForAppReady(baseURL: string, timeoutMs = 30000): Promise<void> {
+// The test stack starts the frontend dev server (Vite) on the fly and installs
+// dependencies in the container before launching. On cold starts this can take
+// well over 30s, so give it a more generous default timeout to avoid flaky
+// readiness failures in CI.
+export async function waitForAppReady(baseURL: string, timeoutMs = 180000): Promise<void> {
   const api = await createApiClient(baseURL);
   const start = Date.now();
   let lastErr: any = null;
@@ -26,7 +30,7 @@ export async function waitForAppReady(baseURL: string, timeoutMs = 30000): Promi
       if (Date.now() - start > timeoutMs) {
         throw new Error(`App not ready after ${timeoutMs}ms: ${lastErr}`);
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 1000));
     }
   } finally {
     await api.dispose();

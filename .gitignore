@@ -31,6 +31,7 @@ ENV/
 
 # Node / Frontend (Vite/React)
 frontend/node_modules/
+frontend/node_modules_tests/
 frontend/dist/
 frontend/.vite/
 

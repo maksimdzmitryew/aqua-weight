@@ -1,20 +1,25 @@
+// JS wrapper to ensure Vite dev server in test stack loads the SWC React plugin
+// Some environments load vite.config.js preferentially; keep this in sync with vite.config.ts
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react-swc'
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    entries: ['index.html'],
+    exclude: [
+      '@storybook/*',
+      '@storybook/builder-vite',
+      'storybook',
+      'virtual:/@storybook/builder-vite/vite-app.js',
+    ],
+  },
   server: {
-    host: '0.0.0.0',
-    port: 5173,
-    watch: {
-      usePolling: true,
-      interval: 300,
-    },
-    // Ensure HMR works when accessed via HTTPS through nginx at https://aw.max
-    hmr: {
-      host: 'aw.max',
-      protocol: 'wss',
-      clientPort: 443,
+    // Allow proxying through nginx with Host aw.max and listening on all interfaces
+    host: true,
+    allowedHosts: ['aw.max'],
+    fs: {
+      strict: true,
     },
   },
 })
