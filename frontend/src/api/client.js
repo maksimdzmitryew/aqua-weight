@@ -39,7 +39,6 @@ export class ApiClient {
     const attempts = typeof retry === 'number' ? retry + 1 : (isGet ? 3 : 1)
     const backoffMs = [0, 200, 500]
 
-    let lastErr
     for (let i = 0; i < attempts; i++) {
       if (i > 0) await sleep(backoffMs[Math.min(i, backoffMs.length - 1)])
       try {
@@ -62,7 +61,6 @@ export class ApiClient {
         return data
       } catch (err) {
         if (err?.name === 'AbortError') throw err
-        lastErr = err
         // Retry on network errors for GET
         const isNetworkErr = !(err instanceof ApiError)
         if (!(isGet && isNetworkErr) || i === attempts - 1) {
@@ -71,7 +69,6 @@ export class ApiClient {
         }
       }
     }
-    throw lastErr
   }
 
   get(path, opts = {}) { return this.request(path, { ...opts, method: 'GET' }) }
