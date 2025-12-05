@@ -66,7 +66,11 @@ services:
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
-      - frontend_node_modules_test:/app/node_modules
+      - ./frontend/node_modules_tests:/app/node_modules
+    # Ensure dev server dependencies (vite) are present in the test node_modules directory.
+    # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
+    # Always install to ensure deps match current package.json for tests
+    command: ["bash", "-lc", "cd /app && npm install --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
 
   nginx:
     build:
@@ -121,12 +125,15 @@ services:
       - E2E_BASE_URL=https://aw.max
     volumes:
       - ./:/app
-    command: ["tail", "-f", "/dev/null"]
+      - ./frontend/node_modules_tests:/app/frontend/node_modules
+    # Ensure dev dependencies are installed (including newly added ones)
+    # If vitest binary is missing, run npm ci, then keep container running
+    # Use npm install (not ci) to avoid lockfile sync errors when dev-only deps are added
+    command: ["bash", "-lc", "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm install --no-audit --no-fund && tail -f /dev/null"]
     networks:
       - aw-tests-net
 
 volumes:
-  frontend_node_modules_test:
   mariadb_data_test_appdbtest:
 
 networks:
