@@ -34,10 +34,17 @@ export default function DailyCare() {
       const allPlants = Array.isArray(plantsData) ? plantsData : []
 
 
+        // Helper aligned with BulkWatering and Plants list: retained ≤ per-plant threshold
+        function plantNeedsWater(p) {
+          const retained = Number(p?.water_retained_pct)
+          const thresh = Number(p?.recommended_water_threshold_pct)
+          return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+        }
+
         const filteredPlants = allPlants.map(plantReview => {
           const id = plantReview.id;
           const needsMeasure = id != null && (hoursSinceLocal(plantReview.latest_at)) > 18;
-          const needsWater = id != null && (plantReview.water_retained_pct ?? -Infinity) < 30;
+          const needsWater = id != null && plantNeedsWater(plantReview);
           let task_plant = {}
 
             task_plant = {
@@ -92,7 +99,7 @@ export default function DailyCare() {
           Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
         </button>
       </div>
-      <p>Today's suggested care actions for your plants. We highlight those that need measurement (older than 18h) and watering (retained &lt; 30%).</p>
+      <p>Today's suggested care actions for your plants. We highlight those that need measurement (older than 18h) and watering (retained ≤ per‑plant threshold).</p>
 
       {loading && <Loader label="Loading tasks…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
