@@ -1,5 +1,6 @@
 import React from 'react'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, fireEvent } from '@testing-library/react'
+import { act } from 'react'
 import { ThemeProvider, useTheme } from '../../src/ThemeContext.jsx'
 
 // Helper to mock window.matchMedia with desired API shape
@@ -174,8 +175,8 @@ test('useTheme hook provides theme values and setTheme updates effective theme',
   expect((await findByTestId('theme')).textContent).toBe('light')
   expect((await findByTestId('effective')).textContent).toBe('light')
 
-  // Act: switch to dark via setTheme from the hook
-  getByText('dark').click()
+  // Act: switch to dark via setTheme from the hook (wrap event in React act)
+  fireEvent.click(getByText('dark'))
 
   await waitFor(() => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
@@ -255,7 +256,9 @@ test('system theme updates when media query change handler fires', async () => {
 
   // Flip to dark and fire the handler (simulating change event)
   mq.matches = true
-  calls.handler()
+  act(() => {
+    calls.handler()
+  })
 
   await waitFor(() => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')

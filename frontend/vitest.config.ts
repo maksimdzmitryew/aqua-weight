@@ -23,7 +23,6 @@ export default defineConfig({
       include: ['src/**/*.{js,jsx,ts,tsx}'],
       exclude: [
         'src/**/*.stories.{js,jsx,ts,tsx}',
-        'src/main.{js,ts,tsx}',
         'src/**/__tests__/**',
       ],
       lines: 100,

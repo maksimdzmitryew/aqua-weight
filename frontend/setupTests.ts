@@ -14,3 +14,16 @@ afterEach(() => server.resetHandlers())
 
 // Clean up after the tests are finished.
 afterAll(() => server.close())
+
+// Silence extremely noisy React Router future flag warnings in tests only.
+// We filter by the exact prefix used by React Router so other warnings still surface.
+const originalWarn = console.warn
+console.warn = (...args: any[]) => {
+  try {
+    const first = args[0]
+    if (typeof first === 'string' && first.startsWith('⚠️ React Router Future Flag Warning:')) {
+      return
+    }
+  } catch {}
+  return originalWarn(...args)
+}
