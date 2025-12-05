@@ -12,7 +12,12 @@ export default defineConfig({
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
+      // Exclude fully covered files from coverage reports to keep output focused
+      reporter: [
+        ['text', { skipFull: true }],
+        ['html', { skipFull: true }],
+        ['lcov', { skipFull: true }],
+      ],
       reportsDirectory: './coverage',
       all: true,
       include: ['src/**/*.{js,jsx,ts,tsx}'],
