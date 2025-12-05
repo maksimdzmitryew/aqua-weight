@@ -17,6 +17,15 @@ export default function BulkWatering() {
   const [measurementIds, setMeasurementIds] = useState({})
   // Toggle to switch between only-needs-water vs all plants
   const [showAll, setShowAll] = useState(false)
+  // Snapshot of plants that needed watering on initial load
+  const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
+
+  // Helper: determine if a plant needs water based on per-plant threshold
+  function plantNeedsWater(p) {
+    const retained = Number(p?.water_retained_pct)
+    const thresh = Number(p?.recommended_water_threshold_pct)
+    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -25,7 +34,11 @@ export default function BulkWatering() {
         const plantsData = await plantsApi.list()
         const allPlants = Array.isArray(plantsData) ? plantsData : []
         // Load all; filtering controlled by the UI toggle
-        if (!cancelled) setPlants(allPlants)
+        if (!cancelled) {
+          setPlants(allPlants)
+          // Snapshot which plants needed watering at the moment of initial page load
+          setInitialNeedsWaterIds(allPlants.filter(plantNeedsWater).map(p => p.uuid))
+        }
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -95,18 +108,14 @@ export default function BulkWatering() {
     }
   }
 
-  // Helper: determine if a plant needs water based on per-plant threshold
-  function plantNeedsWater(p) {
-    const retained = Number(p?.water_retained_pct)
-    const thresh = Number(p?.recommended_water_threshold_pct)
-    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
-  }
-
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
     if (showAll) return plants
-    return plants.filter(plantNeedsWater)
-  }, [plants, showAll])
+    // When showing only those that need watering, use the snapshot captured at page load
+    if (!initialNeedsWaterIds || initialNeedsWaterIds.length === 0) return []
+    const initialSet = new Set(initialNeedsWaterIds)
+    return plants.filter(p => initialSet.has(p.uuid))
+  }, [plants, showAll, initialNeedsWaterIds])
 
   // Deemphasis predicate for rows above threshold (only when showAll is true)
   const deemphasizePredicate = useMemo(() => {

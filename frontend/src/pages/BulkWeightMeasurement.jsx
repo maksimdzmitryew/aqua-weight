@@ -22,13 +22,20 @@ export default function BulkWeightMeasurement() {
   // Toggle to switch between only-needs-water vs all plants
   // Default ON for Bulk weight page: show all plants by default
   const [showAll, setShowAll] = useState(true)
+  // Snapshot of plants that needed watering on initial load
+  const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
         const data = await plantsApi.list()
-        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : []
+          setPlants(list)
+          // Snapshot plants that needed water at initial load
+          setInitialNeedsWaterIds(list.filter(plantNeedsWater).map(p => p.uuid))
+        }
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -121,8 +128,11 @@ export default function BulkWeightMeasurement() {
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
     if (showAll) return plants
-    return plants.filter(plantNeedsWater)
-  }, [plants, showAll])
+    // When showing only those that need watering, use the snapshot captured at page load
+    if (!initialNeedsWaterIds || initialNeedsWaterIds.length === 0) return []
+    const initialSet = new Set(initialNeedsWaterIds)
+    return plants.filter(p => initialSet.has(p.uuid))
+  }, [plants, showAll, initialNeedsWaterIds])
 
   return (
     <DashboardLayout title="Bulk weight measurement">
