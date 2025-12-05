@@ -99,6 +99,57 @@ describe('ApiClient.request error mapping', () => {
     const c = new ApiClient()
     await expect(c.get('/boom')).rejects.toMatchObject({ name: 'ApiError', status: 500, detail: 'server exploded' })
   })
+
+  it('uses default message when body is object without detail/message', async () => {
+    vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(
+      makeResponse({ ok: false, status: 404, body: { error: 'not used' } }),
+    )
+    const c = new ApiClient()
+    try {
+      await c.get('/no-detail')
+      throw new Error('should have thrown')
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(ApiError)
+      expect(e.status).toBe(404)
+      // ApiError constructor normalizes falsy detail to null
+      expect(e.detail).toBeNull()
+      expect(e.message).toBe('Request failed (HTTP 404)')
+      expect(e.body).toEqual({ error: 'not used' })
+    }
+  })
+
+  it('uses default message when body is empty (null)', async () => {
+    vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(
+      makeResponse({ ok: false, status: 401, body: '' }),
+    )
+    const c = new ApiClient()
+    await expect(c.get('/empty-body')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 401,
+      detail: null,
+      message: 'Request failed (HTTP 401)',
+    })
+  })
+
+  it('wraps network error without message using default text', async () => {
+    // One attempt only so we hit the final throw path
+    vi.spyOn(globalThis, 'fetch' as any).mockRejectedValue({})
+    const c = new ApiClient()
+    await expect(c.get('/no-message', { retry: 0 })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 0,
+      message: 'Network error',
+    })
+  })
+
+  it('wraps network error and preserves original error message when present', async () => {
+    vi.spyOn(globalThis, 'fetch' as any).mockRejectedValue(new Error('connection lost'))
+    const c = new ApiClient()
+    await expect(c.get('/with-message', { retry: 0 })).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'connection lost',
+    })
+  })
 })
 
 describe('retry logic and abort handling', () => {
@@ -124,6 +175,36 @@ describe('retry logic and abort handling', () => {
     const data = await p
     expect(data).toEqual({ ok: true })
     expect(fetchSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it('retries GET with default retry policy (implicit) and succeeds on second attempt', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockRejectedValueOnce(new TypeError('flaky'))
+      .mockResolvedValueOnce(makeResponse({ body: { ok: true } }))
+
+    const c = new ApiClient()
+    const p = c.get('/retry-default')
+    await vi.runAllTimersAsync()
+    const data = await p
+    expect(data).toEqual({ ok: true })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('retries GET after network error, then fails with HTTP error (ApiError)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockRejectedValueOnce(new TypeError('net'))
+      .mockResolvedValueOnce(makeResponse({ ok: false, status: 503, body: 'unavailable' }))
+
+    const c = new ApiClient()
+    const p = c.get('/retry-then-http', { retry: 2 }).catch((e) => e)
+    await vi.runAllTimersAsync()
+    const err = await p
+    expect(err).toBeInstanceOf(ApiError)
+    expect(err.status).toBe(503)
+    expect(err.detail).toBe('unavailable')
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 
   it('stops retrying when attempts exhausted and wraps network error', async () => {
@@ -153,6 +234,19 @@ describe('retry logic and abort handling', () => {
     vi.spyOn(globalThis, 'fetch' as any).mockRejectedValue(abortErr)
     const c = new ApiClient()
     await expect(c.get('/abort')).rejects.toBe(abortErr)
+  })
+
+  it('does not retry when the error is ApiError (HTTP error), even if retry is set', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValueOnce(makeResponse({ ok: false, status: 429, body: { detail: 'rate' } }))
+    const c = new ApiClient()
+    await expect(c.get('/http-error-no-retry', { retry: 2 })).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 429,
+      detail: 'rate',
+    })
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 })
 

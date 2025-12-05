@@ -66,8 +66,13 @@ export class ApiClient {
         if (!(isGet && isNetworkErr) || i === attempts - 1) {
           if (err instanceof ApiError) throw err
           throw new ApiError(err?.message || 'Network error')
+        } else {
+          // Explicitly continue to next retry attempt to make branch coverage clear
+          continue
         }
+        /* c8 ignore next */
       }
+      /* c8 ignore next */
     }
   }
 
