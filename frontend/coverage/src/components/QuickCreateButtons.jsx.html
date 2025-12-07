@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>14/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>1/5</span>
+                <span class='fraction'>12/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">20% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>1/5</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>14/16</span>
+                <span class='fraction'>16/16</span>
             </div>
         
             
@@ -89,22 +89,22 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react'
 import IconButton from './IconButton.jsx'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -112,17 +112,17 @@ import { useLocation, useNavigate } from 'react-router-dom'
 export default function QuickCreateButtons({ plantUuid, plantName, compact = false }) {
   const location = useLocation();
   const navigate = useNavigate()
-  const spacing = compact ? <span class="branch-0 cbranch-no" title="branch not covered" >2 : 6</span>
+  const spacing = compact ? 2 : 6
 &nbsp;
-  const openPlant = <span class="fstat-no" title="function not covered" >(actionName, plantId) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    navigate(`/measurement/${actionName}${plantUuid ? `?plant=${plantUuid}` : ''}`, { state: { from: location.pathname + location.search } });</span>
-<span class="cstat-no" title="statement not covered" >  };</span>
+  const openPlant = (actionName, plantId) =&gt; {
+    navigate(`/measurement/${actionName}${plantUuid ? `?plant=${plantUuid}` : ''}`, { state: { from: location.pathname + location.search } });
+  };
 &nbsp;
   return (
     &lt;span style={{ display: 'inline-flex', gap: spacing }}&gt;
-      &lt;IconButton icon="beaker" label={`Measurement for ${<span class="branch-0 cbranch-no" title="branch not covered" >plantName || 'plant'}`}</span> onClick={<span class="fstat-no" title="function not covered" >() =&gt; openPlant('weight', plantUuid)} v</span>ariant="primary" /&gt;
-      &lt;IconButton icon="droplet" label={`Watering for ${<span class="branch-0 cbranch-no" title="branch not covered" >plantName || 'plant'}`}</span> onClick={<span class="fstat-no" title="function not covered" >() =&gt; openPlant('watering', plantUuid)} v</span>ariant="primary" /&gt;
-      &lt;IconButton icon="box" label={`Repotting for ${<span class="branch-0 cbranch-no" title="branch not covered" >plantName || 'plant'}`}</span> onClick={<span class="fstat-no" title="function not covered" >() =&gt; openPlant('repotting', plantUuid)} v</span>ariant="primary" /&gt;
+      &lt;IconButton icon="beaker" label={`Measurement for ${plantName || 'plant'}`} onClick={() =&gt; openPlant('weight', plantUuid)} variant="primary" /&gt;
+      &lt;IconButton icon="droplet" label={`Watering for ${plantName || 'plant'}`} onClick={() =&gt; openPlant('watering', plantUuid)} variant="primary" /&gt;
+      &lt;IconButton icon="box" label={`Repotting for ${plantName || 'plant'}`} onClick={() =&gt; openPlant('repotting', plantUuid)} variant="primary" /&gt;
     &lt;/span&gt;
   )
 }
@@ -133,7 +133,7 @@ export default function QuickCreateButtons({ plantUuid, plantName, compact = fal
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-07T23:28:49.736Z
+                at 2025-12-07T23:45:47.467Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
