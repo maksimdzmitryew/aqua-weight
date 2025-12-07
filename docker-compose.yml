@@ -36,12 +36,9 @@ services:
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules
-    # Ensure runtime deps are present on the host-mounted node_modules directory. Checking for a known binary is
-    # more reliable than checking only for directory existence (which might be empty after cleanup).
-    # If missing, install only production deps and then start Vite.
-    # Install ALL deps (including devDependencies) because the dev server (vite) is a devDependency.
-    # Keep deps isolated in ./frontend/node_modules so they don't affect test stack.
-    command: ["bash", "-lc", "cd /app && [ -x node_modules/.bin/vite ] || npm install --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
+    # Always install deps on startup to avoid partial node_modules issues when bind-mounting from host.
+    # This ensures @vitejs/plugin-react-swc and other dev deps are present for the Vite dev server.
+    command: ["bash", "-lc", "cd /app && npm install --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"]
 
   db:
     image: mariadb:10.11
