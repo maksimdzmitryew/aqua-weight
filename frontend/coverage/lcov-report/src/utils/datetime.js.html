@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">82.14% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>16/24</span>
+                <span class='fraction'>23/28</span>
             </div>
         
             
@@ -144,54 +144,54 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">8x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -222,14 +222,14 @@
 // - For SQL strings without timezone info we assume LOCAL time when constructing the Date (to match UI expectations).
 export function parseAPIDate(v) {
   if (v == null) return null
-  if (v instanceof Date) <span class="branch-0 cbranch-no" title="branch not covered" >return isNaN(v.getTime()) ? null : v</span>
+  if (v instanceof Date) return isNaN(v.getTime()) <span class="branch-0 cbranch-no" title="branch not covered" >? null </span>: v
   if (typeof v === 'number') <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
 <span class="cstat-no" title="statement not covered" >    const d = new Date(v)</span>
 <span class="cstat-no" title="statement not covered" >    return isNaN(d.getTime()) ? null : d</span>
 <span class="cstat-no" title="statement not covered" >  }</span>
   if (typeof v !== 'string') <span class="branch-0 cbranch-no" title="branch not covered" >return null</span>
   const s = v.trim()
-  if (!s) <span class="branch-0 cbranch-no" title="branch not covered" >return null</span>
+  if (!s) return null
 &nbsp;
   // Detect SQL format: YYYY-MM-DD HH:MM[:SS[.ms]]
   const sqlMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/)
@@ -242,7 +242,7 @@ export function parseAPIDate(v) {
 &nbsp;
   // Fallback to native parser for ISO8601 and anything else JS understands
   const d = new Date(s)
-  return isNaN(d.getTime()) <span class="branch-0 cbranch-no" title="branch not covered" >? null </span>: d
+  return isNaN(d.getTime()) ? null : d
 }
 &nbsp;
 export function formatDateTime(v) {
@@ -254,7 +254,7 @@ export function formatDateTime(v) {
     const pref = (typeof localStorage !== 'undefined' &amp;&amp; localStorage.getItem('dtFormat')) || 'europe'
 &nbsp;
     const isEurope = pref === 'europe'
-    const locale = isEurope ? 'en-GB' <span class="branch-0 cbranch-no" title="branch not covered" >: 'en-US'</span>
+    const locale = isEurope ? 'en-GB' : 'en-US'
     const opts = {
       year: 'numeric',
       month: '2-digit',
@@ -301,7 +301,7 @@ export <span class="fstat-no" title="function not covered" >function toLocalISOM
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-07T23:05:32.849Z
+                at 2025-12-07T23:13:29.550Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
