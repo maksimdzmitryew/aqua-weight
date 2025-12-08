@@ -42,6 +42,12 @@ describe('src/components/form/useForm.js', () => {
     expect(v('a1B2c3')).toBe(true)
   })
 
+  it('optionalHexLen uses default message when custom not provided', () => {
+    const v = optionalHexLen(4)
+    // invalid length -> default message
+    expect(v('abcd1')).toBe('Must be 4-char hex')
+  })
+
   it('useForm manages values, touched, errors via register onChange/onBlur and validateAll', async () => {
     const { result } = renderHook(() => useForm({ a: '', b: false }))
 
@@ -82,6 +88,12 @@ describe('src/components/form/useForm.js', () => {
     })
     expect(result.current.errors.a).toBe('')
 
+    // onChange with primitive value (no event object)
+    act(() => {
+      regA.onChange('4')
+    })
+    expect(result.current.values.a).toBe('4')
+
     // Checkbox change uses checked
     act(() => {
       regB.onBlur() // touched b
@@ -94,6 +106,42 @@ describe('src/components/form/useForm.js', () => {
     act(() => {
       const errs = result.current.validateAll()
       expect(errs).toEqual({})
+    })
+  })
+
+  it('covers empty validators path and default Invalid value from non-string validator result', () => {
+    const { result } = renderHook(() => useForm({ x: 'init' }))
+
+    let noVal, badVal
+    act(() => {
+      // no validators registered
+      noVal = result.current.register('nv')
+      // validator that returns a non-string falsey to trigger default message
+      badVal = result.current.register('bad', { validators: [() => false] })
+    })
+
+    act(() => {
+      noVal.onBlur()
+      badVal.onBlur()
+    })
+
+    expect(result.current.errors.nv).toBe('') // empty validators -> no error
+    expect(result.current.errors.bad).toBe('Invalid value')
+  })
+
+  it('validateAll covers keys present only in values and only in validators', () => {
+    const { result } = renderHook(() => useForm({ onlyValues: '' }))
+    // Register a field that is not in initial values
+    act(() => {
+      result.current.register('onlyValidators', { validators: [required()] })
+    })
+
+    act(() => {
+      const errs = result.current.validateAll()
+      // onlyValues had no validators -> no error entry
+      expect(errs.onlyValues).toBeUndefined()
+      // onlyValidators should be validated and produce error
+      expect(errs.onlyValidators).toBe('Required')
     })
   })
 
