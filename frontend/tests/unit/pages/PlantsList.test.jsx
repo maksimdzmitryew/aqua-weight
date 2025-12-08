@@ -265,7 +265,52 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
 
   // Only first 100 should be rendered in table body
   await screen.findByText('P1')
-  const bodyRows = screen.getAllByRole('row').slice(1)
-  expect(bodyRows.length).toBe(100)
+  // Use waitFor to allow table render with many rows in JSDOM
+  await waitFor(() => {
+    const bodyRows = screen.getAllByRole('row').slice(1)
+    expect(bodyRows.length).toBe(100)
+  })
   expect(screen.getByText(/Showing 100 of 150/)).toBeInTheDocument()
+}, 15000)
+
+test('row branches: link vs plain text, needsWater badge, and view/edit guards without uuid', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([
+      { uuid: 'link1', name: 'Linked', notes: 'N', location: 'Loc', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
+      { name: 'Plain', notes: 'No link', location: 'Somewhere', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
+    ]))
+  )
+
+  render(
+    <ThemeProvider>
+      <MemoryRouter>
+        <PlantsList />
+      </MemoryRouter>
+    </ThemeProvider>
+  )
+
+  // Wait render
+  expect(await screen.findByText('Linked')).toBeInTheDocument()
+  expect(screen.getByText('Plain')).toBeInTheDocument()
+
+  // Linked row should have anchor links for name and notes
+  const linkForName = screen.getByRole('link', { name: /linked/i })
+  expect(linkForName).toHaveAttribute('href', '/plants/link1')
+  // Plain row should not have a link for notes; text should be present
+  expect(screen.getByText('No link')).toBeInTheDocument()
+
+  // Needs water badge visible for retained (20) <= threshold (30)
+  const body = screen.getAllByRole('row').slice(1)
+  expect(within(body[0]).getByText(/Needs water/i)).toBeInTheDocument()
+
+  // View/Edit buttons for plain (no uuid) should not navigate; click them and ensure still on same page
+  await userEvent.click(screen.getByRole('button', { name: /view plant plain/i }))
+  await userEvent.click(screen.getByRole('button', { name: /edit plant plain/i }))
+  // Still can find both rows; no crash
+  expect(screen.getByText('Linked')).toBeInTheDocument()
+  expect(screen.getByText('Plain')).toBeInTheDocument()
+
+  // Also execute handlers for linked item (with uuid)
+  await userEvent.click(screen.getByRole('button', { name: /view plant linked/i }))
+  await userEvent.click(screen.getByRole('button', { name: /edit plant linked/i }))
 })

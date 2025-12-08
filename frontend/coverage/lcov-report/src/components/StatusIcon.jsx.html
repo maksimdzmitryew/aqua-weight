@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.15% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>12/19</span>
+                <span class='fraction'>27/27</span>
             </div>
         
             
@@ -120,49 +120,49 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React from 'react'
 import { useTheme } from '../ThemeContext.jsx'
 &nbsp;
@@ -175,12 +175,12 @@ export default function StatusIcon({ type, active, label }) {
 &nbsp;
   // High-contrast palette
   const bgActive = type === 'water'
-    ? (<span class="branch-0 cbranch-no" title="branch not covered" >isDark ? '#1d4ed8' : '</span>#1d4ed8') // strong blue
-    : (<span class="branch-0 cbranch-no" title="branch not covered" >isDark ? '#16a34a' : '</span>#16a34a') // strong green
+    ? (isDark ? '#1d4ed8' : '#1d4ed8') // strong blue
+    : (isDark ? '#16a34a' : '#16a34a') // strong green
 &nbsp;
-  const bgInactive = <span class="branch-0 cbranch-no" title="branch not covered" >isDark ? '#374151' : '</span>#e5e7eb'
+  const bgInactive = isDark ? '#374151' : '#e5e7eb'
   const fgActive = '#ffffff'
-  const fgInactive = <span class="branch-0 cbranch-no" title="branch not covered" >isDark ? '#9ca3af' : '</span>#374151'
+  const fgInactive = isDark ? '#9ca3af' : '#374151'
 &nbsp;
   const containerStyle = {
     display: 'inline-flex',
@@ -191,11 +191,11 @@ export default function StatusIcon({ type, active, label }) {
     borderRadius: 6,
     background: active ? bgActive : bgInactive,
     color: active ? fgActive : fgInactive,
-    border: `1px solid ${<span class="branch-0 cbranch-no" title="branch not covered" >isDark ? '#111827' : '</span>#cbd5e1'}`,
-    boxShadow: <span class="branch-0 cbranch-no" title="branch not covered" >isDark ? 'inset 0 0 0 1px rgba(0,0,0,0.2)' : '</span>none',
+    border: `1px solid ${isDark ? '#111827' : '#cbd5e1'}`,
+    boxShadow: isDark ? 'inset 0 0 0 1px rgba(0,0,0,0.2)' : 'none',
   }
 &nbsp;
-  const title = label || (type === 'water' ? (active ? 'Needs watering' : 'No watering needed') : (active ? <span class="branch-0 cbranch-no" title="branch not covered" >'Needs measurement' : 'No measurement needed')</span>)
+  const title = label || (type === 'water' ? (active ? 'Needs watering' : 'No watering needed') : (active ? 'Needs measurement' : 'No measurement needed'))
 &nbsp;
   return (
     &lt;span role="img" aria-label={title} title={title} style={containerStyle}&gt;
@@ -220,7 +220,7 @@ export default function StatusIcon({ type, active, label }) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-08T01:30:10.955Z
+                at 2025-12-08T07:24:22.939Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

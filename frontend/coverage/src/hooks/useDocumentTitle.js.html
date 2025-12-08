@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>36/38</span>
+                <span class='fraction'>38/38</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">45.45% </span>
+                <span class="strong">84.61% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>5/11</span>
+                <span class='fraction'>11/13</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.73% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>36/38</span>
+                <span class='fraction'>38/38</span>
             </div>
         
             
@@ -121,33 +121,33 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">7x</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-yes">16x</span></td><td class="text"><pre class="prettyprint lang-js">import { useLayoutEffect, useRef } from 'react'
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">23x</span>
+<span class="cline-any cline-yes">54x</span>
+<span class="cline-any cline-yes">54x</span></td><td class="text"><pre class="prettyprint lang-js">import { useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 &nbsp;
 /**
@@ -171,21 +171,21 @@ export default function useDocumentTitle(title, options = {}) {
     if (typeof document === 'undefined') <span class="branch-0 cbranch-no" title="branch not covered" >return</span>
 &nbsp;
     const base = 'AW Frontend'
-    const safeTitle = typeof title === 'string' &amp;&amp; title.trim().length &gt; 0 ? title.trim() <span class="branch-0 cbranch-no" title="branch not covered" >: ''</span>
-    const next = safeTitle ? `${safeTitle} – ${base}` <span class="branch-0 cbranch-no" title="branch not covered" >: base</span>
+    const safeTitle = typeof title === 'string' &amp;&amp; title.trim().length &gt; 0 ? title.trim() : ''
+    const next = safeTitle ? `${safeTitle} – ${base}` : base
 &nbsp;
     if (document.title !== next) {
       document.title = next
       // Optional microtask re-assert in case late writers fire post-paint
       queueMicrotask?.(() =&gt; {
-        if (document.title !== next) <span class="branch-0 cbranch-no" title="branch not covered" >document.title = next</span>
+        if (document.title !== next) document.title = next
       })
     }
 &nbsp;
     return () =&gt; {
-      if (restoreOnUnmount) <span class="branch-0 cbranch-no" title="branch not covered" >{</span>
-<span class="cstat-no" title="statement not covered" >        document.title = prevTitleRef.current</span>
-<span class="cstat-no" title="statement not covered" >      }</span>
+      if (restoreOnUnmount) {
+        document.title = prevTitleRef.current
+      }
     }
   // Re-assert on route changes even if `title` string stays the same
   }, [title, location.key, restoreOnUnmount])
@@ -196,7 +196,7 @@ export default function useDocumentTitle(title, options = {}) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-08T01:30:09.917Z
+                at 2025-12-08T07:24:22.093Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

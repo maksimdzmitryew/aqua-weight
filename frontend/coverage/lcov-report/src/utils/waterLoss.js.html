@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/1</span>
+                <span class='fraction'>1/1</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/17</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -80,40 +80,40 @@
 <a name='L15'></a><a href='#L15'>15</a>
 <a name='L16'></a><a href='#L16'>16</a>
 <a name='L17'></a><a href='#L17'>17</a>
-<a name='L18'></a><a href='#L18'>18</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >// Shared helper for styling water loss percentage cells<span class="fstat-no" title="function not covered" ><span class="branch-0 cbranch-no" title="branch not covered" ></span></span></span>
-<span class="cstat-no" title="statement not covered" >// Keeps thresholds consistent across bulk measurement pages</span>
-<span class="cstat-no" title="statement not covered" >export function waterLossCellStyle(waterLossPct) {</span>
-<span class="cstat-no" title="statement not covered" >  if (waterLossPct &gt; 100) {</span>
-<span class="cstat-no" title="statement not covered" >    return { background: '#dc2626', color: 'white' }</span>
-<span class="cstat-no" title="statement not covered" >  } else if (waterLossPct &gt; 80) {</span>
-<span class="cstat-no" title="statement not covered" >    return { background: '#fecaca' }</span>
-<span class="cstat-no" title="statement not covered" >  } else if (waterLossPct &gt; 40) {</span>
-<span class="cstat-no" title="statement not covered" >    return { background: '#fef3c7' }</span>
-<span class="cstat-no" title="statement not covered" >  } else if (waterLossPct &gt; 3) {</span>
-<span class="cstat-no" title="statement not covered" >    return { background: '#bbf7d0' }</span>
-<span class="cstat-no" title="statement not covered" >  } else if (waterLossPct &gt; -1) {</span>
-<span class="cstat-no" title="statement not covered" >    return { color: 'green' }</span>
-<span class="cstat-no" title="statement not covered" >  } else {</span>
-<span class="cstat-no" title="statement not covered" >    return { color: 'red' }</span>
-<span class="cstat-no" title="statement not covered" >  }</span>
-<span class="cstat-no" title="statement not covered" >}</span>
+<a name='L18'></a><a href='#L18'>18</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// Shared helper for styling water loss percentage cells
+// Keeps thresholds consistent across bulk measurement pages
+export function waterLossCellStyle(waterLossPct) {
+  if (waterLossPct &gt; 100) {
+    return { background: '#dc2626', color: 'white' }
+  } else if (waterLossPct &gt; 80) {
+    return { background: '#fecaca' }
+  } else if (waterLossPct &gt; 40) {
+    return { background: '#fef3c7' }
+  } else if (waterLossPct &gt; 3) {
+    return { background: '#bbf7d0' }
+  } else if (waterLossPct &gt; -1) {
+    return { color: 'green' }
+  } else {
+    return { color: 'red' }
+  }
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -121,7 +121,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-08T01:30:10.955Z
+                at 2025-12-08T07:24:22.939Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
