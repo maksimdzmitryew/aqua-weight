@@ -89,4 +89,20 @@ describe('hooks/useDocumentTitle', () => {
     unmount()
     expect(document.title).toBe('Original')
   })
+
+  test('does not rewrite when title already matches target (no-op branch)', () => {
+    // Set current title to base
+    document.title = 'AW Frontend'
+
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}> 
+        <Routes>
+          <Route path="/" element={<UseTitle title="" />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    // Remains unchanged since it's already the desired value
+    expect(document.title).toBe('AW Frontend')
+  })
 })
