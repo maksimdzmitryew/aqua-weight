@@ -6,6 +6,18 @@ import { MemoryRouter } from 'react-router-dom'
 import BulkWatering from '../../../src/pages/BulkWatering.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
+import { vi } from 'vitest'
+
+// Mock useNavigate to verify navigation from handleView
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    __esModule: true,
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 function renderPage() {
   return render(
@@ -18,6 +30,9 @@ function renderPage() {
 }
 
 describe('pages/BulkWatering', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear()
+  })
   test('initially shows only plants that needed watering; toggle shows all and deemphasizes above-threshold', async () => {
     renderPage()
 
@@ -80,5 +95,57 @@ describe('pages/BulkWatering', () => {
     renderPage()
     // Error message rendered
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
+  })
+
+  test('clicking plant name navigates to plant details using handleView', async () => {
+    renderPage()
+    const aloe = await screen.findByText('Aloe')
+    await userEvent.click(aloe)
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
+  })
+
+  test('handles wrapped API response {status, data} and logs on error in update path', async () => {
+    const user = userEvent.setup()
+    // First, wrap POST response
+    server.use(
+      http.post('/api/measurements/watering', async ({ request }) => {
+        const payload = await request.json()
+        return HttpResponse.json({
+          status: 'success',
+          data: {
+            id: 2001,
+            plant_id: payload?.plant_id,
+            measured_at: payload?.measured_at || '2025-01-05T00:00:00',
+            latest_at: payload?.measured_at || '2025-01-05T00:00:00',
+            water_retained_pct: 55,
+            water_loss_total_pct: 45,
+          },
+        }, { status: 201 })
+      })
+    )
+
+    renderPage()
+    const aloeCell = await screen.findByText('Aloe')
+    const row = aloeCell.closest('tr')
+    const input = within(row).getByRole('spinbutton')
+
+    await user.clear(input)
+    await user.type(input, '130')
+    await user.tab()
+    expect(within(row).getByText(/55%/)).toBeInTheDocument()
+
+    // Now make PUT fail to exercise catch path
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    server.use(
+      http.put('/api/measurements/watering/:id', () => HttpResponse.json({ message: 'boom' }, { status: 500 }))
+    )
+
+    await user.click(input)
+    await user.clear(input)
+    await user.type(input, '131')
+    await user.tab()
+
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
   })
 })
