@@ -6,6 +6,18 @@ import { MemoryRouter } from 'react-router-dom'
 import BulkWeightMeasurement from '../../../src/pages/BulkWeightMeasurement.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
+import { vi } from 'vitest'
+
+// Mock navigation to verify handleView
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    __esModule: true,
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 function renderPage() {
   return render(
@@ -18,6 +30,9 @@ function renderPage() {
 }
 
 describe('pages/BulkWeightMeasurement', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear()
+  })
   test('default shows all plants; toggling off shows only needs-water snapshot', async () => {
     renderPage()
 
@@ -95,5 +110,55 @@ describe('pages/BulkWeightMeasurement', () => {
     )
     renderPage()
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
+  })
+
+  test('clicking plant name navigates using handleView', async () => {
+    renderPage()
+    const aloe = await screen.findByText('Aloe')
+    await userEvent.click(aloe)
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
+  })
+
+  test('handles wrapped {status,data} response and logs error on update failure', async () => {
+    const user = userEvent.setup()
+    // Wrap POST response for weight
+    server.use(
+      http.post('/api/measurements/weight', async ({ request }) => {
+        const payload = await request.json()
+        return HttpResponse.json({
+          status: 'success',
+          data: {
+            id: 3001,
+            plant_id: payload?.plant_id,
+            measured_at: payload?.measured_at || '2025-01-06T00:00:00',
+            latest_at: payload?.measured_at || '2025-01-06T00:00:00',
+            water_retained_pct: 44,
+            water_loss_total_pct: 56,
+          },
+        }, { status: 201 })
+      })
+    )
+
+    renderPage()
+    const aloeCell = await screen.findByText('Aloe')
+    const row = aloeCell.closest('tr')
+    const input = within(row).getByRole('spinbutton')
+
+    await user.clear(input)
+    await user.type(input, '200')
+    await user.tab()
+    expect(within(row).getByText(/44%/)).toBeInTheDocument()
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    server.use(
+      http.put('/api/measurements/weight/:id', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+    )
+
+    await user.click(input)
+    await user.clear(input)
+    await user.type(input, '201')
+    await user.tab()
+    expect(errSpy).toHaveBeenCalled()
+    errSpy.mockRestore()
   })
 })
