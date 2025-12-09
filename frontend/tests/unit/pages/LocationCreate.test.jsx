@@ -1,10 +1,11 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import LocationCreate from '../../../src/pages/LocationCreate.jsx'
+import { locationsApi } from '../../../src/api/locations'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 
@@ -57,6 +58,17 @@ describe('pages/LocationCreate', () => {
     expect(screen.queryByText(/name is required/i)).not.toBeInTheDocument()
   })
 
+  // Note: Browser native required validation prevents submitting completely empty value under test env,
+  // so we don't try to exercise untouched-empty submit path. Instead, we cover remaining branches below.
+
+  it('client-side validation via programmatic submit: untouched empty name hits (loc.name || "") right-hand branch', async () => {
+    const { container } = renderPage()
+    const form = container.querySelector('form')
+    // Bypass native required validation by dispatching submit event directly
+    fireEvent.submit(form)
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+  })
+
   it('successful save posts to API and navigates back to /locations', async () => {
     const user = userEvent.setup()
     // Success handler (201)
@@ -89,6 +101,41 @@ describe('pages/LocationCreate', () => {
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument()
+  })
+
+  it('server error without message shows generic fallback', async () => {
+    const user = userEvent.setup()
+    // Mock the API to reject with an object that has no message (or empty message)
+    const spy = vi.spyOn(locationsApi, 'create').mockRejectedValueOnce({})
+
+    renderPage()
+
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Office 2')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
+
+    spy.mockRestore()
+  })
+
+  it('sends trimmed non-null description when provided', async () => {
+    const user = userEvent.setup()
+    // Intercept request to assert payload
+    server.use(
+      http.post('/api/locations', async ({ request }) => {
+        const body = await request.json()
+        expect(body).toEqual({ name: 'Desk', description: 'north wall' })
+        return HttpResponse.json({ uuid: 'loc-2', id: 2 }, { status: 201 })
+      })
+    )
+
+    renderPage()
+
+    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Desk')
+    await user.type(screen.getByRole('textbox', { name: /description/i }), '  north wall  ')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/locations')
   })
 
   it('cancel button navigates back to /locations without saving', async () => {
