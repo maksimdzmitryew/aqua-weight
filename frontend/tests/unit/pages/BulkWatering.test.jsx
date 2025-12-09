@@ -33,6 +33,15 @@ describe('pages/BulkWatering', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
   })
+  test('handles non-array plants response gracefully and shows empty state', async () => {
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ foo: 'bar' }))
+    )
+
+    renderPage()
+    // Should not crash; table renders empty state row
+    expect(await screen.findByText(/no plants found/i)).toBeInTheDocument()
+  })
   test('initially shows only plants that needed watering; toggle shows all and deemphasizes above-threshold', async () => {
     renderPage()
 
@@ -147,5 +156,76 @@ describe('pages/BulkWatering', () => {
 
     expect(errSpy).toHaveBeenCalled()
     errSpy.mockRestore()
+  })
+
+  test('falls back to now when API omits measured_at/latest_at (OR-chain branch)', async () => {
+    // Return a single plant that needs water and has no timestamps
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json([
+        { uuid: 'u3', id: 3, name: 'Cactus', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
+      ])),
+      // POST without timestamps to exercise fallback in component
+      http.post('/api/measurements/watering', async ({ request }) => {
+        const payload = await request.json()
+        return HttpResponse.json({
+          id: 3001,
+          plant_id: payload?.plant_id,
+          // intentionally omit measured_at and latest_at
+          water_retained_pct: 25,
+          water_loss_total_pct: 75,
+        }, { status: 201 })
+      })
+    )
+
+    renderPage()
+
+    const cactus = await screen.findByText('Cactus')
+    const row = cactus.closest('tr')
+    const input = within(row).getByRole('spinbutton')
+
+    await userEvent.clear(input)
+    await userEvent.type(input, '200')
+    await userEvent.tab()
+
+    // Updated column should display a formatted date (not the empty placeholder)
+    // Find the Updated cell (it has DateTimeText inside). We assert that it doesn't show the empty symbol.
+    const cells = within(row).getAllByRole('cell')
+    const updatedCell = cells[cells.length - 1]
+    expect(updatedCell.textContent?.trim()).not.toBe('—')
+  })
+
+  test('update response missing metrics keeps previous values (nullish coalescing branches)', async () => {
+    // First let POST create with metrics 40/60 as per default handler
+    // Then make PUT omit both water_retained_pct and water_loss_total_pct
+    server.use(
+      http.put('/api/measurements/watering/:id', async ({ request, params }) => {
+        const payload = await request.json()
+        return HttpResponse.json({
+          id: Number(params.id),
+          plant_id: payload?.plant_id,
+          measured_at: payload?.measured_at,
+          // omit metrics to force fallback to previous plant values
+        })
+      })
+    )
+
+    renderPage()
+
+    const aloeCell = await screen.findByText('Aloe')
+    const row = aloeCell.closest('tr')
+    const input = within(row).getByRole('spinbutton')
+
+    // First commit (POST) sets retained to 40%
+    await userEvent.clear(input)
+    await userEvent.type(input, '200')
+    await userEvent.tab()
+    expect(within(row).getByText(/40%/)).toBeInTheDocument()
+
+    // Second commit (PUT) omits metrics, so retained in UI should remain 40%
+    await userEvent.click(input)
+    await userEvent.clear(input)
+    await userEvent.type(input, '201')
+    await userEvent.tab()
+    expect(within(row).getByText(/40%/)).toBeInTheDocument()
   })
 })
