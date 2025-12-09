@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>38/38</span>
+                <span class='fraction'>45/45</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">84.61% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>11/13</span>
+                <span class='fraction'>19/19</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>38/38</span>
+                <span class='fraction'>45/45</span>
             </div>
         
             
@@ -105,7 +105,14 @@
 <a name='L40'></a><a href='#L40'>40</a>
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
-<a name='L43'></a><a href='#L43'>43</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
@@ -121,18 +128,25 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">447x</span>
-<span class="cline-any cline-yes">447x</span>
-<span class="cline-any cline-yes">447x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">447x</span>
-<span class="cline-any cline-yes">91x</span>
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">93x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">91x</span>
-<span class="cline-any cline-yes">91x</span>
-<span class="cline-any cline-yes">91x</span>
+<span class="cline-any cline-yes">93x</span>
+<span class="cline-any cline-yes">93x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">91x</span>
+<span class="cline-any cline-yes">93x</span>
 <span class="cline-any cline-yes">28x</span>
 <span class="cline-any cline-yes">28x</span>
 <span class="cline-any cline-yes">28x</span>
@@ -146,8 +160,8 @@
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">91x</span>
 <span class="cline-any cline-yes">91x</span>
-<span class="cline-any cline-yes">447x</span>
-<span class="cline-any cline-yes">447x</span></td><td class="text"><pre class="prettyprint lang-js">import { useLayoutEffect, useRef } from 'react'
+<span class="cline-any cline-yes">449x</span>
+<span class="cline-any cline-yes">449x</span></td><td class="text"><pre class="prettyprint lang-js">import { useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 &nbsp;
 /**
@@ -164,27 +178,34 @@ import { useLocation } from 'react-router-dom'
  */
 export default function useDocumentTitle(title, options = {}) {
   const { restoreOnUnmount = false } = options
-  const prevTitleRef = useRef(typeof document !== 'undefined' ? document.title <span class="branch-0 cbranch-no" title="branch not covered" >: '')</span>
+  // Allow dependency injection of a document-like object for testability.
+  // If the `doc` key is present in options, use it verbatim (even if undefined),
+  // otherwise fall back to the global document when available.
+  const hasInjectedDoc = Object.prototype.hasOwnProperty.call(options, 'doc')
+  // Use injected doc when provided; otherwise rely on globalThis.document which is
+  // undefined in SSR without throwing (avoids an extra conditional branch for coverage).
+  const doc = hasInjectedDoc ? options.doc : globalThis.document
+  const prevTitleRef = useRef(doc ? doc.title : '')
   const location = useLocation()
 &nbsp;
   useLayoutEffect(() =&gt; {
-    if (typeof document === 'undefined') <span class="branch-0 cbranch-no" title="branch not covered" >return</span>
+    if (!doc) return
 &nbsp;
     const base = 'AW Frontend'
     const safeTitle = typeof title === 'string' &amp;&amp; title.trim().length &gt; 0 ? title.trim() : ''
     const next = safeTitle ? `${safeTitle} – ${base}` : base
 &nbsp;
-    if (document.title !== next) {
-      document.title = next
+    if (doc.title !== next) {
+      doc.title = next
       // Optional microtask re-assert in case late writers fire post-paint
       queueMicrotask?.(() =&gt; {
-        if (document.title !== next) document.title = next
+        if (doc.title !== next) doc.title = next
       })
     }
 &nbsp;
     return () =&gt; {
-      if (restoreOnUnmount) {
-        document.title = prevTitleRef.current
+      if (restoreOnUnmount &amp;&amp; doc) {
+        doc.title = prevTitleRef.current
       }
     }
   // Re-assert on route changes even if `title` string stays the same
@@ -196,7 +217,7 @@ export default function useDocumentTitle(title, options = {}) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-09T05:12:57.973Z
+                at 2025-12-09T05:59:54.076Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

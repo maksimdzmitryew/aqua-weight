@@ -105,4 +105,38 @@ describe('hooks/useDocumentTitle', () => {
     // Remains unchanged since it's already the desired value
     expect(document.title).toBe('AW Frontend')
   })
+
+  test('supports server-like env: injected doc undefined initializes safely and early-returns', () => {
+    function UseTitleInjected({ title, restore, doc }) {
+      useDocumentTitle(title, { restoreOnUnmount: restore, doc })
+      return <div>content</div>
+    }
+
+    document.title = 'Keep'
+
+    const { rerender, unmount } = render(
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
+        <Routes>
+          <Route path="/" element={<UseTitleInjected title="Page" restore doc={undefined} />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    // Since injected doc is undefined, hook should not touch the real document
+    expect(document.title).toBe('Keep')
+
+    // Rerender with a different title still should not change anything
+    rerender(
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
+        <Routes>
+          <Route path="/" element={<UseTitleInjected title="Another" restore doc={undefined} />} />
+        </Routes>
+      </MemoryRouter>
+    )
+    expect(document.title).toBe('Keep')
+
+    // Unmount path with restoreOnUnmount should be a no-op when doc is undefined
+    unmount()
+    expect(document.title).toBe('Keep')
+  })
 })
