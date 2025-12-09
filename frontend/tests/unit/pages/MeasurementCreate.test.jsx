@@ -7,6 +7,7 @@ import MeasurementCreate from '../../../src/pages/MeasurementCreate.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { measurementsApi } from '../../../src/api/measurements'
 
 // Mock navigate to observe navigations
 const mockNavigate = vi.fn()
@@ -114,6 +115,115 @@ describe('pages/MeasurementCreate', () => {
     // On success without from-state, it should navigate -1 fallback
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith(-1))
   }, 15000)
+
+  test('edit flow: loadExisting failure is ignored (catch path executed)', async () => {
+    // Force GET to fail to cover the catch branch in loadExisting
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({ message: 'nope' }, { status: 500 }))
+    )
+
+    renderWithRouter(['/edit?id=404'])
+
+    // Component should render edit mode title and not crash, even though GET failed
+    expect(await screen.findByText(/edit measurement/i)).toBeInTheDocument()
+
+    // Plant select is disabled in edit mode regardless; no general error should be shown from this failure
+    const plantSelect = await screen.findByLabelText(/plant/i)
+    expect(plantSelect).toBeDisabled()
+    expect(screen.queryByText(/failed to load/i)).not.toBeInTheDocument()
+  })
+
+  test('edit flow: effect cancelled before response arrives (covers cancelled branch)', async () => {
+    // Delay the GET so we can unmount first and hit the `if (cancelled) return` path
+    server.use(
+      http.get('/api/measurements/:id', () => new Promise(resolve => {
+        setTimeout(() => resolve(HttpResponse.json({
+          id: 'slow', plant_id: 'u1', measured_at: '2025-01-01T00:00:00Z'
+        })), 50)
+      }))
+    )
+
+    const utils = renderWithRouter(['/edit?id=slow'])
+    // Immediately unmount to set cancelled = true in cleanup
+    utils.unmount()
+    // Wait a tick to allow the delayed handler to resolve without updating unmounted component
+    await new Promise(r => setTimeout(r, 75))
+    // If the effect respects the cancelled flag, there should be no error logs or act warnings.
+    // Nothing to assert; test passes by not throwing.
+  })
+
+  test('plants API returns non-array; select shows only placeholder', async () => {
+    // Return a non-array to exercise Array.isArray false branch in loadPlants
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ any: 'shape' }))
+    )
+
+    renderWithRouter(['/new'])
+    const select = await screen.findByLabelText(/plant/i)
+    // Only default option should be present; value remains empty
+    expect(select).toHaveValue('')
+    const options = select.querySelectorAll('option')
+    expect(options.length).toBe(1)
+  })
+
+  test('edit flow with missing fields uses fallbacks in form values', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 777,
+        plant_id: '', // missing plant id should fallback to current form value (empty)
+        // measured_at missing to exercise fallback to existing form value
+        measured_weight_g: null, // becomes '' in input
+        method_id: '', // becomes ''
+        // use_last_method missing -> defaults to true
+        scale_id: '', // becomes ''
+        note: null, // becomes ''
+      })),
+    )
+
+    renderWithRouter(['/edit?id=777'])
+
+    // Weight input should be empty string due to null -> '' mapping
+    const weight = await screen.findByLabelText(/measured weight/i)
+    expect(weight).toHaveValue(null) // empty text input -> value null in DOM API
+
+    // Checkbox defaults to checked (true)
+    const useLast = screen.getByLabelText(/use last method/i)
+    expect(useLast).toBeChecked()
+
+    // Method and Scale inputs should be empty strings
+    expect(screen.getByLabelText(/method \(optional, hex id\)/i)).toHaveValue('')
+    expect(screen.getByLabelText(/scale \(optional, hex id\)/i)).toHaveValue('')
+  })
+
+  test('edit flow: invalid measured_at falls back to current form value', async () => {
+    // Return a measured_at that cannot be parsed by toLocalISOMinutes to hit the `|| form.values.measured_at` branch
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 909,
+        plant_id: 'u1',
+        measured_at: 'not-a-date', // unparsable
+        measured_weight_g: 10,
+      }))
+    )
+
+    renderWithRouter(['/edit?id=909'])
+
+    // Capture the initial value set by nowLocalISOMinutes()
+    const dt = await screen.findByLabelText(/measured at/i)
+    const initial = dt.value
+
+    // Wait for the GET to resolve and ensure the value remained unchanged (fallback was used)
+    await waitFor(() => expect(dt).toHaveValue(initial))
+  })
+
+  test('save error without message shows generic fallback', async () => {
+    // Spy on API layer to reject with an object lacking `message` to hit the fallback branch (e.message || 'Failed to save')
+    const spy = vi.spyOn(measurementsApi.weight, 'create').mockRejectedValueOnce({})
+    renderWithRouter(['/new?plant=u1'])
+    await userEvent.click(await screen.findByRole('button', { name: /save measurement/i }))
+    expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
 
   test('shows error when plants API fails to load', async () => {
     server.use(
