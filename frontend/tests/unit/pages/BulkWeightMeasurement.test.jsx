@@ -119,6 +119,13 @@ describe('pages/BulkWeightMeasurement', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
   })
 
+  test('back button navigates to /daily (covers inline onBack callback)', async () => {
+    renderPage()
+    const backBtn = await screen.findByRole('button', { name: /daily care/i })
+    await userEvent.click(backBtn)
+    expect(mockNavigate).toHaveBeenCalledWith('/daily')
+  })
+
   test('handles wrapped {status,data} response and logs error on update failure', async () => {
     const user = userEvent.setup()
     // Wrap POST response for weight
