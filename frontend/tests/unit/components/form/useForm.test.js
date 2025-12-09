@@ -33,6 +33,18 @@ describe('src/components/form/useForm.js', () => {
     expect(v('9')).toBe(true)
   })
 
+  it('minNumber/maxNumber without custom msg return default "Must be a number" on NaN', () => {
+    const minV = minNumber(5)
+    const maxV = maxNumber(10)
+    expect(minV('abc')).toBe('Must be a number')
+    expect(maxV('xyz')).toBe('Must be a number')
+  })
+
+  it('maxNumber without custom msg returns default bound message when above max', () => {
+    const v = maxNumber(3)
+    expect(v(4)).toBe('Must be <= 3')
+  })
+
   it('optionalHexLen allows empty and validates exact length hex', () => {
     const v = optionalHexLen(6, 'hex6')
     expect(v('')).toBe(true)
@@ -64,6 +76,17 @@ describe('src/components/form/useForm.js', () => {
     expect(regB.value).toBe(false)
     expect(regB.checked).toBe(false)
 
+    // For non-checkbox fields, checked is undefined by design
+    const regA2 = result.current.register('a')
+    expect(regA2.checked).toBeUndefined()
+
+    // Field not present in initials defaults: non-checkbox -> '' and checkbox -> false/unchecked
+    const regD = result.current.register('d')
+    expect(regD.value).toBe('')
+    const regCbDefault = result.current.register('cbDefault', { type: 'checkbox' })
+    expect(regCbDefault.value).toBe(false)
+    expect(regCbDefault.checked).toBe(false)
+
     // onBlur validates and marks touched
     act(() => {
       regA.onBlur()
@@ -94,6 +117,16 @@ describe('src/components/form/useForm.js', () => {
     })
     expect(result.current.values.a).toBe('4')
 
+    // New field 'c' not touched: onChange should not compute error (touched branch = false)
+    let regC
+    act(() => {
+      regC = result.current.register('c', { validators: [required()] })
+      // default value for not-initialized non-checkbox is ''
+      expect(regC.value).toBe('')
+      regC.onChange({ target: { value: '', type: 'text' } })
+    })
+    expect(result.current.errors.c).toBeUndefined()
+
     // Checkbox change uses checked
     act(() => {
       regB.onBlur() // touched b
@@ -103,7 +136,12 @@ describe('src/components/form/useForm.js', () => {
     expect(result.current.errors.b).toBe('')
 
     // validateAll aggregates (no errors now)
-    act(() => {
+    // Ensure state update from regC.onChange has been applied before validateAll
+    await act(async () => {
+      regC.onChange({ target: { value: 'ok', type: 'text' } })
+      await Promise.resolve()
+    })
+    await act(async () => {
       const errs = result.current.validateAll()
       expect(errs).toEqual({})
     })
@@ -195,5 +233,28 @@ describe('src/components/form/useForm.js', () => {
     expect(fn.mock.calls[0][0]).toEqual({ n: 'ok' })
     // valid flag reflects no errors
     expect(result.current.valid).toBe(true)
+  })
+
+  it('handleSubmit works without event object (optional preventDefault path)', async () => {
+    const { result } = renderHook(() => useForm({ x: '1' }))
+    const fn = vi.fn()
+    await act(async () => {
+      await result.current.handleSubmit(fn)()
+    })
+    expect(fn).toHaveBeenCalledTimes(1)
+    expect(fn.mock.calls[0][0]).toEqual({ x: '1' })
+  })
+
+  it('register value defaulting covers null initials for both non-checkbox and checkbox', () => {
+    const { result } = renderHook(() => useForm({ nx: null, cbn: null }))
+    let regNx, regCbn
+    act(() => {
+      regNx = result.current.register('nx')
+      regCbn = result.current.register('cbn', { type: 'checkbox' })
+    })
+    expect(regNx.value).toBe('')
+    expect(regNx.checked).toBeUndefined()
+    expect(regCbn.value).toBe(false)
+    expect(regCbn.checked).toBe(false)
   })
 })
