@@ -5,6 +5,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import LocationEdit from '../../../src/pages/LocationEdit.jsx'
 import { vi } from 'vitest'
+import { locationsApi } from '../../../src/api/locations'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 
@@ -81,6 +82,22 @@ describe('pages/LocationEdit', () => {
     expect(err).toBeInTheDocument()
     expect(name).toHaveAttribute('aria-invalid', 'true')
     expect(name).toHaveAttribute('aria-describedby', 'name-error')
+  })
+
+  test('client-side validation: empty name (falsy OR branch) shows field error without typing', async () => {
+    const user = userEvent.setup()
+    const init = {
+      pathname: '/locations/303/edit',
+      state: { location: { id: 303, name: '', created_at: '2025-01-02T00:00:00' } },
+    }
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
+
+    // Remove native required to allow submitting empty string and hit onSave logic
+    const nameInput = await screen.findByRole('textbox', { name: /name/i })
+    nameInput.removeAttribute('required')
+    // Without changing the field (falsy loc.name branch for (loc.name || ''))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/name cannot be empty/i)).toBeInTheDocument()
   })
 
   test('loads location via API when no state provided; shows form afterwards', async () => {
@@ -185,5 +202,118 @@ describe('pages/LocationEdit', () => {
     const input = await screen.findByRole('textbox', { name: /name/i })
     expect(input.style.borderColor).toBe('rgb(55, 65, 81)')
     await user.type(input, ' X')
+  })
+
+  test('uses loc.name when originalName is empty (OR-branch) and calls update with newName', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
+    const init = {
+      pathname: '/locations/21/edit',
+      state: { location: { id: 21, name: '' , created_at: '2025-01-10T00:00:00' } },
+    }
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
+
+    const name = await screen.findByRole('textbox', { name: /name/i })
+    await user.type(name, 'Newer')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(spy).toHaveBeenCalledWith('Newer', 'Newer')
+    spy.mockRestore()
+  })
+
+  test('400 with detail maps to field error and clears on change (fieldErrors clear branch)', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({ status: 400, detail: 'Taken name' })
+    const init = {
+      pathname: '/locations/22/edit',
+      state: { location: { id: 22, name: 'Foo' } },
+    }
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
+
+    const name = await screen.findByRole('textbox', { name: /name/i })
+    await user.clear(name)
+    await user.type(name, 'Bar')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    // Detail message should be shown as field error
+    expect(await screen.findByText(/taken name/i)).toBeInTheDocument()
+
+    // Now type another character to trigger clearing of field error
+    await user.type(name, '!')
+    expect(screen.queryByText(/taken name/i)).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('load failure without message shows generic fallback error', async () => {
+    const spy = vi.spyOn(locationsApi, 'list').mockRejectedValue({})
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/33/edit'] })
+    expect(await screen.findByText(/failed to load location/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('non-array locations list leads to not found error (Array.isArray false branch)', async () => {
+    const spy = vi.spyOn(locationsApi, 'list').mockResolvedValue({})
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/55/edit'] })
+    expect(await screen.findByText(/location not found/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('load success with found record missing name sets originalName to empty (OR-branch in setOriginalName)', async () => {
+    const listSpy = vi.spyOn(locationsApi, 'list').mockResolvedValue([
+      { id: 77, created_at: '2025-01-05T00:00:00' },
+    ])
+    const updSpy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
+    const user = userEvent.setup()
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/77/edit'] })
+    const name = await screen.findByRole('textbox', { name: /name/i })
+    expect(name).toHaveValue('')
+    await user.type(name, 'Loaded')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(updSpy).toHaveBeenCalledWith('Loaded', 'Loaded')
+    listSpy.mockRestore()
+    updSpy.mockRestore()
+  })
+
+  test('load failure with message shows that message (e.message branch)', async () => {
+    const spy = vi.spyOn(locationsApi, 'list').mockRejectedValue(new Error('Oops'))
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/88/edit'] })
+    expect(await screen.findByText(/oops/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('update error without detail/message shows generic "Failed to save" (fallback branch)', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({})
+    const init = {
+      pathname: '/locations/66/edit',
+      state: { location: { id: 66, name: 'Foo' } },
+    }
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
+    const name = await screen.findByRole('textbox', { name: /name/i })
+    await user.clear(name)
+    await user.type(name, 'Bar')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('outer catch fallback message when thrown error has no message', async () => {
+    const user = userEvent.setup()
+    // Successful update
+    const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
+    mockNavigate.mockImplementation(() => { throw {} })
+
+    const init = {
+      pathname: '/locations/44/edit',
+      state: { location: { id: 44, name: 'Alpha' } },
+    }
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
+
+    const name = await screen.findByRole('textbox', { name: /name/i })
+    await user.clear(name)
+    await user.type(name, 'Beta')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(await screen.findByText(/failed to save location/i)).toBeInTheDocument()
+    spy.mockRestore()
   })
 })

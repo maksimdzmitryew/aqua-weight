@@ -52,7 +52,6 @@ export default function LocationEdit() {
 
   async function onSave(e) {
     e.preventDefault()
-    if (!loc) return
     const newName = (loc.name || '').trim()
     if (!newName) {
       setFieldErrors({ name: 'Name cannot be empty' })
