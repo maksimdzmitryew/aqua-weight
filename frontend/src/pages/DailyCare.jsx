@@ -76,9 +76,7 @@ export default function DailyCare() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      try {
-        await load()
-      } catch {}
+      await load()
     })()
     return () => { cancelled = true }
   }, [load])
@@ -122,7 +120,7 @@ export default function DailyCare() {
               </thead>
               <tbody>
                 {tasks.map((t, i) => (
-                  <tr key={t.id ?? t.uuid ?? i}>
+                  <tr key={t.id}>
                       <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
                         <StatusIcon type="measure" active={!!t.needsMeasure} />
                       </td>
