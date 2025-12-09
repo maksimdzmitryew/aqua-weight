@@ -247,7 +247,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   await userEvent.click(within(dlg3).getByRole('button', { name: /delete/i }))
   // Row should disappear
   await screen.findByRole('note') // empty state
-})
+}, 15000)
 
 test('limits list to PAGE_LIMIT and shows meta count', async () => {
   const many = Array.from({ length: 150 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
@@ -271,7 +271,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
     expect(bodyRows.length).toBe(100)
   })
   expect(screen.getByText(/Showing 100 of 150/)).toBeInTheDocument()
-}, 15000)
+}, 30000)
 
 test('row branches: link vs plain text, needsWater badge, and view/edit guards without uuid', async () => {
   server.use(

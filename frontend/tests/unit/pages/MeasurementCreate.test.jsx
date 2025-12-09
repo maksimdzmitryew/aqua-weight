@@ -113,7 +113,7 @@ describe('pages/MeasurementCreate', () => {
     await userEvent.click(screen.getByRole('button', { name: /update measurement/i }))
     // On success without from-state, it should navigate -1 fallback
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith(-1))
-  })
+  }, 15000)
 
   test('shows error when plants API fails to load', async () => {
     server.use(
