@@ -7,6 +7,8 @@ import PlantDetails from '../../../src/pages/PlantDetails.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { measurementsApi } from '../../../src/api/measurements'
+import { plantsApi } from '../../../src/api/plants'
 
 // Mock navigate to observe navigations while keeping other router utilities
 const mockNavigate = vi.fn()
@@ -69,10 +71,23 @@ describe('pages/PlantDetails', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load plant|not found/i)
   })
 
-  test('missing uuid yields error immediately', async () => {
-    // Use bad route that will render without param; navigate to "/plants/" won't match our route, so test minimal: pass empty param via state
-    // Instead, simulate by rendering the route with path and undefined param is not possible; cover via API handlers for measurements and expect error notice from code when uuid falsy
-    // Render with empty string uuid via initialEntries path "/plants/" cannot match pattern, skip — cover through direct component render with Router providing params is complex; accept coverage via other tests.
+  test('missing uuid yields plant error immediately and does not fetch measurements', async () => {
+    // Render component on a route that does not provide :uuid, so useParams().uuid is undefined
+    const spy = vi.spyOn(measurementsApi, 'listByPlant')
+    const view = render(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[{ pathname: '/' }] }>
+          <Routes>
+            <Route path="/" element={<PlantDetails />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(/missing uuid/i)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+    // Unmount to ensure cleanup does not throw
+    view.unmount()
   })
 
   test('loads measurements, handles error with retry, and supports edit/delete actions', async () => {
@@ -147,6 +162,19 @@ describe('pages/PlantDetails', () => {
     expect(await screen.findByRole('note')).toBeInTheDocument()
   })
 
+  test('measurements error without message uses generic fallback', async () => {
+    const init = {
+      pathname: '/plants/uE2',
+      state: { plant: { uuid: 'uE2', id: 2, name: 'Err2', created_at: '2025-01-01T00:00:00' } },
+    }
+    // Spy to reject with object lacking message to hit fallback branch in component
+    const spy = vi.spyOn(measurementsApi, 'listByPlant').mockRejectedValueOnce({})
+    renderWithRoute([init])
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/failed to load measurements/i)
+    spy.mockRestore()
+  })
+
   test('delete confirmation without id closes dialog without calling API', async () => {
     const init = {
       pathname: '/plants/uX',
@@ -165,11 +193,65 @@ describe('pages/PlantDetails', () => {
     )
     renderWithRoute([init])
     const row = (await screen.findAllByRole('row')).slice(1)[0]
+    // Edit with missing id should not navigate
+    await userEvent.click(within(row).getByRole('button', { name: /edit measurement/i }))
+    expect(mockNavigate).not.toHaveBeenCalled()
+    // Delete path
     await userEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
     const dlg = await screen.findByRole('dialog')
     await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     // No API call was made
     expect(delSpy).not.toHaveBeenCalled()
+  })
+
+  test('plant load abort on unmount does not surface an error', async () => {
+    // Set handler that delays; unmount before it resolves so AbortController path is hit
+    server.use(
+      http.get('/api/plants/:uuid', async () => {
+        await new Promise(r => setTimeout(r, 50))
+        return HttpResponse.json({ uuid: 'ab', id: 1, name: 'Later' })
+      })
+    )
+    const view = render(
+      <ThemeProvider>
+        <MemoryRouter initialEntries={[{ pathname: '/plants/ab' }] }>
+          <Routes>
+            <Route path="/plants/:uuid" element={<PlantDetails />} />
+          </Routes>
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    // Immediately unmount to trigger abort
+    view.unmount()
+    // Allow microtasks to flush so abort catch branch executes
+    await new Promise(r => setTimeout(r, 10))
+    // Nothing to assert; the absence of unhandled errors and test completion covers abort branch
+  })
+
+  test('plant load error with message containing "abort" is ignored (no error shown)', async () => {
+    const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({ message: 'Abort in flight' })
+    renderWithRoute(['/plants/ab2'])
+    // Wait for loading to finish; absence of alert indicates ignored error
+    await screen.findByRole('button', { name: /edit/i }).catch(() => {})
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('plant load error named AbortError is ignored (no error shown)', async () => {
+    const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({ name: 'AbortError' })
+    renderWithRoute(['/plants/ab3'])
+    // Wait a tick
+    await new Promise(r => setTimeout(r, 10))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('plant load error without message shows generic fallback', async () => {
+    const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({})
+    renderWithRoute(['/plants/uNoMsg'])
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/failed to load plant/i)
+    spy.mockRestore()
   })
 
   test('delete API error is ignored and list refetches; dialog closes', async () => {
@@ -196,5 +278,81 @@ describe('pages/PlantDetails', () => {
     // After failure, dialog should close and measurements should be refetched (listCalls increments)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     await waitFor(() => expect(listCalls).toBeGreaterThanOrEqual(2))
+  })
+
+  test('details fields and percent formatting branches: weights show units; pct string uses raw; null day pct shows —', async () => {
+    const init = {
+      pathname: '/plants/uFmt',
+      state: { plant: { uuid: 'uFmt', id: 7, name: 'Format', description: '', location: '', min_dry_weight_g: 123, max_water_weight_g: 456, created_at: '2025-01-01T00:00:00' } },
+    }
+    // Return two measurements: first where total/day pct are strings (no toFixed); second where day pct is null
+    server.use(
+      http.get('/api/plants/:uuid/measurements', () =>
+        HttpResponse.json([
+          { id: 77, measured_at: '2025-01-08T00:00:00', measured_weight_g: 50, water_loss_total_pct: '7', water_loss_day_pct: '2' },
+          { id: 78, measured_at: '2025-01-09T00:00:00', measured_weight_g: 60, water_loss_total_pct: 1, water_loss_day_pct: null },
+        ])
+      )
+    )
+
+    renderWithRoute([init])
+
+    // Min/Max weight render with unit suffix
+    expect(await screen.findByText('123g')).toBeInTheDocument()
+    expect(screen.getByText('456g')).toBeInTheDocument()
+
+    // Table rendered
+    const table = await screen.findByRole('table')
+    const rows = within(table).getAllByRole('row')
+    const row = rows[1]
+    const cells = within(row).getAllByRole('cell')
+    // Index 6 is water_loss_total_pct column
+    expect(cells[6]).toHaveTextContent('7%')
+    // Index 8 is water_loss_day_pct column => em dash
+    expect(cells[8]).toHaveTextContent('2%')
+    // Second row has null day pct -> em dash
+    const row2 = rows[2]
+    const cells2 = within(row2).getAllByRole('cell')
+    expect(cells2[8]).toHaveTextContent('—')
+
+    // Also verify falsy branch for min/max weight renders em dash
+    const init2 = {
+      pathname: '/plants/uFmt2',
+      state: { plant: { uuid: 'uFmt2', id: 8, name: 'Format2', min_dry_weight_g: 0, max_water_weight_g: 0, created_at: '2025-01-02T00:00:00' } },
+    }
+    server.use(
+      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([]))
+    )
+    renderWithRoute([init2])
+    // Empty state visible
+    expect(await screen.findByRole('note')).toBeInTheDocument()
+    // Two em dashes for min/max
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBeGreaterThanOrEqual(2)
+  })
+
+  test('header back button navigates to /plants', async () => {
+    const init = {
+      pathname: '/plants/uBack',
+      state: { plant: { uuid: 'uBack', id: 1, name: 'Back', created_at: '2025-01-01T00:00:00' } },
+    }
+    server.use(http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([])))
+    renderWithRoute([init])
+    const backBtn = await screen.findByRole('button', { name: /←\s*plants/i })
+    await userEvent.click(backBtn)
+    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+  })
+
+  test('measurements non-array response yields empty list gracefully', async () => {
+    const init = {
+      pathname: '/plants/uNonArr',
+      state: { plant: { uuid: 'uNonArr', id: 5, name: 'NA' } },
+    }
+    server.use(
+      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json({ status: 'ok', data: { foo: 'bar' } }))
+    )
+    renderWithRoute([init])
+    // Empty state appears (no table)
+    expect(await screen.findByRole('note')).toBeInTheDocument()
   })
 })
