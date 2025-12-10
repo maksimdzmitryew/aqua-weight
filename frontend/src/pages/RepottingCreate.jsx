@@ -62,8 +62,8 @@ const RepottingCreate = () => {
     if (preselect) setPlantId(preselect)
   }, [preselect])
 
-  // Update the canSave useMemo hook
-  const canSave = useMemo(() => plantId && measuredAt && lastWet !== '' && weightBeforeRepotting !== '', [plantId, measuredAt, lastWet, weightBeforeRepotting])
+  // Allow submission even if numeric fields are blank; blanks will map to nulls
+  const canSave = useMemo(() => !!(plantId && measuredAt), [plantId, measuredAt])
 
   async function onSubmit(e) {
     e.preventDefault()
