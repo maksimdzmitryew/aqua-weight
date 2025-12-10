@@ -16,38 +16,6 @@ export function getWaterRetainCellStyle(waterRemainingPct) {
   return {
     background: `linear-gradient(90deg, rgba(79, 173, 255, 0.28) ${widthPct}%, transparent ${widthPct}%)`,
   }
-
-
-  if (waterRemainingPct < 0) {
-    return {
-      background: '#dc2626',
-      color: 'white',
-    }
-  } else if (waterRemainingPct < 20) {
-    return {
-      background: '#2c4fff',
-    }
-  } else if (waterRemainingPct < 40) {
-    return {
-      background: '#77bcff',
-    }
-  } else if (waterRemainingPct < 50) {
-    return {
-      background: 'rgba(137,204,255,0.44)',
-    }
-  } else if (waterRemainingPct < 60) {
-    return {
-      background: '#bbf7d0',
-    }
-  } else if (waterRemainingPct < 100) {
-    return {
-      color: 'black',
-    }
-  } else {
-    return {
-      color: 'green',
-    }
-  }
 }
 
 export function getWaterLossCellStyle(waterLossPct) {

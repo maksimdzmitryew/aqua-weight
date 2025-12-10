@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
@@ -8,6 +8,7 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
+import { locationsApi } from '../../../src/api/locations'
 
 // Mock navigate
 const mockNavigate = vi.fn()
@@ -40,6 +41,147 @@ describe('pages/PlantCreate', () => {
     )
   })
 
+  test('submits full payload with trimmed strings and number conversions across tabs', async () => {
+    const user = userEvent.setup()
+    // Intercept POST and capture payload for assertions after navigation
+    let capturedBody = null
+    server.use(
+      http.post('/api/plants', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json({ uuid: 'pX' }, { status: 201 })
+      })
+    )
+
+    renderPage()
+    // Fill General
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), '  My Plant  ')
+    await user.type(screen.getByLabelText(/plant type/i), '  Type  ')
+    await user.type(screen.getByLabelText(/identify hint/i), '  Hint  ')
+    await user.type(screen.getByLabelText(/typical action/i), '  Action  ')
+    await user.type(screen.getByLabelText(/description/i), '  Some description  ')
+    await user.type(screen.getByLabelText(/^notes$/i), '  Note  ')
+    await user.selectOptions(screen.getByLabelText(/location/i), 'l2')
+    await user.type(screen.getByLabelText(/photo url/i), '  https://example.com/p.jpg  ')
+
+    // Service tab
+    await user.click(screen.getByRole('tab', { name: /service/i }))
+    await user.type(screen.getByLabelText(/default measurement method id/i), '  mm1  ')
+    await user.type(screen.getByLabelText(/scale id/i), '  sc1  ')
+    // Toggle checkboxes to exercise checkbox branch and mapping
+    const repotted = screen.getByLabelText(/repotted/i)
+    const archive = screen.getByLabelText(/archive/i)
+    expect(repotted).not.toBeChecked()
+    expect(archive).not.toBeChecked()
+    await user.click(repotted)
+    await user.click(archive)
+
+    // Care tab
+    await user.click(screen.getByRole('tab', { name: /care/i }))
+    await user.clear(screen.getByLabelText(/recommended water threshold/i))
+    await user.type(screen.getByLabelText(/recommended water threshold/i), '35')
+    await user.clear(screen.getByLabelText(/biomass weight/i))
+    await user.type(screen.getByLabelText(/biomass weight/i), '123')
+    await user.type(screen.getByLabelText(/biomass last at/i), '2024-02-20T10:30')
+
+    // Advanced tab
+    await user.click(screen.getByRole('tab', { name: /advanced/i }))
+    await user.type(screen.getByLabelText(/species name/i), '  Species  ')
+    await user.type(screen.getByLabelText(/botanical name/i), '  Botanical  ')
+    await user.type(screen.getByLabelText(/cultivar/i), '  Cult  ')
+    await user.type(screen.getByLabelText(/substrate type id/i), '  sub1  ')
+    await user.type(screen.getByLabelText(/substrate last refresh at/i), '2024-01-15T00:00')
+    await user.type(screen.getByLabelText(/fertilized last at/i), '2024-03-01T00:00')
+    await user.clear(screen.getByLabelText(/fertilizer ec/i))
+    await user.type(screen.getByLabelText(/fertilizer ec/i), '2.5')
+
+    // Health tab
+    await user.click(screen.getByRole('tab', { name: /health/i }))
+    await user.type(screen.getByLabelText(/light level id/i), '  light1  ')
+    await user.type(screen.getByLabelText(/pest status id/i), '  pest1  ')
+    await user.type(screen.getByLabelText(/health status id/i), '  ok  ')
+
+    // Calculated tab
+    await user.click(screen.getByRole('tab', { name: /calculated/i }))
+    await user.clear(screen.getByLabelText(/min dry weight/i))
+    await user.type(screen.getByLabelText(/min dry weight/i), '10')
+    await user.clear(screen.getByLabelText(/max water weight/i))
+    await user.type(screen.getByLabelText(/max water weight/i), '20')
+
+    // Save
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/plants')
+    })
+    // Assert normalized payload afterwards to avoid throwing inside the handler
+    expect(capturedBody).toEqual(expect.objectContaining({
+      // General
+      name: 'My Plant',
+      plant_type: 'Type',
+      identify_hint: 'Hint',
+      typical_action: 'Action',
+      description: 'Some description',
+      notes: 'Note',
+      location_id: 'l2',
+      photo_url: 'https://example.com/p.jpg',
+      // Service
+      default_measurement_method_id: 'mm1',
+      scale_id: 'sc1',
+      repotted: 1,
+      archive: 1,
+      // Care
+      recommended_water_threshold_pct: 35,
+      biomass_weight_g: 123,
+      biomass_last_at: '2024-02-20T10:30',
+      // Advanced
+      species_name: 'Species',
+      botanical_name: 'Botanical',
+      cultivar: 'Cult',
+      substrate_type_id: 'sub1',
+      substrate_last_refresh_at: '2024-01-15T00:00',
+      fertilized_last_at: '2024-03-01T00:00',
+      fertilizer_ec_ms: 2.5,
+      // Health
+      light_level_id: 'light1',
+      pest_status_id: 'pest1',
+      health_status_id: 'ok',
+      // Calculated
+      min_dry_weight_g: 10,
+      max_water_weight_g: 20,
+    }))
+  }, 15000)
+
+  test('backend error with string detail clears field errors without general message; all tabs handlers exercised', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
+      response: { data: { detail: 'something went wrong' } }
+    })
+
+    renderPage()
+    // Produce and then clear a client-side error to ensure state updates work
+    const nameInput = await screen.findByRole('textbox', { name: /name/i })
+    await user.clear(nameInput)
+    await user.type(nameInput, '   ')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+
+    // Now provide a valid name and trigger backend error with string detail
+    await user.clear(nameInput)
+    await user.type(nameInput, 'Ok')
+
+    // Click through all tabs to hit each onClick handler
+    const tabs = ['service', 'care', 'advanced', 'health', 'calculated', 'general']
+    for (const t of tabs) {
+      await user.click(screen.getByRole('tab', { name: new RegExp(`^${t}$`, 'i') }))
+    }
+
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    // No generic error is shown for string detail path
+    expect(screen.queryByText(/failed to save plant/i)).not.toBeInTheDocument()
+    // Field-specific error should be cleared (no "Name is required")
+    expect(screen.queryByText(/name is required/i)).not.toBeInTheDocument()
+    spy.mockRestore()
+  })
+
   test('client-side validation: trimmed empty name shows error on General tab', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -47,6 +189,26 @@ describe('pages/PlantCreate', () => {
     await user.clear(name)
     await user.type(name, '   ')
     await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+  })
+
+  test('client-side validation: untouched empty name hits falsy branch of trim guard', async () => {
+    renderPage()
+    // Immediately submit the form programmatically to bypass native required blocking
+    const saveBtn = await screen.findByRole('button', { name: /save/i })
+    const form = saveBtn.closest('form')
+    if (!form) throw new Error('form not found')
+    fireEvent.submit(form)
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+  })
+
+  test('client-side validation: clicking Save with empty name after removing required attribute also triggers error (falsy branch)', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    const nameInput = await screen.findByRole('textbox', { name: /name/i })
+    // Remove native required to ensure click path invokes onSave with empty string
+    nameInput.removeAttribute('required')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
   })
 
@@ -124,5 +286,162 @@ describe('pages/PlantCreate', () => {
     await user.click(screen.getByRole('tab', { name: /service/i }))
     await user.click(screen.getByRole('tab', { name: /general/i }))
     expect(screen.getByRole('textbox', { name: /name/i })).toBeInTheDocument()
+  })
+
+  test('save error with axios-like response but without detail shows generic message', async () => {
+    const user = userEvent.setup()
+    // Mock create to reject with {response:{data:{}}} so branch without detail is hit
+    const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
+      response: { data: {} }
+    })
+
+    renderPage()
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), 'Ok')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(await screen.findByText(/failed to save plant/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('outer catch shows error message when navigate throws after successful save', async () => {
+    const user = userEvent.setup()
+    // Successful create
+    const spy = vi.spyOn(plantsApi, 'create').mockResolvedValue({ uuid: 'p1' })
+    // Make navigate throw to reach outer catch (err.message branch)
+    mockNavigate.mockImplementationOnce(() => { throw new Error('nav fail') })
+
+    renderPage()
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), 'Ok')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(await screen.findByText(/nav fail/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('Cancel button navigates back to /plants without saving', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: /cancel/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+  })
+
+  test('optional fields left empty map to null (numbers/strings) and checkboxes default to 0', async () => {
+    const user = userEvent.setup()
+    let payload = null
+    server.use(
+      http.post('/api/plants', async ({ request }) => {
+        payload = await request.json()
+        return HttpResponse.json({ uuid: 'p-new' }, { status: 201 })
+      })
+    )
+
+    renderPage()
+    // Only required field
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), 'Only Name')
+
+    // Do not touch optional fields, including checkboxes and number inputs
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+    // Navigated after successful save
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants'))
+
+    // Ensure defaults were applied as expected
+    expect(payload).toEqual(expect.objectContaining({
+      // Strings trimmed or null when empty
+      plant_type: null,
+      identify_hint: null,
+      typical_action: null,
+      description: null,
+      notes: null,
+      location_id: null,
+      photo_url: null,
+      // Service flags default to 0 when unchecked/undefined
+      repotted: 0,
+      archive: 0,
+      // Numeric optionals become null when left empty strings
+      recommended_water_threshold_pct: null,
+      biomass_weight_g: null,
+      fertilizer_ec_ms: null,
+      min_dry_weight_g: null,
+      max_water_weight_g: null,
+    }))
+  })
+
+  test('dark theme: visit all tabs to exercise isDark style branches across sections', async () => {
+    try { localStorage.setItem('theme', 'dark') } catch {}
+    const user = userEvent.setup()
+    renderPage()
+    // Click through all tabs under dark theme so each section renders with dark styles
+    const tabs = ['service', 'care', 'advanced', 'health', 'calculated', 'general']
+    for (const t of tabs) {
+      await user.click(screen.getByRole('tab', { name: new RegExp(`^${t}$`, 'i') }))
+    }
+    // Spot-check a field on one of the deep tabs for dark border color
+    await user.click(screen.getByRole('tab', { name: /advanced/i }))
+    const species = screen.getByLabelText(/species name/i)
+    expect(species.style.border).toContain('rgb(68, 68, 68)')
+  })
+
+  test('locations load: non-array response maps to empty list without error', async () => {
+    // Return an object instead of array to trigger Array.isArray false branch
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json({ foo: 'bar' }))
+    )
+
+    renderPage()
+    // No error message
+    expect(screen.queryByText(/failed to load locations/i)).not.toBeInTheDocument()
+    // Select should only have placeholder option present
+    const select = await screen.findByLabelText(/location/i)
+    const options = select.querySelectorAll('option')
+    // first is placeholder, and no dynamic options appended
+    expect(options.length).toBe(1)
+    expect(options[0].textContent?.toLowerCase()).toContain('select location')
+  })
+
+  test('backend validation: missing msg falls back to "Invalid value"', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
+      response: {
+        data: {
+          // Use 'name' so the error is rendered in the UI next to the name field
+          detail: [ { loc: ['body', 'name'] } ]
+        }
+      }
+    })
+
+    renderPage()
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), 'Ok')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(await screen.findByText(/invalid value/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('outer catch fallback message when thrown error has no message', async () => {
+    const user = userEvent.setup()
+    const spy = vi.spyOn(plantsApi, 'create').mockResolvedValue({ uuid: 'p1' })
+    // Throw an empty object so err.message is falsy
+    mockNavigate.mockImplementationOnce(() => { throw {} })
+
+    renderPage()
+    await user.type(await screen.findByRole('textbox', { name: /name/i }), 'Ok')
+    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    expect(await screen.findByText(/failed to save plant/i)).toBeInTheDocument()
+    spy.mockRestore()
+  })
+
+  test('locations load effect: cleanup prevents setState after unmount (cancelled branch)', async () => {
+    // Spy on locationsApi to return a deferred promise so we can unmount before it resolves
+    const listSpy = vi.spyOn(locationsApi, 'list')
+    let resolveFn
+    const deferred = new Promise((res) => { resolveFn = res })
+    listSpy.mockReturnValueOnce(deferred)
+
+    const utils = renderPage()
+    // Immediately unmount to set cancelled = true inside effect cleanup
+    utils.unmount()
+    // Resolve the promise after unmount; effect should not call setState due to cancelled guard
+    resolveFn([])
+    // allow microtasks to flush
+    await Promise.resolve()
+    listSpy.mockRestore()
   })
 })

@@ -78,6 +78,17 @@ describe('pages/PlantEdit', () => {
     expect(await screen.findByText(/failed to load locations/i)).toBeInTheDocument()
   })
 
+  test('load error shows generic error message when API fails', async () => {
+    server.use(
+      http.get('/api/plants/:uuid', () => HttpResponse.text('nope', { status: 500 })),
+      http.get('/api/locations', () => HttpResponse.json([]))
+    )
+    renderWithRoute(['/plants/uErr/edit'])
+    // Loading first, then error after request fails
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+    expect(await screen.findByText(/failed to load plant/i)).toBeInTheDocument()
+  })
+
   test('missing uuid on save alerts error', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     // Use a matching route but provide state without uuid to trigger branch inside onSave

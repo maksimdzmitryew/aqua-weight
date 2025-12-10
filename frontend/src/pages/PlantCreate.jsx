@@ -122,8 +122,10 @@ export default function PlantCreate() {
         min_dry_weight_g: plant.min_dry_weight_g === '' ? null : Number(plant.min_dry_weight_g),
         max_water_weight_g: plant.max_water_weight_g === '' ? null : Number(plant.max_water_weight_g),
       }
+      let saved = false
       try {
         await plantsApi.create(payload)
+        saved = true
         navigate('/plants')
       } catch (e) {
         // Handle validation errors from backend
@@ -146,7 +148,12 @@ export default function PlantCreate() {
             setFieldErrors({ general: errorData.detail || 'Failed to save plant' });
           }
         } else {
-          setFieldErrors({ general: 'Failed to save plant' });
+          // If error happened after successful save (e.g., navigate throws),
+          // bubble it to the outer catch to surface the real message.
+          // Otherwise (pre-save API error without axios-like shape), show
+          // the generic message here to preserve UX and existing tests.
+          if (saved) throw e
+          setFieldErrors({ general: 'Failed to save plant' })
         }
       }
     } catch (err) {
@@ -377,17 +384,16 @@ export default function PlantCreate() {
                 color: isDark ? '#fff' : '#000'
               }} placeholder="0" />
             </div>
-
+*/}
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDark ? '#fff' : '#000' }} htmlFor="repotted">Repotted</label>
-              <input id="repotted" name="repotted" type="checkbox" checked={plant.repotted} onChange={onChange} style={{ width: 'auto' }} />
+              <input id="repotted" name="repotted" type="checkbox" checked={!!plant.repotted} onChange={onChange} style={{ width: 'auto' }} />
             </div>
 
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDark ? '#fff' : '#000' }} htmlFor="archive">Archive</label>
-              <input id="archive" name="archive" type="checkbox" checked={plant.archive} onChange={onChange} style={{ width: 'auto' }} />
+              <input id="archive" name="archive" type="checkbox" checked={!!plant.archive} onChange={onChange} style={{ width: 'auto' }} />
             </div>
-*/}
           </div>
         )}
 

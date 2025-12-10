@@ -88,4 +88,18 @@ describe('utils/datetime', () => {
     const iso = toLocalISOMinutes('2024-01-02T03:04:59Z')
     expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
   })
+
+  test('formatDateTime falls back to String(v) when an unexpected error occurs', () => {
+    const original = Date.prototype.toLocaleString
+    // Force toLocaleString to throw to exercise the catch block (lines 50–51)
+    // @ts-ignore
+    Date.prototype.toLocaleString = function () { throw new Error('boom') }
+    try {
+      // Provide a value that parseAPIDate will parse into a Date so that the throw happens inside try {}
+      const out = formatDateTime('2024-01-02 03:04')
+      expect(out).toBe('2024-01-02 03:04')
+    } finally {
+      Date.prototype.toLocaleString = original
+    }
+  })
 })

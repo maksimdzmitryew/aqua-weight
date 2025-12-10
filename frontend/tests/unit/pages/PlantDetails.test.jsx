@@ -171,4 +171,30 @@ describe('pages/PlantDetails', () => {
     // No API call was made
     expect(delSpy).not.toHaveBeenCalled()
   })
+
+  test('delete API error is ignored and list refetches; dialog closes', async () => {
+    const init = {
+      pathname: '/plants/uErr',
+      state: { plant: { uuid: 'uErr', id: 99, name: 'Err' } },
+    }
+    let listCalls = 0
+    server.use(
+      http.get('/api/plants/:uuid/measurements', ({ params }) => {
+        if (params.uuid === 'uErr') listCalls++
+        return HttpResponse.json([{ id: 1, measured_at: '2025-01-07T00:00:00', measured_weight_g: 1 }])
+      }),
+      http.delete('/api/measurements/:id', () => HttpResponse.json({ oops: true }, { status: 500 }))
+    )
+
+    renderWithRoute([init])
+
+    const row = (await screen.findAllByRole('row')).slice(1)[0]
+    await userEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
+    const dlg = await screen.findByRole('dialog')
+    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+
+    // After failure, dialog should close and measurements should be refetched (listCalls increments)
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    await waitFor(() => expect(listCalls).toBeGreaterThanOrEqual(2))
+  })
 })
