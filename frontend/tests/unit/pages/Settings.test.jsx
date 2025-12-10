@@ -16,6 +16,20 @@ function renderPage() {
 }
 
 describe('pages/Settings', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
+  test('uses defaults when localStorage is empty', () => {
+    renderPage()
+
+    const name = screen.getByLabelText(/display name/i)
+    const dt = screen.getByLabelText(/date\/time format/i)
+
+    expect(name).toHaveValue('')
+    expect(dt).toHaveValue('europe')
+  })
+
   test('initializes fields from localStorage and saves updates with success message', async () => {
     // preset values
     window.localStorage.setItem('displayName', 'Alice')
