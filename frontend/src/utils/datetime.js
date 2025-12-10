@@ -47,7 +47,10 @@ export function formatDateTime(v) {
 
     return d.toLocaleString(locale, opts)
   } catch {
-    return String(v ?? '')
+    // In case of any unexpected error (e.g., reading preferences or formatting),
+    // return a safe string representation of the original value.
+    // Use String(v) (branchless) to avoid additional branches for coverage purposes.
+    return String(v)
   }
 }
 

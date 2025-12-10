@@ -38,6 +38,52 @@ describe('utils/datetime', () => {
     expect(parseAPIDate('not-a-date')).toBeNull()
   })
 
+  test('parseAPIDate returns null for invalid Date instance and NaN number', () => {
+    // Invalid Date instance
+    const invalidDate = new Date('not-a-real-date')
+    expect(isNaN(invalidDate.getTime())).toBe(true)
+    expect(parseAPIDate(invalidDate)).toBeNull()
+
+    // NaN number
+    // @ts-ignore
+    expect(parseAPIDate(NaN)).toBeNull()
+  })
+
+  test('parseAPIDate SQL branch returns null when constructed Date is invalid (guard branch)', () => {
+    // Temporarily replace global Date so that the 7-arg constructor path returns an invalid date-like object
+    const RealDate = Date
+    // eslint-disable-next-line no-inner-declarations
+    function FakeDate(...args) {
+      // If called with components (y, m, d, h, mi, s, ms) — i.e., SQL branch — make it invalid
+      if (args.length === 7) {
+        return { getTime: () => NaN }
+      }
+      // Fallback to native Date for other signatures
+      // @ts-ignore
+      return new RealDate(...args)
+    }
+    // Preserve static members used elsewhere
+    // @ts-ignore
+    FakeDate.UTC = RealDate.UTC
+    // @ts-ignore
+    FakeDate.parse = RealDate.parse
+    // @ts-ignore
+    FakeDate.now = RealDate.now
+    // @ts-ignore
+    FakeDate.prototype = RealDate.prototype
+
+    // @ts-ignore
+    globalThis.Date = FakeDate
+    try {
+      // Matches SQL regex and would normally produce a valid date
+      expect(parseAPIDate('2024-01-02 03:04:05.6')).toBeNull()
+    } finally {
+      // Restore
+      // @ts-ignore
+      globalThis.Date = RealDate
+    }
+  })
+
   test('formatDateTime uses preference and is resilient to bad input', () => {
     // Spy on Date.prototype.toLocaleString to make deterministic
     const original = Date.prototype.toLocaleString
@@ -100,6 +146,20 @@ describe('utils/datetime', () => {
       expect(out).toBe('2024-01-02 03:04')
     } finally {
       Date.prototype.toLocaleString = original
+    }
+  })
+
+  test('formatDateTime catch path also triggers when reading preferences throws', () => {
+    // Use vitest to stub global localStorage with a throwing getItem
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('ls-err') },
+    })
+    try {
+      const out = formatDateTime('2024-01-02 03:04')
+      // When an error occurs inside try{}, function returns String(v)
+      expect(out).toBe('2024-01-02 03:04')
+    } finally {
+      vi.unstubAllGlobals()
     }
   })
 })
