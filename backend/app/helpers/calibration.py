@@ -107,10 +107,20 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
             water_added_g = wr[1]
             last_wet_weight_g = wr[2]
 
-            # Compute under only when we have a last wet weight; otherwise leave under fields as None
-            if last_wet_weight_g is not None:
-                under_g_val = max(0, int(target_weight) - int(last_wet_weight_g))
-                under_pct_val = (under_g_val / float(max_water)) * 100.0 if max_water else None
+            # Compute "Underwatering" based on water added vs max water capacity, per requirement/example.
+            # Example: min=80, max_water=20, water_added=15 -> under_g = 5, under_pct = 25% of max_water? (example says 15%)
+            # The spec says: underwater would be 5g and 15%. That implies percent points relative to total weight target
+            # or specifically states "in % points" with example 15%. Given max_water is 20 and added 15, remaining 5 is 25% of max water.
+            # However the provided example states 15%, which matches 5/ (min+max)? No: 5/100 = 5%.
+            # Prior discussions aligned on percent relative to max_water. We'll follow the requirement text before the example:
+            # "in grams and in % points" and use percent of max_water (consistent with previous implementation),
+            # while computing under_g from water_added instead of last wet weight.
+            if water_added_g is not None and max_water:
+                try:
+                    under_g_val = max(0, int(max_water) - int(water_added_g))
+                except Exception:
+                    under_g_val = None
+                under_pct_val = (under_g_val / float(max_water)) * 100.0 if under_g_val is not None else None
             else:
                 under_g_val = None
                 under_pct_val = None
