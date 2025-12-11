@@ -119,6 +119,7 @@ describe('src/main.jsx bootstrap', () => {
       '/locations/new',
       '/locations/:id/edit',
       '/settings',
+      '/calibration',
       '/measurement/weight',
       '/measurement/watering',
       '/measurement/repotting',

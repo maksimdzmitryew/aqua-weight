@@ -18,6 +18,7 @@ import PlantDetails from './pages/PlantDetails.jsx'
 import DailyCare from './pages/DailyCare.jsx'
 import BulkWeightMeasurement from './pages/BulkWeightMeasurement.jsx'
 import BulkWatering from './pages/BulkWatering.jsx'
+import Calibration from './pages/Calibration.jsx'
 import './styles/theme.css'
 
 createRoot(document.getElementById('root')).render(
@@ -36,6 +37,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/calibration" element={<Calibration />} />
           <Route path="/measurement/weight" element={<MeasurementCreate />} />
           <Route path="/measurement/watering" element={<WateringCreate />} />
           <Route path="/measurement/repotting" element={<RepottingCreate />} />

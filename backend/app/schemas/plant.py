@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, constr
 
@@ -84,3 +84,18 @@ class PlantUpdateRequest(BaseModel):
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None
+    
+class CalibrationEntry(BaseModel):
+    measured_at: Optional[str] = None
+    water_added_g: Optional[int] = None
+    last_wet_weight_g: Optional[int] = None
+    target_weight_g: Optional[int] = None
+    under_g: Optional[int] = None
+    under_pct: Optional[float] = None
+
+class CalibrationData(BaseModel):
+    max_water_retained: List[CalibrationEntry]
+    min_dry_weight: List[CalibrationEntry]
+
+class PlantCalibrationItem(PlantListItem):
+    calibration: CalibrationData

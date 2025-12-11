@@ -22,6 +22,12 @@ from ..schemas.measurement import (
     LastMeasurementResponse,
 )
 from ..helpers.water_retained import calculate_water_retained
+from ..helpers.plants_list import PlantsList
+from ..helpers.calibration import (
+    calibrate_by_max_water_retained,
+    calibrate_by_minimum_dry_weight,
+)
+from ..schemas.plant import PlantListItem, PlantCalibrationItem
 
 app = APIRouter()
 
@@ -72,6 +78,43 @@ async def get_last_measurement(plant_id: str, get_conn_fn = Depends(get_conn_fac
             conn.close()
 
     return await run_in_threadpool(do_fetch)
+
+
+@app.get("/measurements/calibrating", response_model=list[PlantCalibrationItem])
+async def list_plants_for_calibration(get_conn_fn = Depends(get_conn_factory)):
+    """Returns plants enriched with calibration data (underwatering after repotting)."""
+
+    def fetch():
+        # Use the same base list and ordering as the Plants list page
+        base = PlantsList.fetch_all()
+
+        # Compute calibration data
+        conn = get_conn_fn()
+        try:
+            max_map = calibrate_by_max_water_retained(conn)
+            min_map = calibrate_by_minimum_dry_weight(conn)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        result: list[dict] = []
+        # Preserve ordering by iterating the already-sorted base list
+        for base_item in base:
+            pid = base_item.get("uuid") or base_item.get("id")
+            if not pid:
+                continue
+            calib = {
+                "max_water_retained": max_map.get(pid, []),
+                "min_dry_weight": min_map.get(pid, []),
+            }
+            enriched = dict(base_item)
+            enriched["calibration"] = calib
+            result.append(enriched)
+        return result
+
+    return await run_in_threadpool(fetch)
 
 
 @app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
