@@ -106,7 +106,7 @@ export default function Sparkline({
   const last = points[points.length - 1]
 
   // Compute watering hint vertical lines (peaks with large positive jump vs previous)
-  // Each item is { x: number, label: string, daysSince: number }
+  // Each item is { x: number, y: number, prevY: number, label: string, daysSince: number }
   let peakVLines = []
   const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
     ? (maxWaterG * peakDeltaPct)
@@ -137,7 +137,7 @@ export default function Sparkline({
           const msPerDay = 24 * 60 * 60 * 1000
           daysSince = Math.max(0, Math.round((cur.x - lastPeakTs) / msPerDay))
         }
-        peakVLines.push({ x: cur.x, label, daysSince })
+        peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, daysSince })
         lastPeakTs = cur.x
       }
     }
@@ -349,7 +349,33 @@ export default function Sparkline({
       {/* Vertical peak markers (watering hints) + date labels and days since previous peak */}
       {showPeakVLines && peakVLines.length > 0 && peakVLines.map((m, idx) => {
         const px = sx(m.x)
-        const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones
+        const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones for lines
+        // Determine threshold Y (if the caller provided a reference line labeled "Thresh")
+        let threshY = null
+        if (Array.isArray(refLines)) {
+          for (const rl of refLines) {
+            if (rl && isFinite(rl.y)) {
+              const lbl = (rl.label == null ? '' : String(rl.label)).toLowerCase()
+              if (lbl === 'thresh') { threshY = rl.y; break }
+            }
+          }
+        }
+        // Color rule for labels based on previous value vs threshold with a 10% band:
+        // - If the previous value is above the threshold → green.
+        // - Else, if it's within 10% of maxWaterG below the threshold → green.
+        // - Otherwise → default amber.
+        // Note: if maxWaterG is not available, we fall back to the strict comparison (above only).
+        const green = effectiveTheme === 'dark' ? '#22c55e' : '#16a34a'
+        let labelColor = (effectiveTheme === 'dark' ? '#f59e0b' : '#d97706')
+        if (threshY != null && isFinite(threshY) && isFinite(m?.prevY)) {
+          const prev = m.prevY
+          if (prev > threshY) {
+            labelColor = green
+          } else if (isFinite(maxWaterG) && maxWaterG > 0) {
+            const band = 0.10 * maxWaterG
+            if (prev >= (threshY - band)) labelColor = green
+          }
+        }
         return (
           <g key={`pv-${idx}`}>
             <line
@@ -368,7 +394,7 @@ export default function Sparkline({
                   x={px}
                   y={Math.min(margin.top + h + 10, vbHeight - 12)}
                   fontSize={9}
-                  fill={color}
+                  fill={labelColor}
                   textAnchor="middle"
                 >
                   {m.label}
@@ -377,7 +403,7 @@ export default function Sparkline({
                   x={px}
                   y={Math.min(margin.top + h + 20, vbHeight - 2)}
                   fontSize={9}
-                  fill={color}
+                  fill={labelColor}
                   textAnchor="middle"
                 >
                   ({m.daysSince}d)
