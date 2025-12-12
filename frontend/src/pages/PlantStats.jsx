@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useLocation as useRouterLocation, useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
@@ -90,17 +90,6 @@ export default function PlantStats() {
     loadMeasurements()
   }, [uuid])
 
-  const refLines = useMemo(() => {
-    const r = []
-    // Use shorter labels so they don't get clipped by the left margin chips
-    if (isFinite(plant?.min_dry_weight_g)) r.push({ y: plant.min_dry_weight_g, label: 'Dry' })
-    if (isFinite(plant?.min_dry_weight_g) && isFinite(plant?.max_water_weight_g)) {
-      const maxLine = Number(plant.min_dry_weight_g) + Number(plant.max_water_weight_g)
-      if (isFinite(maxLine)) r.push({ y: maxLine, label: 'Max' })
-    }
-    return r
-  }, [plant])
-
   return (
     <DashboardLayout title={plant ? `${plant.name} — Stats` : 'Stats'}>
       <PageHeader title={plant ? plant.name : 'Stats'} onBack={() => navigate('/dashboard')} titleBack="Dashboard" />
@@ -115,8 +104,7 @@ export default function PlantStats() {
             <Loader text="Loading measurements..." />
           ) : points.length > 1 ? (
             <div style={{ maxWidth: 960 }}>
-              {/* Slightly larger left margin to ensure label chips are fully visible on large screens */}
-              <Sparkline data={points} width="100%" height={200} showPoints={true} refLines={refLines} margin={{ top: 6, right: 2, bottom: 6, left: 64 }} />
+              <Sparkline data={points} width="100%" height={200} showPoints={true} />
             </div>
           ) : (
             <div style={{ color: '#6b7280' }}>Not enough data to chart</div>

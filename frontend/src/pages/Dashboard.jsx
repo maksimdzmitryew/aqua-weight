@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [series, setSeries] = useState({})
   const [seriesLoading, setSeriesLoading] = useState(false)
   const [seriesError, setSeriesError] = useState('')
+  // Reference line toggles (restored)
   const [showMinRef, setShowMinRef] = useState(true)
   const [showMaxRef, setShowMaxRef] = useState(true)
   const [showThreshRef, setShowThreshRef] = useState(true)
@@ -128,15 +129,15 @@ export default function Dashboard() {
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', margin: '8px 0 16px', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={showMinRef} onChange={(e) => setShowMinRef(e.target.checked)} />
-          <span>Dry out completely</span>
+          <span>Show min dry weight</span>
         </label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={showMaxRef} onChange={(e) => setShowMaxRef(e.target.checked)} />
-          <span>Max water</span>
+          <span>Show max water weight</span>
         </label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input type="checkbox" checked={showThreshRef} onChange={(e) => setShowThreshRef(e.target.checked)} />
-          <span>Min water</span>
+          <span>Recommended threshold</span>
         </label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
           <span>Charts per row</span>
@@ -168,43 +169,25 @@ export default function Dashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${chartsPerRow}, minmax(0, 1fr))`, gap: 16 }}>
           {plants.map((p) => {
             const pts = series[p?.uuid] || []
-            const refLines = []
-            if (showMinRef && isFinite(p?.min_dry_weight_g)) refLines.push({ y: p.min_dry_weight_g, label: 'Dry' })
-            if (showMaxRef && isFinite(p?.min_dry_weight_g) && isFinite(p?.max_water_weight_g)) {
-              const maxLine = Number(p.min_dry_weight_g) + Number(p.max_water_weight_g)
-              if (isFinite(maxLine)) refLines.push({ y: maxLine, label: 'Max' })
-            }
-            if (showThreshRef && isFinite(p?.min_dry_weight_g) && isFinite(p?.max_water_weight_g) && isFinite(p?.recommended_water_threshold_pct)) {
-              // Compute threshold line: min dry + (1 / max water * recommended threshold)
-              // Note: If you intend percent-of-capacity, replace with (max_water_weight_g * recommended_water_threshold_pct / 100)
-              const denom = Number(p.max_water_weight_g)
-              const thrPct = Number(p.recommended_water_threshold_pct)
-              const addend = denom !== 0 ? (denom / 100 * thrPct) : NaN
-              const thrLine = Number(p.min_dry_weight_g) + addend
-              if (isFinite(thrLine)) refLines.push({ y: thrLine, label: 'Min' })
-            }
-            // Detect pre-watering points near "Dry" where the next reading jumps significantly.
-            // Heuristics: consider a jump if y[i+1] - y[i] >= max(150g, 0.08 * max_water_weight_g).
-            // Consider a point "near Dry" if |y[i] - min_dry| <= max(100g, 0.05 * max_water_weight_g).
-            const vertLines = []
-            if (pts.length > 1 && isFinite(p?.min_dry_weight_g) && isFinite(p?.max_water_weight_g)) {
-              const minDry = Number(p.min_dry_weight_g)
-              const cap = Math.max(0, Number(p.max_water_weight_g))
-              const jumpThresh = Math.max(150, 0.08 * cap)
-              const nearTol = Math.max(100, 0.05 * cap)
-              for (let i = 0; i < pts.length - 1; i++) {
-                const cur = pts[i]
-                const next = pts[i + 1]
-                if (!cur || !next) continue
-                const jump = next.y - cur.y
-                const nearDry = Math.abs(cur.y - minDry) <= nearTol
-                if (nearDry && jump >= jumpThresh) {
-                  vertLines.push({ x: cur.x })
-                }
-              }
-            }
             const cardBg = effectiveTheme === 'dark' ? '#111827' : 'white'
             const cardBorder = effectiveTheme === 'dark' ? '#374151' : '#e5e7eb'
+            // Build reference lines per plant
+            const refLines = []
+            const minDry = Number.isFinite(p?.min_dry_weight_g) ? Number(p.min_dry_weight_g) : null
+            const maxWater = Number.isFinite(p?.max_water_weight_g) ? Number(p.max_water_weight_g) : null
+            const threshPct = Number.isFinite(p?.recommended_water_threshold_pct) ? Number(p.recommended_water_threshold_pct) : null
+            if (showMinRef && minDry != null) refLines.push({ y: minDry, label: 'Dry' })
+            if (showMaxRef && minDry != null && maxWater != null) refLines.push({ y: minDry + maxWater, label: 'Max' })
+            // Recommended threshold: min_dry_weight_g + max_water_weight_g * (recommended_pct / 100)
+            // Clamp recommended percentage to [0, 100] to keep the line between Dry and Max.
+            if (showThreshRef && minDry != null && maxWater != null && threshPct != null) {
+              const pct = Number(threshPct)
+              if (Number.isFinite(pct)) {
+                const frac = Math.max(0, Math.min(1, pct / 100))
+                const y = minDry + (maxWater * frac)
+                if (Number.isFinite(y)) refLines.push({ y, label: 'Thresh' })
+              }
+            }
             return (
               <div
                 key={p.uuid}
@@ -223,7 +206,6 @@ export default function Dashboard() {
                     height={chartHeight}
                     showPoints={true}
                     refLines={refLines}
-                    vertLines={vertLines}
                   />
                 ) : (
                   <div style={{ color: '#6b7280', fontSize: 12 }}>Not enough data to chart</div>

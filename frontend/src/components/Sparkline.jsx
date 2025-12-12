@@ -18,13 +18,13 @@ export default function Sparkline({
   stroke,
   strokeWidth = 2,
   fill,
-  // Shift chart to the right: reserve more space on the left for labels,
-  // and minimize the right margin so the chart reaches the right edge.
-  margin = { top: 6, right: 2, bottom: 6, left: 46 },
+  // Default margins: compact; no extra bottom space needed (no vertical peak labels anymore)
+  margin = { top: 6, right: 2, bottom: 8, left: 12 },
   dotLast = true,
   showPoints = false,
-  refLines = [], // [{ y, color, label }]
-  vertLines = [], // [{ x, color, width, dash }]
+  // Optional horizontal reference lines (e.g., Dry/Max/Threshold)
+  // Each item: { y: number, color?: string, label?: string, dash?: string }
+  refLines = [],
   hover = true, // enable interactive hover tooltip
   hoverFormatter, // optional (pt, i, ctx) => string[] lines
   tooltipPlacement = 'side', // 'below' | 'side'
@@ -70,16 +70,18 @@ export default function Sparkline({
   const points = Array.isArray(data) ? data.filter(d => d && isFinite(d.x) && isFinite(d.y)) : []
   const xs = points.map(p => p.x)
   const ys = points.map(p => p.y)
+  // Include reference line values in Y-domain so they are always visible
+  const refYs = (Array.isArray(refLines) ? refLines : []).map(rl => rl && isFinite(rl.y) ? rl.y : null).filter(v => v != null)
   const minX = xs.length ? Math.min(...xs) : 0
   const maxX = xs.length ? Math.max(...xs) : 1
-  // Include reference line Y values in the Y-domain so they are visible even if
-  // they lie outside the data range
-  const refYs = Array.isArray(refLines) ? refLines
-    .map(r => (r && isFinite(r.y) ? Number(r.y) : null))
-    .filter(v => v !== null) : []
-  const allYs = ys.concat(refYs)
-  const minY = allYs.length ? Math.min(...allYs) : 0
-  const maxY = allYs.length ? Math.max(...allYs) : 1
+  const minYData = ys.length ? Math.min(...ys) : Infinity
+  const maxYData = ys.length ? Math.max(...ys) : -Infinity
+  const minYRef = refYs.length ? Math.min(...refYs) : Infinity
+  const maxYRef = refYs.length ? Math.max(...refYs) : -Infinity
+  let minY = Math.min(minYData, minYRef)
+  let maxY = Math.max(maxYData, maxYRef)
+  if (!isFinite(minY)) minY = 0
+  if (!isFinite(maxY) || maxY === minY) maxY = (isFinite(minY) ? minY + 1 : 1)
   const spanX = maxX - minX || 1
   const spanY = maxY - minY || 1
 
@@ -142,24 +144,11 @@ export default function Sparkline({
         lines.push(`Δ ${sign}${Math.round(delta)} g`)
       }
     }
-    // distances to reference lines (Dry/Max/Min)
-    const dry = (refLines || []).find(r => String(r?.label || '').toLowerCase().includes('dry'))
-    if (dry && isFinite(dry.y)) {
-      const d = pt.y - Number(dry.y)
-      const sign = d > 0 ? '+' : ''
-      lines.push(`to Dry: ${sign}${Math.round(d)} g`)
-    }
-    const max = (refLines || []).find(r => String(r?.label || '').toLowerCase().includes('max'))
-    if (max && isFinite(max.y)) {
-      const d = Number(max.y) - pt.y
-      const sign = d > 0 ? '' : ''
-      lines.push(`to Max: ${sign}${Math.round(d)} g`)
-    }
     return lines
   }
 
   const tooltipLines = (hoverIdx != null)
-    ? (typeof hoverFormatter === 'function' ? hoverFormatter(points[hoverIdx], hoverIdx, { points, refLines }) : defaultHoverLines(hoverIdx))
+    ? (typeof hoverFormatter === 'function' ? hoverFormatter(points[hoverIdx], hoverIdx, { points }) : defaultHoverLines(hoverIdx))
     : []
   const tooltipLineHeight = 12
   const tooltipFontSize = 11
@@ -280,47 +269,20 @@ export default function Sparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >
-      {/* Vertical guide lines */}
-      {Array.isArray(vertLines) && vertLines.map((vl, idx) => {
-        if (!isFinite(vl?.x)) return null
-        const x = sx(vl.x)
-        const color = vl?.color || (effectiveTheme === 'dark' ? '#374151' : '#d1d5db')
-        const lw = isFinite(vl?.width) ? vl.width : 1
-        const dash = vl?.dash || '4 4'
-        return (
-          <line key={`vl-${idx}`} x1={x} x2={x} y1={margin.top} y2={margin.top + h} stroke={color} strokeWidth={lw} strokeDasharray={dash} />
-        )
-      })}
-      {/* Reference lines */}
+      {/* Horizontal reference lines (dashed), drawn behind the series for visibility */}
       {Array.isArray(refLines) && refLines.map((rl, idx) => {
-        if (!isFinite(rl?.y)) return null
+        if (!rl || !isFinite(rl.y)) return null
         const y = sy(rl.y)
-        const color = rl?.color || (effectiveTheme === 'dark' ? '#6b7280' : '#9ca3af')
-        const label = rl?.label
-        // Background for readability: always white per requirement, with subtle border for contrast
-        const bgStroke = effectiveTheme === 'dark' ? '#374151' : '#e5e7eb'
-        const fontSize = 10
-        const padX = 4
-        const padY = 3
-        // Approximate text width: rough monospace-esque estimate (6px per char at 10px size)
-        const approxTextWidth = label ? Math.max(40, Math.min(120, label.length * 6)) : 0
-        const bgWidth = approxTextWidth + padX * 2
-        const bgHeight = fontSize + padY * 2
-        const gapFromPlot = 6
-        const bgX = margin.left - bgWidth - gapFromPlot
-        const bgY = y - bgHeight / 2
+        const color = rl.color || (effectiveTheme === 'dark' ? '#6b7280' : '#9ca3af')
+        const dash = rl.dash || '4 3'
+        const label = rl.label
         return (
           <g key={`ref-${idx}`}>
-            <line x1={margin.left} x2={margin.left + w} y1={y} y2={y} stroke={color} strokeDasharray="4 4" strokeWidth={1} />
+            <line x1={margin.left} x2={margin.left + w} y1={y} y2={y} stroke={color} strokeDasharray={dash} strokeWidth={1} />
             {label && (
-              <>
-                {/* White background label placed left of the plotting area */}
-                <rect x={bgX} y={bgY} width={bgWidth} height={bgHeight} rx={2} ry={2} fill="#ffffff" stroke={bgStroke} strokeWidth={1} />
-                {/* Nudge the label slightly upward for better visual alignment with the line */}
-                <text x={margin.left - gapFromPlot - padX} y={y - 1} fontSize={fontSize} fill={color} textAnchor="end" dominantBaseline="central">
-                  {label}
-                </text>
-              </>
+              <text x={margin.left + 4} y={Math.max(margin.top + 8, Math.min(margin.top + h - 4, y - 2))} fontSize={10} fill={color}>
+                {label}
+              </text>
             )}
           </g>
         )
