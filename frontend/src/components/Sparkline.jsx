@@ -18,8 +18,8 @@ export default function Sparkline({
   stroke,
   strokeWidth = 2,
   fill,
-  // Default margins: compact; no extra bottom space needed (no vertical peak labels anymore)
-  margin = { top: 6, right: 2, bottom: 8, left: 12 },
+  // Default margins: provide extra bottom space for below-axis date labels (two lines)
+  margin = { top: 6, right: 2, bottom: 26, left: 12 },
   dotLast = true,
   showPoints = false,
   // Optional horizontal reference lines (e.g., Dry/Max/Threshold)
@@ -37,6 +37,8 @@ export default function Sparkline({
   peakDeltaPct = 0.20,
   // showPeakVLines: toggle rendering of vertical lines
   showPeakVLines = true,
+  // show labels (date) near each vertical line
+  showPeakVLineLabels = true,
 }) {
   const { effectiveTheme } = useTheme()
   const defaultStroke = stroke || (effectiveTheme === 'dark' ? '#60a5fa' : '#2563eb')
@@ -104,11 +106,20 @@ export default function Sparkline({
   const last = points[points.length - 1]
 
   // Compute watering hint vertical lines (peaks with large positive jump vs previous)
+  // Each item is { x: number, label: string, daysSince: number }
   let peakVLines = []
   const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
     ? (maxWaterG * peakDeltaPct)
     : null
   if (showPeakVLines && threshAbs != null && points.length > 2) {
+    // Read user preference for date format from localStorage (persisted by Settings page)
+    let dtPref = 'europe'
+    try {
+      const stored = localStorage.getItem('dtFormat')
+      if (stored === 'usa' || stored === 'europe') dtPref = stored
+    } catch {}
+    const pad2 = (n) => String(n).padStart(2, '0')
+    let lastPeakTs = null
     for (let i = 1; i < points.length - 1; i++) {
       const prev = points[i - 1]
       const cur = points[i]
@@ -117,7 +128,17 @@ export default function Sparkline({
       const isPeak = (cur.y > prev.y) && (cur.y > next.y)
       const deltaPrev = cur.y - prev.y
       if (isPeak && deltaPrev >= threshAbs) {
-        peakVLines.push(cur.x)
+        const d = new Date(cur.x)
+        const mm = pad2(d.getMonth() + 1)
+        const dd = pad2(d.getDate())
+        const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
+        let daysSince = 0
+        if (lastPeakTs != null && isFinite(lastPeakTs)) {
+          const msPerDay = 24 * 60 * 60 * 1000
+          daysSince = Math.max(0, Math.round((cur.x - lastPeakTs) / msPerDay))
+        }
+        peakVLines.push({ x: cur.x, label, daysSince })
+        lastPeakTs = cur.x
       }
     }
   }
@@ -296,22 +317,45 @@ export default function Sparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >
-      {/* Vertical peak markers (watering hints) */}
-      {showPeakVLines && peakVLines.length > 0 && peakVLines.map((x, idx) => {
-        const px = sx(x)
+      {/* Vertical peak markers (watering hints) + date labels and days since previous peak */}
+      {showPeakVLines && peakVLines.length > 0 && peakVLines.map((m, idx) => {
+        const px = sx(m.x)
         const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones
         return (
-          <line
-            key={`pv-${idx}`}
-            x1={px}
-            x2={px}
-            y1={margin.top}
-            y2={margin.top + h}
-            stroke={color}
-            strokeWidth={1}
-            strokeDasharray="2 2"
-            opacity={0.9}
-          />
+          <g key={`pv-${idx}`}>
+            <line
+              x1={px}
+              x2={px}
+              y1={margin.top}
+              y2={margin.top + h}
+              stroke={color}
+              strokeWidth={1}
+              strokeDasharray="2 2"
+              opacity={0.9}
+            />
+            {showPeakVLineLabels && (
+              <>
+                <text
+                  x={px}
+                  y={Math.min(margin.top + h + 10, vbHeight - 12)}
+                  fontSize={9}
+                  fill={color}
+                  textAnchor="middle"
+                >
+                  {m.label}
+                </text>
+                <text
+                  x={px}
+                  y={Math.min(margin.top + h + 20, vbHeight - 2)}
+                  fontSize={9}
+                  fill={color}
+                  textAnchor="middle"
+                >
+                  ({m.daysSince}d)
+                </text>
+              </>
+            )}
+          </g>
         )
       })}
       {/* Horizontal reference lines (dashed), drawn behind the series for visibility */}
