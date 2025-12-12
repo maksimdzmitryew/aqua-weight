@@ -284,10 +284,14 @@ export default function PlantsList() {
                     <td className="td">
                         {p.recommended_water_threshold_pct}%
                     </td>
-                    {/* Frequency (empty for now) */}
-                    <td className="td"></td>
-                    {/* Next watering (empty for now) */}
-                    <td className="td"></td>
+                    {/* Frequency */}
+                    <td className="td">
+                      {Number.isFinite(p?.frequency_days) ? `${p.frequency_days} d` : '—'}
+                    </td>
+                    {/* Next watering (date only, DD/MM or MM/DD per user preference) */}
+                    <td className="td">
+                      <DateTimeText value={p.next_watering_at} mode="daymonth" />
+                    </td>
                     <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">

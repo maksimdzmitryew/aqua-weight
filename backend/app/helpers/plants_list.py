@@ -1,7 +1,8 @@
 # app/helpers/plants_list.py
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..db import get_conn, bin_to_hex
 from ..helpers.water_retained import calculate_water_retained
+from ..helpers.frequency import compute_frequency_days
 
 class PlantsList:
     """
@@ -93,6 +94,38 @@ class PlantsList:
                     uuid_hex = bin_to_hex(pid)
                     location_id_hex = bin_to_hex(location_id_bytes)
 
+                    # Compute frequency (in days) based on watering events since last repot
+                    try:
+                        freq_days = compute_frequency_days(conn, uuid_hex)
+                    except Exception:
+                        freq_days = None
+
+                    # Compute next watering date: last watering + frequency
+                    next_watering_at = None
+                    if freq_days is not None and freq_days > 0:
+                        try:
+                            with conn.cursor() as cur2:
+                                cur2.execute(
+                                    (
+                                        """
+                                        SELECT measured_at
+                                        FROM plants_measurements
+                                        WHERE plant_id = UNHEX(%s)
+                                          AND measured_weight_g IS NULL
+                                          AND water_loss_total_pct = 0
+                                        ORDER BY measured_at DESC
+                                        LIMIT 1
+                                        """
+                                    ),
+                                    (uuid_hex,),
+                                )
+                                last_row = cur2.fetchone()
+                                last_watering_at = last_row[0] if last_row else None
+                                if last_watering_at:
+                                    next_watering_at = last_watering_at + timedelta(days=int(freq_days))
+                        except Exception:
+                            next_watering_at = None
+
                     results.append({
                         "id": idx,  # synthetic index for UI
                         "uuid": uuid_hex,
@@ -109,6 +142,8 @@ class PlantsList:
                         "water_retained_pct": round(water_retained_pct, 0) if water_retained_pct is not None else None,
                         "recommended_water_threshold_pct": recommended_water_threshold_pct if recommended_water_threshold_pct is not None else None,
                         "identify_hint": identify_hint if identify_hint is not None else None,
+                        "frequency_days": int(freq_days) if freq_days is not None else None,
+                        "next_watering_at": next_watering_at,
                     })
                 return results
         finally:

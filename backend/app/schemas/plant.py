@@ -20,6 +20,9 @@ class PlantListItem(BaseModel):
     water_retained_pct: Optional[float] = None
     recommended_water_threshold_pct: Optional[int] = None
     identify_hint: Optional[str] = None
+    # Calculated scheduling
+    frequency_days: Optional[int] = None
+    next_watering_at: Optional[datetime] = None
 
 class PlantDetail(BaseModel):
     id: int
