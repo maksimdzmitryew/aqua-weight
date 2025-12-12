@@ -146,34 +146,28 @@ export default function Calibration() {
             if (filtered.length === 0) return null
             return (
               <div key={p.uuid || p.id} className="card" style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <div>
-                    <div style={{ fontWeight: 600 }}>
-                      {p.name}
-                    </div>
-                    <div style={{ color: 'var(--muted-fg)' }}>{p.location || '—'}</div>
-                    {/* Calibration summary values shown after plant name */}
-                    {(() => {
-                      const min = p?.min_dry_weight_g
-                      const maxWater = p?.max_water_weight_g
-                      const maxWeight = (typeof min === 'number' && typeof maxWater === 'number')
-                        ? (min + maxWater)
-                        : null
-                      const fmt = (v) => (typeof v === 'number' ? `${v}g` : '—')
-                      return (
-                        <div style={{ color: 'var(--muted-fg)', marginTop: 2 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <div style={{ fontWeight: 600 }}>
+                    {p.name}
+                  </div>
+                  <div style={{ color: 'var(--muted-fg)' }}>{p.location || '—'}</div>
+                  {/* Summary line with the action button on the same row */}
+                  {(() => {
+                    const min = p?.min_dry_weight_g
+                    const maxWater = p?.max_water_weight_g
+                    const maxWeight = (typeof min === 'number' && typeof maxWater === 'number')
+                      ? (min + maxWater)
+                      : null
+                    const fmt = (v) => (typeof v === 'number' ? `${v}g` : '—')
+                    const plantId = p.uuid || p.id
+                    const canCorrect = (p?.min_dry_weight_g != null) && (p?.max_water_weight_g != null)
+                    return (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--muted-fg)', marginTop: 2, gap: 8 }}>
+                        <div>
                           <span>Minimum Weight: {fmt(min)}</span>
                           <span> • Maximum Water: {fmt(maxWater)}</span>
                           <span> • Maximum Weight: {fmt(maxWeight)}</span>
                         </div>
-                      )
-                    })()}
-                  </div>
-                  <div>
-                    {(() => {
-                      const plantId = p.uuid || p.id
-                      const canCorrect = (p?.min_dry_weight_g != null) && (p?.max_water_weight_g != null)
-                      return (
                         <button
                           className="button"
                           disabled={!canCorrect || busyPlant === plantId}
@@ -181,9 +175,9 @@ export default function Calibration() {
                         >
                           {busyPlant === plantId ? 'Correcting…' : 'Correct overfill (since repotting)'}
                         </button>
-                      )
-                    })()}
-                  </div>
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div style={{ overflowX: 'auto', marginTop: 8 }}>
                   <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
