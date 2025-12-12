@@ -151,7 +151,7 @@ export default function Sparkline({
   }
 
   // Compute watering hint vertical lines (peaks with large positive jump vs previous)
-  // Each item is { x: number, y: number, prevY: number, label: string, daysSince: number }
+  // Each item is { x: number, y: number, prevY: number, label: string, labelFull: string, daysSince: number }
   let peakVLines = []
   const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
     ? (maxWaterG * peakDeltaPct)
@@ -174,9 +174,11 @@ export default function Sparkline({
       const deltaPrev = cur.y - prev.y
       if (isPeak && deltaPrev >= threshAbs) {
         const d = new Date(cur.x)
+        const yyyy = d.getFullYear()
         const mm = pad2(d.getMonth() + 1)
         const dd = pad2(d.getDate())
         const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
+        const labelFull = dtPref === 'usa' ? `${mm}/${dd}/${yyyy}` : `${dd}/${mm}/${yyyy}`
         let daysSince = 0
         // Compute difference in whole calendar days, ignoring time-of-day.
         // If there is no previous peak, count days since the first available data point.
@@ -190,7 +192,7 @@ export default function Sparkline({
           const b = startOfDay(cur.x)
           daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
         }
-        peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, daysSince })
+        peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, labelFull, daysSince })
         lastPeakTs = cur.x
       }
     }
@@ -474,7 +476,7 @@ export default function Sparkline({
           )}
         </g>
       )}
-      {/* Vertical peak markers (watering hints) + date labels and days since previous peak */}
+      {/* Vertical peak markers (watering hints) + days first, then exact date in parentheses */}
       {showPeakVLines && peakVLines.length > 0 && peakVLines.map((m, idx) => {
         const px = sx(m.x)
         const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones for lines
@@ -517,7 +519,7 @@ export default function Sparkline({
                   fill={labelColor}
                   textAnchor="middle"
                 >
-                  {m.label}
+                  {`${m.daysSince}d`}
                 </text>
                 <text
                   x={px}
@@ -526,7 +528,7 @@ export default function Sparkline({
                   fill={labelColor}
                   textAnchor="middle"
                 >
-                  ({m.daysSince}d)
+                  ({m.label})
                 </text>
               </>
             )}
