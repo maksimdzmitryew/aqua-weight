@@ -20,6 +20,14 @@ export default function PlantStats() {
   const [points, setPoints] = useState([])
   const [mLoading, setMLoading] = useState(false)
   const [mError, setMError] = useState('')
+  // Respect Dashboard preference for showing suggested watering interval (blue marker)
+  const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => {
+    try {
+      const v = localStorage.getItem('chart.showSuggestedInterval')
+      if (v === '0') return false
+      return true
+    } catch { return true }
+  })
 
   useEffect(() => {
     const controller = new AbortController()
@@ -104,13 +112,36 @@ export default function PlantStats() {
             <Loader text="Loading measurements..." />
           ) : points.length > 1 ? (
             <div style={{ maxWidth: 960 }}>
-              <Sparkline
-                data={points}
-                width="100%"
-                height={200}
-                showPoints={true}
-                maxWaterG={Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null}
-              />
+              {(() => {
+                // Build reference lines to match Dashboard logic so features depending on
+                // the recommended threshold ("Thresh") work here as well.
+                const refLines = []
+                const minDry = Number.isFinite(plant?.min_dry_weight_g) ? Number(plant.min_dry_weight_g) : null
+                const maxWater = Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null
+                const threshPct = Number.isFinite(plant?.recommended_water_threshold_pct) ? Number(plant.recommended_water_threshold_pct) : null
+                if (minDry != null) refLines.push({ y: minDry, label: 'Dry' })
+                if (minDry != null && maxWater != null) refLines.push({ y: minDry + maxWater, label: 'Max' })
+                if (minDry != null && maxWater != null && threshPct != null) {
+                  const pct = Number(threshPct)
+                  if (Number.isFinite(pct)) {
+                    const frac = Math.max(0, Math.min(1, pct / 100))
+                    const y = minDry + (maxWater * frac)
+                    if (Number.isFinite(y)) refLines.push({ y, label: 'Thresh' })
+                  }
+                }
+                return (
+                  <Sparkline
+                    data={points}
+                    width="100%"
+                    height={200}
+                    showPoints={true}
+                    maxWaterG={Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null}
+                    refLines={refLines}
+                    // Toggle the blue marker that suggests watering interval (first drop below threshold)
+                    showFirstBelowThreshVLine={!!showSuggestedInterval}
+                  />
+                )
+              })()}
             </div>
           ) : (
             <div style={{ color: '#6b7280' }}>Not enough data to chart</div>

@@ -39,6 +39,9 @@ export default function Sparkline({
   showPeakVLines = true,
   // show labels (date) near each vertical line
   showPeakVLineLabels = true,
+  // New: show a vertical marker at the first data point where the value drops
+  // below the recommended threshold (detected from a ref line labeled "Thresh").
+  showFirstBelowThreshVLine = true,
 }) {
   const { effectiveTheme } = useTheme()
   const defaultStroke = stroke || (effectiveTheme === 'dark' ? '#60a5fa' : '#2563eb')
@@ -105,6 +108,48 @@ export default function Sparkline({
 
   const last = points[points.length - 1]
 
+  // Resolve threshold Y from refLines (label "Thresh", case-insensitive)
+  let threshYValue = null
+  if (Array.isArray(refLines)) {
+    for (const rl of refLines) {
+      if (rl && isFinite(rl.y)) {
+        const lbl = (rl.label == null ? '' : String(rl.label)).toLowerCase()
+        if (lbl === 'thresh') { threshYValue = rl.y; break }
+      }
+    }
+  }
+
+  // Compute first-below-threshold marker: find first index i where
+  // points[i-1].y >= thresh and points[i].y < thresh.
+  let firstBelowThresh = null
+  if (showFirstBelowThreshVLine && threshYValue != null && isFinite(threshYValue) && points.length > 1) {
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1]
+      const cur = points[i]
+      if (!prev || !cur) continue
+      if (isFinite(prev.y) && isFinite(cur.y) && prev.y >= threshYValue && cur.y < threshYValue) {
+        firstBelowThresh = { x: cur.x, y: cur.y, index: i }
+        break
+      }
+    }
+  }
+
+  // Helpers to operate on calendar days (local time), ignoring precise time-of-day
+  const dayKey = (ts) => {
+    const d = new Date(ts)
+    if (!isFinite(d.getTime())) return ''
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+  const startOfDay = (ts) => {
+    const d = new Date(ts)
+    if (!isFinite(d.getTime())) return NaN
+    // Local midnight
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  }
+
   // Compute watering hint vertical lines (peaks with large positive jump vs previous)
   // Each item is { x: number, y: number, prevY: number, label: string, daysSince: number }
   let peakVLines = []
@@ -134,8 +179,11 @@ export default function Sparkline({
         const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
         let daysSince = 0
         if (lastPeakTs != null && isFinite(lastPeakTs)) {
+          // Compute difference in whole calendar days, ignoring time-of-day
+          const a = startOfDay(lastPeakTs)
+          const b = startOfDay(cur.x)
           const msPerDay = 24 * 60 * 60 * 1000
-          daysSince = Math.max(0, Math.round((cur.x - lastPeakTs) / msPerDay))
+          daysSince = Math.max(0, Math.floor((b - a) / msPerDay))
         }
         peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, daysSince })
         lastPeakTs = cur.x
@@ -330,6 +378,41 @@ export default function Sparkline({
 
   const containerStyle = { position: 'relative', width, height }
 
+  // Determine if the first-below-threshold marker occurs on the same day as any peak.
+  let hideFirstBelow = false
+  if (firstBelowThresh && Array.isArray(peakVLines) && peakVLines.length > 0) {
+    const firstBelowDay = dayKey(firstBelowThresh.x)
+    if (firstBelowDay) {
+      for (const pk of peakVLines) {
+        if (!pk) continue
+        if (dayKey(pk.x) === firstBelowDay) { hideFirstBelow = true; break }
+      }
+    }
+  }
+
+  // Compute the "days since previous peak" for the first-below-threshold marker
+  // only if we are going to show it. We look for the last qualifying peak at or before the drop timestamp.
+  let firstBelowDaysSincePrevPeak = null
+  if (!hideFirstBelow && firstBelowThresh && Array.isArray(peakVLines) && peakVLines.length > 0) {
+    const dropTs = firstBelowThresh.x
+    let prevPeakTs = null
+    for (let i = 0; i < peakVLines.length; i++) {
+      const pk = peakVLines[i]
+      if (!pk) continue
+      if (isFinite(pk.x) && pk.x <= dropTs) {
+        prevPeakTs = pk.x
+      } else if (isFinite(pk.x) && pk.x > dropTs) {
+        break
+      }
+    }
+    const msPerDay = 24 * 60 * 60 * 1000
+    // Use whole day difference between local calendar dates
+    const a = (prevPeakTs != null && isFinite(prevPeakTs)) ? startOfDay(prevPeakTs) : NaN
+    const b = startOfDay(dropTs)
+    const days = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
+    firstBelowDaysSincePrevPeak = days
+  }
+
   return (
     <div style={containerStyle} ref={containerRef}>
       <svg
@@ -346,20 +429,39 @@ export default function Sparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >
+      {/* First-below-threshold vertical marker (hidden if on same day as a peak) */}
+      {firstBelowThresh && !hideFirstBelow && (
+        <g>
+          <line
+            x1={sx(firstBelowThresh.x)}
+            x2={sx(firstBelowThresh.x)}
+            y1={margin.top}
+            y2={margin.top + h}
+            stroke={effectiveTheme === 'dark' ? '#60a5fa' : '#2563eb'}
+            strokeWidth={1.5}
+            strokeDasharray="4 2"
+            opacity={0.95}
+          />
+          {firstBelowDaysSincePrevPeak != null && (
+            <text
+              x={sx(firstBelowThresh.x)}
+              y={Math.min(margin.top + h + 12, vbHeight - 2)}
+              textAnchor="middle"
+              fontSize={10}
+              fill={effectiveTheme === 'dark' ? '#60a5fa' : '#2563eb'}
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              {`${firstBelowDaysSincePrevPeak}d`}
+            </text>
+          )}
+        </g>
+      )}
       {/* Vertical peak markers (watering hints) + date labels and days since previous peak */}
       {showPeakVLines && peakVLines.length > 0 && peakVLines.map((m, idx) => {
         const px = sx(m.x)
         const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones for lines
         // Determine threshold Y (if the caller provided a reference line labeled "Thresh")
-        let threshY = null
-        if (Array.isArray(refLines)) {
-          for (const rl of refLines) {
-            if (rl && isFinite(rl.y)) {
-              const lbl = (rl.label == null ? '' : String(rl.label)).toLowerCase()
-              if (lbl === 'thresh') { threshY = rl.y; break }
-            }
-          }
-        }
+        let threshY = threshYValue
         // Color rule for labels based on previous value vs threshold with a 10% band:
         // - If the previous value is above the threshold → green.
         // - Else, if it's within 10% of maxWaterG below the threshold → green.

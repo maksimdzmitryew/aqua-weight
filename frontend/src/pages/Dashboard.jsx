@@ -21,6 +21,14 @@ export default function Dashboard() {
   const [showMinRef, setShowMinRef] = useState(true)
   const [showMaxRef, setShowMaxRef] = useState(true)
   const [showThreshRef, setShowThreshRef] = useState(true)
+  // Suggested watering interval (first-below-threshold blue marker)
+  const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => {
+    try {
+      const v = localStorage.getItem('chart.showSuggestedInterval')
+      if (v === '0') return false
+      return true // default: enabled
+    } catch { return true }
+  })
   const [chartsPerRow, setChartsPerRow] = useState(() => {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('dashboard.chartsPerRow') : null
     const n = parseInt(raw, 10)
@@ -139,6 +147,18 @@ export default function Dashboard() {
           <input type="checkbox" checked={showThreshRef} onChange={(e) => setShowThreshRef(e.target.checked)} />
           <span>Recommended threshold</span>
         </label>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="checkbox"
+            checked={showSuggestedInterval}
+            onChange={(e) => {
+              const val = e.target.checked
+              setShowSuggestedInterval(val)
+              try { localStorage.setItem('chart.showSuggestedInterval', val ? '1' : '0') } catch {}
+            }}
+          />
+          <span>Show suggested watering interval</span>
+        </label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
           <span>Charts per row</span>
           <select
@@ -209,6 +229,8 @@ export default function Dashboard() {
                     // Watering hint: draw vertical lines at peaks when increase vs previous
                     // exceeds 20% of max water retained
                     maxWaterG={Number.isFinite(p?.max_water_weight_g) ? Number(p.max_water_weight_g) : null}
+                    // Toggle the blue marker that suggests watering interval (first drop below threshold)
+                    showFirstBelowThreshVLine={!!showSuggestedInterval}
                   />
                 ) : (
                   <div style={{ color: '#6b7280', fontSize: 12 }}>Not enough data to chart</div>
