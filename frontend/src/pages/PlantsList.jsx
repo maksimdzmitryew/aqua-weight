@@ -230,6 +230,14 @@ export default function PlantsList() {
                     <span>Thresh</span>
                     <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
+                  <th className="th" scope="col" title="Watering frequency">
+                    <span>Frequency</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
+                  <th className="th" scope="col" title="Next planned watering date">
+                    <span>Next watering</span>
+                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                  </th>
                   <th className="th" scope="col" title="Plant name">
                     <span>Name</span>
                     <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
@@ -276,6 +284,10 @@ export default function PlantsList() {
                     <td className="td">
                         {p.recommended_water_threshold_pct}%
                     </td>
+                    {/* Frequency (empty for now) */}
+                    <td className="td"></td>
+                    {/* Next watering (empty for now) */}
+                    <td className="td"></td>
                     <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
