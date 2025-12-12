@@ -22,6 +22,7 @@ from ..schemas.measurement import (
     LastMeasurementResponse,
 )
 from ..helpers.water_retained import calculate_water_retained
+from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
 from ..helpers.calibration import (
     calibrate_by_max_water_retained,
@@ -115,6 +116,168 @@ async def list_plants_for_calibration(get_conn_fn = Depends(get_conn_factory)):
         return result
 
     return await run_in_threadpool(fetch)
+
+
+class CorrectionsRequest(BaseModel):
+    plant_id: str
+    from_ts: str | None = None  # ISO local, optional
+    to_ts: str | None = None    # ISO local, optional
+    cap: str | None = None      # 'capacity' | 'retained_ratio'
+    edit_last_wet: bool | None = True
+
+
+@app.post("/measurements/corrections")
+async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_fn = Depends(get_conn_factory)):
+    """
+    Deterministically correct past over-watering events for a plant.
+
+    - Select watering entries (measured_weight_g IS NULL) in the given window
+      (default: since last repotting) where last_wet_weight_g exceeds a cap.
+    - Cap rule:
+        * 'capacity' (default): target = min_dry_weight_g + max_water_weight_g
+        * 'retained_ratio': target = min_dry_weight_g + (recommended_water_threshold_pct/100) * max_water_weight_g
+    - For each overfilled row, compute excess = last_wet_weight_g - target (>=0)
+      and update water_added_g = GREATEST(0, water_added_g - excess).
+      If edit_last_wet = true, also set last_wet_weight_g = LEAST(last_wet_weight_g, target).
+    Returns a summary with counts and totals per plant.
+    """
+    plant_hex = (payload.plant_id or "").strip()
+    if not HEX_RE.match(plant_hex or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant_id")
+
+    cap_mode = (payload.cap or "capacity").lower()
+    if cap_mode not in ("capacity", "retained_ratio"):
+        raise HTTPException(status_code=400, detail="Invalid cap mode")
+
+    def do_apply():
+        conn = get_conn_fn()
+        try:
+            with conn.cursor() as cur:
+                # Fetch plant params
+                cur.execute(
+                    """
+                    SELECT min_dry_weight_g, max_water_weight_g, COALESCE(recommended_water_threshold_pct, 100)
+                    FROM plants
+                    WHERE id = UNHEX(%s)
+                    """,
+                    (plant_hex,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+                min_dry, max_water, rec_pct = row
+                if min_dry is None or max_water is None or max_water <= 0:
+                    # Nothing to do if calibration incomplete
+                    return {"updated": 0, "total_excess_g": 0, "details": []}
+
+            # Determine window
+            from_dt = parse_timestamp_local(payload.from_ts, fixed_milliseconds=0) if payload.from_ts else None
+            to_dt = parse_timestamp_local(payload.to_ts, fixed_milliseconds=999) if payload.to_ts else None
+            if not from_dt and not to_dt:
+                # Default: since last repotting
+                last_repot = get_last_repotting_event(conn, plant_hex)
+                if last_repot and last_repot.measured_at:
+                    try:
+                        # parse_timestamp_local accepts str; we may already have a datetime
+                        if isinstance(last_repot.measured_at, datetime):
+                            from_dt = last_repot.measured_at
+                        else:
+                            from_dt = parse_timestamp_local(str(last_repot.measured_at), fixed_milliseconds=0)
+                    except Exception:
+                        from_dt = None
+
+            # Build dynamic WHERE for window
+            where_parts = ["plant_id = UNHEX(%s)", "measured_weight_g IS NULL"]
+            params: list = [plant_hex]
+            if from_dt:
+                where_parts.append("measured_at >= %s")
+                params.append(from_dt)
+            if to_dt:
+                where_parts.append("measured_at <= %s")
+                params.append(to_dt)
+            where_clause = " AND ".join(where_parts)
+
+            # Compute target per row (constant for cap modes we support now)
+            if cap_mode == "capacity":
+                target_weight = int(min_dry) + int(max_water)
+            else:
+                ratio = max(0, min(100, int(rec_pct))) / 100.0
+                target_weight = int(min_dry) + int(round(ratio * int(max_water)))
+
+            # Select candidate rows that exceed target
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT id, measured_at, water_added_g, last_wet_weight_g
+                    FROM plants_measurements
+                    WHERE {where_clause} AND last_wet_weight_g IS NOT NULL AND last_wet_weight_g > %s
+                    ORDER BY measured_at ASC
+                    """,
+                    (*params, target_weight)
+                )
+                rows = cur.fetchall() or []
+
+            if not rows:
+                return {"updated": 0, "total_excess_g": 0, "details": []}
+
+            # Apply updates in a transaction
+            conn.autocommit(False)
+            total_excess = 0
+            updated = 0
+            details = []
+            try:
+                with conn.cursor() as cur:
+                    for r in rows:
+                        mid, measured_at, water_added_g, last_wet_weight_g = r
+                        excess = max(0, int(last_wet_weight_g) - int(target_weight))
+                        if excess <= 0:
+                            continue
+                        new_added = max(0, int(water_added_g or 0) - excess)
+                        if payload.edit_last_wet:
+                            cur.execute(
+                                """
+                                UPDATE plants_measurements
+                                SET water_added_g = %s,
+                                    last_wet_weight_g = LEAST(COALESCE(last_wet_weight_g, %s), %s)
+                                WHERE id = %s
+                                """,
+                                (new_added, target_weight, target_weight, mid)
+                            )
+                        else:
+                            cur.execute(
+                                """
+                                UPDATE plants_measurements
+                                SET water_added_g = %s
+                                WHERE id = %s
+                                """,
+                                (new_added, mid)
+                            )
+                        updated += 1
+                        total_excess += excess
+                        details.append({
+                            "id": bin_to_hex(mid),
+                            "measured_at": measured_at.isoformat(sep=" ", timespec="seconds") if isinstance(measured_at, datetime) else str(measured_at),
+                            "excess_g": excess,
+                            "new_water_added_g": new_added,
+                        })
+                conn.commit()
+            except Exception:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+                raise
+            finally:
+                conn.autocommit(True)
+
+            return {"updated": updated, "total_excess_g": total_excess, "details": details, "target_weight_g": target_weight}
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return await run_in_threadpool(do_apply)
 
 
 @app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])

@@ -9,9 +9,14 @@ export default function Calibration() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [busyPlant, setBusyPlant] = useState('')
   // Controls
+  // "underwatered" checkbox: when unchecked (default) show only rows where
+  // Diff to max Weight (g) < 0. When checked, also show rows >= 0 (i.e., show all).
+  const [underwatered, setUnderwatered] = useState(false)
+  // Preserve existing control: when unchecked, hide rows where Below Max Water (g) is zero; when checked, show all
   const [showOnlyNonZero, setShowOnlyNonZero] = useState(false)
-  const [showLastWatering, setShowLastWatering] = useState(true)
+  const [showLastWatering, setShowLastWatering] = useState(false)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -30,6 +35,45 @@ export default function Calibration() {
     return () => controller.abort()
   }, [])
 
+  async function handleCorrectOverfill(plant) {
+    try {
+      const plantId = plant.uuid || plant.id
+      setBusyPlant(plantId)
+
+      // Determine correction starting point per requirement:
+      // pick the entry with the biggest negative "Diff to max Weight (g)"
+      // i.e., minimal (last_wet_weight_g - target_weight_g) since last repotting.
+      const entries = plant?.calibration?.max_water_retained || []
+      let minDiffEntry = null
+      for (const it of entries) {
+        const hasNums = typeof it?.last_wet_weight_g === 'number' && typeof it?.target_weight_g === 'number'
+        if (!hasNums) continue
+        const diff = it.last_wet_weight_g - it.target_weight_g
+        if (minDiffEntry == null || diff < (minDiffEntry.last_wet_weight_g - minDiffEntry.target_weight_g)) {
+          minDiffEntry = it
+        }
+      }
+
+      const payload = { plant_id: plantId, cap: 'capacity', edit_last_wet: true }
+      if (minDiffEntry && minDiffEntry.measured_at) {
+        // Use the min-diff event as the correction window start (from_ts)
+        payload.from_ts = String(minDiffEntry.measured_at)
+      }
+
+      await calibrationApi.correct(payload)
+      // refresh list
+      setLoading(true)
+      setError('')
+      const data = await calibrationApi.list()
+      setItems(Array.isArray(data) ? data : [])
+    } catch (e) {
+      setError(e?.message || 'Failed to apply corrections')
+    } finally {
+      setLoading(false)
+      setBusyPlant('')
+    }
+  }
+
   return (
     <DashboardLayout title="Calibration">
       <h1 style={{ marginTop: 0 }}>Calibration</h1>
@@ -47,10 +91,18 @@ export default function Calibration() {
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}>
               <input
                 type="checkbox"
+                checked={underwatered}
+                onChange={(e) => setUnderwatered(e.target.checked)}
+              />
+              <span>underwatered</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}>
+              <input
+                type="checkbox"
                 checked={showOnlyNonZero}
                 onChange={(e) => setShowOnlyNonZero(e.target.checked)}
               />
-              <span>zero Underwatering, all</span>
+              <span>zero Below Max Water, all</span>
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, userSelect: 'none' }}>
               <input
@@ -58,22 +110,38 @@ export default function Calibration() {
                 checked={showLastWatering}
                 onChange={(e) => setShowLastWatering(e.target.checked)}
               />
-              <span>zero Underwatering, last</span>
+              <span>zero Below Max Water, last</span>
             </label>
           </div>
 
           {items.map((p) => {
             const entries = p?.calibration?.max_water_retained || []
             // Entries are provided in DESC order by measured_at from the backend.
-            // Toggle behavior inverted per requirement:
-            // - When unchecked (showOnlyNonZero === false): hide zero-Underwatering rows
-            // - When checked (showOnlyNonZero === true): show all rows including zeros
-            let filtered = showOnlyNonZero
-              ? entries
-              : entries.filter((it) => it?.under_g !== 0)
-            if (showLastWatering && entries.length > 0 && !filtered.includes(entries[0])) {
-              // Ensure the latest watering is visible even if filtered out by non-zero filter.
-              filtered = [entries[0], ...filtered]
+            // New filter behavior ("underwatered" checkbox):
+            // - When unchecked (underwatered === false): show only rows with Diff to max Weight (g) < 0
+            // - When checked  (underwatered === true): show all rows (also include >= 0)
+            let filtered
+            if (underwatered) {
+              filtered = entries
+            } else {
+              filtered = entries.filter((it) => {
+                const a = it?.last_wet_weight_g
+                const b = it?.target_weight_g
+                if (typeof a !== 'number' || typeof b !== 'number') return false
+                const diff = a - b
+                return diff < 0
+              })
+            }
+            // Apply additional legacy filter: when unchecked, hide rows with 0 under_g
+            if (!showOnlyNonZero) {
+              filtered = filtered.filter((it) => it?.under_g !== 0)
+            }
+            if (showLastWatering && entries.length > 0) {
+              const last = entries[0]
+              // Only ensure visibility of the latest watering if its Below Max Water (g) is 0
+              if (last?.under_g === 0 && !filtered.includes(last)) {
+                filtered = [last, ...filtered]
+              }
             }
             if (filtered.length === 0) return null
             return (
@@ -98,6 +166,21 @@ export default function Calibration() {
                           <span> • Maximum Water: {fmt(maxWater)}</span>
                           <span> • Maximum Weight: {fmt(maxWeight)}</span>
                         </div>
+                      )
+                    })()}
+                  </div>
+                  <div>
+                    {(() => {
+                      const plantId = p.uuid || p.id
+                      const canCorrect = (p?.min_dry_weight_g != null) && (p?.max_water_weight_g != null)
+                      return (
+                        <button
+                          className="button"
+                          disabled={!canCorrect || busyPlant === plantId}
+                          onClick={() => handleCorrectOverfill(p)}
+                        >
+                          {busyPlant === plantId ? 'Correcting…' : 'Correct overfill (since repotting)'}
+                        </button>
                       )
                     })()}
                   </div>
