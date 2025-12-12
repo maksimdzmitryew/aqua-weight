@@ -182,7 +182,36 @@ export default function Sparkline({
     const pt = points[idx]
     if (!pt) return []
     const date = new Date(pt.x)
-    const dateStr = isFinite(date.getTime()) ? date.toLocaleString() : String(pt.x)
+    // Format date/time according to Settings preference
+    let dtPref = 'europe'
+    try {
+      const stored = localStorage.getItem('dtFormat')
+      if (stored === 'usa' || stored === 'europe') dtPref = stored
+    } catch {}
+    const pad2 = (n) => String(n).padStart(2, '0')
+    let dateStr
+    if (!isFinite(date.getTime())) {
+      dateStr = String(pt.x)
+    } else if (dtPref === 'usa') {
+      // MM/DD/YYYY h:mm AM/PM (12h clock)
+      const mm = pad2(date.getMonth() + 1)
+      const dd = pad2(date.getDate())
+      const yyyy = date.getFullYear()
+      let hh = date.getHours()
+      const ampm = hh >= 12 ? 'PM' : 'AM'
+      hh = hh % 12
+      if (hh === 0) hh = 12
+      const mins = pad2(date.getMinutes())
+      dateStr = `${mm}/${dd}/${yyyy} ${hh}:${mins} ${ampm}`
+    } else {
+      // DD/MM/YYYY HH:mm (24h clock)
+      const mm = pad2(date.getMonth() + 1)
+      const dd = pad2(date.getDate())
+      const yyyy = date.getFullYear()
+      const hh = pad2(date.getHours())
+      const mins = pad2(date.getMinutes())
+      dateStr = `${dd}/${mm}/${yyyy} ${hh}:${mins}`
+    }
     const lines = [dateStr, `${pt.y} g`]
     if (idx > 0) {
       const prev = points[idx - 1]
