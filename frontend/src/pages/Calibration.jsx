@@ -156,7 +156,35 @@ export default function Calibration() {
                 filtered = [last, ...filtered]
               }
             }
+            // Always ensure the single most negative Diff to max Weight (g) entry is visible
+            // even when its "Below Max Water (g)" equals 0 and the zero filter would hide it.
+            if (mostNegativeEntry) {
+              const alreadyPresent = filtered.some((row) =>
+                row === mostNegativeEntry || (
+                  row?.measured_at === mostNegativeEntry?.measured_at &&
+                  row?.last_wet_weight_g === mostNegativeEntry?.last_wet_weight_g &&
+                  row?.target_weight_g === mostNegativeEntry?.target_weight_g
+                )
+              )
+              if (!alreadyPresent) {
+                filtered = [mostNegativeEntry, ...filtered]
+              }
+            }
             if (filtered.length === 0) return null
+
+            // Ensure rows are sorted by "Measured at" in descending order, regardless of filtering/inclusions
+            const parseMs = (v) => {
+              if (!v) return 0
+              // Normalize "YYYY-MM-DD HH:MM:SS" to ISO-like for reliable Date parsing
+              const s = String(v).replace(' ', 'T')
+              const t = Date.parse(s)
+              return Number.isNaN(t) ? 0 : t
+            }
+            const sorted = [...filtered].sort((a, b) => {
+              const ams = parseMs(a?.measured_at)
+              const bms = parseMs(b?.measured_at)
+              return bms - ams // DESC
+            })
             return (
               <div key={p.uuid || p.id} className="card" style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: 8 }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -205,7 +233,7 @@ export default function Calibration() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((it, idx) => {
+                      {sorted.map((it, idx) => {
                         const hasNums = typeof it?.target_weight_g === 'number' && typeof it?.last_wet_weight_g === 'number'
                         const diffVal = hasNums ? (it.last_wet_weight_g - it.target_weight_g) : null
                         const isUnder = typeof diffVal === 'number' && diffVal < 0
