@@ -29,6 +29,14 @@ export default function Sparkline({
   hoverFormatter, // optional (pt, i, ctx) => string[] lines
   tooltipPlacement = 'side', // 'below' | 'side'
   tooltipOffsetX = 28, // extra pixels to shift tooltip horizontally from the hover point when placed on the side (doubled per request)
+  // Watering hints: draw vertical lines at peaks if delta from previous point
+  // exceeds a fraction of the maximum water retained. The fraction defaults to 20%.
+  // maxWaterG: number | null — maximum water retained (grams)
+  maxWaterG = null,
+  // peakDeltaPct: number — threshold fraction (e.g., 0.1 for 10%)
+  peakDeltaPct = 0.20,
+  // showPeakVLines: toggle rendering of vertical lines
+  showPeakVLines = true,
 }) {
   const { effectiveTheme } = useTheme()
   const defaultStroke = stroke || (effectiveTheme === 'dark' ? '#60a5fa' : '#2563eb')
@@ -94,6 +102,25 @@ export default function Sparkline({
   const area = points.length > 1 && defaultFill ? `${path} L${sx(points[points.length - 1].x)},${margin.top + h} L${sx(points[0].x)},${margin.top + h} Z` : ''
 
   const last = points[points.length - 1]
+
+  // Compute watering hint vertical lines (peaks with large positive jump vs previous)
+  let peakVLines = []
+  const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
+    ? (maxWaterG * peakDeltaPct)
+    : null
+  if (showPeakVLines && threshAbs != null && points.length > 2) {
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1]
+      const cur = points[i]
+      const next = points[i + 1]
+      if (!prev || !cur || !next) continue
+      const isPeak = (cur.y > prev.y) && (cur.y > next.y)
+      const deltaPrev = cur.y - prev.y
+      if (isPeak && deltaPrev >= threshAbs) {
+        peakVLines.push(cur.x)
+      }
+    }
+  }
 
   // Hover state and helpers
   const [hoverIdx, setHoverIdx] = React.useState(null)
@@ -269,6 +296,24 @@ export default function Sparkline({
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >
+      {/* Vertical peak markers (watering hints) */}
+      {showPeakVLines && peakVLines.length > 0 && peakVLines.map((x, idx) => {
+        const px = sx(x)
+        const color = effectiveTheme === 'dark' ? '#f59e0b' : '#d97706' // amber tones
+        return (
+          <line
+            key={`pv-${idx}`}
+            x1={px}
+            x2={px}
+            y1={margin.top}
+            y2={margin.top + h}
+            stroke={color}
+            strokeWidth={1}
+            strokeDasharray="2 2"
+            opacity={0.9}
+          />
+        )
+      })}
       {/* Horizontal reference lines (dashed), drawn behind the series for visibility */}
       {Array.isArray(refLines) && refLines.map((rl, idx) => {
         if (!rl || !isFinite(rl.y)) return null

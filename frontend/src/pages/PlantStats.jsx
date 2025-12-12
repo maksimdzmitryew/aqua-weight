@@ -104,7 +104,13 @@ export default function PlantStats() {
             <Loader text="Loading measurements..." />
           ) : points.length > 1 ? (
             <div style={{ maxWidth: 960 }}>
-              <Sparkline data={points} width="100%" height={200} showPoints={true} />
+              <Sparkline
+                data={points}
+                width="100%"
+                height={200}
+                showPoints={true}
+                maxWaterG={Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null}
+              />
             </div>
           ) : (
             <div style={{ color: '#6b7280' }}>Not enough data to chart</div>

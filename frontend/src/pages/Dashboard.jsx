@@ -206,6 +206,9 @@ export default function Dashboard() {
                     height={chartHeight}
                     showPoints={true}
                     refLines={refLines}
+                    // Watering hint: draw vertical lines at peaks when increase vs previous
+                    // exceeds 20% of max water retained
+                    maxWaterG={Number.isFinite(p?.max_water_weight_g) ? Number(p.max_water_weight_g) : null}
                   />
                 ) : (
                   <div style={{ color: '#6b7280', fontSize: 12 }}>Not enough data to chart</div>
