@@ -116,6 +116,19 @@ export default function Calibration() {
 
           {items.map((p) => {
             const entries = p?.calibration?.max_water_retained || []
+            // Determine the single most negative Diff to max Weight (g) entry per plant
+            let mostNegativeEntry = null
+            let mostNegativeDiff = null
+            for (const it of entries) {
+              const a = it?.last_wet_weight_g
+              const b = it?.target_weight_g
+              if (typeof a !== 'number' || typeof b !== 'number') continue
+              const diff = a - b
+              if (diff < 0 && (mostNegativeDiff === null || diff < mostNegativeDiff)) {
+                mostNegativeDiff = diff
+                mostNegativeEntry = it
+              }
+            }
             // Entries are provided in DESC order by measured_at from the backend.
             // New filter behavior ("underwatered" checkbox):
             // - When unchecked (underwatered === false): show only rows with Diff to max Weight (g) < 0
@@ -192,25 +205,40 @@ export default function Calibration() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filtered.map((it, idx) => (
-                        <tr key={idx}>
-                          <td>{it.measured_at || '—'}</td>
-                          <td style={{ textAlign: 'right' }}>{it.water_added_g ?? '—'}</td>
-                          <td style={{ textAlign: 'right' }}>{it.last_wet_weight_g ?? '—'}</td>
-                          <td style={{ textAlign: 'right' }}>{
-                            (typeof it?.target_weight_g === 'number' && typeof it?.last_wet_weight_g === 'number')
-                              ? (() => {
-                                  const diff = it.last_wet_weight_g - it.target_weight_g
-                                  return diff > 0 ? `+${diff}` : `${diff}`
-                                })()
-                              : '—'
-                          }</td>
-                          <td style={{ textAlign: 'right', color: 'var(--danger-fg)' }}>{it.under_g ?? '—'}</td>
-                          <td style={{ textAlign: 'right', color: 'var(--danger-fg)' }}>{
-                            typeof it.under_pct === 'number' ? Math.round(it.under_pct) : '—'
-                          }</td>
-                        </tr>
-                      ))}
+                      {filtered.map((it, idx) => {
+                        const hasNums = typeof it?.target_weight_g === 'number' && typeof it?.last_wet_weight_g === 'number'
+                        const diffVal = hasNums ? (it.last_wet_weight_g - it.target_weight_g) : null
+                        const isUnder = typeof diffVal === 'number' && diffVal < 0
+                        // Highlight only the single most negative diff entry for this plant
+                        const isMostNegative = isUnder && (it === mostNegativeEntry || (
+                          // Fallback equality by key fields if object identity differs
+                          mostNegativeEntry && it?.measured_at === mostNegativeEntry?.measured_at &&
+                          it?.last_wet_weight_g === mostNegativeEntry?.last_wet_weight_g &&
+                          it?.target_weight_g === mostNegativeEntry?.target_weight_g
+                        ))
+                        const trStyle = isMostNegative
+                          ? { backgroundColor: 'var(--warn-row-bg, rgba(255, 165, 0, 0.10))' }
+                          : undefined
+                        return (
+                          <tr key={idx} style={trStyle} title={isMostNegative ? `Most under target by ${Math.abs(diffVal)}g` : undefined}>
+                            <td>{it.measured_at || '—'}</td>
+                            <td style={{ textAlign: 'right' }}>{it.water_added_g ?? '—'}</td>
+                            <td style={{ textAlign: 'right' }}>{it.last_wet_weight_g ?? '—'}</td>
+                            <td style={{ textAlign: 'right' }}>{
+                              hasNums
+                                ? (() => {
+                                    const diff = diffVal
+                                    return diff > 0 ? `+${diff}` : `${diff}`
+                                  })()
+                                : '—'
+                            }</td>
+                            <td style={{ textAlign: 'right', color: 'var(--danger-fg)' }}>{it.under_g ?? '—'}</td>
+                            <td style={{ textAlign: 'right', color: 'var(--danger-fg)' }}>{
+                              typeof it.under_pct === 'number' ? Math.round(it.under_pct) : '—'
+                            }</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -1,5 +1,7 @@
 ### Calibration: "Correct overfill" button — how it works
 
+Quick answer: When you click "Correct overfill", the UI takes the measured_at timestamp of the event with the most negative "Diff to max Weight (g)" since the last repotting and sends it as from_ts to the backend. The backend then corrects all overfilled watering entries from that timestamp onward, using a cap of target = min_dry_weight_g + max_water_weight_g and also capping last_wet_weight_g (edit_last_wet=true).
+
 This document explains exactly what the "Correct overfill (since repotting)" action on the Calibration page does, end‑to‑end.
 
 ---
