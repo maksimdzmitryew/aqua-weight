@@ -45,12 +45,14 @@ export default function Calibration() {
       // i.e., minimal (last_wet_weight_g - target_weight_g) since last repotting.
       const entries = plant?.calibration?.max_water_retained || []
       let minDiffEntry = null
+      let minDiffValue = null
       for (const it of entries) {
         const hasNums = typeof it?.last_wet_weight_g === 'number' && typeof it?.target_weight_g === 'number'
         if (!hasNums) continue
         const diff = it.last_wet_weight_g - it.target_weight_g
         if (minDiffEntry == null || diff < (minDiffEntry.last_wet_weight_g - minDiffEntry.target_weight_g)) {
           minDiffEntry = it
+          minDiffValue = diff
         }
       }
 
@@ -58,18 +60,28 @@ export default function Calibration() {
       if (minDiffEntry && minDiffEntry.measured_at) {
         // Use the min-diff event as the correction window start (from_ts)
         payload.from_ts = String(minDiffEntry.measured_at)
+        if (minDiffEntry.id) payload.start_measurement_id = String(minDiffEntry.id)
+        if (typeof minDiffValue === 'number') payload.start_diff_to_max_g = Math.trunc(minDiffValue)
       }
 
       await calibrationApi.correct(payload)
-      // refresh list
-      setLoading(true)
+      // refresh list without wiping the page; keep current items visible
       setError('')
       const data = await calibrationApi.list()
       setItems(Array.isArray(data) ? data : [])
     } catch (e) {
-      setError(e?.message || 'Failed to apply corrections')
+      // Format API errors that may carry object `detail` to avoid "[object Object]"
+      let msg = 'Failed to apply corrections'
+      const detail = e && (e.detail ?? e.body ?? e.message)
+      if (typeof detail === 'string' && detail.trim()) {
+        msg = detail
+      } else if (detail && typeof detail === 'object') {
+        try { msg = JSON.stringify(detail) } catch { /* noop */ }
+      } else if (e && typeof e.message === 'string' && e.message.trim()) {
+        msg = e.message
+      }
+      setError(msg)
     } finally {
-      setLoading(false)
       setBusyPlant('')
     }
   }

@@ -97,7 +97,6 @@ class PlantsList:
                         "id": idx,  # synthetic index for UI
                         "uuid": uuid_hex,
                         "name": name,
-                        #"name": f"min_dry_weight_g {min_dry_weight_g} + max_water_weight_g {max_water_weight_g} = Wfc {saturated_weight_g}; measured_weight_g {measured_weight_g}; AWC_g {available_water_g} frac_ratio {frac_ratio}",
                         "notes": notes,
                         "species": species_name,
                         "min_dry_weight_g": min_dry_weight_g,

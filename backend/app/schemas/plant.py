@@ -86,6 +86,7 @@ class PlantUpdateRequest(BaseModel):
     health_status_id: Optional[HexID] = None
     
 class CalibrationEntry(BaseModel):
+    id: Optional[str] = None
     measured_at: Optional[str] = None
     water_added_g: Optional[int] = None
     last_wet_weight_g: Optional[int] = None

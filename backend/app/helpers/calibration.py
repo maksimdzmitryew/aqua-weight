@@ -4,6 +4,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 
 from .last_repotting import get_last_repotting_event
+from ..db import bin_to_hex
 from datetime import datetime
 
 
@@ -86,7 +87,7 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
             cur.execute(
                 (
                     """
-                    SELECT measured_at, water_added_g, last_wet_weight_g
+                    SELECT id, measured_at, water_added_g, last_wet_weight_g
                     FROM plants_measurements
                     WHERE plant_id = UNHEX(%s)
                       AND measured_weight_g IS NULL
@@ -103,9 +104,10 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
         target_weight = int(min_dry) + int(max_water)
         items: List[dict] = []
         for wr in watering_rows:
-            measured_at_dt = wr[0]
-            water_added_g = wr[1]
-            last_wet_weight_g = wr[2]
+            mid = wr[0]
+            measured_at_dt = wr[1]
+            water_added_g = wr[2]
+            last_wet_weight_g = wr[3]
 
             # Compute "Underwatering" based on water added vs max water capacity, per requirement/example.
             # Example: min=80, max_water=20, water_added=15 -> under_g = 5, under_pct = 25% of max_water? (example says 15%)
@@ -126,6 +128,7 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
                 under_pct_val = None
 
             items.append({
+                "id": bin_to_hex(mid) if mid is not None else None,
                 "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds") if isinstance(measured_at_dt, datetime) else str(measured_at_dt) if measured_at_dt else None,
                 "water_added_g": int(water_added_g) if water_added_g is not None else None,
                 "last_wet_weight_g": int(last_wet_weight_g) if last_wet_weight_g is not None else None,

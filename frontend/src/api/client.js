@@ -42,13 +42,18 @@ export class ApiClient {
     for (let i = 0; i < attempts; i++) {
       if (i > 0) await sleep(backoffMs[Math.min(i, backoffMs.length - 1)])
       try {
+        // Merge headers and ensure JSON content type when sending a body
+        const mergedHeaders = {
+          'Accept': 'application/json, text/plain; q=0.8, */*; q=0.5',
+          ...this.getHeaders(),
+          ...headers,
+        }
+        if (body != null && !('Content-Type' in mergedHeaders)) {
+          mergedHeaders['Content-Type'] = 'application/json'
+        }
         const res = await fetch(this.buildUrl(path), {
           method,
-          headers: {
-            'Accept': 'application/json, text/plain; q=0.8, */*; q=0.5',
-            ...this.getHeaders(),
-            ...headers,
-          },
+          headers: mergedHeaders,
           body: body != null ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
           signal,
         })

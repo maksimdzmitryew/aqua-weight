@@ -1,6 +1,11 @@
 ### Calibration: "Correct overfill" button — how it works
 
-Quick answer: When you click "Correct overfill", the UI takes the measured_at timestamp of the event with the most negative "Diff to max Weight (g)" since the last repotting and sends it as from_ts to the backend. The backend then corrects all overfilled watering entries from that timestamp onward, using a cap of target = min_dry_weight_g + max_water_weight_g and also capping last_wet_weight_g (edit_last_wet=true).
+Quick answer: When you click "Correct overfill", the UI finds the event with the most negative "Diff to max Weight (g)" since the last repotting and sends three values to the backend:
+- from_ts = that event’s measured_at
+- start_measurement_id = that event’s ID
+- start_diff_to_max_g = that event’s (negative) diff value in grams
+
+The backend then corrects all overfilled watering entries from that timestamp onward, using a cap of target = min_dry_weight_g + max_water_weight_g and also capping last_wet_weight_g (edit_last_wet=true).
 
 This document explains exactly what the "Correct overfill (since repotting)" action on the Calibration page does, end‑to‑end.
 
@@ -27,14 +32,16 @@ Content-Type: application/json
 {
   "plant_id": "<plant uuid hex>",
   "from_ts": "<measured_at of the entry with the biggest negative Diff to max Weight (g)>",
+  "start_measurement_id": "<measurement id hex>",
+  "start_diff_to_max_g": -120,
   "cap": "capacity",
   "edit_last_wet": true
 }
 ```
 
 Notes:
-- The button now chooses the correction starting point since last repotting by scanning the plant’s calibration entries and picking the entry with the most negative `Diff to max Weight (g)` (i.e., the minimum value of `last_wet_weight_g - target_weight_g`). It passes that entry’s `measured_at` as `from_ts`.
-- If no entry has both `last_wet_weight_g` and `target_weight_g`, the button omits `from_ts`, and the backend falls back to the default window "since last repotting" (exclusive of the repot timestamp).
+- The button chooses the correction starting point since last repotting by scanning the plant’s calibration entries and picking the entry with the most negative `Diff to max Weight (g)` (i.e., the minimum value of `last_wet_weight_g - target_weight_g`). It passes that entry’s identifiers: `from_ts`, `start_measurement_id`, and `start_diff_to_max_g`.
+- If no entry has both `last_wet_weight_g` and `target_weight_g`, the button omits `from_ts`/`start_measurement_id`/`start_diff_to_max_g`, and the backend falls back to the default window "since last repotting" (exclusive of the repot timestamp).
 - `cap` is set to `capacity` by this button (see Cap modes below).
 - `edit_last_wet` is `true`, so measured wet weight is capped in addition to reducing water added.
 
@@ -51,6 +58,8 @@ Request model fields:
 - `to_ts` (optional, ISO local string): end of correction window.
 - `cap` (optional): one of `capacity` (default) or `retained_ratio`.
 - `edit_last_wet` (optional, default `true`): if true, also cap `last_wet_weight_g` to the computed target.
+- `start_measurement_id` (optional): ID of the event selected by the UI as the starting point (informational; backend currently uses `from_ts`).
+- `start_diff_to_max_g` (optional): numeric value of the selected event’s diff (informational).
 
 Behavior (algorithm):
 1. Validate `plant_id` and load plant parameters: `min_dry_weight_g`, `max_water_weight_g`, and `recommended_water_threshold_pct` (defaults to 100% when null).

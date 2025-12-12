@@ -124,6 +124,9 @@ class CorrectionsRequest(BaseModel):
     to_ts: str | None = None    # ISO local, optional
     cap: str | None = None      # 'capacity' | 'retained_ratio'
     edit_last_wet: bool | None = True
+    # Optional hints from UI: the chosen starting measurement and the most negative diff value
+    start_measurement_id: str | None = None
+    start_diff_to_max_g: int | None = None
 
 
 @app.post("/measurements/corrections")
@@ -569,11 +572,11 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                     effective_new_weight = mw_update if mw_update is not None else current_mw
                     update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, effective_new_weight, wa_eff_payload)
                 else:
-                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, derived.last_wet_weight_g, wa_eff_payload)
+                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, derived.last_dry_weight_g, wa_eff_payload)
 
                 conn.commit()
 
-                # Get plant information (you'll need to query this from the plants table)
+                # Get plant information (query this from the plants table)
                 # This would typically be done before the measurement insertion
                 cur.execute(
                     "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
