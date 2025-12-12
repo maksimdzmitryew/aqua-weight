@@ -178,12 +178,17 @@ export default function Sparkline({
         const dd = pad2(d.getDate())
         const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
         let daysSince = 0
+        // Compute difference in whole calendar days, ignoring time-of-day.
+        // If there is no previous peak, count days since the first available data point.
+        const msPerDay = 24 * 60 * 60 * 1000
         if (lastPeakTs != null && isFinite(lastPeakTs)) {
-          // Compute difference in whole calendar days, ignoring time-of-day
           const a = startOfDay(lastPeakTs)
           const b = startOfDay(cur.x)
-          const msPerDay = 24 * 60 * 60 * 1000
-          daysSince = Math.max(0, Math.floor((b - a) / msPerDay))
+          daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
+        } else if (points.length > 0 && isFinite(points[0]?.x)) {
+          const a = startOfDay(points[0].x)
+          const b = startOfDay(cur.x)
+          daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
         }
         peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, daysSince })
         lastPeakTs = cur.x
@@ -391,26 +396,39 @@ export default function Sparkline({
   }
 
   // Compute the "days since previous peak" for the first-below-threshold marker
-  // only if we are going to show it. We look for the last qualifying peak at or before the drop timestamp.
+  // only if we are going to show it. If there is no previous qualifying peak,
+  // start counting days from the first available data point (calendar days).
   let firstBelowDaysSincePrevPeak = null
-  if (!hideFirstBelow && firstBelowThresh && Array.isArray(peakVLines) && peakVLines.length > 0) {
+  if (!hideFirstBelow && firstBelowThresh) {
     const dropTs = firstBelowThresh.x
-    let prevPeakTs = null
-    for (let i = 0; i < peakVLines.length; i++) {
-      const pk = peakVLines[i]
-      if (!pk) continue
-      if (isFinite(pk.x) && pk.x <= dropTs) {
-        prevPeakTs = pk.x
-      } else if (isFinite(pk.x) && pk.x > dropTs) {
-        break
+    let startTs = null
+    // Prefer the last qualifying peak at or before the drop timestamp
+    if (Array.isArray(peakVLines) && peakVLines.length > 0) {
+      for (let i = 0; i < peakVLines.length; i++) {
+        const pk = peakVLines[i]
+        if (!pk) continue
+        if (isFinite(pk.x) && pk.x <= dropTs) {
+          startTs = pk.x
+        } else if (isFinite(pk.x) && pk.x > dropTs) {
+          break
+        }
       }
     }
-    const msPerDay = 24 * 60 * 60 * 1000
-    // Use whole day difference between local calendar dates
-    const a = (prevPeakTs != null && isFinite(prevPeakTs)) ? startOfDay(prevPeakTs) : NaN
-    const b = startOfDay(dropTs)
-    const days = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
-    firstBelowDaysSincePrevPeak = days
+    // If no previous peak found, fall back to the first data point timestamp
+    if ((startTs == null || !isFinite(startTs)) && points.length > 0 && isFinite(points[0]?.x)) {
+      startTs = points[0].x
+    }
+    if (isFinite(dropTs) && startTs != null && isFinite(startTs)) {
+      const msPerDay = 24 * 60 * 60 * 1000
+      // Use whole day difference between local calendar dates
+      const a = startOfDay(startTs)
+      const b = startOfDay(dropTs)
+      const days = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
+      firstBelowDaysSincePrevPeak = days
+    } else {
+      // If inputs are invalid, default to 0 days to avoid NaN in the label
+      firstBelowDaysSincePrevPeak = 0
+    }
   }
 
   return (
