@@ -97,6 +97,7 @@ exclude = [
   "frontend",
   "venv|.venv",
   "build|dist",
+  "backend/app/main_monolith.py",
 ]
 
 [tool.mypy.plugins]

@@ -115,7 +115,7 @@ jobs:
             "  }" \
             "];" > eslint.config.cjs
           # Restrict lint to src JS/JSX only to avoid TS and stories in CI
-          npx eslint ./src --ext .js,.jsx --config eslint.config.cjs
+          npx eslint ./src --ext .js,.jsx --config eslint.config.cjs --ignore-pattern '**/*.stories.*'
 
       - name: Prettier (check)
         working-directory: frontend
