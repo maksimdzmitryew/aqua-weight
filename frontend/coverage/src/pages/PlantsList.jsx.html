@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>248/248</span>
+                <span class='fraction'>258/258</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">99.14% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>116/116</span>
+                <span class='fraction'>116/117</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>248/248</span>
+                <span class='fraction'>258/258</span>
             </div>
         
             
@@ -409,7 +409,23 @@
 <a name='L344'></a><a href='#L344'>344</a>
 <a name='L345'></a><a href='#L345'>345</a>
 <a name='L346'></a><a href='#L346'>346</a>
-<a name='L347'></a><a href='#L347'>347</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<a name='L347'></a><a href='#L347'>347</a>
+<a name='L348'></a><a href='#L348'>348</a>
+<a name='L349'></a><a href='#L349'>349</a>
+<a name='L350'></a><a href='#L350'>350</a>
+<a name='L351'></a><a href='#L351'>351</a>
+<a name='L352'></a><a href='#L352'>352</a>
+<a name='L353'></a><a href='#L353'>353</a>
+<a name='L354'></a><a href='#L354'>354</a>
+<a name='L355'></a><a href='#L355'>355</a>
+<a name='L356'></a><a href='#L356'>356</a>
+<a name='L357'></a><a href='#L357'>357</a>
+<a name='L358'></a><a href='#L358'>358</a>
+<a name='L359'></a><a href='#L359'>359</a>
+<a name='L360'></a><a href='#L360'>360</a>
+<a name='L361'></a><a href='#L361'>361</a>
+<a name='L362'></a><a href='#L362'>362</a>
+<a name='L363'></a><a href='#L363'>363</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">1x</span>
@@ -661,6 +677,14 @@
 <span class="cline-any cline-yes">72x</span>
 <span class="cline-any cline-yes">72x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-yes">72x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">72x</span>
@@ -682,6 +706,14 @@
 <span class="cline-any cline-yes">226x</span>
 <span class="cline-any cline-yes">226x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">226x</span>
+<span class="cline-any cline-yes">226x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">226x</span>
+<span class="cline-any cline-yes">226x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">226x</span>
@@ -987,6 +1019,14 @@ export default function PlantsList() {
                     &lt;span&gt;Thresh&lt;/span&gt;
                     &lt;span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}&gt;ⓘ&lt;/span&gt;
                   &lt;/th&gt;
+                  &lt;th className="th" scope="col" title="Watering frequency"&gt;
+                    &lt;span&gt;Frequency&lt;/span&gt;
+                    &lt;span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}&gt;ⓘ&lt;/span&gt;
+                  &lt;/th&gt;
+                  &lt;th className="th" scope="col" title="Next planned watering date"&gt;
+                    &lt;span&gt;Next watering&lt;/span&gt;
+                    &lt;span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}&gt;ⓘ&lt;/span&gt;
+                  &lt;/th&gt;
                   &lt;th className="th" scope="col" title="Plant name"&gt;
                     &lt;span&gt;Name&lt;/span&gt;
                     &lt;span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}&gt;ⓘ&lt;/span&gt;
@@ -1032,6 +1072,14 @@ export default function PlantsList() {
                     &lt;/td&gt;
                     &lt;td className="td"&gt;
                         {p.recommended_water_threshold_pct}%
+                    &lt;/td&gt;
+                    {/* Frequency */}
+                    &lt;td className="td"&gt;
+                      {Number.isFinite(p?.<span class="branch-0 cbranch-no" title="branch not covered" >frequency_days) ? `${p.frequency_days} d` </span>: '—'}
+                    &lt;/td&gt;
+                    {/* Next watering (date only, DD/MM or MM/DD per user preference) */}
+                    &lt;td className="td"&gt;
+                      &lt;DateTimeText value={p.next_watering_at} mode="daymonth" /&gt;
                     &lt;/td&gt;
                     &lt;td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}&gt;
                         {p.uuid ? (
@@ -1108,7 +1156,7 @@ export default function PlantsList() {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-11T21:14:28.011Z
+                at 2025-12-15T14:04:42.187Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

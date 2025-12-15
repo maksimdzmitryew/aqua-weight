@@ -9,6 +9,8 @@ from backend.app.schemas.plant import PlantCreateRequest, PlantUpdateRequest
 class DummyCreate:
     def __init__(self):
         self.name = "Unit Invalid"
+        # align with current PlantCreateRequest optional fields accessed by route
+        self.notes = None
         self.description = None
         self.species_name = None
         self.botanical_name = None

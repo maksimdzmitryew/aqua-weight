@@ -19,6 +19,7 @@ vi.mock('../../src/pages/MeasurementCreate.jsx', () => stub('MeasurementCreate')
 vi.mock('../../src/pages/WateringCreate.jsx', () => stub('WateringCreate'))
 vi.mock('../../src/pages/RepottingCreate.jsx', () => stub('RepottingCreate'))
 vi.mock('../../src/pages/PlantDetails.jsx', () => stub('PlantDetails'))
+vi.mock('../../src/pages/PlantStats.jsx', () => stub('PlantStats'))
 vi.mock('../../src/pages/DailyCare.jsx', () => stub('DailyCare'))
 vi.mock('../../src/pages/BulkWeightMeasurement.jsx', () => stub('BulkWeightMeasurement'))
 vi.mock('../../src/pages/BulkWatering.jsx', () => stub('BulkWatering'))
@@ -114,6 +115,7 @@ describe('src/main.jsx bootstrap', () => {
       '/plants',
       '/plants/new',
       '/plants/:uuid',
+      '/stats/:uuid',
       '/plants/:uuid/edit',
       '/locations',
       '/locations/new',

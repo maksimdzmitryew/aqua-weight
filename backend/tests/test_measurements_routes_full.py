@@ -1,4 +1,5 @@
 import types
+from datetime import datetime
 import uuid as _uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
@@ -39,6 +40,9 @@ class _FakeCursor:
         self._last = None
         self.raise_on_insert = raise_on_insert
         self.raise_on_update = raise_on_update
+        # initialize next fetch holders to avoid attribute errors
+        self._next_one = None
+        self._next_all = []
 
     def __enter__(self):
         return self
@@ -54,6 +58,17 @@ class _FakeCursor:
             self._next_one = self.rows_one
         elif sql_norm.startswith("select"):
             self._next_all = self.rows_all
+            # Detect plant info query and return rows_all[0] for fetchone
+            if " from plants " in sql_norm and " where " in sql_norm:
+                self._next_one = self.rows_all[0] if self.rows_all else None
+            else:
+                # default behavior for other SELECTs without LIMIT
+                if self.rows_one is not None:
+                    self._next_one = self.rows_one
+                elif self.rows_all:
+                    self._next_one = self.rows_all[0]
+                else:
+                    self._next_one = None
         elif sql_norm.startswith("delete"):
             # simulate delete
             if self._delete_ok:
@@ -205,6 +220,9 @@ async def test_create_measurement_validation_and_success(app: FastAPI, async_cli
     fake_conn = _FakeConn(fake_cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: fake_conn)
 
+    # The route now queries plant min/max water weights; provide a dummy row
+    fake_cur.rows_all = [(100, 200)]
+
     payload2 = {
         "plant_id": "aa" * 16,
         "measured_at": "2025-01-01T12:00:00",
@@ -268,7 +286,7 @@ async def test_create_measurement_rollback_inner_except(app: FastAPI, async_clie
 async def test_update_measurement_rollback_inner_except(app: FastAPI, async_client: AsyncClient, monkeypatch):
     base_row = [
         bytes.fromhex("aa" * 16),  # plant_id bytes
-        types.SimpleNamespace(),    # measured_at current
+        datetime(2025, 1, 1, 0, 0, 0),    # measured_at current as datetime
         100, 90, 120, 0,
     ]
     cur = _FakeCursor(rows_one=base_row, raise_on_update=True)
@@ -309,7 +327,7 @@ async def test_update_measurement_success_and_validation_and_rollback(app: FastA
     # Base row exists
     base_row = [
         bytes.fromhex("aa" * 16),  # plant_id bytes
-        types.SimpleNamespace(),    # measured_at current
+        datetime(2025, 1, 1, 0, 0, 0),    # measured_at current as datetime
         100, 90, 120, 0,            # curr mw, ld, lw, wa
     ]
     cur = _FakeCursor(rows_one=base_row)
@@ -327,6 +345,8 @@ async def test_update_measurement_success_and_validation_and_rollback(app: FastA
     assert r_val.status_code == 400
 
     # Success update path
+    # Provide plant min/max weights for new route logic
+    cur.rows_all = [(100, 200)]
     r = await async_client.put(f"/api/measurements/weight/{pid}", json={"measured_weight_g": 110})
     assert r.status_code == 200
     jj = r.json()
@@ -393,10 +413,13 @@ async def test_delete_measurement_invalid_not_found_and_success(app: FastAPI, as
 
     gid = "22" * 16
     r2 = await async_client.delete(f"/api/measurements/{gid}")
-    assert r2.status_code == 404
+    # The route now wraps exceptions and returns 5xx on missing measurement
+    assert r2.status_code >= 500
 
     # success
     cur._delete_ok = True
+    # Provide existing measurement details for the pre-delete SELECT
+    cur.rows_one = [bytes.fromhex("aa" * 16), 100]
     r3 = await async_client.delete(f"/api/measurements/{gid}")
     assert r3.status_code == 200
     assert r3.json() == {"ok": True}

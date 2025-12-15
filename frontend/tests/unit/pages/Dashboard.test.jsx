@@ -14,7 +14,8 @@ describe('pages/Dashboard', () => {
       </ThemeProvider>
     )
 
-    expect(screen.getByRole('heading', { name: /welcome to the dashboard/i })).toBeInTheDocument()
-    expect(screen.getByText(/simple dashboard layout/i)).toBeInTheDocument()
+    // Updated expectations to match current UI content
+    expect(screen.getByRole('heading', { name: /overview/i })).toBeInTheDocument()
+    expect(screen.getByText(/each plant is represented by its weight trend/i)).toBeInTheDocument()
   })
 })
