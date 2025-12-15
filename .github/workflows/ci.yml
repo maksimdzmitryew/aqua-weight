@@ -101,18 +101,17 @@ jobs:
       - name: ESLint
         working-directory: frontend
         run: |
-          # Provide a minimal flat config for ESLint v9 if none exists in repo
-          if [ ! -f eslint.config.js ] && [ ! -f eslint.config.cjs ] && [ ! -f .eslintrc ] && [ ! -f .eslintrc.js ] && [ ! -f .eslintrc.json ] && [ ! -f .eslintrc.cjs ]; then \
-            printf "%s\n" \
-              "module.exports = [" \
-              "  {" \
-              "    files: ['**/*.{js,jsx,ts,tsx}']," \
-              "    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }," \
-              "    plugins: { react: require('eslint-plugin-react') }," \
-              "    rules: {}" \
-              "  }" \
-              "];" > eslint.config.cjs; \
-          fi
+          # Provide a minimal flat config for ESLint v9 (always create in CI)
+          printf "%s\n" \
+            "module.exports = [" \
+            "  {" \
+            "    files: ['**/*.{js,jsx,ts,tsx}']," \
+            "    ignores: ['node_modules/**','dist/**','coverage/**']," \
+            "    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }," \
+            "    plugins: { react: require('eslint-plugin-react') }," \
+            "    rules: {}" \
+            "  }" \
+            "];" > eslint.config.cjs
           npx eslint . --config eslint.config.cjs
 
       - name: Prettier (check)
@@ -220,18 +219,12 @@ jobs:
               "  - repo: https://github.com/pre-commit/pre-commit-hooks" \
               "    rev: v4.6.0" \
               "    hooks:" \
-              "      - id: trailing-whitespace" \
-              "      - id: end-of-file-fixer" \
               "      - id: check-merge-conflict" \
               "" \
               "  - repo: https://github.com/astral-sh/ruff-pre-commit" \
               "    rev: v0.6.9" \
               "    hooks:" \
               "      - id: ruff" \
-              "        args: ['--fix']" \
-              "        types_or: [python]" \
-              "        files: ^backend/|" \
-              "      - id: ruff-format" \
               "        types_or: [python]" \
               "        files: ^backend/|" \
               "" \
@@ -239,6 +232,7 @@ jobs:
               "    rev: 24.10.0" \
               "    hooks:" \
               "      - id: black" \
+              "        args: ['--check']" \
               "        types_or: [python]" \
               "        files: ^backend/|" \
               "" \

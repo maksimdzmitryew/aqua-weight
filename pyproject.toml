@@ -52,6 +52,8 @@ exclude = [
   "venv",
   "build",
   "dist",
+  # Exclude the experimental monolith file from linting (contains non-valid stubs for playground)
+  "backend/app/main_monolith.py",
 ]
 
 [tool.ruff.lint]

@@ -41,7 +41,6 @@ async def create_repotting_event(payload: RepottingCreateRequest):
             with conn.cursor() as cur:
 
                 last_watering_event = get_last_watering_event(cur, payload.plant_id)
-                last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
 
                 # Fetch previous last record for this plant using the helper class
                 last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
