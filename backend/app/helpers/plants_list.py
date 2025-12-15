@@ -1,5 +1,6 @@
 # app/helpers/plants_list.py
 from datetime import datetime, timedelta
+from math import ceil
 from ..db import get_conn, bin_to_hex
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.frequency import compute_frequency_days
@@ -122,7 +123,18 @@ class PlantsList:
                                 last_row = cur2.fetchone()
                                 last_watering_at = last_row[0] if last_row else None
                                 if last_watering_at:
+                                    # Initial projection
                                     next_watering_at = last_watering_at + timedelta(days=int(freq_days))
+                                    # If projection is in the past, roll forward by multiples of frequency
+                                    try:
+                                        if next_watering_at and next_watering_at < now:
+                                            # How many full frequencies have elapsed since the last watering
+                                            elapsed_days = (now - last_watering_at).total_seconds() / (24 * 60 * 60)
+                                            steps = max(1, ceil(elapsed_days / int(freq_days)))
+                                            next_watering_at = last_watering_at + timedelta(days=int(freq_days) * steps)
+                                    except Exception:
+                                        # Keep the initial projection if any math fails
+                                        pass
                         except Exception:
                             next_watering_at = None
 

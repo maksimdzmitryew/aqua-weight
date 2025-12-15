@@ -30,7 +30,95 @@ from ..helpers.calibration import (
 )
 from ..schemas.plant import PlantListItem, PlantCalibrationItem
 
+# Ensure router is defined before any @app.* decorators are used
 app = APIRouter()
+
+
+# --- New: Simple endpoint to record a delegated/reported watering (no weights) ---
+class ReportedWateringCreateRequest(BaseModel):
+    plant_id: str
+    # Optional local timestamp string (e.g., from input type=datetime-local). If omitted, uses now.
+    measured_at: str | None = None
+    # Optional free text; we will prefix with "[reported]" marker when storing.
+    note: str | None = None
+    # Optional reporter name to include in note (lightweight attribution only)
+    reporter: str | None = None
+
+
+@app.post("/measurements/reported-watering")
+async def create_reported_watering(payload: ReportedWateringCreateRequest, get_conn_fn = Depends(get_conn_factory)):
+    """
+    Create a lightweight watering marker when a delegate reports watering without measurements.
+
+    Storage signature (designed to be picked up by scheduling analytics):
+      - measured_weight_g = NULL
+      - water_loss_total_pct = 0
+      - other weight/loss fields left NULL
+      - measured_at = provided timestamp (or now, parsed via existing utility)
+      - note = "[reported] ..." with optional reporter and free-form note
+
+    This intentionally does NOT attempt to derive weights or compute losses.
+    """
+    if not HEX_RE.match(payload.plant_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant_id")
+
+    # Parse/normalize timestamp using existing utility to match other endpoints
+    try:
+        measured_at_dt = parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid measured_at: {e}")
+
+    # Compose a concise note
+    parts = ["[reported] watering"]
+    if (payload.reporter or "").strip():
+        parts.append(f"by {payload.reporter.strip()}")
+    if (payload.note or "").strip():
+        parts.append(f"— {payload.note.strip()}")
+    final_note = " ".join(parts)
+
+    def do_insert():
+        conn = get_conn_fn()
+        try:
+            with conn.cursor() as cur:
+                new_id = uuid.uuid4().bytes
+                cur.execute(
+                    (
+                        """
+                        INSERT INTO plants_measurements (
+                          id, plant_id, measured_at,
+                          measured_weight_g, water_loss_total_pct, note
+                        ) VALUES (%s, UNHEX(%s), %s, %s, %s, %s)
+                        """
+                    ),
+                    (
+                        new_id,
+                        payload.plant_id,
+                        measured_at_dt,
+                        None,            # measured_weight_g
+                        0,               # water_loss_total_pct marks a watering event for scheduling
+                        final_note,
+                    ),
+                )
+                conn.commit()
+                return {
+                    "id": bin_to_hex(new_id),
+                    "plant_id": payload.plant_id,
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds"),
+                    "note": final_note,
+                }
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise HTTPException(status_code=500, detail=f"Failed to create reported watering: {e}")
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return await run_in_threadpool(do_insert)
 
 
 
