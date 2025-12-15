@@ -214,8 +214,42 @@ jobs:
       - name: Run pre-commit (if configured)
         run: |
           if [ -f .pre-commit-config.yaml ]; then
-            # Skip ESLint/Prettier hooks here since we lint/format in dedicated frontend job
-            SKIP=eslint,prettier pre-commit run --all-files --show-diff-on-failure --color always
+            # Use a CI-only trimmed config to avoid initializing JS mirrors (eslint/prettier)
+            cat > .pre-commit-config.ci.yaml <<'YAML'
+            repos:
+              - repo: https://github.com/pre-commit/pre-commit-hooks
+                rev: v4.6.0
+                hooks:
+                  - id: trailing-whitespace
+                  - id: end-of-file-fixer
+                  - id: check-merge-conflict
+
+              - repo: https://github.com/astral-sh/ruff-pre-commit
+                rev: v0.6.9
+                hooks:
+                  - id: ruff
+                    args: ["--fix"]
+                    types_or: [python]
+                    files: ^backend/|
+                  - id: ruff-format
+                    types_or: [python]
+                    files: ^backend/|
+
+              - repo: https://github.com/psf/black
+                rev: 24.10.0
+                hooks:
+                  - id: black
+                    types_or: [python]
+                    files: ^backend/|
+
+              - repo: https://github.com/pre-commit/mirrors-mypy
+                rev: v1.11.2
+                hooks:
+                  - id: mypy
+                    args: ["--config-file=pyproject.toml"]
+                    files: ^backend/|
+            YAML
+            pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml
           else
             echo "No .pre-commit-config.yaml; skipping."
           fi
