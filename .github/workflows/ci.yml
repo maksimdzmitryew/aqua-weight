@@ -76,9 +76,10 @@ jobs:
         working-directory: frontend
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          # Install dev tools on-the-fly if missing in package.json
-          npx --yes npm-which eslint >/dev/null 2>&1 || npm i -D eslint eslint-plugin-react
-          npx --yes npm-which prettier >/dev/null 2>&1 || npm i -D prettier
+          # Ensure ESLint v9 stack is present (plugin required by temp config)
+          npm i -D eslint@9 eslint-plugin-react@7
+          # Ensure Prettier available
+          npm i -D prettier
           # Jest stack for React + Vite
           npm i -D jest @testing-library/react @testing-library/jest-dom @testing-library/user-event babel-jest @babel/preset-env @babel/preset-react identity-obj-proxy
 
