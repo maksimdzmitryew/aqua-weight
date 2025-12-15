@@ -39,9 +39,6 @@ omit = [
 line-length = 100
 target-version = ["py311"]
 include = '\.(py|pyi)$'
-exclude = [
-  '/(\.git|\.mypy_cache|\.ruff_cache|\.venv|venv|build|dist)/',
-]
 
 [tool.ruff]
 line-length = 120

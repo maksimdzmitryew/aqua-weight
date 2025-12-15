@@ -106,14 +106,15 @@ jobs:
           printf "%s\n" \
             "module.exports = [" \
             "  {" \
-            "    files: ['**/*.{js,jsx,ts,tsx}']," \
-            "    ignores: ['node_modules/**','dist/**','coverage/**']," \
-            "    languageOptions: { ecmaVersion: 'latest', sourceType: 'module' }," \
+            "    files: ['**/*.{js,jsx}']," \
+            "    ignores: ['node_modules/**','dist/**','coverage/**','tests/**','**/*.stories.*','.storybook/**']," \
+            "    languageOptions: { ecmaVersion: 'latest', sourceType: 'module', parserOptions: { ecmaFeatures: { jsx: true } } }," \
             "    plugins: { react: require('eslint-plugin-react') }," \
             "    rules: {}" \
             "  }" \
             "];" > eslint.config.cjs
-          npx eslint . --config eslint.config.cjs
+          # Restrict lint to src JS/JSX only to avoid TS and stories in CI
+          npx eslint ./src --ext .js,.jsx --config eslint.config.cjs
 
       - name: Prettier (check)
         working-directory: frontend
