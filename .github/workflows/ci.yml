@@ -86,16 +86,16 @@ jobs:
         if: ${{ always() }}
         working-directory: frontend
         run: |
-          # Only create if not present in repo
-          if [ ! -f babel.config.cjs ] && [ ! -f babel.config.js ] && [ ! -f .babelrc ]; then
-            cat > babel.config.cjs <<'EOF'
-            module.exports = {
-              presets: [
-                [require.resolve('@babel/preset-env'), { targets: { node: 'current' } }],
-                require.resolve('@babel/preset-react'),
-              ],
-            };
-            EOF
+          # Only create if not present in repo; use printf to avoid YAML heredoc pitfalls
+          if [ ! \
+            -f babel.config.cjs ] && [ ! -f babel.config.js ] && [ ! -f .babelrc ]; then \
+            printf "%s\n" \
+              "module.exports = {" \
+              "  presets: [" \
+              "    [require.resolve('@babel/preset-env'), { targets: { node: 'current' } }]," \
+              "    require.resolve('@babel/preset-react')," \
+              "  ]," \
+              "};" > babel.config.cjs; \
           fi
 
       - name: ESLint
