@@ -40,15 +40,30 @@ jobs:
       # - name: Mypy (type check)
       #   run: mypy backend/app
 
-      - name: Pytest (with coverage)
+      - name: Start test stack (db + runner)
+        run: docker compose -f docker-compose.test.yml up -d db runner
+
+      - name: Wait for DB healthy
         run: |
-          pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=70
+          for i in {1..30}; do
+            if docker compose -f docker-compose.test.yml exec -T db mariadb-admin \
+              ping -h 127.0.0.1 --protocol=TCP -uroot -p"${MARIADB_ROOT_PASSWORD:-rootpass}" --silent; then
+              echo "DB OK"; break; fi; echo "Waiting for DB..."; sleep 3; done
+
+      - name: Pytest (inside runner) with 100% coverage
+        run: |
+          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+            "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
 
       - name: Upload backend coverage artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage-xml
           path: backend-coverage.xml
+
+      - name: Teardown test stack
+        if: ${{ always() }}
+        run: docker compose -f docker-compose.test.yml down -v
 
   frontend:
     name: Frontend (lint, format, unit tests, coverage)
