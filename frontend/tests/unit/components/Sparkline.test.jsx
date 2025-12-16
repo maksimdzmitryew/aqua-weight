@@ -44,6 +44,26 @@ describe('components/Sparkline', () => {
     expect(circles.length).toBeGreaterThan(0)
   })
 
+  test('measures container width and updates viewBox (covers line 147)', async () => {
+    // Force the responsive branch by passing a non-number width, and mock clientWidth
+    const clientWidthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(320)
+
+    const t0 = new Date('2025-03-01T00:00:00Z').getTime()
+    const data = [
+      { x: t0, y: 1 },
+      { x: t0 + 1, y: 2 },
+    ]
+
+    renderWithTheme(<Sparkline data={data} width="responsive" height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    // After the effect measures clientWidth, it should set measuredW to 320
+    await new Promise(r => setTimeout(r, 0))
+    expect(svg.getAttribute('viewBox')).toBe('0 0 320 80')
+
+    clientWidthSpy.mockRestore()
+  })
+
   test('renders area when multiple points and fill not disabled; renders reference lines with labels', () => {
     const t = Date.now()
     const data = [
@@ -63,6 +83,28 @@ describe('components/Sparkline', () => {
     // ref lines are lines with dash arrays; verify labels appear
     expect(within(svg).getByText('Thresh')).toBeInTheDocument()
     expect(within(svg).getByText('Min')).toBeInTheDocument()
+  })
+
+  test('default fill uses dark theme color and renders area (cover line 135)', () => {
+    // Force dark theme so Sparkline picks the dark defaultFill branch
+    localStorage.setItem('theme', 'dark')
+
+    const t = Date.now()
+    const data = [
+      { x: t, y: 5 },
+      { x: t + 1, y: 7 },
+    ]
+
+    renderWithTheme(<Sparkline data={data} width={240} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    const paths = svg.querySelectorAll('path')
+    expect(paths.length).toBeGreaterThanOrEqual(2)
+
+    // Area path is the one with stroke="none" and a non-none fill
+    const areaPath = Array.from(paths).find(p => p.getAttribute('stroke') === 'none')
+    expect(areaPath).toBeTruthy()
+    expect(areaPath.getAttribute('fill')).toBe('rgba(96,165,250,0.15)')
   })
 
   test('computes peaks and renders vertical lines with labels and daysSince (USA date format)', () => {
