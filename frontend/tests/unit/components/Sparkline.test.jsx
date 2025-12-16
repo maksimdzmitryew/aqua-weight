@@ -664,6 +664,58 @@ describe('components/Sparkline', () => {
     expect(badge).toHaveAttribute('fill', '#f59e0b')
   })
 
+  test('first-below marker stroke and label use blue in light theme (cover 483-494)', () => {
+    const base = new Date('2025-08-01T08:00:00Z').getTime()
+    // Create a simple sequence with a first-below-threshold drop and no peaks
+    // Threshold at 10; going from 12 -> 9 crosses below
+    const pts = [
+      { x: base + 0 * 86400000, y: 12 },
+      { x: base + 1 * 86400000, y: 9 },
+      { x: base + 2 * 86400000, y: 8 },
+    ]
+    const ref = [{ y: 10, label: 'Thresh' }]
+
+    renderWithTheme(
+      <Sparkline data={pts} refLines={ref} width={300} height={80} />
+    )
+
+    const svg = screen.getByLabelText('sparkline')
+    // The first-below vertical marker has dash "4 2" and width 1.5
+    const fbLine = svg.querySelector('line[stroke-dasharray="4 2"][stroke-width="1.5"]')
+    expect(fbLine).toBeTruthy()
+    // Light theme stroke color
+    expect(fbLine?.getAttribute('stroke')).toBe('#2563eb')
+
+    // The label text (e.g., "0d" or "1d") should have the same blue color in light theme
+    const badge = within(svg).getByText(/\d+d/)
+    expect(badge).toHaveAttribute('fill', '#2563eb')
+  })
+
+  test('first-below marker stroke and label use blue in dark theme (cover 483-494)', () => {
+    localStorage.setItem('theme', 'dark')
+
+    const base = new Date('2025-08-02T08:00:00Z').getTime()
+    const pts = [
+      { x: base + 0 * 86400000, y: 11 },
+      { x: base + 1 * 86400000, y: 9 },
+      { x: base + 2 * 86400000, y: 7 },
+    ]
+    const ref = [{ y: 10, label: 'Thresh' }]
+
+    renderWithTheme(
+      <Sparkline data={pts} refLines={ref} width={300} height={80} />
+    )
+
+    const svg = screen.getByLabelText('sparkline')
+    const fbLine = svg.querySelector('line[stroke-dasharray="4 2"][stroke-width="1.5"]')
+    expect(fbLine).toBeTruthy()
+    // Dark theme stroke color
+    expect(fbLine?.getAttribute('stroke')).toBe('#60a5fa')
+
+    const badge = within(svg).getByText(/\d+d/)
+    expect(badge).toHaveAttribute('fill', '#60a5fa')
+  })
+
   test('hover guide and HTML tooltip styles (light theme) cover 598-623', () => {
     const t0 = new Date('2025-07-01T00:00:00Z').getTime()
     const pts = [
