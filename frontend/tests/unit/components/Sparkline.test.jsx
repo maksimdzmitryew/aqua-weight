@@ -613,6 +613,20 @@ describe('components/Sparkline', () => {
       expect(fb && fb.index).toBe(1)
     })
 
+    test('computeFirstBelow skips null/undefined items (covers branch with !prev || !cur)', () => {
+      const t = Date.now()
+      const pts = [
+        { x: t, y: 10 },
+        null,       // should be skipped when cur is null
+        { x: t + 2, y: 12 },
+        { x: t + 3, y: 9 }, // first valid drop below thresh from 12 -> 9
+      ]
+      const fb = computeFirstBelow(pts, 10, true)
+      expect(fb).toBeTruthy()
+      expect(fb.index).toBe(3)
+      expect(fb.y).toBe(9)
+    })
+
     test('shouldHideFirstBelow returns true when any peak on same day; skips undefined items', () => {
       const base = new Date('2025-01-02T10:00:00').getTime()
       const dayKey = (ts) => new Date(ts).toISOString().slice(0, 10)
