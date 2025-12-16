@@ -597,6 +597,73 @@ describe('components/Sparkline', () => {
     expect(badge).toHaveAttribute('fill', '#16a34a')
   })
 
+  test('peak marker line and label use amber in light theme (cover 505-514)', () => {
+    const t0 = new Date('2025-07-10T00:00:00Z').getTime()
+    // Create a peak where prev is well below threshold and outside the 10% band
+    // prev=50, cur=70 (peak), next=60; threshold=80, maxWaterG=100 -> band=10, thresh-band=70, prev=50 < 70
+    const pts = [
+      { x: t0, y: 50 },
+      { x: t0 + 86_400_000, y: 70 }, // peak
+      { x: t0 + 2 * 86_400_000, y: 60 },
+    ]
+    const ref = [{ y: 80, label: 'Thresh' }]
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        refLines={ref}
+        maxWaterG={100}
+        peakDeltaPct={0.1}
+        showPeakVLines
+        showPeakVLineLabels
+        width={300}
+        height={80}
+      />
+    )
+
+    const svg = screen.getByLabelText('sparkline')
+    // Peak marker vertical line has strokeDasharray="2 2" and should use amber color for light theme (#d97706)
+    const peakLine = svg.querySelector('line[stroke-dasharray="2 2"]')
+    expect(peakLine).toBeTruthy()
+    expect(peakLine?.getAttribute('stroke')).toBe('#d97706')
+
+    // Label color defaults to amber when prev below threshold and outside band
+    const badge = within(svg).getByText(/\d+d/)
+    expect(badge).toHaveAttribute('fill', '#d97706')
+  })
+
+  test('peak marker line and label use amber in dark theme (cover 505-514)', () => {
+    localStorage.setItem('theme', 'dark')
+
+    const t0 = new Date('2025-07-11T00:00:00Z').getTime()
+    const pts = [
+      { x: t0, y: 40 },
+      { x: t0 + 86_400_000, y: 60 }, // peak
+      { x: t0 + 2 * 86_400_000, y: 50 },
+    ]
+    const ref = [{ y: 80, label: 'Thresh' }]
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        refLines={ref}
+        maxWaterG={100}
+        peakDeltaPct={0.1}
+        showPeakVLines
+        showPeakVLineLabels
+        width={300}
+        height={80}
+      />
+    )
+
+    const svg = screen.getByLabelText('sparkline')
+    const peakLine = svg.querySelector('line[stroke-dasharray="2 2"]')
+    expect(peakLine).toBeTruthy()
+    // Dark theme amber tone
+    expect(peakLine?.getAttribute('stroke')).toBe('#f59e0b')
+
+    const badge = within(svg).getByText(/\d+d/)
+    expect(badge).toHaveAttribute('fill', '#f59e0b')
+  })
+
   test('hover guide and HTML tooltip styles (light theme) cover 598-623', () => {
     const t0 = new Date('2025-07-01T00:00:00Z').getTime()
     const pts = [
