@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
-import Sparkline, { computeFirstBelow, shouldHideFirstBelow, computeDaysSincePrevPeak, computePeakVLines } from '../../../src/components/Sparkline.jsx'
+import Sparkline, { computeFirstBelow, shouldHideFirstBelow, computeDaysSincePrevPeak, computePeakVLines, buildDefaultHoverLines, findNearestIndexByX as findNearestIndexByXHelper } from '../../../src/components/Sparkline.jsx'
 
 // Helper to render with ThemeProvider (light by default)
 function renderWithTheme(ui) {
@@ -1112,6 +1112,19 @@ describe('components/Sparkline', () => {
       expect(computePeakVLines(pts, 100, 0.5, 'usa')).toEqual([])
       // threshAbs is null when peakDeltaPct <= 0 -> empty
       expect(computePeakVLines(pts, 100, 0, 'usa')).toEqual([])
+    })
+
+    test('findNearestIndexByX returns null for empty points (covers 267)', () => {
+      const idx = findNearestIndexByXHelper([], 123)
+      expect(idx).toBeNull()
+    })
+
+    test('buildDefaultHoverLines returns [] when point is undefined (covers 299)', () => {
+      const t = Date.now()
+      const pts = [{ x: t, y: 1 }]
+      const lines = buildDefaultHoverLines(pts, 5, () => 'europe')
+      expect(Array.isArray(lines)).toBe(true)
+      expect(lines.length).toBe(0)
     })
   })
 

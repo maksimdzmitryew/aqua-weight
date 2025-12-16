@@ -88,6 +88,60 @@ export function computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref) {
   return result
 }
 
+// New: export pure helpers to enable direct unit tests for previously unreachable branches
+export function findNearestIndexByX(points, domainX) {
+  if (!Array.isArray(points) || points.length === 0) return null
+  let best = 0
+  let bestDist = Math.abs(points[0].x - domainX)
+  for (let i = 1; i < points.length; i++) {
+    const d = Math.abs(points[i].x - domainX)
+    if (d < bestDist) { best = i; bestDist = d }
+  }
+  return best
+}
+
+export function buildDefaultHoverLines(points, idx, getDtPref = () => 'europe') {
+  const pt = Array.isArray(points) ? points[idx] : undefined
+  if (!pt) return []
+  const date = new Date(pt.x)
+  let dtPref = 'europe'
+  try {
+    dtPref = getDtPref() || 'europe'
+  } catch {}
+  const pad2 = (n) => String(n).padStart(2, '0')
+  let dateStr
+  if (!isFinite(date.getTime())) {
+    dateStr = String(pt.x)
+  } else if (dtPref === 'usa') {
+    const mm = pad2(date.getMonth() + 1)
+    const dd = pad2(date.getDate())
+    const yyyy = date.getFullYear()
+    let hh = date.getHours()
+    const ampm = hh >= 12 ? 'PM' : 'AM'
+    hh = hh % 12
+    if (hh === 0) hh = 12
+    const mins = pad2(date.getMinutes())
+    dateStr = `${mm}/${dd}/${yyyy} ${hh}:${mins} ${ampm}`
+  } else {
+    const mm = pad2(date.getMonth() + 1)
+    const dd = pad2(date.getDate())
+    const yyyy = date.getFullYear()
+    const hh = pad2(date.getHours())
+    const mins = pad2(date.getMinutes())
+    dateStr = `${dd}/${mm}/${yyyy} ${hh}:${mins}`
+  }
+  const lines = [dateStr, `${pt.y} g`]
+  if (idx > 0) {
+    const prev = points[idx - 1]
+    if (prev) {
+      const delta = pt.y - prev.y
+      const sign = delta > 0 ? '+' : ''
+      lines.push(`Δ ${sign}${Math.round(delta)} g`)
+    }
+  }
+  return lines
+}
+
 /**
  * Minimal sparkline/line chart component using pure SVG.
  * Props:
@@ -263,16 +317,8 @@ export default function Sparkline({
   const [hoverIdx, setHoverIdx] = React.useState(null)
   const hasHover = hover && points.length > 0
 
-  function findNearestIndexByX(domainX) {
-    if (!points.length) return null
-    // Linear scan is sufficient for small series
-    let best = 0
-    let bestDist = Math.abs(points[0].x - domainX)
-    for (let i = 1; i < points.length; i++) {
-      const d = Math.abs(points[i].x - domainX)
-      if (d < bestDist) { best = i; bestDist = d }
-    }
-    return best
+  function nearestIndexByX(domainX) {
+    return findNearestIndexByX(points, domainX)
   }
 
   function onMouseMove(e) {
@@ -284,7 +330,7 @@ export default function Sparkline({
     const vbX = px * scaleX
     const plotX = Math.min(margin.left + w, Math.max(margin.left, vbX))
     const t = minX + ((plotX - margin.left) / Math.max(1, w)) * spanX
-    const idx = findNearestIndexByX(t)
+    const idx = nearestIndexByX(t)
     setHoverIdx(idx)
   }
 
@@ -295,49 +341,15 @@ export default function Sparkline({
 
   // Build tooltip content
   function defaultHoverLines(idx) {
-    const pt = points[idx]
-    if (!pt) return []
-    const date = new Date(pt.x)
-    // Format date/time according to Settings preference
-    let dtPref = 'europe'
-    try {
-      const stored = localStorage.getItem('dtFormat')
-      if (stored === 'usa' || stored === 'europe') dtPref = stored
-    } catch {}
-    const pad2 = (n) => String(n).padStart(2, '0')
-    let dateStr
-    if (!isFinite(date.getTime())) {
-      dateStr = String(pt.x)
-    } else if (dtPref === 'usa') {
-      // MM/DD/YYYY h:mm AM/PM (12h clock)
-      const mm = pad2(date.getMonth() + 1)
-      const dd = pad2(date.getDate())
-      const yyyy = date.getFullYear()
-      let hh = date.getHours()
-      const ampm = hh >= 12 ? 'PM' : 'AM'
-      hh = hh % 12
-      if (hh === 0) hh = 12
-      const mins = pad2(date.getMinutes())
-      dateStr = `${mm}/${dd}/${yyyy} ${hh}:${mins} ${ampm}`
-    } else {
-      // DD/MM/YYYY HH:mm (24h clock)
-      const mm = pad2(date.getMonth() + 1)
-      const dd = pad2(date.getDate())
-      const yyyy = date.getFullYear()
-      const hh = pad2(date.getHours())
-      const mins = pad2(date.getMinutes())
-      dateStr = `${dd}/${mm}/${yyyy} ${hh}:${mins}`
+    const getDtPref = () => {
+      let pref = 'europe'
+      try {
+        const stored = localStorage.getItem('dtFormat')
+        if (stored === 'usa' || stored === 'europe') pref = stored
+      } catch {}
+      return pref
     }
-    const lines = [dateStr, `${pt.y} g`]
-    if (idx > 0) {
-      const prev = points[idx - 1]
-      if (prev) {
-        const delta = pt.y - prev.y
-        const sign = delta > 0 ? '+' : ''
-        lines.push(`Δ ${sign}${Math.round(delta)} g`)
-      }
-    }
-    return lines
+    return buildDefaultHoverLines(points, idx, getDtPref)
   }
 
   const tooltipLines = (hoverIdx != null)
