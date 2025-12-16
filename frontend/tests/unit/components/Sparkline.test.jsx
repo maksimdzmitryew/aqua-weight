@@ -601,6 +601,49 @@ describe('components/Sparkline', () => {
     expect(dummyStartOfDay).not.toHaveBeenCalled()
   })
 
+  test('computeDaysSincePrevPeak computes floor day diff using startOfDay (cover line 55)', () => {
+    // Arrange: drop occurs on the 4th day, startTs should resolve to day 1 via peakVLines
+    const baseUTC = Date.UTC(2025, 0, 1) // 2025-01-01T00:00:00Z
+    const firstBelowThresh = { x: baseUTC + 3 * 86_400_000 + 5 * 60 * 60 * 1000, y: 0 } // Jan 4, +5h
+    // Provide peakVLines such that the last <= drop is the very first day (baseUTC), then a later one to trigger break
+    const peakVLines = [
+      { x: baseUTC },
+      { x: baseUTC + 10 * 86_400_000 }, // > drop -> loop breaks, startTs stays at baseUTC
+    ]
+    const points = []
+    const startOfDay = (ts) => {
+      const d = new Date(ts)
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+    }
+
+    // Act
+    const days = computeDaysSincePrevPeak(firstBelowThresh, peakVLines, points, startOfDay)
+
+    // Assert: floor((Jan4@00:00 - Jan1@00:00)/1d) = 3
+    expect(days).toBe(3)
+  })
+
+  test('computePeakVLines skips indices when prev/cur/next missing (cover line 73)', () => {
+    // Arrange: include a null point to force the guard at line 73 to trigger "continue"
+    const t0 = Date.UTC(2025, 0, 1)
+    const pts = [
+      { x: t0 + 0 * 86_400_000, y: 5 },
+      null, // triggers the guard: prev/cur/next check
+      { x: t0 + 2 * 86_400_000, y: 10 },
+      { x: t0 + 3 * 86_400_000, y: 25 }, // peak (prev=10, next=15)
+      { x: t0 + 4 * 86_400_000, y: 15 },
+    ]
+
+    // Act
+    const peaks = computePeakVLines(pts, 100, 0.1, 'usa')
+
+    // Assert: the null entry should be skipped safely; a valid peak is still detected
+    expect(Array.isArray(peaks)).toBe(true)
+    expect(peaks.length).toBe(1)
+    expect(peaks[0].x).toBe(pts[3].x)
+    expect(peaks[0]).toMatchObject({ prevY: 10, daysSince: 0 })
+  })
+
   test('peak label color turns green when previous value above threshold', () => {
     const t0 = Date.now()
     const pts = [
