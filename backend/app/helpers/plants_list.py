@@ -185,7 +185,9 @@ class PlantsList:
                         "max_water_weight_g": max_water_weight_g,
                         "location": location_name,
                         "location_id": location_id_hex,
-                        # Tests expect this key name and preference
+                        # PlantListItem expects 'latest_at' for the list view, but
+                        # unit tests also read legacy 'created_at' key. Keep both.
+                        "latest_at": created_at_pref,
                         "created_at": created_at_pref,
                         "measured_weight_g": measured_weight_g,
                         "water_loss_total_pct": water_loss_total_pct,
