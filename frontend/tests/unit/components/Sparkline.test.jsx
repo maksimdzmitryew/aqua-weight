@@ -597,6 +597,76 @@ describe('components/Sparkline', () => {
     expect(badge).toHaveAttribute('fill', '#16a34a')
   })
 
+  test('hover guide and HTML tooltip styles (light theme) cover 598-623', () => {
+    const t0 = new Date('2025-07-01T00:00:00Z').getTime()
+    const pts = [
+      { x: t0, y: 10 },
+      { x: t0 + 60_000, y: 12 },
+      { x: t0 + 120_000, y: 11 },
+    ]
+
+    renderWithTheme(<Sparkline data={pts} width={300} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    // Trigger hover to render guide and tooltip
+    fireEvent.mouseMove(svg, { clientX: 150, clientY: 40 })
+
+    // SVG hover guide (strokeDasharray="3 3") and focus circle with stroke set to bgFill
+    const guide = svg.querySelector('line[stroke-dasharray="3 3"]')
+    expect(guide).toBeTruthy()
+    const hoverCircle = svg.querySelector('circle[stroke]')
+    expect(hoverCircle).toBeTruthy()
+    // In light theme, bgFill is #ffffff
+    expect(hoverCircle.getAttribute('stroke')).toBe('#ffffff')
+
+    // HTML tooltip overlay and its theme-dependent styles
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    // Theme-dependent assertions (light)
+    expect(tip.style.background).toBe('rgb(255, 255, 255)')
+    expect(tip.style.color).toBe('rgb(17, 24, 39)')
+    // In JSDOM, computed border color is serialized to rgb()
+    expect(tip.style.border).toContain('rgb(229, 231, 235)')
+    // JSDOM normalizes rgba without spaces
+    expect(tip.style.boxShadow).toBe('0 2px 8px rgba(0,0,0,0.1)')
+    // Static style bits also reside within 609-623
+    expect(tip.style.pointerEvents).toBe('none')
+    expect(tip.style.whiteSpace).toBe('pre')
+  })
+
+  test('hover guide and HTML tooltip styles (dark theme) cover 598-623', () => {
+    // Force dark theme preference
+    localStorage.setItem('theme', 'dark')
+
+    const t0 = new Date('2025-07-02T00:00:00Z').getTime()
+    const pts = [
+      { x: t0, y: 10 },
+      { x: t0 + 60_000, y: 14 },
+      { x: t0 + 120_000, y: 9 },
+    ]
+
+    renderWithTheme(<Sparkline data={pts} width={300} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 200, clientY: 30 })
+
+    // SVG guide exists; hover circle stroke equals dark bgFill (#111827)
+    const guide = svg.querySelector('line[stroke-dasharray="3 3"]')
+    expect(guide).toBeTruthy()
+    const hoverCircle = svg.querySelector('circle[stroke]')
+    expect(hoverCircle).toBeTruthy()
+    expect(hoverCircle.getAttribute('stroke')).toBe('#111827')
+
+    // Tooltip styles for dark theme
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    // Theme-dependent assertions (dark)
+    expect(tip.style.background).toBe('rgb(17, 24, 39)')
+    expect(tip.style.color).toBe('rgb(229, 231, 235)')
+    expect(tip.style.border).toContain('rgb(55, 65, 81)')
+    expect(tip.style.boxShadow).toBe('0 2px 8px rgba(0,0,0,0.6)')
+  })
+
   describe('helpers', () => {
     test('computeFirstBelow respects showFirstBelow flag and invalid inputs', () => {
       const t = Date.now()
