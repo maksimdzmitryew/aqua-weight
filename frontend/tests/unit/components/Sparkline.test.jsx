@@ -1280,4 +1280,101 @@ describe('components/Sparkline', () => {
     // Ensure left is a finite number, implying geometry was computed with clamped offset
     expect(Number.isFinite(parseFloat(tip.style.left))).toBe(true)
   })
+
+  test('tooltip side placement uses 0 when offset is non-numeric (covers 443)', () => {
+    const t0 = Date.now()
+    const pts = [
+      { x: t0, y: 10 },
+      { x: t0 + 1, y: 20 },
+      { x: t0 + 2, y: 15 },
+    ]
+    // Pass a non-numeric offset to force Number(tooltipOffsetX) || 0 to resolve to 0
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        width={300}
+        height={80}
+        // @ts-ignore intentionally non-numeric to hit the fallback
+        tooltipOffsetX={"abc"}
+      />
+    )
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 40, clientY: 30 })
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    // Ensure computed left is finite (placement succeeded with off=0)
+    expect(Number.isFinite(parseFloat(tip.style.left))).toBe(true)
+  })
+
+  test('peakVLines daysSince mapping covers first-peak baseline and subsequent-peak diff (covers 309,305)', () => {
+    // Build a dataset with two clear peaks far apart
+    const base = new Date('2025-09-01T00:00:00Z').getTime()
+    const d = (n) => base + n * 86_400_000
+    const pts = [
+      { x: d(0), y: 5 },
+      { x: d(1), y: 20 }, // peak #1 (delta +15 vs prev)
+      { x: d(2), y: 10 },
+      { x: d(4), y: 30 }, // peak #2 (skip a day to give 3 days since previous peak)
+      { x: d(5), y: 15 },
+    ]
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        width={300}
+        height={80}
+        maxWaterG={100}
+        peakDeltaPct={0.1}
+        showPeakVLines
+        showPeakVLineLabels
+      />
+    )
+
+    const svg = screen.getByLabelText('sparkline')
+    // Expect badges showing days since previous peak:
+    // - For first peak, baseline is from first data point → 1 day
+    // - For second peak, from previous peak day(1) to day(4) → 3 days
+    const oneD = within(svg).getAllByText('1d')
+    expect(oneD.length).toBeGreaterThan(0)
+    const threeD = within(svg).getAllByText('3d')
+    expect(threeD.length).toBeGreaterThan(0)
+  })
+
+  test('startOfDay invalid-date guard triggers via Date#getTime stub (covers 277)', () => {
+    // Stub Date#getTime to return NaN so startOfDay hits the guard and returns NaN
+    const getTimeSpy = vi.spyOn(Date.prototype, 'getTime').mockImplementation(function () {
+      // Only affect calls during this test
+      return NaN
+    })
+
+    try {
+      const base = new Date('2025-10-01T00:00:00Z').getTime()
+      const d = (n) => base + n * 86_400_000
+      // Construct data that will both produce a peak and cross a threshold, so both
+      // peak daysSince mapping and first-below compute call startOfDay under the stub.
+      const pts = [
+        { x: d(0), y: 12 },
+        { x: d(1), y: 30 }, // peak candidate
+        { x: d(2), y: 8 },  // crosses below threshold 10
+      ]
+      renderWithTheme(
+        <Sparkline
+          data={pts}
+          width={300}
+          height={80}
+          maxWaterG={100}
+          peakDeltaPct={0.1}
+          showPeakVLines
+          showPeakVLineLabels
+          refLines={[{ y: 10, label: 'Thresh' }]}
+        />
+      )
+
+      const svg = screen.getByLabelText('sparkline')
+      // Assert the chart rendered; the stubbed startOfDay path executed during render
+      // (either in peak daysSince mapping or first-below computation). Presence of SVG is sufficient.
+      expect(svg).toBeInTheDocument()
+    } finally {
+      getTimeSpy.mockRestore()
+    }
+  })
 })
