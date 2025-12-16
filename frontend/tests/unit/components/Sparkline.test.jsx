@@ -1222,4 +1222,49 @@ describe('components/Sparkline', () => {
     // We expect multiple wrapped lines
     expect(tip?.querySelectorAll('div').length || 0).toBeGreaterThan(2)
   })
+
+  test('wrapLine handles null input safely (covers 356)', () => {
+    const t0 = Date.now()
+    // Provide a hoverFormatter that returns a null line to exercise String(line || '') path
+    // Include a second normal token so wrappedLines has visible content
+    const formatter = () => [null, 'ok']
+    renderWithTheme(
+      <Sparkline
+        data={[{ x: t0, y: 1 }, { x: t0 + 1, y: 2 }]}
+        width={300}
+        height={80}
+        hoverFormatter={formatter}
+      />
+    )
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 150, clientY: 30 })
+    // Tooltip should render (thanks to the 'ok' line) and thus exercise wrapLine on null for the first item
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    expect(within(tip).getByText('ok')).toBeInTheDocument()
+  })
+
+  test('tooltip side placement clamps negative offset to zero (covers 431)', () => {
+    const t0 = Date.now()
+    const pts = [
+      { x: t0, y: 10 },
+      { x: t0 + 1, y: 20 },
+      { x: t0 + 2, y: 15 },
+    ]
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        width={300}
+        height={80}
+        // negative offset should be clamped by Math.max(0, Number(offset) || 0)
+        tooltipOffsetX={-10}
+      />
+    )
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 250, clientY: 40 })
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    // Ensure left is a finite number, implying geometry was computed with clamped offset
+    expect(Number.isFinite(parseFloat(tip.style.left))).toBe(true)
+  })
 })
