@@ -196,4 +196,61 @@ describe('pages/Dashboard', () => {
     // No sparkline should be shown
     expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
   })
+
+  test('treats measurements error for a plant as empty series (covers lines 112-113)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    // One plant returned
+    plantsApi.list.mockResolvedValueOnce([{ uuid: 'p-err', name: 'Cactus' }])
+    // Measurements endpoint fails for that plant -> inner catch should return [uid, []]
+    measurementsApi.listByPlant.mockRejectedValueOnce(new Error('fetch failed'))
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    // After loading finishes, since there are 0 points, the card should show the fallback text
+    await screen.findByText('Cactus')
+    await screen.findByText(/not enough data to chart/i)
+    // No sparkline is rendered
+    expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
+    // No series-level error banner should be shown (outer catch not triggered)
+    expect(screen.queryByText(/failed to load measurements/i)).not.toBeInTheDocument()
+  })
+
+  test('shows series error when aggregation fails (covers line 120)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+
+    // Provide at least one plant so the measurements loader runs
+    plantsApi.list.mockResolvedValueOnce([{ uuid: 'p-x', name: 'Fern' }])
+
+    // Force Promise.all to throw to hit the outer catch block
+    const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => {
+      throw new Error('aggregate explode')
+    })
+
+    try {
+      const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <Dashboard />
+          </MemoryRouter>
+        </ThemeProvider>
+      )
+
+      // Series error banner should appear with our error message text
+      await screen.findByText(/aggregate explode|failed to load measurements/i)
+    } finally {
+      allSpy.mockRestore()
+    }
+  })
 })
