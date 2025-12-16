@@ -100,6 +100,129 @@ describe('components/Sparkline', () => {
     expect(within(svg).getByText('Min')).toBeInTheDocument()
   })
 
+  test('computes refYs from refLines including only finite values (covers line 174)', () => {
+    const t = Date.now()
+    const data = [
+      { x: t, y: 1 },
+      { x: t + 1, y: 2 },
+    ]
+    const refLines = [
+      { y: 6, label: 'ValidA' },
+      { y: NaN, label: 'BadNaN' },
+      { y: Infinity, label: 'BadInf' },
+      { label: 'NoY' },
+      null,
+      { y: 8, label: 'ValidB' },
+    ]
+
+    renderWithTheme(<Sparkline data={data} refLines={refLines} width={240} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    // Only finite-y ref lines should render labels
+    expect(within(svg).getByText('ValidA')).toBeInTheDocument()
+    expect(within(svg).getByText('ValidB')).toBeInTheDocument()
+    expect(within(svg).queryByText('BadNaN')).toBeNull()
+    expect(within(svg).queryByText('BadInf')).toBeNull()
+    expect(within(svg).queryByText('NoY')).toBeNull()
+  })
+
+  test('uses spanY fallback when all y values are equal (covers line 186)', () => {
+    // When maxY === minY, spanY should fallback to 1 to avoid division by zero.
+    // With equal y values, the plotted line should be horizontal at the bottom of the plot area.
+    const t0 = new Date('2025-04-01T00:00:00Z').getTime()
+    const data = [
+      { x: t0, y: 5 },
+      { x: t0 + 1000, y: 5 },
+    ]
+
+    // Default margins: { top: 6, right: 2, bottom: 26, left: 12 }
+    // height = 80 → h = 80 - 6 - 26 = 48; bottom Y = margin.top + h = 54
+    const expectedY = 54
+
+    renderWithTheme(<Sparkline data={data} width={240} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    const path = svg.querySelector('path')
+    expect(path).toBeTruthy()
+    const d = path.getAttribute('d')
+    expect(d).toBeTruthy()
+
+    // Extract all numbers after commas (the Y components of commands like Mx,y Lx,y)
+    const yMatches = Array.from(d.matchAll(/,([0-9]+(?:\.[0-9]+)?)/g)).map(m => Number(m[1]))
+    expect(yMatches.length).toBeGreaterThanOrEqual(2)
+    // All y coordinates should map to the same bottom value when all y are equal
+    for (const y of yMatches) {
+      expect(y).toBeCloseTo(expectedY, 6)
+    }
+  })
+
+  test('computes days since previous peak using finite start/drop (covers line 55)', () => {
+    // Jan 1 to Jan 4 inclusive difference should be 3 days
+    const jan1 = new Date('2025-01-01T12:00:00Z').getTime()
+    const jan4 = new Date('2025-01-04T12:00:00Z').getTime()
+
+    const firstBelowThresh = { x: jan4, y: 0, index: 3 }
+    const peakVLines = [
+      { x: jan1, y: 10, prevY: 5, label: '01/01', labelFull: '01/01/2025', daysSince: 0 },
+    ]
+    const points = [
+      { x: jan1, y: 10 },
+      { x: jan4, y: 5 },
+    ]
+    const startOfDay = (ts) => {
+      const d = new Date(ts)
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    }
+
+    const days = computeDaysSincePrevPeak(firstBelowThresh, peakVLines, points, startOfDay)
+    expect(days).toBe(3)
+  })
+
+  test('early-returns in resize effect when container ref is null (covers line 143)', async () => {
+    // Spy on addEventListener to ensure no listeners are attached when early-return happens
+    const addListenerSpy = vi.spyOn(window, 'addEventListener')
+
+    // Mock the first useRef (containerRef) to return { current: null }
+    const origUseRef = React.useRef
+    const useRefSpy = vi.spyOn(React, 'useRef')
+    // Return a ref whose `current` getter always yields null and ignores assignments
+    const fakeRef = {}
+    Object.defineProperty(fakeRef, 'current', {
+      get: () => null,
+      set: () => {},
+      configurable: true,
+    })
+    useRefSpy.mockImplementationOnce(() => fakeRef).mockImplementation(origUseRef)
+
+    renderWithTheme(<Sparkline data={[]} width="responsive" height={80} />)
+
+    // Allow effect microtask to run
+    await new Promise(r => setTimeout(r, 0))
+
+    // No resize listeners should be attached because the effect returned early
+    expect(addListenerSpy).not.toHaveBeenCalled()
+
+    // Clean up
+    addListenerSpy.mockRestore()
+    useRefSpy.mockRestore()
+  })
+
+  test('uses default fill when fill is undefined (covers line 135)', () => {
+    const t0 = new Date('2025-02-01T00:00:00Z').getTime()
+    const data = [
+      { x: t0, y: 1 },
+      { x: t0 + 60_000, y: 3 },
+      { x: t0 + 120_000, y: 2 },
+    ]
+
+    renderWithTheme(<Sparkline data={data} width={240} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    const paths = svg.querySelectorAll('path')
+    // When defaultFill is used, area path should be present (second path)
+    expect(paths.length).toBeGreaterThanOrEqual(2)
+  })
+
   test('default fill uses dark theme color and renders area (cover line 135)', () => {
     // Force dark theme so Sparkline picks the dark defaultFill branch
     localStorage.setItem('theme', 'dark')
@@ -990,5 +1113,72 @@ describe('components/Sparkline', () => {
       // threshAbs is null when peakDeltaPct <= 0 -> empty
       expect(computePeakVLines(pts, 100, 0, 'usa')).toEqual([])
     })
+  })
+
+  // Additional focused cases to cover remaining branch sites
+  test('USA 12h clock shows 12 at midnight (covers 317: hh===0 -> 12)', () => {
+    localStorage.setItem('dtFormat', 'usa')
+    // Construct a local midnight time to ensure hours === 0
+    const ts = new Date(2025, 0, 1, 0, 5, 0, 0).getTime()
+    renderWithTheme(<Sparkline data={[{ x: ts, y: 3 }]} width={300} height={80} />)
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 50, clientY: 20 })
+    // Expect formatted time to contain 12:05 AM (not 0:05)
+    expect(screen.getByText(/12:05\s?AM/)).toBeInTheDocument()
+  })
+
+  test('onMouseMove ignores non-finite px via rect.left=Infinity (covers 282)', () => {
+    const t0 = Date.now()
+    renderWithTheme(
+      <Sparkline
+        data={[{ x: t0, y: 1 }, { x: t0 + 1, y: 2 }]}
+        width={300}
+        height={80}
+      />
+    )
+    const svg = screen.getByLabelText('sparkline')
+    // Override this element's bounding rect so left is Infinity => px becomes -Infinity
+    const orig = svg.getBoundingClientRect
+    svg.getBoundingClientRect = () => ({ left: Infinity, top: 0, width: 300, height: 80, right: 300, bottom: 80, x: 0, y: 0, toJSON() {} })
+    fireEvent.mouseMove(svg, { clientX: 150, clientY: 10 })
+    // No tooltip should appear after this event alone
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeUndefined()
+    // Restore
+    svg.getBoundingClientRect = orig
+  })
+
+  test('localStorage.getItem throws: dtPref try/catch branches are handled (covers 236-240, 303-306)', () => {
+    // Mock getItem to throw to exercise both try/catch blocks (peaks and tooltip formatter)
+    const getItemSpy = vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation((key) => {
+      if (key === 'dtFormat') throw new Error('boom')
+      return null
+    })
+
+    const t0 = Date.now()
+    const pts = [
+      { x: t0, y: 10 },
+      { x: t0 + 86_400_000, y: 30 },
+      { x: t0 + 2 * 86_400_000, y: 15 },
+    ]
+    // Provide peak detection thresholds so the code path that reads dtFormat is executed
+    renderWithTheme(
+      <Sparkline
+        data={pts}
+        maxWaterG={100}
+        peakDeltaPct={0.1}
+        showPeakVLines
+        width={300}
+        height={80}
+      />
+    )
+    const svg = screen.getByLabelText('sparkline')
+    // Hover to trigger defaultHoverLines which also reads dtFormat in a try/catch
+    fireEvent.mouseMove(svg, { clientX: 150, clientY: 30 })
+    // A tooltip should still render despite the getItem error
+    const tooltip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tooltip).toBeTruthy()
+
+    getItemSpy.mockRestore()
   })
 })
