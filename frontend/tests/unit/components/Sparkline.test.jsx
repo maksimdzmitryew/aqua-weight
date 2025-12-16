@@ -571,6 +571,21 @@ describe('components/Sparkline', () => {
     expect(within(svg).getByText('1d')).toBeInTheDocument()
   })
 
+  test('shouldHideFirstBelow returns false when dayKey yields falsy for firstBelow (cover line 24)', () => {
+    // Arrange: truthy firstBelowThresh and non-empty peaks to pass earlier guards
+    const firstBelow = { x: 1234567890, y: 9 }
+    const peakVLines = [{ x: 111 }, { x: 222 }]
+    // dayKey returns null for firstBelow.x, which should trigger the early return at line 24
+    const dayKey = vi.fn((x) => (x === firstBelow.x ? null : '2025-01-01'))
+
+    // Act
+    const res = shouldHideFirstBelow(firstBelow, peakVLines, dayKey)
+
+    // Assert
+    expect(res).toBe(false)
+    expect(dayKey).toHaveBeenCalledWith(firstBelow.x)
+  })
+
   test('peak label color turns green when previous value above threshold', () => {
     const t0 = Date.now()
     const pts = [
