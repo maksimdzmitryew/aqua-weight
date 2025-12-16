@@ -1,9 +1,11 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { act } from 'react-dom/test-utils'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
 import Settings from '../../../src/pages/Settings.jsx'
+import { vi } from 'vitest'
 
 function renderPage() {
   return render(
@@ -77,4 +79,39 @@ describe('pages/Settings', () => {
     await user.selectOptions(theme, 'system')
     expect(window.localStorage.getItem('theme')).toBe('system')
   })
+
+  test('vacation mode selection is applied and persisted on save', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const vacation = screen.getByLabelText(/vacation mode/i)
+    // change to enabled
+    await user.selectOptions(vacation, 'enabled')
+    // save
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    // persisted via the save handler
+    expect(window.localStorage.getItem('vacationMode')).toBe('enabled')
+  })
+
+  test('clears success message after 1.5s via timeout callback', async () => {
+    // Use fake timers to execute the setTimeout callback inside Settings useEffect
+    vi.useFakeTimers()
+    renderPage()
+
+    // Submit the form to trigger saving and show the success message
+    const saveButton = screen.getByRole('button', { name: /save/i })
+    fireEvent.click(saveButton)
+
+    // Message appears right after save
+    expect(screen.getByText('Saved!')).toBeInTheDocument()
+
+    // Advance timers past 1500ms to trigger the timeout that clears the message
+    act(() => {
+      vi.advanceTimersByTime(1600)
+    })
+    // After act, the DOM should be updated
+    expect(screen.queryByText('Saved!')).not.toBeInTheDocument()
+
+    vi.useRealTimers()
+  }, 10000)
 })
