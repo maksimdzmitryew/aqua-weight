@@ -586,6 +586,21 @@ describe('components/Sparkline', () => {
     expect(dayKey).toHaveBeenCalledWith(firstBelow.x)
   })
 
+  test('computeDaysSincePrevPeak returns null when firstBelowThresh is falsy (cover line 33)', () => {
+    // It should short-circuit and return null without invoking startOfDay
+    const dummyStartOfDay = vi.fn((ts) => ts)
+
+    // Null
+    const r1 = computeDaysSincePrevPeak(null, [], [], dummyStartOfDay)
+    expect(r1).toBeNull()
+    expect(dummyStartOfDay).not.toHaveBeenCalled()
+
+    // Undefined
+    const r2 = computeDaysSincePrevPeak(undefined, [{ x: 1 }], [{ x: 1, y: 1 }], dummyStartOfDay)
+    expect(r2).toBeNull()
+    expect(dummyStartOfDay).not.toHaveBeenCalled()
+  })
+
   test('peak label color turns green when previous value above threshold', () => {
     const t0 = Date.now()
     const pts = [
