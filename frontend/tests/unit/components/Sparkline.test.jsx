@@ -64,6 +64,21 @@ describe('components/Sparkline', () => {
     clientWidthSpy.mockRestore()
   })
 
+  test('handles non-array data by producing no points (covers line 170 else-branch)', () => {
+    // Pass a non-array value to trigger the ternary's else branch at line 170
+    const badData = null
+    renderWithTheme(<Sparkline data={badData} width={240} height={80} />)
+
+    const svg = screen.getByLabelText('sparkline')
+    // With no valid points, there should be no circles (no last dot nor showPoints)
+    const circles = svg.querySelectorAll('circle')
+    expect(circles.length).toBe(0)
+
+    // The main path should exist but either be empty or a minimal element without commands
+    const path = svg.querySelector('path')
+    expect(path).toBeTruthy()
+  })
+
   test('renders area when multiple points and fill not disabled; renders reference lines with labels', () => {
     const t = Date.now()
     const data = [
