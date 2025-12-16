@@ -6,6 +6,7 @@ import { http, HttpResponse } from 'msw'
 import { server } from '../msw/server'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import Calibration from '../../../src/pages/Calibration.jsx'
+import { calibrationApi } from '../../../src/api/calibration'
 
 function renderPage() {
   return render(
@@ -173,6 +174,18 @@ test('unmount cleans up fetch (AbortController) without noise', async () => {
   const { unmount } = renderPage()
   expect(screen.getByRole('status')).toBeInTheDocument()
   unmount()
+})
+
+test('AbortError from list() is ignored and does not set error (covers !isAbort branch false at line 29)', async () => {
+  const spy = vi.spyOn(calibrationApi, 'list').mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+  renderPage()
+  // Loader shows then goes away; no alert should appear
+  expect(screen.getByRole('status')).toBeInTheDocument()
+  await waitFor(() => {
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  spy.mockRestore()
 })
 
 test('"Last" toggle ensures latest zero-under row is visible even when hidden by filters', async () => {
@@ -468,4 +481,99 @@ test('does not duplicate most-negative row when a value-identical twin is alread
   const firstCells = within(firstData).getAllByRole('cell')
   // Diff column index = 3 (0-based in our table mapping below)
   expect(firstCells[3]).toHaveTextContent('—')
+})
+
+test('initial load error (non-abort) shows ErrorNotice with message', async () => {
+  // Simulate backend failure on initial list load
+  server.resetHandlers()
+  server.use(
+    http.get('/api/measurements/calibrating', () => HttpResponse.json({ detail: 'Load failed' }, { status: 500 }))
+  )
+  renderPage()
+  // Loader first
+  expect(screen.getByRole('status')).toBeInTheDocument()
+  // Then error notice shows up
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/failed to load calibration data|load failed|http 500/i)
+})
+
+test('correction without measurable entries sends minimal payload (minDiffEntry stays null)', async () => {
+  const plant = {
+    uuid: 'p-empty',
+    name: 'EmptyHist',
+    min_dry_weight_g: 10,
+    max_water_weight_g: 5,
+    calibration: {
+      max_water_retained: [
+        // Entry without numeric fields → excluded from min-diff calculation
+        { id: 'e0', measured_at: '2025-09-01 00:00:00', last_wet_weight_g: undefined, target_weight_g: undefined, under_g: 0, under_pct: 0 },
+      ],
+    },
+  }
+  let postCalled = false
+  server.resetHandlers()
+  server.use(
+    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/measurements/corrections', async ({ request }) => {
+      postCalled = true
+      const body = await request.json()
+      // Should not include from_ts/start ids when there are no measurable entries
+      expect(body).toMatchObject({ plant_id: 'p-empty', cap: 'capacity', edit_last_wet: true })
+      expect(body).not.toHaveProperty('from_ts')
+      expect(body).not.toHaveProperty('start_measurement_id')
+      expect(body).not.toHaveProperty('start_diff_to_max_g')
+      return HttpResponse.json({ ok: true })
+    })
+  )
+  renderPage()
+  // Enable the 'underwatered' toggle to include all rows regardless of diff
+  const underwatered = await screen.findByLabelText(/underwatered/i)
+  await userEvent.click(underwatered)
+  // Also include rows with under_g = 0 so the placeholder entry remains visible
+  const zeroAll = screen.getByLabelText(/zero below max water, all/i)
+  await userEvent.click(zeroAll)
+  // Now the plant card with the action button is visible
+  await screen.findByText('EmptyHist')
+  const btn = screen.getByRole('button', { name: /correct overfill/i })
+  await userEvent.click(btn)
+  expect(postCalled).toBe(true)
+})
+
+test('list rendering tolerates missing calibration by treating entries as [] (covers entries default in map)', async () => {
+  const plant = { uuid: 'p-none', name: 'NoCal', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: {} }
+  server.resetHandlers()
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  renderPage()
+  // With no entries, the plant card is not rendered (filtered length = 0). This still executes line 130.
+  await waitFor(() => {
+    expect(screen.queryByText('NoCal')).not.toBeInTheDocument()
+  })
+})
+
+test('post-correction refresh tolerates non-array response (covers false branch at line 71)', async () => {
+  const plant = {
+    uuid: 'p-na',
+    name: 'NonArray',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: { max_water_retained: [
+      { id: 'na1', measured_at: '2025-09-02 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 }
+    ] },
+  }
+  let calls = 0
+  server.resetHandlers()
+  server.use(
+    http.get('/api/measurements/calibrating', () => {
+      calls += 1
+      return calls === 1 ? HttpResponse.json([plant]) : HttpResponse.json({ ok: true })
+    }),
+    http.post('/api/measurements/corrections', () => HttpResponse.json({ ok: true }))
+  )
+  renderPage()
+  await screen.findByText('NonArray')
+  const btn = screen.getByRole('button', { name: /correct overfill/i })
+  await userEvent.click(btn)
+  // After refresh with non-array payload, component should set items to [] and show empty state
+  const note = await screen.findByRole('note')
+  expect(note).toHaveTextContent(/no plants/i)
 })
