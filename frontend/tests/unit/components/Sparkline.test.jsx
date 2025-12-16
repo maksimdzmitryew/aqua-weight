@@ -1181,4 +1181,45 @@ describe('components/Sparkline', () => {
 
     getItemSpy.mockRestore()
   })
+
+  test('no data and no ref lines triggers !isFinite(maxY) fallback (covers 184)', () => {
+    renderWithTheme(<Sparkline data={[]} refLines={[]} width={300} height={80} />)
+    // If it renders without error, the fallback path executed; assert svg exists
+    expect(screen.getByLabelText('sparkline')).toBeInTheDocument()
+  })
+
+  test('mouseLeave early-returns when hover is disabled (covers 292)', () => {
+    const t0 = Date.now()
+    renderWithTheme(<Sparkline data={[{ x: t0, y: 1 }]} width={300} height={80} hover={false} />)
+    const svg = screen.getByLabelText('sparkline')
+    // This should hit the early return branch of onMouseLeave without errors
+    fireEvent.mouseLeave(svg)
+    // And no tooltip should be present (it was never allowed)
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeUndefined()
+  })
+
+  test('USA 12h clock explicit PM branch at 13:30 (covers 317 PM)', () => {
+    localStorage.setItem('dtFormat', 'usa')
+    const ts = new Date(2025, 0, 1, 13, 30, 0, 0).getTime() // 1:30 PM
+    renderWithTheme(<Sparkline data={[{ x: ts, y: 4 }]} width={300} height={80} />)
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 120, clientY: 20 })
+    expect(screen.getByText(/1:30\s?PM/)).toBeInTheDocument()
+  })
+
+  test('wrapLine: after push, next short word fits and becomes new cur (covers 379)', () => {
+    const t0 = Date.now()
+    // Build a line of many one-letter words to force a push when adding one more token,
+    // and ensure the single-letter token itself fits, taking the 379 branch.
+    const tokens = Array.from({ length: 40 }, (_, i) => String.fromCharCode(97 + (i % 26)))
+    const formatter = () => [tokens.join(' ')]
+    renderWithTheme(<Sparkline data={[{ x: t0, y: 1 }]} width={300} height={80} hoverFormatter={formatter} />)
+    const svg = screen.getByLabelText('sparkline')
+    fireEvent.mouseMove(svg, { clientX: 200, clientY: 40 })
+    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    expect(tip).toBeTruthy()
+    // We expect multiple wrapped lines
+    expect(tip?.querySelectorAll('div').length || 0).toBeGreaterThan(2)
+  })
 })
