@@ -173,4 +173,177 @@ describe('pages/PlantStats', () => {
     const props = JSON.parse(spark.getAttribute('data-props') || '{}')
     expect(props.showFirstBelowThreshVLine).toBe(false)
   })
+
+  test('falls back to showSuggestedInterval=true when localStorage.getItem throws (covers try/catch init)', async () => {
+    const getSpy = vi.spyOn(window.localStorage, 'getItem').mockImplementation((key) => {
+      if (key === 'chart.showSuggestedInterval') throw new Error('boom')
+      return null
+    })
+    const plant = {
+      uuid: 'p-5', name: 'Fern', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 40,
+    }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 150, measured_at: '2025-04-01 08:00:00' },
+      { measured_weight_g: 145, measured_at: '2025-04-02 08:00:00' },
+    ])
+
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-5', state: { plant } }, <PlantStats />)
+
+    const spark = await screen.findByTestId('sparkline')
+    const props = JSON.parse(spark.getAttribute('data-props') || '{}')
+    expect(props.showFirstBelowThreshVLine).toBe(true)
+    getSpy.mockRestore()
+  })
+
+  test('does not call measurementsApi when uuid is missing (early return)', async () => {
+    const rrd = await import('react-router-dom')
+    const useParamsSpy = vi.spyOn(rrd, 'useParams').mockReturnValue({})
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    // Render with any router path; useParams is mocked to return no uuid
+    renderAt('/stats/anything', <PlantStats />)
+    // Let effects tick
+    await waitFor(() => true)
+    expect(measurementsApi.listByPlant).not.toHaveBeenCalled()
+    useParamsSpy.mockRestore()
+  })
+
+  test('treats non-array measurements response as empty and shows fallback', async () => {
+    const plant = { uuid: 'p-6', name: 'Ivy', min_dry_weight_g: 50, max_water_weight_g: 20, recommended_water_threshold_pct: 30 }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce(null)
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-6', state: { plant } }, <PlantStats />)
+    await screen.findByText(/Not enough data to chart/i)
+  })
+
+  test('filters out invalid measurements (no date or invalid weight), keeping only valid points', async () => {
+    const plant = { uuid: 'p-7', name: 'Palm', min_dry_weight_g: 80, max_water_weight_g: 40, recommended_water_threshold_pct: 20 }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 120, measured_at: '2025-05-01 10:00:00' },
+      { measured_weight_g: 118 }, // no date -> skipped (covers dayKey falsy at line 78)
+      { measured_weight_g: 119, measured_at: '2025-05-02 12:00:00' }, // valid for the day, should be kept
+      { measured_weight_g: 'NaN', measured_at: '2025-05-02 10:00:00' }, // later same day but invalid -> filtered at 86-87
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-7', state: { plant } }, <PlantStats />)
+    const spark = await screen.findByTestId('sparkline')
+    const props = JSON.parse(spark.getAttribute('data-props') || '{}')
+    // Unique valid days: 2025-05-01 and 2025-05-02 -> 2 points
+    expect(props.data?.length).toBe(2)
+  })
+
+  test('AbortError during plant fetch is ignored (no error displayed)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    plantsApi.getByUuid.mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+    measurementsApi.listByPlant.mockResolvedValueOnce([])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt('/stats/ab-1', <PlantStats />)
+    // ensure loading stops and no error message is shown for plant
+    await waitFor(() => expect(screen.queryByText(/Loading plant/i)).not.toBeInTheDocument())
+    expect(screen.queryByText(/failed to load plant|aborted/i)).not.toBeInTheDocument()
+  })
+
+  test('refLines handling when values are missing or non-finite', async () => {
+    // Only max_water_weight_g provided -> refLines empty, maxWaterG set, no Thresh
+    const plantA = { uuid: 'r-1', name: 'TestA', max_water_weight_g: 25 }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 100, measured_at: '2025-06-01 10:00:00' },
+      { measured_weight_g: 110, measured_at: '2025-06-02 10:00:00' },
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/r-1', state: { plant: plantA } }, <PlantStats />)
+    let props = JSON.parse((await screen.findByTestId('sparkline')).getAttribute('data-props') || '{}')
+    expect(props.refLines?.length ?? 0).toBe(0)
+    expect(props.maxWaterG).toBe(25)
+
+    // Now min_dry + max_water with out-of-range threshold -> clamped and Thresh present
+    const plantB = { uuid: 'r-2', name: 'TestB', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 200 }
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 140, measured_at: '2025-06-01 10:00:00' },
+      { measured_weight_g: 130, measured_at: '2025-06-02 10:00:00' },
+    ])
+    renderAt({ pathname: '/stats/r-2', state: { plant: plantB } }, <PlantStats />)
+    await waitFor(async () => {
+      const all = await screen.findAllByTestId('sparkline')
+      const last = all[all.length - 1]
+      const props = JSON.parse(last.getAttribute('data-props') || '{}')
+      const labels = props.refLines?.map(r => r.label)
+      expect(labels).toEqual(['Dry', 'Max', 'Thresh'])
+    })
+  })
+
+  test('uses generic measurements error message when error.message is empty', async () => {
+    const plant = { uuid: 'p-8', name: 'Agave' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockRejectedValueOnce({})
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-8', state: { plant } }, <PlantStats />)
+    await screen.findByText(/Failed to load measurements/i)
+  })
+
+  test('maxWaterG is null and only Dry refLine when max_water_weight_g is non-finite', async () => {
+    const plant = { uuid: 'p-9', name: 'Pothos', min_dry_weight_g: 77, max_water_weight_g: 'n/a', recommended_water_threshold_pct: 25 }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 100, measured_at: '2025-07-01 10:00:00' },
+      { measured_weight_g: 105, measured_at: '2025-07-02 10:00:00' },
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-9', state: { plant } }, <PlantStats />)
+    const spark = await screen.findByTestId('sparkline')
+    const props = JSON.parse(spark.getAttribute('data-props') || '{}')
+    expect(props.maxWaterG).toBe(null)
+    expect(props.refLines?.map(r => r.label)).toEqual(['Dry'])
+  })
+
+  test('Abort error recognized by message content (no error shown to user)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    plantsApi.getByUuid.mockRejectedValueOnce(new Error('Request aborted by user'))
+    measurementsApi.listByPlant.mockResolvedValueOnce([])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt('/stats/ab-2', <PlantStats />)
+    await waitFor(() => expect(screen.queryByText(/Loading plant/i)).not.toBeInTheDocument())
+    expect(screen.queryByText(/failed to load plant|aborted/i)).not.toBeInTheDocument()
+  })
+
+  test('invalid measured_at produces NaN time and is filtered out', async () => {
+    const plant = { uuid: 'p-10', name: 'Snake' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 200, measured_at: '2025-08-01 09:00:00' },
+      { measured_weight_g: 210, measured_at: 'bad-date' }, // included in perDay but filtered in mapping
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-10', state: { plant } }, <PlantStats />)
+    await screen.findByText(/Not enough data to chart/i)
+  })
+
+  test('plant load error with empty message shows generic error (covers msg/!isAbort branch)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    plantsApi.getByUuid.mockRejectedValueOnce({})
+    measurementsApi.listByPlant.mockResolvedValueOnce([])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt('/stats/generic-err', <PlantStats />)
+    await screen.findByText(/Failed to load plant/i)
+  })
+
+  test('invalid weight as first reading of the day is filtered leaving insufficient data', async () => {
+    const plant = { uuid: 'p-11', name: 'Bamboo' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      { measured_weight_g: 'NaN', measured_at: '2025-09-03 08:00:00' }, // chosen for the day
+      { measured_weight_g: 180, measured_at: '2025-09-04 08:00:00' }, // another day valid
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-11', state: { plant } }, <PlantStats />)
+    await screen.findByText(/Not enough data to chart/i)
+  })
 })
