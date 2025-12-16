@@ -1,6 +1,93 @@
 import React from 'react'
 import { useTheme } from '../ThemeContext.jsx'
 
+// Exported pure helpers for testability
+export function computeFirstBelow(points, threshYValue, showFirstBelow=true) {
+  if (!showFirstBelow || threshYValue == null || !isFinite(threshYValue) || !Array.isArray(points) || points.length <= 1) {
+    return null
+  }
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]
+    const cur = points[i]
+    if (!prev || !cur) continue
+    if (isFinite(prev.y) && isFinite(cur.y) && prev.y >= threshYValue && cur.y < threshYValue) {
+      return { x: cur.x, y: cur.y, index: i }
+    }
+  }
+  return null
+}
+
+export function shouldHideFirstBelow(firstBelowThresh, peakVLines, dayKey) {
+  if (!firstBelowThresh) return false
+  if (!Array.isArray(peakVLines) || peakVLines.length === 0) return false
+  const firstBelowDay = dayKey(firstBelowThresh.x)
+  if (!firstBelowDay) return false
+  for (const pk of peakVLines) {
+    if (!pk) continue
+    if (dayKey(pk.x) === firstBelowDay) return true
+  }
+  return false
+}
+
+export function computeDaysSincePrevPeak(firstBelowThresh, peakVLines, points, startOfDay) {
+  if (!firstBelowThresh) return null
+  const dropTs = firstBelowThresh.x
+  let startTs = null
+  if (Array.isArray(peakVLines) && peakVLines.length > 0) {
+    for (let i = 0; i < peakVLines.length; i++) {
+      const pk = peakVLines[i]
+      if (!pk) continue
+      if (isFinite(pk.x) && pk.x <= dropTs) {
+        startTs = pk.x
+      } else if (isFinite(pk.x) && pk.x > dropTs) {
+        break
+      }
+    }
+  }
+  if ((startTs == null || !isFinite(startTs)) && Array.isArray(points) && points.length > 0 && isFinite(points[0]?.x)) {
+    startTs = points[0].x
+  }
+  let firstBelowDaysSincePrevPeak = 0
+  if (isFinite(dropTs) && startTs != null && isFinite(startTs)) {
+    const msPerDay = 24 * 60 * 60 * 1000
+    const a = startOfDay(startTs)
+    const b = startOfDay(dropTs)
+    const days = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
+    firstBelowDaysSincePrevPeak = days
+  }
+  return firstBelowDaysSincePrevPeak
+}
+
+export function computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref) {
+  const result = []
+  const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
+    ? (maxWaterG * peakDeltaPct)
+    : null
+  if (threshAbs == null || !Array.isArray(points) || points.length <= 2) return result
+  const pad2 = (n) => String(n).padStart(2, '0')
+  let lastPeakTs = null
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1]
+    const cur = points[i]
+    const next = points[i + 1]
+    if (!prev || !cur || !next) continue
+    const isPeak = (cur.y > prev.y) && (cur.y > next.y)
+    const deltaPrev = cur.y - prev.y
+    if (isPeak && deltaPrev >= threshAbs) {
+      const d = new Date(cur.x)
+      const yyyy = d.getFullYear()
+      const mm = pad2(d.getMonth() + 1)
+      const dd = pad2(d.getDate())
+      const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
+      const labelFull = dtPref === 'usa' ? `${mm}/${dd}/${yyyy}` : `${dd}/${mm}/${yyyy}`
+      // daysSince is computed by caller to keep pure here; set 0 placeholder
+      result.push({ x: cur.x, y: cur.y, prevY: prev.y, label, labelFull, daysSince: 0 })
+      lastPeakTs = cur.x
+    }
+  }
+  return result
+}
+
 /**
  * Minimal sparkline/line chart component using pure SVG.
  * Props:
@@ -119,20 +206,8 @@ export default function Sparkline({
     }
   }
 
-  // Compute first-below-threshold marker: find first index i where
-  // points[i-1].y >= thresh and points[i].y < thresh.
-  let firstBelowThresh = null
-  if (showFirstBelowThreshVLine && threshYValue != null && isFinite(threshYValue) && points.length > 1) {
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1]
-      const cur = points[i]
-      if (!prev || !cur) continue
-      if (isFinite(prev.y) && isFinite(cur.y) && prev.y >= threshYValue && cur.y < threshYValue) {
-        firstBelowThresh = { x: cur.x, y: cur.y, index: i }
-        break
-      }
-    }
-  }
+  // Compute first-below-threshold marker via helper
+  const firstBelowThresh = computeFirstBelow(points, threshYValue, showFirstBelowThreshVLine)
 
   // Helpers to operate on calendar days (local time), ignoring precise time-of-day
   const dayKey = (ts) => {
@@ -152,50 +227,36 @@ export default function Sparkline({
 
   // Compute watering hint vertical lines (peaks with large positive jump vs previous)
   // Each item is { x: number, y: number, prevY: number, label: string, labelFull: string, daysSince: number }
+  // Compute peaks via helper, apply date format preference and daysSince here
   let peakVLines = []
-  const threshAbs = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
+  const threshAbsLocal = (isFinite(maxWaterG) && maxWaterG > 0 && isFinite(peakDeltaPct) && peakDeltaPct > 0)
     ? (maxWaterG * peakDeltaPct)
     : null
-  if (showPeakVLines && threshAbs != null && points.length > 2) {
-    // Read user preference for date format from localStorage (persisted by Settings page)
+  if (showPeakVLines && threshAbsLocal != null && points.length > 2) {
     let dtPref = 'europe'
     try {
       const stored = localStorage.getItem('dtFormat')
       if (stored === 'usa' || stored === 'europe') dtPref = stored
     } catch {}
-    const pad2 = (n) => String(n).padStart(2, '0')
+    const rawPeaks = computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref)
+    // Fill daysSince using same algorithm as before
     let lastPeakTs = null
-    for (let i = 1; i < points.length - 1; i++) {
-      const prev = points[i - 1]
-      const cur = points[i]
-      const next = points[i + 1]
-      if (!prev || !cur || !next) continue
-      const isPeak = (cur.y > prev.y) && (cur.y > next.y)
-      const deltaPrev = cur.y - prev.y
-      if (isPeak && deltaPrev >= threshAbs) {
-        const d = new Date(cur.x)
-        const yyyy = d.getFullYear()
-        const mm = pad2(d.getMonth() + 1)
-        const dd = pad2(d.getDate())
-        const label = dtPref === 'usa' ? `${mm}/${dd}` : `${dd}/${mm}`
-        const labelFull = dtPref === 'usa' ? `${mm}/${dd}/${yyyy}` : `${dd}/${mm}/${yyyy}`
-        let daysSince = 0
-        // Compute difference in whole calendar days, ignoring time-of-day.
-        // If there is no previous peak, count days since the first available data point.
-        const msPerDay = 24 * 60 * 60 * 1000
-        if (lastPeakTs != null && isFinite(lastPeakTs)) {
-          const a = startOfDay(lastPeakTs)
-          const b = startOfDay(cur.x)
-          daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
-        } else if (points.length > 0 && isFinite(points[0]?.x)) {
-          const a = startOfDay(points[0].x)
-          const b = startOfDay(cur.x)
-          daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
-        }
-        peakVLines.push({ x: cur.x, y: cur.y, prevY: prev.y, label, labelFull, daysSince })
-        lastPeakTs = cur.x
+    const msPerDay = 24 * 60 * 60 * 1000
+    const toDay = (ts) => startOfDay(ts)
+    peakVLines = rawPeaks.map(pk => {
+      let daysSince = 0
+      if (lastPeakTs != null && isFinite(lastPeakTs)) {
+        const a = toDay(lastPeakTs)
+        const b = toDay(pk.x)
+        daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
+      } else if (points.length > 0 && isFinite(points[0]?.x)) {
+        const a = toDay(points[0].x)
+        const b = toDay(pk.x)
+        daysSince = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
       }
-    }
+      lastPeakTs = pk.x
+      return { ...pk, daysSince }
+    })
   }
 
   // Hover state and helpers
@@ -386,52 +447,14 @@ export default function Sparkline({
   const containerStyle = { position: 'relative', width, height }
 
   // Determine if the first-below-threshold marker occurs on the same day as any peak.
-  let hideFirstBelow = false
-  if (firstBelowThresh && Array.isArray(peakVLines) && peakVLines.length > 0) {
-    const firstBelowDay = dayKey(firstBelowThresh.x)
-    if (firstBelowDay) {
-      for (const pk of peakVLines) {
-        if (!pk) continue
-        if (dayKey(pk.x) === firstBelowDay) { hideFirstBelow = true; break }
-      }
-    }
-  }
+  const hideFirstBelow = shouldHideFirstBelow(firstBelowThresh, peakVLines, dayKey)
 
   // Compute the "days since previous peak" for the first-below-threshold marker
   // only if we are going to show it. If there is no previous qualifying peak,
   // start counting days from the first available data point (calendar days).
-  let firstBelowDaysSincePrevPeak = null
-  if (!hideFirstBelow && firstBelowThresh) {
-    const dropTs = firstBelowThresh.x
-    let startTs = null
-    // Prefer the last qualifying peak at or before the drop timestamp
-    if (Array.isArray(peakVLines) && peakVLines.length > 0) {
-      for (let i = 0; i < peakVLines.length; i++) {
-        const pk = peakVLines[i]
-        if (!pk) continue
-        if (isFinite(pk.x) && pk.x <= dropTs) {
-          startTs = pk.x
-        } else if (isFinite(pk.x) && pk.x > dropTs) {
-          break
-        }
-      }
-    }
-    // If no previous peak found, fall back to the first data point timestamp
-    if ((startTs == null || !isFinite(startTs)) && points.length > 0 && isFinite(points[0]?.x)) {
-      startTs = points[0].x
-    }
-    if (isFinite(dropTs) && startTs != null && isFinite(startTs)) {
-      const msPerDay = 24 * 60 * 60 * 1000
-      // Use whole day difference between local calendar dates
-      const a = startOfDay(startTs)
-      const b = startOfDay(dropTs)
-      const days = (isFinite(a) && isFinite(b)) ? Math.max(0, Math.floor((b - a) / msPerDay)) : 0
-      firstBelowDaysSincePrevPeak = days
-    } else {
-      // If inputs are invalid, default to 0 days to avoid NaN in the label
-      firstBelowDaysSincePrevPeak = 0
-    }
-  }
+  const firstBelowDaysSincePrevPeak = (!hideFirstBelow && firstBelowThresh)
+    ? computeDaysSincePrevPeak(firstBelowThresh, peakVLines, points, startOfDay)
+    : null
 
   return (
     <div style={containerStyle} ref={containerRef}>

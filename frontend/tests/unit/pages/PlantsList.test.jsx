@@ -105,6 +105,30 @@ test('unmounting the component triggers effect cleanup without errors (abort con
   unmount()
 })
 
+test('Frequency column shows "—" when frequency_days is not finite, otherwise "Nd"', async () => {
+  // Provide two plants: one without finite frequency_days, one with a number
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([
+      { uuid: 'nf1', name: 'NoFreq', water_retained_pct: 20, recommended_water_threshold_pct: 30, frequency_days: undefined },
+      { uuid: 'f2', name: 'HasFreq', water_retained_pct: 50, recommended_water_threshold_pct: 40, frequency_days: 7 },
+    ]))
+  )
+  renderPage()
+  // Wait for rows
+  const rows = await screen.findAllByRole('row')
+  // First data row is after the header row
+  const bodyRows = rows.filter(r => within(r).queryAllByRole('columnheader').length === 0)
+  expect(bodyRows.length).toBeGreaterThanOrEqual(2)
+
+  // For first plant, frequency cell (3rd data cell) should be '—'
+  let cells = within(bodyRows[0]).getAllByRole('cell')
+  expect(cells[2]).toHaveTextContent(/^—$/)
+
+  // For second plant, should show '7 d'
+  cells = within(bodyRows[1]).getAllByRole('cell')
+  expect(cells[2]).toHaveTextContent(/^7 d$/)
+})
+
 test('numeric search filters by threshold (<= query)', async () => {
   // Provide custom plants including thresholds to exercise numeric filter branch
   server.use(

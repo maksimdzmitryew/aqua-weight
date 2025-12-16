@@ -1,5 +1,6 @@
 import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
-import { parseAPIDate, formatDateTime, nowLocalISOMinutes, toLocalISOMinutes } from '../../../src/utils/datetime.js'
+import * as dt from '../../../src/utils/datetime.js'
+import { parseAPIDate, formatDateTime, nowLocalISOMinutes, toLocalISOMinutes, formatDayMonth } from '../../../src/utils/datetime.js'
 
 describe('utils/datetime', () => {
   afterEach(() => {
@@ -158,6 +159,43 @@ describe('utils/datetime', () => {
       const out = formatDateTime('2024-01-02 03:04')
       // When an error occurs inside try{}, function returns String(v)
       expect(out).toBe('2024-01-02 03:04')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test('formatDayMonth falls back to String(v) when an unexpected error occurs (lines 70–71)', () => {
+    // Trigger an error while reading preference to ensure execution enters catch {}
+    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('ls-err') } })
+    try {
+      const input = '2024-01-02 03:04' // parseable so we don’t return early
+      const out = formatDayMonth(input)
+      expect(out).toBe(input)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test('formatDayMonth formats according to preference (europe vs us)', () => {
+    // Europe => DD/MM
+    window.localStorage.setItem('dtFormat', 'europe')
+    expect(formatDayMonth('2024-01-02 03:04')).toBe('02/01')
+
+    // US (any non-europe value) => MM/DD
+    window.localStorage.setItem('dtFormat', 'us')
+    expect(formatDayMonth('2024-01-02 03:04')).toBe('01/02')
+  })
+
+  test('formatDayMonth returns empty string for null and stringifies invalid input', () => {
+    expect(formatDayMonth(null)).toBe('')
+    expect(formatDayMonth({ foo: 'bar' })).toBe('[object Object]')
+  })
+
+  test('formatDayMonth defaults to europe when localStorage is undefined', () => {
+    // Remove localStorage to exercise the typeof localStorage === 'undefined' branch
+    vi.stubGlobal('localStorage', undefined)
+    try {
+      expect(formatDayMonth('2024-01-02 03:04')).toBe('02/01')
     } finally {
       vi.unstubAllGlobals()
     }
