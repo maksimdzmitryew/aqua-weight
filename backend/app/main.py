@@ -1,5 +1,8 @@
+import os as _os
+
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from .errors import register_exception_handlers
 from .routes.health import app as health_app
 from .routes.locations import app as locations_app
@@ -35,7 +38,6 @@ api_router.include_router(locations_app)
 api_router.include_router(measurements_app)
 
 # Conditionally include test admin endpoints when TEST_MODE=1
-import os as _os
 if _os.getenv("TEST_MODE") == "1":
     api_router.include_router(test_admin_app)
 

@@ -1,6 +1,7 @@
 import os
 
 from fastapi import APIRouter, HTTPException
+
 try:
     from ..db.core import connect, cursor
 except ImportError:  # fallback when imported as a top-level module during pytest collection
