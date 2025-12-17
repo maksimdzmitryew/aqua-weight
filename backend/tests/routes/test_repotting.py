@@ -226,3 +226,22 @@ async def test_update_repotting_missing_required_field(async_client: AsyncClient
     resp = await async_client.put(f"/api/measurements/repotting/{'2'*32}", json=payload)
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("Missing required field:")
+
+
+def test_get_last_watering_event_wrapper_calls_underlying(monkeypatch):
+    """Cover backend/app/routes/repotting.py line 23: ensure wrapper delegates to underlying helper."""
+    called = {}
+
+    def fake_underlying(cur, pid):
+        called["args"] = (cur, pid)
+        return {"ok": True, "pid": pid}
+
+    # Patch the private imported helper and call the public wrapper
+    monkeypatch.setattr(repotting_mod, "_get_last_watering_event", fake_underlying)
+
+    cursor = object()
+    pid = "abc123"
+    res = repotting_mod.get_last_watering_event(cursor, pid)
+
+    assert res == {"ok": True, "pid": pid}
+    assert called["args"] == (cursor, pid)
