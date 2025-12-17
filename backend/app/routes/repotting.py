@@ -1,17 +1,19 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional
-import json
 import datetime
+import uuid
+
+from fastapi import APIRouter, HTTPException
 from pytz import timezone
 from starlette.concurrency import run_in_threadpool
-import uuid
-import re
-from ..helpers.watering import get_last_watering_event as _get_last_watering_event
-from ..db import get_conn, HEX_RE
-from ..services.measurements import parse_timestamp_local, compute_water_losses, DerivedWeights
+
+from ..db import HEX_RE, get_conn
 from ..helpers.last_plant_event import LastPlantEvent
-from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
+from ..helpers.watering import get_last_watering_event as _get_last_watering_event
+from ..schemas.measurement import (
+    RepottingCreateRequest,
+    RepottingResponse,
+    RepottingUpdateRequest,
+)
+from ..services.measurements import DerivedWeights, compute_water_losses, parse_timestamp_local
 
 app = APIRouter()
 

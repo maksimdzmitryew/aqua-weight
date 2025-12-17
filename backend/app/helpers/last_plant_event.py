@@ -1,4 +1,4 @@
-from ..db import get_conn, bin_to_hex
+from ..db import bin_to_hex, get_conn
 
 class LastPlantEvent:
     """

@@ -1,9 +1,10 @@
-# app/helpers/plants_list.py
+"""Helpers for assembling plant list information."""
 from datetime import datetime, timedelta
 from math import ceil
-from ..db import get_conn, bin_to_hex
-from ..helpers.water_retained import calculate_water_retained
+
+from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
+from ..helpers.water_retained import calculate_water_retained
 
 class PlantsList:
     """

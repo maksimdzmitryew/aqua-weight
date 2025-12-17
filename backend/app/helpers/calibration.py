@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Dict, List, Optional
-from datetime import datetime
 
-from .last_repotting import get_last_repotting_event
 from ..db import bin_to_hex
-from datetime import datetime
+from .last_repotting import get_last_repotting_event
 
 
 def _parse_db_dt(value) -> Optional[datetime]:

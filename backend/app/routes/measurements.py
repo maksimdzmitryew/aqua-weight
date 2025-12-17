@@ -1,34 +1,34 @@
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
-from datetime import datetime
-from starlette.concurrency import run_in_threadpool
-import re
 import uuid
-from ..db import get_conn, get_conn_factory, HEX_RE, hex_to_bin, bin_to_hex
-from ..helpers.watering import get_last_watering_event
-from ..helpers.water_loss import calculate_water_loss
-from ..helpers.last_plant_event import LastPlantEvent
-from ..helpers.water_weight import update_min_dry_weight_and_max_watering_added_g
-from ..services.measurements import (
-    parse_timestamp_local,
-    ensure_exclusive_water_vs_weight,
-    derive_weights,
-    compute_water_losses,
-)
-from ..schemas.measurement import (
-    MeasurementCreateRequest,
-    MeasurementUpdateRequest,
-    MeasurementItem,
-    LastMeasurementResponse,
-)
-from ..helpers.water_retained import calculate_water_retained
-from ..helpers.last_repotting import get_last_repotting_event
-from ..helpers.plants_list import PlantsList
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
+
+from ..db import HEX_RE, bin_to_hex, get_conn_factory, hex_to_bin
 from ..helpers.calibration import (
     calibrate_by_max_water_retained,
     calibrate_by_minimum_dry_weight,
 )
-from ..schemas.plant import PlantListItem, PlantCalibrationItem
+from ..helpers.last_repotting import get_last_repotting_event
+from ..helpers.plants_list import PlantsList
+from ..helpers.water_retained import calculate_water_retained
+from ..helpers.water_weight import (
+    update_min_dry_weight_and_max_watering_added_g,
+)
+from ..schemas.measurement import (
+    LastMeasurementResponse,
+    MeasurementCreateRequest,
+    MeasurementItem,
+    MeasurementUpdateRequest,
+)
+from ..schemas.plant import PlantCalibrationItem
+from ..services.measurements import (
+    compute_water_losses,
+    derive_weights,
+    ensure_exclusive_water_vs_weight,
+    parse_timestamp_local,
+)
 
 # Ensure router is defined before any @app.* decorators are used
 app = APIRouter()

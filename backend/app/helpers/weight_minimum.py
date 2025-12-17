@@ -1,6 +1,5 @@
-from typing import Optional, List
+from typing import List, Optional
 from ..schemas.measurement import MeasurementItem
-import logging
 
 
 def calculate_min_dry_weight_g(conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]) -> Optional[float]:

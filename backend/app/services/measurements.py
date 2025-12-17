@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional
+
 import pymysql
 
-from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 from ..helpers.watering import get_last_watering_event
+from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 
 
 # --- Timestamp helpers -------------------------------------------------------

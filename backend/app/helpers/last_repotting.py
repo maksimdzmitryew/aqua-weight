@@ -1,6 +1,5 @@
-from typing import Optional, List
+from typing import Optional
 from ..schemas.measurement import MeasurementItem
-import logging
 
 
 def get_last_repotting_event(conn, plant_id_hex: str) -> Optional[MeasurementItem]:

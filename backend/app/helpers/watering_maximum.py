@@ -1,6 +1,5 @@
-from typing import Optional, List
+from typing import List, Optional
 from ..schemas.measurement import MeasurementItem
-import logging
 
 
 def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]) -> List[float]:

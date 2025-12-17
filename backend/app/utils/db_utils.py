@@ -1,5 +1,5 @@
-from typing import Any
 from ..db import get_conn as _get_conn
+
 
 def get_db_connection():
     """Create and return a new database connection using the centralized DB core."""

@@ -194,9 +194,18 @@ jobs:
 
       - name: Wait for nginx to be ready
         run: |
-          for i in {1..60}; do
+          set -e
+          for i in {1..90}; do
             if curl -sSf http://localhost:5080/ >/dev/null; then
               echo "nginx is up"; break; fi; echo "Waiting for nginx..."; sleep 5; done
+          if ! curl -sSf http://localhost:5080/ >/dev/null; then
+            echo "nginx not reachable after wait; dumping container logs..."
+            docker compose -f docker-compose.test.yml ps
+            docker compose -f docker-compose.test.yml logs --no-color nginx || true
+            docker compose -f docker-compose.test.yml logs --no-color backend || true
+            docker compose -f docker-compose.test.yml logs --no-color frontend || true
+            exit 1
+          fi
           curl -sSf http://localhost:5080/ >/dev/null
 
       - name: Run Playwright tests

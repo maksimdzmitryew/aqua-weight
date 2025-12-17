@@ -1,9 +1,8 @@
-from typing import Optional, List
-from ..schemas.measurement import MeasurementItem
+from typing import Optional
+
 from .last_repotting import get_last_repotting_event
-from .weight_minimum import calculate_min_dry_weight_g
 from .watering_maximum import calculate_max_watering_added_g
-import logging
+from .weight_minimum import calculate_min_dry_weight_g
 
 
 def update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex: str, new_measured_weight_g: Optional[int], new_added_watering_g: Optional[int]) -> None:

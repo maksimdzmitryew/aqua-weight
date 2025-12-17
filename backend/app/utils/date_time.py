@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 
 def to_iso_utc(dt: datetime | None) -> str | None:

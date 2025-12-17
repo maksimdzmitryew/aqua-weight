@@ -1,12 +1,17 @@
+import uuid
+from datetime import datetime
+
+import pymysql
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from datetime import datetime
 from starlette.concurrency import run_in_threadpool
-import re
-import uuid
-import pymysql
-from ..db import get_conn, bin_to_hex, HEX_RE
-from ..schemas.location import LocationListItem, LocationDetail, LocationCreateRequest, LocationUpdateByNameRequest
+
+from ..db import HEX_RE, get_conn
+from ..schemas.location import (
+    LocationCreateRequest,
+    LocationListItem,
+    LocationUpdateByNameRequest,
+)
 
 app = APIRouter()
 

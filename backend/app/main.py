@@ -1,11 +1,11 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .errors import register_exception_handlers
-from .routes.repotting import app as repotting_app
 from .routes.health import app as health_app
-from .routes.plants import app as plants_app
 from .routes.locations import app as locations_app
 from .routes.measurements import app as measurements_app
+from .routes.plants import app as plants_app
+from .routes.repotting import app as repotting_app
 from .routes.test_admin import app as test_admin_app
 
 app = FastAPI()
