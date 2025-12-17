@@ -77,7 +77,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./ssl:/etc/ssl/aw.max:ro
+      # Mount CI-generated certificates with explicit, clearly marked filenames
+      - ./ssl/github-ci.fullchain.pem:/etc/ssl/aw.max/fullchain.pem:ro
+      - ./ssl/github-ci.privkey.pem:/etc/ssl/aw.max/privkey.pem:ro
     healthcheck:
       test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
       interval: 10s

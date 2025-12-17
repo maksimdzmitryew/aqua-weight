@@ -37,9 +37,6 @@ jobs:
             -days 365 \
             -subj "/CN=aw.max" \
             -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
-          # Copy to filenames nginx expects via compose mounts
-          cp ssl/github-ci.fullchain.pem ssl/fullchain.pem
-          cp ssl/github-ci.privkey.pem ssl/privkey.pem
 
       - name: Start services
         run: |
