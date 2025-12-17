@@ -56,3 +56,9 @@ sb-build:
 .PHONY: dev-frontend
 dev-frontend:
 	npm run dev --prefix frontend
+
+DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
+
+.PHONY: dev-certs
+dev-certs:
+	@bash $(DEV_CERTS_SCRIPT)

@@ -77,9 +77,11 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      # Mount CI-generated certificates with explicit, clearly marked filenames
-      - ./ssl/github-ci.fullchain.pem:/etc/ssl/aw.max/fullchain.pem:ro
-      - ./ssl/github-ci.privkey.pem:/etc/ssl/aw.max/privkey.pem:ro
+      # TLS certificate mounts are configurable via env vars for local vs CI.
+      # Local default: ./ssl/dev.* (generate via `make dev-certs`)
+      # CI: workflow sets SSL_CERT_FILE/SSL_KEY_FILE to ./ssl/github-ci.* (generated in CI)
+      - ${SSL_CERT_FILE:-./ssl/fullchain.pem}:/etc/ssl/aw.max/fullchain.pem:ro
+      - ${SSL_KEY_FILE:-./ssl/privkey.pem}:/etc/ssl/aw.max/privkey.pem:ro
     healthcheck:
       test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
       interval: 10s

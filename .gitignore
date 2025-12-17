@@ -75,3 +75,7 @@ docker-compose.*.local.yml
 
 # Misc
 coverage.xml
+
+# Local dev TLS certs
+ssl/dev.fullchain.pem
+ssl/dev.privkey.pem
