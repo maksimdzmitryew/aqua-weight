@@ -46,8 +46,6 @@ jobs:
           MARIADB_DATABASE: appdb
           MARIADB_USER: appuser
           MARIADB_PASSWORD: apppass
-          SSL_CERT_FILE: ./ssl/github-ci.fullchain.pem
-          SSL_KEY_FILE: ./ssl/github-ci.privkey.pem
 
       - name: Wait for services
         run: |
