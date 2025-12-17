@@ -114,3 +114,43 @@ def test_measured_none_but_has_last_wet_and_min_dry_computes_from_last_wet():
     )
     # effective saturated is min(110, 100)=100; available=20; remain=20 -> 100%
     assert round(res.water_retained_pct, 2) == 100.0
+
+
+def test_last_wet_below_min_dry_uses_saturated_capacity_branch():
+    # Covers branch at lines 66-70 where last_wet_weight_g < min_dry_weight_g,
+    # so effective_saturated_weight remains saturated_weight (no min() adjustment)
+    res = calculate_water_retained(
+        min_dry_weight_g=80,
+        max_water_weight_g=20,   # saturated = 100
+        measured_weight_g=85,
+        last_wet_weight_g=70,    # below min_dry -> condition false
+        water_loss_total_pct=None,
+    )
+    # available = 100-80 = 20; remain = 85-80 = 5 -> 5/20 = 0.25 => 25%
+    assert round(res.water_retained_pct, 2) == 25.0
+
+
+def test_frac_ratio_none_branch_is_skipped_gracefully():
+    # Craft a measured_weight_g that yields a water_remain_g whose division by
+    # a number returns None, so `if frac_ratio is not None` evaluates to False.
+    class FakeRemain:
+        def __truediv__(self, other):
+            return None
+
+    class FakeMeasured:
+        # Ensure we take the main branch (measured != min_dry)
+        def __ne__(self, other):
+            return True
+
+        def __sub__(self, other):
+            return FakeRemain()
+
+    res = calculate_water_retained(
+        min_dry_weight_g=80,
+        max_water_weight_g=40,  # saturated = 120 -> available positive (covered)
+        measured_weight_g=FakeMeasured(),
+        last_wet_weight_g=None,
+        water_loss_total_pct=None,
+    )
+    # Since frac_ratio is None, assignment branch is skipped -> stays None
+    assert res.water_retained_pct is None
