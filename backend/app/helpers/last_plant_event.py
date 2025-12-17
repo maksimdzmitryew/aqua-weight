@@ -1,5 +1,6 @@
 from ..db import bin_to_hex, get_conn
 
+
 class LastPlantEvent:
     """
     Helper to fetch the last measurement record for a plant.

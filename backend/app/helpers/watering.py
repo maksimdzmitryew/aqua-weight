@@ -6,6 +6,7 @@ Helper functions for watering-related operations.
 from typing import Any, Dict, Optional
 
 import pymysql
+
 from ..db import bin_to_hex
 
 
