@@ -577,3 +577,47 @@ test('post-correction refresh tolerates non-array response (covers false branch 
   const note = await screen.findByRole('note')
   expect(note).toHaveTextContent(/no plants/i)
 })
+
+// Additional highly targeted tests to ensure exact lines are executed for coverage
+test('initial load non-abort error triggers setError (covers line 29)', async () => {
+  // Spy directly to ensure the catch branch executes on the component
+  const spy = vi.spyOn(calibrationApi, 'list').mockRejectedValueOnce(new Error('load exploded'))
+  renderPage()
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/load exploded|failed to load calibration/i)
+  spy.mockRestore()
+})
+
+
+test('correction error formats string detail (covers line 75)', async () => {
+  // Spy on API methods to fully control both list() and correct()
+  server.resetHandlers()
+  const plant = { uuid: 'p-err', name: 'Err', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [ { id: 'e', measured_at: '2025-10-10 10:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] } }
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const postSpy = vi.spyOn(calibrationApi, 'correct')
+    .mockRejectedValueOnce({ detail: 'Bad request' }) // hits line 75
+
+  renderPage()
+  await screen.findByText('Err')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert1 = await screen.findByRole('alert')
+  expect(alert1).toHaveTextContent(/bad request/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
+
+test('correction error formats object detail (covers line 79)', async () => {
+  server.resetHandlers()
+  const plant = { uuid: 'p-err2', name: 'Err2', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [ { id: 'e2', measured_at: '2025-10-11 10:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] } }
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const postSpy = vi.spyOn(calibrationApi, 'correct')
+    .mockRejectedValueOnce({ detail: { error: 'Not good' } }) // hits line 79
+
+  renderPage()
+  await screen.findByText('Err2')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/not good|\{\s*"error"\s*:\s*"Not good"\s*\}/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
