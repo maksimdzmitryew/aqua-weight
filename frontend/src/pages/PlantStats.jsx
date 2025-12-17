@@ -83,7 +83,9 @@ export default function PlantStats() {
         const chronological = perDayDesc.slice().reverse()
         const pts = chronological.map(m => {
           const w = m.measured_weight_g
-          const t = m?.measured_at ? Date.parse(m.measured_at.replace(' ', 'T')) : NaN
+          const ma = m.measured_at
+          let t = NaN
+          if (ma) t = Date.parse(ma.replace(' ', 'T'))
           if (!isFinite(w) || !isFinite(t)) return null
           const title = `${m.measured_at} — ${w} g`
           return { x: t, y: w, title }

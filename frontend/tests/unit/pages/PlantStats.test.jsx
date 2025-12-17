@@ -174,10 +174,14 @@ describe('pages/PlantStats', () => {
     expect(props.showFirstBelowThreshVLine).toBe(false)
   })
 
-  test('falls back to showSuggestedInterval=true when localStorage.getItem throws (covers try/catch init)', async () => {
-    const getSpy = vi.spyOn(window.localStorage, 'getItem').mockImplementation((key) => {
+  test('falls back to showSuggestedInterval=true when localStorage access throws (covers try/catch init at line 29)', async () => {
+    // Spy on Storage.prototype.getItem and throw only for the specific key used by PlantStats
+    const proto = Object.getPrototypeOf(window.localStorage)
+    const orig = proto.getItem
+    const spy = vi.spyOn(proto, 'getItem').mockImplementation(function (key) {
       if (key === 'chart.showSuggestedInterval') throw new Error('boom')
-      return null
+      // delegate to original for all other keys to avoid breaking ThemeContext, etc.
+      return orig.call(this, key)
     })
     const plant = {
       uuid: 'p-5', name: 'Fern', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 40,
@@ -194,7 +198,8 @@ describe('pages/PlantStats', () => {
     const spark = await screen.findByTestId('sparkline')
     const props = JSON.parse(spark.getAttribute('data-props') || '{}')
     expect(props.showFirstBelowThreshVLine).toBe(true)
-    getSpy.mockRestore()
+    // restore spy
+    spy.mockRestore()
   })
 
   test('does not call measurementsApi when uuid is missing (early return)', async () => {
@@ -234,6 +239,35 @@ describe('pages/PlantStats', () => {
     const props = JSON.parse(spark.getAttribute('data-props') || '{}')
     // Unique valid days: 2025-05-01 and 2025-05-02 -> 2 points
     expect(props.data?.length).toBe(2)
+  })
+
+  test('covers mapping branch where measured_at is falsy at mapping time (line 86 else → NaN filtered)', async () => {
+    const plant = { uuid: 'p-10x', name: 'ToggleDate', min_dry_weight_g: 10, max_water_weight_g: 5, recommended_water_threshold_pct: 50 }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    // Craft an entry whose measured_at is truthy on first access (during dayKey build)
+    // and falsy on second access (during mapping), so the ternary false branch executes.
+    let firstRead = true
+    const tricky = { measured_weight_g: 111 }
+    Object.defineProperty(tricky, 'measured_at', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        if (firstRead) { firstRead = false; return '2025-08-01 10:00:00' }
+        return '' // falsy on subsequent read → triggers NaN path in mapping
+      },
+    })
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      // include another valid distinct day so chart would have 2 points if tricky survived mapping
+      { measured_weight_g: 120, measured_at: '2025-08-02 10:00:00' },
+      tricky,
+    ])
+
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-10x', state: { plant } }, <PlantStats />)
+
+    // With only one valid point left after filtering, component should render fallback text, not Sparkline
+    await screen.findByText(/Not enough data to chart/i)
+    expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
   })
 
   test('AbortError during plant fetch is ignored (no error displayed)', async () => {
@@ -368,6 +402,39 @@ describe('pages/PlantStats', () => {
     renderAt({ pathname: '/stats/p-12', state: { plant } }, <PlantStats />)
     // The first day point becomes invalid in mapping; only one valid point remains
     await screen.findByText(/Not enough data to chart/i)
+  })
+
+  test('mapping ternary else executes when measured_at becomes null at mapping (line 86)', async () => {
+    const plant = { uuid: 'p-15', name: 'NullDate' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    let reads = 0
+    const tricky = {
+      measured_weight_g: 170,
+      get measured_at() {
+        // First read for per-day collapse -> valid date; second read in mapping -> null (falsy)
+        if (reads === 0) { reads++; return '2025-11-05 08:00:00' }
+        return null
+      },
+    }
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      tricky,
+      { measured_weight_g: 175, measured_at: '2025-11-06 08:00:00' },
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-15', state: { plant } }, <PlantStats />)
+    await screen.findByText(/Not enough data to chart/i)
+  })
+
+  test('back button triggers navigate to /dashboard (covers inline onBack handler)', async () => {
+    const plant = { uuid: 'p-14', name: 'Fiddle' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-14', state: { plant } }, <PlantStats />)
+    // Button should be labeled with titleBack "Dashboard"
+    const backBtn = await screen.findByRole('button', { name: /dashboard/i })
+    await (await import('@testing-library/user-event')).default.click(backBtn)
+    expect(navigateSpy).toHaveBeenCalledWith('/dashboard')
   })
 
   test('cleanup abort runs on unmount (covers effect cleanup function)', async () => {
