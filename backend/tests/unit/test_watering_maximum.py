@@ -68,3 +68,17 @@ def test_calculate_max_watering_added_g_returns_none_on_empty_and_error():
     # Exception -> None
     conn_boom = BoomConn([])
     assert calculate_max_watering_added_g(conn_boom, "id", last_repotting=None) is None
+
+
+def test_calculate_max_watering_added_g_catches_internal_exception(monkeypatch):
+    # Ensure the exception within calculate_max_watering_added_g is caught
+    # by making the helper it calls raise directly.
+    import app.helpers.watering_maximum as wm
+
+    def boom(*args, **kwargs):
+        raise ValueError("unexpected failure")
+
+    monkeypatch.setattr(wm, "get_added_waterings_since_repotting", boom)
+
+    # Any conn works because the helper is patched out
+    assert wm.calculate_max_watering_added_g(object(), "id", last_repotting=None) is None
