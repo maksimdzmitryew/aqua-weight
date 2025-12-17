@@ -241,6 +241,7 @@ jobs:
               "    rev: v0.6.9" \
               "    hooks:" \
               "      - id: ruff" \
+              "        args: ['--no-fix']" \
               "        types_or: [python]" \
               "        files: ^backend/|" \
               > .pre-commit-config.ci.yaml
