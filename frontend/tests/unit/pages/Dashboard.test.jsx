@@ -313,3 +313,283 @@ describe('pages/Dashboard', () => {
     expect(props.height).toBe(180)
   })
 })
+
+// --- additional coverage for remaining branches/funcs ---
+describe('pages/Dashboard – additional coverage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.resetModules()
+    localStorage.clear()
+  })
+
+  test('ignores AbortError from plants loader and does not show error (covers 52-54)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    // Simulate AbortError thrown by fetch
+    vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    // After effect completes, no error banner, but empty state visible
+    await screen.findByText(/no plants yet/i)
+    expect(screen.queryByText(/failed to load plants/i)).not.toBeInTheDocument()
+  })
+
+  test('applies dark theme card colors (covers 196-197)', async () => {
+    // Mock ThemeContext to force dark theme for this test only
+    vi.doMock('../../../src/ThemeContext.jsx', () => {
+      const React = require('react')
+      return {
+        useTheme: () => ({ effectiveTheme: 'dark' }),
+        ThemeProvider: ({ children }) => React.createElement(React.Fragment, null, children),
+      }
+    })
+
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+      { uuid: 'p-dark', name: 'Darkly' },
+    ])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-03-02 10:00:00', measured_weight_g: 10 },
+      { measured_at: '2024-03-01 10:00:00', measured_weight_g: 9 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      // ThemeProvider here is the mocked pass-through
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const title = await screen.findByText('Darkly')
+    const card = title.closest('[title="Open statistics"]')
+    expect(card).toBeTruthy()
+    const style = card.getAttribute('style') || ''
+    // Dark theme background and border colors from Dashboard.jsx (allow rgb() normalization)
+    expect(style).toMatch(/background:\s*(#111827|rgb\(17, 24, 39\))/)
+    expect(style).toMatch(/border:\s*1px solid (#374151|rgb\(55, 65, 81\))/)
+  })
+
+  test('persists charts-per-row and reads default (covers 37 and executes 172-174 finite path)', async () => {
+    // Ensure initializer branch uses default (no stored value)
+    localStorage.removeItem('dashboard.chartsPerRow')
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    // Return one plant with valid series so the controls are visible and chart renders
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+      { uuid: 'p-grid', name: 'Grid', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
+    ])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-01-02 10:00:00', measured_weight_g: 2 },
+      { measured_at: '2024-01-01 10:00:00', measured_weight_g: 1 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const select = await screen.findByRole('combobox', { name: /charts per row/i })
+
+    // Initially, no stored value -> default 2 from initializer (line 37)
+    expect(select).toHaveValue('2')
+
+    // Change to 1 (valid option) -> persists
+    fireEvent.change(select, { target: { value: '1' } })
+    await waitFor(() => {
+      expect(localStorage.getItem('dashboard.chartsPerRow')).toBe('1')
+    })
+
+    // Change to 5 (valid option) -> persists
+    fireEvent.change(select, { target: { value: '5' } })
+    await waitFor(() => {
+      expect(localStorage.getItem('dashboard.chartsPerRow')).toBe('5')
+    })
+  })
+
+  test('plants loader returns non-array and defaults to [] (covers branch at line 50)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce(null)
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    // Should render empty state without errors
+    await screen.findByText(/no plants yet/i)
+    expect(screen.queryByText(/failed to load plants/i)).not.toBeInTheDocument()
+  })
+
+  test('localStorage.setItem throwing during toggles does not crash (covers try/catch around setters)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+      { uuid: 'p-ls', name: 'LS', min_dry_weight_g: 5, max_water_weight_g: 5, recommended_water_threshold_pct: 20 },
+    ])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-07-02 10:00:00', measured_weight_g: 10 },
+      { measured_at: '2024-07-01 10:00:00', measured_weight_g: 9 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    const originalSet = window.localStorage.setItem
+    window.localStorage.setItem = () => { throw new Error('quota') }
+    try {
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <Dashboard />
+          </MemoryRouter>
+        </ThemeProvider>
+      )
+
+      await screen.findByTestId('sparkline')
+      const toggle = screen.getByLabelText(/show suggested watering interval/i)
+      // initial checked
+      expect(toggle).toBeChecked()
+      // Toggling should update UI state even if setItem throws
+      fireEvent.click(toggle)
+      expect(toggle).not.toBeChecked()
+
+      const select = screen.getByRole('combobox', { name: /charts per row/i })
+      fireEvent.change(select, { target: { value: '4' } })
+      expect(select).toHaveValue('4')
+    } finally {
+      window.localStorage.setItem = originalSet
+    }
+  })
+
+  test('measurements all invalid produce empty series (covers map/filter branches)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-empty', name: 'Empty' }])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: 'bad-date', measured_weight_g: 10 }, // invalid time
+      { measured_at: '2024-01-01 10:00:00', measured_weight_g: NaN }, // invalid weight
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    await screen.findByText('Empty')
+    await screen.findByText(/not enough data to chart/i)
+    expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
+  })
+})
+
+describe('pages/Dashboard – helper functions coverage', () => {
+  test('clampChartsPerRow covers all branches', async () => {
+    const { clampChartsPerRow } = await import('../../../src/pages/Dashboard.jsx')
+    expect(clampChartsPerRow('abc')).toBe(2)
+    expect(clampChartsPerRow('0')).toBe(1)
+    expect(clampChartsPerRow('10')).toBe(5)
+    expect(clampChartsPerRow('3')).toBe(3)
+  })
+
+  test('getInitialChartsPerRow returns default or valid numbers', async () => {
+    const { getInitialChartsPerRow } = await import('../../../src/pages/Dashboard.jsx')
+    expect(getInitialChartsPerRow(() => null)).toBe(2)
+    expect(getInitialChartsPerRow(() => '4')).toBe(4)
+    // Non-function getItem path
+    expect(getInitialChartsPerRow(null)).toBe(2)
+  })
+
+  test('isAbortError identifies abort-like errors', async () => {
+    const { isAbortError } = await import('../../../src/pages/Dashboard.jsx')
+    expect(isAbortError({ name: 'AbortError' })).toBe(true)
+    expect(isAbortError(new Error('Request aborted by user'))).toBe(true)
+    expect(isAbortError(new Error('Boom'))).toBe(false)
+  })
+
+  test('arrayOrEmpty returns array or empty array', async () => {
+    const { arrayOrEmpty } = await import('../../../src/pages/Dashboard.jsx')
+    expect(arrayOrEmpty([1, 2])).toEqual([1, 2])
+    expect(arrayOrEmpty(null)).toEqual([])
+  })
+})
+
+describe('pages/Dashboard – refLines toggle branches', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.resetModules()
+    localStorage.clear()
+  })
+
+  test('toggling min/max/thresh checkboxes removes refLines (covers false branches)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    const plant = {
+      uuid: 'p-ref',
+      name: 'Refs',
+      min_dry_weight_g: 10,
+      max_water_weight_g: 10,
+      recommended_water_threshold_pct: 50,
+    }
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-06-02 10:00:00', measured_weight_g: 22 },
+      { measured_at: '2024-06-01 10:00:00', measured_weight_g: 20 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const spark = await screen.findByTestId('sparkline')
+    let props = JSON.parse(spark.getAttribute('data-props'))
+    expect(Array.isArray(props.refLines)).toBe(true)
+    expect(props.refLines.length).toBe(3)
+
+    // Toggle off all three
+    fireEvent.click(screen.getByLabelText(/show min dry weight/i))
+    fireEvent.click(screen.getByLabelText(/show max water weight/i))
+    fireEvent.click(screen.getByLabelText(/recommended threshold/i))
+
+    // Query again to get updated props
+    const spark2 = await screen.findByTestId('sparkline')
+    props = JSON.parse(spark2.getAttribute('data-props'))
+    expect(props.refLines.length).toBe(0)
+  })
+})

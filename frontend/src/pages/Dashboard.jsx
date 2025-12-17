@@ -16,6 +16,28 @@ export function getInitialShowSuggestedInterval(getItem) {
   } catch { return true }
 }
 
+// Extracted tiny helpers to aid coverage tooling and keep UI code clean
+export function isAbortError(e) {
+  const msg = e?.message || ''
+  return e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
+}
+
+export function arrayOrEmpty(data) {
+  return Array.isArray(data) ? data : []
+}
+
+export function getInitialChartsPerRow(getItem) {
+  const raw = typeof getItem === 'function' ? getItem('dashboard.chartsPerRow') : null
+  const n = parseInt(raw, 10)
+  if (Number.isFinite(n) && n >= 1 && n <= 5) return n
+  return 2
+}
+
+export function clampChartsPerRow(value) {
+  const v = parseInt(value, 10)
+  return Math.max(1, Math.min(5, Number.isFinite(v) ? v : 2))
+}
+
 export default function Dashboard() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
@@ -34,10 +56,8 @@ export default function Dashboard() {
     getInitialShowSuggestedInterval((key) => localStorage.getItem(key))
   ))
   const [chartsPerRow, setChartsPerRow] = useState(() => {
-    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('dashboard.chartsPerRow') : null
-    const n = parseInt(raw, 10)
-    if (Number.isFinite(n) && n >= 1 && n <= 5) return n
-    return 2
+    const getItem = (key) => (typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null)
+    return getInitialChartsPerRow(getItem)
   })
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
@@ -47,11 +67,10 @@ export default function Dashboard() {
     async function loadPlants() {
       try {
         const data = await plantsApi.list(controller.signal)
-        setPlants(Array.isArray(data) ? data : [])
+        setPlants(arrayOrEmpty(data))
       } catch (e) {
         const msg = e?.message || ''
-        const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) setError(msg || 'Failed to load plants')
+        if (!isAbortError(e)) setError(msg || 'Failed to load plants')
       } finally {
         setLoading(false)
       }
@@ -72,7 +91,7 @@ export default function Dashboard() {
             if (!uid) return [null, []]
             try {
               const data = await measurementsApi.listByPlant(uid)
-              const arr = Array.isArray(data) ? data : []
+              const arr = arrayOrEmpty(data)
               // Find last repotting event based on backend definition:
               // measured_weight_g, last_dry_weight_g, water_added_g are numbers
               // last_wet_weight_g, water_loss_* are null
@@ -168,8 +187,7 @@ export default function Dashboard() {
           <select
             value={chartsPerRow}
             onChange={(e) => {
-              const v = parseInt(e.target.value, 10)
-              const clamped = Math.max(1, Math.min(5, Number.isFinite(v) ? v : 2))
+              const clamped = clampChartsPerRow(e.target.value)
               setChartsPerRow(clamped)
               try { localStorage.setItem('dashboard.chartsPerRow', String(clamped)) } catch {}
             }}
