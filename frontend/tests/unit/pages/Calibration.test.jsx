@@ -539,15 +539,15 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
   expect(postCalled).toBe(true)
 })
 
-test('list rendering tolerates missing calibration by treating entries as [] (covers entries default in map)', async () => {
+test('list rendering with missing calibration still shows header/button but no table', async () => {
   const plant = { uuid: 'p-none', name: 'NoCal', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: {} }
   server.resetHandlers()
   server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
-  // With no entries, the plant card is not rendered (filtered length = 0). This still executes line 130.
-  await waitFor(() => {
-    expect(screen.queryByText('NoCal')).not.toBeInTheDocument()
-  })
+  // Plant header should be visible
+  await screen.findByText('NoCal')
+  // But there should be no table rendered because there are no rows
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
 })
 
 test('post-correction refresh tolerates non-array response (covers false branch at line 71)', async () => {
@@ -620,4 +620,28 @@ test('correction error formats object detail (covers line 79)', async () => {
   expect(alert.textContent || '').toMatch(/not good|\{\s*"error"\s*:\s*"Not good"\s*\}/i)
   postSpy.mockRestore()
   listSpy.mockRestore()
+})
+
+test('handleCorrectOverfill uses [] when entries missing (covers line 46 default)', async () => {
+  // Plant has calibration missing entirely, but weights present so button enabled
+  const plant = { uuid: 'p-no-cal', name: 'NoCalForBtn', min_dry_weight_g: 10, max_water_weight_g: 5 }
+  let called = false
+  server.resetHandlers()
+  server.use(
+    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/measurements/corrections', async ({ request }) => {
+      called = true
+      const body = await request.json()
+      // With no calibration entries, payload should not include from_ts/start_* fields
+      expect(body).toMatchObject({ plant_id: 'p-no-cal', cap: 'capacity', edit_last_wet: true })
+      expect(body).not.toHaveProperty('from_ts')
+      expect(body).not.toHaveProperty('start_measurement_id')
+      expect(body).not.toHaveProperty('start_diff_to_max_g')
+      return HttpResponse.json({ ok: true })
+    })
+  )
+  renderPage()
+  await screen.findByText('NoCalForBtn')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  await waitFor(() => expect(called).toBe(true))
 })
