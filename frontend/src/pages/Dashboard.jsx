@@ -8,6 +8,14 @@ import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 
+export function getInitialShowSuggestedInterval(getItem) {
+  try {
+    const v = getItem?.('chart.showSuggestedInterval')
+    if (v === '0') return false
+    return true // default: enabled
+  } catch { return true }
+}
+
 export default function Dashboard() {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
@@ -22,13 +30,9 @@ export default function Dashboard() {
   const [showMaxRef, setShowMaxRef] = useState(true)
   const [showThreshRef, setShowThreshRef] = useState(true)
   // Suggested watering interval (first-below-threshold blue marker)
-  const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => {
-    try {
-      const v = localStorage.getItem('chart.showSuggestedInterval')
-      if (v === '0') return false
-      return true // default: enabled
-    } catch { return true }
-  })
+  const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => (
+    getInitialShowSuggestedInterval((key) => localStorage.getItem(key))
+  ))
   const [chartsPerRow, setChartsPerRow] = useState(() => {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem('dashboard.chartsPerRow') : null
     const n = parseInt(raw, 10)
