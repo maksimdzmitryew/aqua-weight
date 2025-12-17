@@ -346,4 +346,40 @@ describe('pages/PlantStats', () => {
     renderAt({ pathname: '/stats/p-11', state: { plant } }, <PlantStats />)
     await screen.findByText(/Not enough data to chart/i)
   })
+
+  test('measured_at getter changes between accesses covering ternary false branch at mapping (line 86)', async () => {
+    const plant = { uuid: 'p-12', name: 'Dracaena' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    let state = 0
+    const tricky = {
+      measured_weight_g: 150,
+      get measured_at() {
+        // First access (dayKey calculation) returns a valid date string
+        // Second access (mapping) returns undefined to exercise the : NaN branch
+        if (state === 0) { state = 1; return '2025-10-01 09:00:00' }
+        return undefined
+      },
+    }
+    measurementsApi.listByPlant.mockResolvedValueOnce([
+      tricky,
+      { measured_weight_g: 160, measured_at: '2025-10-02 09:00:00' },
+    ])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    renderAt({ pathname: '/stats/p-12', state: { plant } }, <PlantStats />)
+    // The first day point becomes invalid in mapping; only one valid point remains
+    await screen.findByText(/Not enough data to chart/i)
+  })
+
+  test('cleanup abort runs on unmount (covers effect cleanup function)', async () => {
+    const abortSpy = vi.spyOn(globalThis.AbortController.prototype, 'abort')
+    const plant = { uuid: 'p-13', name: 'Peace Lily' }
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    measurementsApi.listByPlant.mockResolvedValueOnce([])
+    const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
+    const r = renderAt({ pathname: '/stats/p-13', state: { plant } }, <PlantStats />)
+    // Unmount to trigger cleanup returned by the effect
+    r.unmount()
+    expect(abortSpy).toHaveBeenCalled()
+    abortSpy.mockRestore()
+  })
 })

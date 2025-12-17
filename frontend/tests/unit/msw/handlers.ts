@@ -21,6 +21,11 @@ export const handlers = [
     return HttpResponse.json(plants)
   }),
 
+  // Explicitly handle a noisy test route used for error-path testing
+  http.get('/api/plants/uErr3', () => {
+    return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+  }),
+
   http.put('/api/plants/order', async ({ request }) => {
     // accept any payload and return ok
     return HttpResponse.json({ ok: true })
