@@ -26,6 +26,16 @@ export function arrayOrEmpty(data) {
   return Array.isArray(data) ? data : []
 }
 
+// Safely read from localStorage; returns null when unavailable or on error
+export function safeLocalGetItem(key) {
+  try {
+    // eslint-disable-next-line no-undef
+    return (typeof localStorage !== 'undefined') ? localStorage.getItem(key) : null
+  } catch {
+    return null
+  }
+}
+
 export function getInitialChartsPerRow(getItem) {
   const raw = typeof getItem === 'function' ? getItem('dashboard.chartsPerRow') : null
   const n = parseInt(raw, 10)
@@ -36,6 +46,21 @@ export function getInitialChartsPerRow(getItem) {
 export function clampChartsPerRow(value) {
   const v = parseInt(value, 10)
   return Math.max(1, Math.min(5, Number.isFinite(v) ? v : 2))
+}
+
+// Compute timestamp from measurement; NaN when absent/invalid
+export function toTimestamp(m) {
+  const s = m?.measured_at
+  if (!s) return NaN
+  return Date.parse(String(s).replace(' ', 'T'))
+}
+
+// Safely persist to localStorage; ignore errors
+export function safeSetItem(key, value) {
+  try {
+    // eslint-disable-next-line no-undef
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
+  } catch {}
 }
 
 export default function Dashboard() {
@@ -53,11 +78,10 @@ export default function Dashboard() {
   const [showThreshRef, setShowThreshRef] = useState(true)
   // Suggested watering interval (first-below-threshold blue marker)
   const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => (
-    getInitialShowSuggestedInterval((key) => localStorage.getItem(key))
+    getInitialShowSuggestedInterval((key) => safeLocalGetItem(key))
   ))
   const [chartsPerRow, setChartsPerRow] = useState(() => {
-    const getItem = (key) => (typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null)
-    return getInitialChartsPerRow(getItem)
+    return getInitialChartsPerRow(safeLocalGetItem)
   })
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
@@ -125,7 +149,7 @@ export default function Dashboard() {
               const chronological = perDayDesc.slice().reverse()
               const points = chronological.map((m) => {
                 const w = m.measured_weight_g
-                const t = m?.measured_at ? Date.parse(m.measured_at.replace(' ', 'T')) : NaN
+                const t = toTimestamp(m)
                 if (!isFinite(w) || !isFinite(t)) return null
                 const title = `${m.measured_at} — ${w} g`
                 return { x: t, y: w, title }
@@ -177,7 +201,7 @@ export default function Dashboard() {
             onChange={(e) => {
               const val = e.target.checked
               setShowSuggestedInterval(val)
-              try { localStorage.setItem('chart.showSuggestedInterval', val ? '1' : '0') } catch {}
+              safeSetItem('chart.showSuggestedInterval', val ? '1' : '0')
             }}
           />
           <span>Show suggested watering interval</span>
@@ -189,7 +213,7 @@ export default function Dashboard() {
             onChange={(e) => {
               const clamped = clampChartsPerRow(e.target.value)
               setChartsPerRow(clamped)
-              try { localStorage.setItem('dashboard.chartsPerRow', String(clamped)) } catch {}
+              safeSetItem('dashboard.chartsPerRow', String(clamped))
             }}
             style={{ padding: '4px 6px', borderRadius: 6 }}
           >

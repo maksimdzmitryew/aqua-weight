@@ -312,6 +312,181 @@ describe('pages/Dashboard', () => {
     const props = JSON.parse(spark.getAttribute('data-props'))
     expect(props.height).toBe(180)
   })
+
+  // --- Additional focused tests to finish branch/function coverage for Dashboard.jsx ---
+
+
+  test('plants loader AbortError is ignored (covers 72-73 abort branch)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    // Should show empty state (no error banner) after effect settles
+    await screen.findByText(/no plants yet/i)
+    expect(screen.queryByText(/failed to load plants/i)).not.toBeInTheDocument()
+  })
+
+  test('plants loader non-abort with empty message uses default text (covers 72-73 default)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({ message: '' })
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    const alert = await screen.findByRole('alert')
+    expect((alert.textContent || '').toLowerCase()).toMatch(/failed to load plants/)
+  })
+
+  test('toggling suggested interval on writes "1" (covers ternary branch at 204)', async () => {
+    // Start with persisted off state
+    localStorage.setItem('chart.showSuggestedInterval', '0')
+    const { plantsApi } = await import('../../../src/api/plants')
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+    const toggle = screen.getByLabelText(/show suggested watering interval/i)
+    expect(toggle).not.toBeChecked()
+    fireEvent.click(toggle)
+    expect(toggle).toBeChecked()
+    expect(localStorage.getItem('chart.showSuggestedInterval')).toBe('1')
+  })
+
+  test('filters out entries with invalid weight while keeping valid dates (covers null path around 128/129)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+      { uuid: 'p-w', name: 'Weighty', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
+    ])
+    // Include an entry with invalid weight but valid date to hit the !isFinite(w) branch
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-06-02 10:00:00', measured_weight_g: 10 },
+      { measured_at: '2024-06-01 10:00:00', measured_weight_g: 'NaN' }, // invalid weight → filtered
+      { measured_at: '2024-05-31 10:00:00', measured_weight_g: 9 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const spark = await screen.findByTestId('sparkline')
+    const props = JSON.parse(spark.getAttribute('data-props'))
+    // Only two valid items should remain
+    expect(props.data.length).toBe(2)
+    // Ensure the titles correspond to the two valid dates (sanity)
+    const titles = props.data.map(p => p.title)
+    expect(titles.join(' | ')).toMatch(/2024-06-02|2024-05-31/)
+  })
+
+  test('skips measurements missing measured_at during per-day collapse (covers 119 falsy branch)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+      { uuid: 'p-day', name: 'DayKey', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
+    ])
+    // Include one entry with measured_at missing; it should be ignored in per-day pass
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-09-02 10:00:00', measured_weight_g: 10 },
+      { measured_weight_g: 9 }, // no measured_at
+      { measured_at: '2024-09-01 10:00:00', measured_weight_g: 8 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const spark = await screen.findByTestId('sparkline')
+    const props = JSON.parse(spark.getAttribute('data-props'))
+    expect(props.data.length).toBe(2)
+  })
+
+  test('outer measurements catch without message uses default text (covers 143 default branch)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-outer', name: 'Outer' }])
+
+    const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => { throw {} })
+
+    try {
+      const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <Dashboard />
+          </MemoryRouter>
+        </ThemeProvider>
+      )
+      const alert = await screen.findByRole('alert')
+      expect(alert.textContent || '').toMatch(/failed to load measurements/i)
+    } finally {
+      allSpy.mockRestore()
+    }
+  })
+
+  test('localStorage.setItem throws are safely ignored for both toggle and select (covers 180 and 192)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+
+    // One plant with two valid points to render chart and controls
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-ls', name: 'Persist' }])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-07-02 10:00:00', measured_weight_g: 2 },
+      { measured_at: '2024-07-01 10:00:00', measured_weight_g: 1 },
+    ])
+
+    // Spy on localStorage.setItem to throw
+    const setItemSpy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => { throw new Error('denied') })
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    // Ensure default for suggested interval is true by clearing any persisted off state
+    localStorage.removeItem('chart.showSuggestedInterval')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    // Toggle suggested interval off – state should update despite setItem throwing
+    const toggle = await screen.findByLabelText(/show suggested watering interval/i)
+    expect(toggle).toBeChecked()
+    fireEvent.click(toggle)
+    expect(toggle).not.toBeChecked()
+
+    // Change charts per row – state updates and no crash despite setItem throwing
+    const select = screen.getByRole('combobox', { name: /charts per row/i })
+    fireEvent.change(select, { target: { value: '5' } })
+    expect(select).toHaveValue('5')
+
+    setItemSpy.mockRestore()
+  })
 })
 
 // --- additional coverage for remaining branches/funcs ---
@@ -509,6 +684,54 @@ describe('pages/Dashboard – additional coverage', () => {
     await screen.findByText('Empty')
     await screen.findByText(/not enough data to chart/i)
     expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
+  })
+})
+
+describe('Dashboard helpers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    if (globalThis.localStorage && typeof globalThis.localStorage.clear === 'function') {
+      globalThis.localStorage.clear()
+    }
+    // Ensure any stubbed globals are restored
+    // @ts-ignore
+    if (vi.unstubAllGlobals) vi.unstubAllGlobals()
+  })
+
+  test('safeLocalGetItem returns value on success and null when getItem throws (covers 35-36)', async () => {
+    const { safeLocalGetItem } = await import('../../../src/pages/Dashboard.jsx')
+    localStorage.setItem('k', 'v')
+    expect(safeLocalGetItem('k')).toBe('v')
+
+    const spy = vi.spyOn(localStorage.__proto__, 'getItem').mockImplementation(() => { throw new Error('nope') })
+    expect(safeLocalGetItem('k')).toBeNull()
+    spy.mockRestore()
+
+    // Simulate environment without localStorage
+    vi.stubGlobal('localStorage', undefined)
+    expect(safeLocalGetItem('k')).toBeNull()
+    // Restore stubbed globals
+    // @ts-ignore
+    if (vi.unstubAllGlobals) vi.unstubAllGlobals()
+  })
+
+  test('toTimestamp handles valid, invalid, and missing measured_at', async () => {
+    const { toTimestamp } = await import('../../../src/pages/Dashboard.jsx')
+    expect(Number.isFinite(toTimestamp({ measured_at: '2025-01-01 00:00:00' }))).toBe(true)
+    expect(Number.isFinite(toTimestamp({ measured_at: 'bad-date' }))).toBe(false)
+    expect(Number.isFinite(toTimestamp({}))).toBe(false)
+  })
+
+  test('safeSetItem swallows errors and persists on success', async () => {
+    const { safeSetItem, safeLocalGetItem } = await import('../../../src/pages/Dashboard.jsx')
+    const spy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    // Should not throw
+    expect(() => safeSetItem('a', '1')).not.toThrow()
+    spy.mockRestore()
+
+    // Success path
+    safeSetItem('a', '2')
+    expect(safeLocalGetItem('a')).toBe('2')
   })
 })
 
