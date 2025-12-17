@@ -34,6 +34,49 @@ from ..schemas.plant import PlantListItem, PlantCalibrationItem
 app = APIRouter()
 
 
+# Internal helpers to make post-transaction computations testable and covered
+def _compute_water_retained_for_plant(cur, plant_id_hex: str, *,
+                                      measured_weight_g: int | None,
+                                      last_wet_weight_g: int | None,
+                                      water_loss_total_pct: float | None) -> float:
+    """Fetch plant min/max and compute rounded water_retained_pct.
+
+    This mirrors the inline logic used after create/update operations.
+    """
+    cur.execute(
+        "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
+        (plant_id_hex,),
+    )
+    plant_row = cur.fetchone()
+    if not plant_row:
+        # Preserve existing behavior expectations (the caller assumes a plant row exists)
+        # We return 0.0 here to avoid unbound variables while keeping semantics simple for tests.
+        min_dry_weight_g = None
+        max_water_weight_g = None
+    else:
+        min_dry_weight_g = plant_row[0]
+        max_water_weight_g = plant_row[1]
+
+    water_retained_calc = calculate_water_retained(
+        min_dry_weight_g=min_dry_weight_g,
+        max_water_weight_g=max_water_weight_g,
+        measured_weight_g=measured_weight_g,
+        last_wet_weight_g=last_wet_weight_g,
+        water_loss_total_pct=water_loss_total_pct,
+    )
+    return round(water_retained_calc.water_retained_pct, 0)
+
+
+def _post_delete_recalculate_and_commit(conn, plant_id_hex: str, measured_weight_g: int | None):
+    """After a successful delete, recalculate min dry/max watering and commit.
+
+    Matches the behavior previously inlined in delete_measurement.
+    """
+    if measured_weight_g is not None:
+        update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex, measured_weight_g, None)
+    conn.commit()
+
+
 # --- New: Simple endpoint to record a delegated/reported watering (no weights) ---
 class ReportedWateringCreateRequest(BaseModel):
     plant_id: str
@@ -513,27 +556,14 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                 # Commit transaction after all statements succeed
                 conn.commit()
 
-                # Get plant information (you'll need to query this from the plants table)
-                # This would typically be done before the measurement insertion
-                cur.execute(
-                    "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
-                    (payload.plant_id,)
-                )
-                plant_row = cur.fetchone()
-
-                if plant_row:
-                    min_dry_weight_g = plant_row[0]
-                    max_water_weight_g = plant_row[1]
-
-                # Calculate water retained percentage using the helper
-                water_retained_calc = calculate_water_retained(
-                    min_dry_weight_g=min_dry_weight_g,
-                    max_water_weight_g=max_water_weight_g,
+                # Compute water retained percentage using the helper
+                water_retained_pct = _compute_water_retained_for_plant(
+                    cur,
+                    payload.plant_id,
                     measured_weight_g=mw_insert,
                     last_wet_weight_g=lw_local,
-                    water_loss_total_pct=loss_calc.water_loss_total_pct
+                    water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
-                water_retained_pct = round(water_retained_calc.water_retained_pct,0)
 
                 return {
                     "status": "success",
@@ -664,27 +694,14 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
 
                 conn.commit()
 
-                # Get plant information (query this from the plants table)
-                # This would typically be done before the measurement insertion
-                cur.execute(
-                    "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
-                    (plant_hex,)
-                )
-                plant_row = cur.fetchone()
-
-                if plant_row:
-                    min_dry_weight_g = plant_row[0]
-                    max_water_weight_g = plant_row[1]
-
-                # Calculate water retained percentage using the helper
-                water_retained_calc = calculate_water_retained(
-                    min_dry_weight_g=min_dry_weight_g,
-                    max_water_weight_g=max_water_weight_g,
+                # Compute water retained percentage using the helper
+                water_retained_pct = _compute_water_retained_for_plant(
+                    cur,
+                    plant_hex,
                     measured_weight_g=mw_eff,
                     last_wet_weight_g=lw_eff,
-                    water_loss_total_pct=loss_calc.water_loss_total_pct
+                    water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
-                water_retained_pct = round(water_retained_calc.water_retained_pct,0)
 
                 return {
                     "status": "success",
@@ -791,11 +808,8 @@ async def delete_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory
                 cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail="Not found")
-                # Recalculate the minimum dry weight for the plant
-                if measured_weight_g is not None:
-                    update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex, measured_weight_g, None)
-
-                conn.commit()
+                # Recalculate and commit via helper
+                _post_delete_recalculate_and_commit(conn, plant_id_hex, measured_weight_g)
 
                 return {"message": "Measurement deleted successfully"}
         except Exception:
