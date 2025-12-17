@@ -62,3 +62,20 @@ def test_calculate_min_dry_weight_g_min_and_empty_and_exception():
     # Exception -> None
     conn_boom = BoomConn([])
     assert calculate_min_dry_weight_g(conn_boom, "id", last_repotting=None) is None
+
+
+def test_calculate_min_dry_weight_g_catches_exception_from_helper(monkeypatch):
+    # Ensure the try/except in calculate_min_dry_weight_g (lines 17-18) is covered
+    import app.helpers.weight_minimum as wm
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("forced error")
+
+    # Monkeypatch the helper to raise when called so calculate_min_dry_weight_g catches it
+    monkeypatch.setattr(wm, "get_measured_weights_since_repotting", boom)
+
+    # Any conn object is fine; it won't be used because helper raises immediately
+    class AnyConn:
+        pass
+
+    assert wm.calculate_min_dry_weight_g(AnyConn(), "id", last_repotting=None) is None
