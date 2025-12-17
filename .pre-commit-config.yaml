@@ -10,11 +10,9 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: ["--fix"]
+        # Lint-only in CI; do not modify files
+        args: ["--no-fix"]
         additional_dependencies: []
-        types_or: [python]
-        files: ^backend/|
-      - id: ruff-format
         types_or: [python]
         files: ^backend/|
 
@@ -22,6 +20,7 @@ repos:
     rev: 24.10.0
     hooks:
       - id: black
+        args: ["--check"]
         types_or: [python]
         files: ^backend/|
 
@@ -48,4 +47,5 @@ repos:
     hooks:
       - id: prettier
         name: prettier (frontend)
+        args: ["--check"]
         files: ^frontend/|

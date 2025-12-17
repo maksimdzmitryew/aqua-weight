@@ -26,6 +26,21 @@ jobs:
         run: |
           echo "127.0.0.1 aw.max" | sudo tee -a /etc/hosts
 
+      - name: Generate GitHub CI self-signed TLS certs
+        run: |
+          set -euo pipefail
+          mkdir -p ssl
+          # Generate key and cert with SANs for aw.max and localhost
+          openssl req -x509 -nodes -newkey rsa:2048 \
+            -keyout ssl/github-ci.privkey.pem \
+            -out ssl/github-ci.fullchain.pem \
+            -days 365 \
+            -subj "/CN=aw.max" \
+            -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
+          # Copy to filenames nginx expects via compose mounts
+          cp ssl/github-ci.fullchain.pem ssl/fullchain.pem
+          cp ssl/github-ci.privkey.pem ssl/privkey.pem
+
       - name: Start services
         run: |
           docker compose up -d --build
