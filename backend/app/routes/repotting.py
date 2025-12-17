@@ -7,13 +7,20 @@ from pytz import timezone
 from starlette.concurrency import run_in_threadpool
 import uuid
 import re
-from ..helpers.watering import get_last_watering_event
+from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..db import get_conn, HEX_RE
 from ..services.measurements import parse_timestamp_local, compute_water_losses, DerivedWeights
 from ..helpers.last_plant_event import LastPlantEvent
 from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
 
 app = APIRouter()
+
+
+# Expose a stable alias for tests/monkeypatching.
+# Some environments may not keep imported names on the module object as expected;
+# define an explicit shim to guarantee attribute presence.
+def get_last_watering_event(cursor, plant_id_hex):
+    return _get_last_watering_event(cursor, plant_id_hex)
 
 
 @app.post("/measurements/repotting", response_model=RepottingResponse)
@@ -28,7 +35,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     repotted_weight_g = payload.last_wet_weight_g
-    note = payload.note if not None else None
+    note = payload.note if payload.note is not None else None
 
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
