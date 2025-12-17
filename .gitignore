@@ -17,10 +17,7 @@ __pycache__/
 .eggs/
 .build/
 dist/
-.pytest_cache/
 .mypy_cache/
-.coverage
-.coverage.*
 htmlcov/
 .cache/
 .venv/
@@ -31,9 +28,15 @@ ENV/
 
 # Node / Frontend (Vite/React)
 frontend/node_modules/
-frontend/node_modules_tests/
 frontend/dist/
 frontend/.vite/
+
+#tests
+frontend/coverage/
+frontend/node_modules_tests/
+.pytest_cache/
+.coverage   
+.coverage.*
 
 # Log files
 npm-debug.log*

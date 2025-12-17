@@ -645,3 +645,74 @@ test('handleCorrectOverfill uses [] when entries missing (covers line 46 default
   await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   await waitFor(() => expect(called).toBe(true))
 })
+
+// Branch coverage boosters for Calibration.jsx
+// 1) Cover the fallback message branch in initial load catch: e.message is falsy → use default string
+test('initial load error without message uses default text (covers rhs of e?.message || default at line 29)', async () => {
+  const spy = vi.spyOn(calibrationApi, 'list').mockRejectedValueOnce({ message: '' })
+  renderPage()
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/failed to load calibration data/i)
+  spy.mockRestore()
+})
+
+// 2) Cover the nullish-coalescing middle operand (e.body) being selected and non-empty string
+test('correction error uses body string when present (covers e.body branch at line 75)', async () => {
+  server.resetHandlers()
+  const plant = {
+    uuid: 'p-body', name: 'BodyMsg', min_dry_weight_g: 1, max_water_weight_g: 1,
+    calibration: { max_water_retained: [ { id: 'b1', measured_at: '2025-10-12 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+  }
+  server.use(
+    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
+    // Return a non-empty raw text body so api client surfaces e.body as a non-empty string
+    http.post('/api/measurements/corrections', () => HttpResponse.text('Meaningful body message', { status: 500 }))
+  )
+  renderPage()
+  await screen.findByText('BodyMsg')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/meaningful body message/i)
+})
+
+// 3) Cover the try/catch around JSON.stringify(detail): make detail circular so stringify throws → catch branch executes
+test('correction error with circular detail triggers stringify catch (covers catch at line 79)', async () => {
+  server.resetHandlers()
+  const plant = {
+    uuid: 'p-circ', name: 'Circ', min_dry_weight_g: 1, max_water_weight_g: 1,
+    calibration: { max_water_retained: [ { id: 'c1', measured_at: '2025-10-13 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+  }
+  // Use real list via MSW but simulate correction failure via spy so we can pass an unserializable object
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const circular = {}
+  circular.self = circular
+  const postSpy = vi.spyOn(calibrationApi, 'correct').mockRejectedValueOnce({ detail: circular })
+
+  renderPage()
+  await screen.findByText('Circ')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  // Since stringify throws, component should fall back to default/fallback message (not "[object Object]")
+  expect(alert.textContent || '').toMatch(/failed to apply corrections|request failed|http/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
+
+// 4) Cover the third operand in (e.detail ?? e.body ?? e.message): only message present
+test('correction error uses e.message when detail and body are absent (covers third operand at line 75)', async () => {
+  server.resetHandlers()
+  const plant = {
+    uuid: 'p-msg', name: 'OnlyMsg', min_dry_weight_g: 1, max_water_weight_g: 1,
+    calibration: { max_water_retained: [ { id: 'm1', measured_at: '2025-10-14 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+  }
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const postSpy = vi.spyOn(calibrationApi, 'correct').mockRejectedValueOnce({ message: 'Only message path' })
+
+  renderPage()
+  await screen.findByText('OnlyMsg')
+  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/only message path/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
