@@ -16,6 +16,11 @@ help:
 	@echo "  make sb                - Start Storybook (frontend)"
 	@echo "  make sb-build          - Build static Storybook"
 	@echo "  make dev-frontend      - Start Vite dev server"
+	@echo "  make lint-backend      - Run ruff (lint) inside backend container"
+	@echo "  make lint-backend-fix  - Run ruff with --fix inside backend container"
+	@echo "  make black-backend     - Run black --check inside backend container"
+	@echo "  make mypy-backend      - Run mypy inside backend container"
+	@echo "  make pre-commit-backend-ci - Run trimmed pre-commit (Python-only) inside backend container"
 
 .PHONY: test-up
 test-up:
@@ -62,3 +67,46 @@ DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
 .PHONY: dev-certs
 dev-certs:
 	@bash $(DEV_CERTS_SCRIPT)
+
+# ------------------- Backend tooling in Docker -------------------
+.PHONY: lint-backend
+lint-backend:
+	# Ensure test runner service is up so we can exec dev tools there
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	# Run ruff check on backend Python code inside the tests runner container
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend/app"
+
+.PHONY: lint-backend-fix
+lint-backend-fix:
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend/app"
+
+.PHONY: black-backend
+black-backend:
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend/app"
+
+.PHONY: mypy-backend
+mypy-backend:
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend/app"
+
+.PHONY: pre-commit-backend-ci
+pre-commit-backend-ci:
+	# Run a CI-trimmed pre-commit config inside the tests runner container to avoid JS hooks
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'printf "%s\n" \
+	  "repos:" \
+	  "  - repo: https://github.com/pre-commit/pre-commit-hooks" \
+	  "    rev: v4.6.0" \
+	  "    hooks:" \
+	  "      - id: check-merge-conflict" \
+	  "" \
+	  "  - repo: https://github.com/astral-sh/ruff-pre-commit" \
+	  "    rev: v0.6.9" \
+	  "    hooks:" \
+	  "      - id: ruff" \
+	  "        args: [\'--no-fix\']" \
+	  "        types_or: [python]" \
+	  "        files: ^backend/|" \
+	  > .pre-commit-config.ci.yaml && pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
