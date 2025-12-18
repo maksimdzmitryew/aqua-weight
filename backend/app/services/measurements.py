@@ -14,7 +14,6 @@ import pymysql
 from ..helpers.watering import get_last_watering_event
 from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 
-
 # --- Timestamp helpers -------------------------------------------------------
 
 def parse_timestamp_utc(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
