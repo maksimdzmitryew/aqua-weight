@@ -1,4 +1,5 @@
 """Helpers for assembling plant list information."""
+
 from datetime import datetime, timedelta
 from math import ceil
 
