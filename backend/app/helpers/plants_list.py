@@ -7,6 +7,7 @@ from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
 from ..helpers.water_retained import calculate_water_retained
 
+
 class PlantsList:
     """
     Helper to fetch a list of active (non-archived) plants with latest water loss.

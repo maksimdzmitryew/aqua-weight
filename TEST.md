@@ -40,6 +40,22 @@
   - Show results:
     - `docker compose -f docker-compose.test.yml exec tests mutmut results`
 
+### Backend linting (ruff) via Docker/Makefile
+- Lint backend Python with ruff inside the test runner container (no host install):
+  - `make lint-backend`
+- Auto-fix ruff issues in-place (writes to your working tree):
+  - `make lint-backend-fix`
+- Run the CI-equivalent trimmed pre-commit (Python-only, ruff with --no-fix):
+  - `make pre-commit-backend-ci`
+- Related helpers:
+  - Black check: `make black-backend`
+  - Mypy: `make mypy-backend`
+
+Notes:
+- These commands execute inside the tests runner container defined in `docker-compose.test.yml` (service `runner`).
+- No local installation of ruff/black/mypy is required.
+- The Make targets will ensure the `runner` service is up before executing.
+
 ### Extra tips BE
 - Run a specific test file or node:
   - `docker compose -f docker-compose.test.yml exec tests pytest -q backend/tests/test_something.py::TestClass::test_case`

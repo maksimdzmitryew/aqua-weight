@@ -95,18 +95,21 @@ mypy-backend:
 pre-commit-backend-ci:
 	# Run a CI-trimmed pre-commit config inside the tests runner container to avoid JS hooks
 	docker compose -f $(TEST_COMPOSE) up -d --build runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'printf "%s\n" \
-	  "repos:" \
-	  "  - repo: https://github.com/pre-commit/pre-commit-hooks" \
-	  "    rev: v4.6.0" \
-	  "    hooks:" \
-	  "      - id: check-merge-conflict" \
-	  "" \
-	  "  - repo: https://github.com/astral-sh/ruff-pre-commit" \
-	  "    rev: v0.6.9" \
-	  "    hooks:" \
-	  "      - id: ruff" \
-	  "        args: [\'--no-fix\']" \
-	  "        types_or: [python]" \
-	  "        files: ^backend/|" \
-	  > .pre-commit-config.ci.yaml && pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+	# Robust, single-invocation YAML write via printf (avoids heredoc/Make parsing pitfalls)
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "printf '%s\\n' \
+	  'repos:' \
+	  '  - repo: https://github.com/pre-commit/pre-commit-hooks' \
+	  '    rev: v4.6.0' \
+	  '    hooks:' \
+	  '      - id: check-merge-conflict' \
+	  '' \
+	  '  - repo: https://github.com/astral-sh/ruff-pre-commit' \
+	  '    rev: v0.6.9' \
+	  '    hooks:' \
+	  '      - id: ruff' \
+	  '        args: ["--no-fix"]' \
+	  '        types_or: [python]' \
+	  '        files: ^backend/|' \
+	  > .pre-commit-config.ci.yaml"
+	# Run with the generated, trimmed config
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
