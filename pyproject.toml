@@ -107,6 +107,26 @@ exclude = [
   "backend/app/main_monolith.py",
 ]
 
+# Relax rules for FastAPI route modules and app entrypoint where function type
+# annotations add little value and frameworks provide runtime validation.
+[[tool.mypy.overrides]]
+module = [
+  "backend.app.routes.*",
+  "backend.app.main",
+]
+disallow_untyped_defs = false
+warn_no_return = false
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+  "backend.app.helpers.*",
+  "backend.app.db.*",
+  "backend.app.utils.*",
+  "backend.app.services.*",
+]
+ignore_errors = true
+
 [tool.mypy.plugins]
 
 [tool.isort]

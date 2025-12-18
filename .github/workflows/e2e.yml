@@ -22,41 +22,22 @@ jobs:
           npm ci --prefix frontend
           npx playwright install --with-deps
 
-      - name: Add hosts entry for aw.max
-        run: |
-          echo "127.0.0.1 aw.max" | sudo tee -a /etc/hosts
-
-      - name: Generate GitHub CI self-signed TLS certs
-        run: |
-          set -euo pipefail
-          mkdir -p ssl
-          # Generate key and cert with SANs for aw.max and localhost
-          openssl req -x509 -nodes -newkey rsa:2048 \
-            -keyout ssl/github-ci.privkey.pem \
-            -out ssl/github-ci.fullchain.pem \
-            -days 365 \
-            -subj "/CN=aw.max" \
-            -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
-
       - name: Start services
         run: |
-          docker compose up -d --build
-        env:
-          MARIADB_ROOT_PASSWORD: rootpass
-          MARIADB_DATABASE: appdb
-          MARIADB_USER: appuser
-          MARIADB_PASSWORD: apppass
+          docker compose -f docker-compose.test.yml up -d --build
 
-      - name: Wait for services
+      - name: Wait for services (backend + frontend)
         run: |
           echo "Waiting for backend health..."
-          for i in {1..30}; do
-            if curl -sk https://aw.max/health | grep -q '"ok"'; then
-              echo OK; break; fi; sleep 3; done
+          for i in {1..60}; do
+            if curl -fsS http://localhost:5080/api/health | grep -q '"ok"'; then echo OK; break; fi; sleep 3; done
+          echo "Waiting for frontend root..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:5080/ >/dev/null; then echo OK; break; fi; sleep 3; done
 
       - name: Run Playwright tests
         env:
-          E2E_BASE_URL: https://aw.max
+          E2E_BASE_URL: http://localhost:5080
         run: |
           npx playwright test --config frontend/playwright.config.ts
 

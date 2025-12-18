@@ -1,8 +1,12 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from pydantic import BaseModel, Field, constr
 
-HexID = constr(pattern=r"^[0-9a-f]{32}$")
+# For mypy: use a simple alias during type checking; keep runtime validation with pydantic
+if TYPE_CHECKING:
+    HexID = str
+else:
+    HexID = constr(pattern=r"^[0-9a-f]{32}$")
 
 
 # Generic measurement requests
