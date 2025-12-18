@@ -8,8 +8,10 @@ try:
     from pymysql.err import Error as PyMySQLError  # type: ignore
 except Exception:  # pragma: no cover - fallback if driver not installed in env
     pymysql = None  # type: ignore
+
     class MySQLError(Exception):
         pass
+
     class PyMySQLError(Exception):
         pass
 

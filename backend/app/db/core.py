@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from contextlib import contextmanager
- 
+
 import pymysql
 
 __all__ = [

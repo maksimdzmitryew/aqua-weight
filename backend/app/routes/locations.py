@@ -24,7 +24,9 @@ async def list_locations() -> list[LocationListItem]:
         try:
             with conn.cursor() as cur:
                 # Prefer sort_order, then newest first, then name for stable listing
-                cur.execute("SELECT id, name, description, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC")
+                cur.execute(
+                    "SELECT id, name, description, created_at FROM locations ORDER BY sort_order ASC, created_at DESC, name ASC"
+                )
                 rows = cur.fetchall() or []
                 results: list[LocationListItem] = []
                 now = datetime.utcnow()
@@ -35,7 +37,15 @@ async def list_locations() -> list[LocationListItem]:
                     description = row[2]
                     created_at = row[3] or now
                     uuid_hex = lid.hex() if isinstance(lid, (bytes, bytearray)) else None
-                    results.append(LocationListItem(id=idx, uuid=uuid_hex, name=name, description=description, created_at=created_at))
+                    results.append(
+                        LocationListItem(
+                            id=idx,
+                            uuid=uuid_hex,
+                            name=name,
+                            description=description,
+                            created_at=created_at,
+                        )
+                    )
                 return results
         finally:
             conn.close()
@@ -170,8 +180,6 @@ async def update_location_by_name(payload: LocationUpdateByNameRequest):
     return {"ok": True, "rows_affected": affected, "name": new_name, "created": created}
 
 
-
-
 @app.delete("/locations/{id_hex}")
 async def delete_location(id_hex: str):
     if not HEX_RE.match(id_hex or ""):
@@ -186,7 +194,9 @@ async def delete_location(id_hex: str):
                 cur.execute("SELECT COUNT(*) FROM plants WHERE location_id=UNHEX(%s)", (id_hex,))
                 count = cur.fetchone()[0]
                 if count and count > 0:
-                    raise HTTPException(status_code=409, detail="Cannot delete location: it has plants assigned")
+                    raise HTTPException(
+                        status_code=409, detail="Cannot delete location: it has plants assigned"
+                    )
                 # Proceed to delete
                 cur.execute("DELETE FROM locations WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
@@ -219,12 +229,17 @@ async def reorder_locations(payload: ReorderPayload):
             conn.autocommit(False)
             with conn.cursor() as cur:
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
-                cur.execute(f"SELECT COUNT(*) FROM locations WHERE id IN ({placeholders})", payload.ordered_ids)
+                cur.execute(
+                    f"SELECT COUNT(*) FROM locations WHERE id IN ({placeholders})",
+                    payload.ordered_ids,
+                )
                 count = cur.fetchone()[0]
                 if count != len(payload.ordered_ids):
                     raise HTTPException(status_code=400, detail="Some ids do not exist")
                 for idx, hex_id in enumerate(payload.ordered_ids, start=1):
-                    cur.execute("UPDATE locations SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
+                    cur.execute(
+                        "UPDATE locations SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id)
+                    )
             conn.commit()
         except Exception:
             try:
@@ -234,6 +249,7 @@ async def reorder_locations(payload: ReorderPayload):
             raise
         finally:
             conn.close()
+
     await run_in_threadpool(lambda: None)  # ensure async context preserved
     await do_update()
     return {"ok": True}

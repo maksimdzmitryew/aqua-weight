@@ -19,6 +19,7 @@ help:
 	@echo "  make lint-backend      - Run ruff (lint) inside backend container"
 	@echo "  make lint-backend-fix  - Run ruff with --fix inside backend container"
 	@echo "  make black-backend     - Run black --check inside backend container"
+	@echo "  make black-backend-fix - Run black --fix inside backend container"
 	@echo "  make mypy-backend      - Run mypy inside backend container"
 	@echo "  make pre-commit-backend-ci - Run trimmed pre-commit (Python-only) inside backend container"
 
@@ -85,6 +86,11 @@ lint-backend-fix:
 black-backend:
 	docker compose -f $(TEST_COMPOSE) up -d --build runner
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend/app"
+
+.PHONY: black-backend-fix
+black-backend-fix:
+	docker compose -f $(TEST_COMPOSE) up -d --build runner
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend/app"
 
 .PHONY: mypy-backend
 mypy-backend:

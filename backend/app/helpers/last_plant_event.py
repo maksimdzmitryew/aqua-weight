@@ -10,6 +10,7 @@ class LastPlantEvent:
     or
       last = last_plant_event.for_plant_static(cursor, payload.plant_id)
     """
+
     @staticmethod
     def get_last_event(plant_id: str):
         conn = get_conn()
@@ -29,7 +30,9 @@ class LastPlantEvent:
                 if not row:
                     return None
                 return {
-                    "measured_at": row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None,
+                    "measured_at": (
+                        row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None
+                    ),
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
                     "last_wet_weight_g": row[3],

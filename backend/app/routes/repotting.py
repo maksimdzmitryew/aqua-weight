@@ -145,7 +145,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                         new_measured_weight_g,
                         None,
                         prev_last_water,
-                        note
+                        note,
                     ),
                 )
 
@@ -155,8 +155,8 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     "measured_at": measured_at,
                     "measured_weight_g": measured_weight_g,
                     "last_wet_weight_g": repotted_weight_g,
-#                    "water_loss_total_g": loss_calc.water_loss_total_g,
-#                    "note": note
+                    #                    "water_loss_total_g": loss_calc.water_loss_total_g,
+                    #                    "note": note
                 }
                 return result
         finally:
@@ -167,6 +167,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
 
     return await run_in_threadpool(do_insert)
 
+
 @app.put("/measurements/repotting/{id_hex}", response_model=RepottingResponse)
 async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
@@ -175,7 +176,9 @@ async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
         if getattr(payload, field, None) is None:
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
-    plant_id = payload.__dict__.get("plant_id")  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
+    plant_id = payload.__dict__.get(
+        "plant_id"
+    )  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     last_wet_weight_g = payload.last_wet_weight_g
@@ -197,7 +200,15 @@ async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
                     SET plant_id=%s, measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
                     WHERE id=%s
                     """
-            data = (plant_id, local_dt, measured_weight_g, last_wet_weight_g, water_loss_total_g, note, id_hex)
+            data = (
+                plant_id,
+                local_dt,
+                measured_weight_g,
+                last_wet_weight_g,
+                water_loss_total_g,
+                note,
+                id_hex,
+            )
             cursor.execute(query, data)
 
             result = {

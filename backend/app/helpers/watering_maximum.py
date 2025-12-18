@@ -3,7 +3,9 @@ from typing import List, Optional
 from ..schemas.measurement import MeasurementItem
 
 
-def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]) -> List[float]:
+def get_added_waterings_since_repotting(
+    conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]
+) -> List[float]:
     """
     Get all water_added_g values for a plant since the last repotting event.
     If there's no repotting event, get all measured_weight_g values.
@@ -20,7 +22,7 @@ def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting:
                       AND water_added_g IS NOT NULL
                     ORDER BY measured_at ASC
                     """,
-                    (plant_id_hex,)
+                    (plant_id_hex,),
                 )
                 rows = cur.fetchall()
 
@@ -38,7 +40,7 @@ def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting:
                       AND water_added_g IS NOT NULL
                     ORDER BY measured_at ASC
                     """,
-                    (plant_id_hex, last_repotting.measured_at)
+                    (plant_id_hex, last_repotting.measured_at),
                 )
                 rows = cur.fetchall()
                 return [row[0] for row in rows if row[0] is not None]
@@ -50,7 +52,9 @@ def get_added_waterings_since_repotting(conn, plant_id_hex: str, last_repotting:
         return []
 
 
-def calculate_max_watering_added_g(conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]) -> Optional[float]:
+def calculate_max_watering_added_g(
+    conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]
+) -> Optional[float]:
     """
     Calculate the minimum measured_weight_g for a plant since last repotting.
     If there's no repotting event, calculate from all measurements.

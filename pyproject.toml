@@ -40,6 +40,13 @@ line-length = 100
 target-version = ["py311"]
 include = '\.(py|pyi)$'
 
+# Mirror Ruff/Mypy: exclude playground monolith file that Black cannot parse under py311
+extend-exclude = '''
+(
+  backend/app/main_monolith\.py
+)
+'''
+
 [tool.ruff]
 line-length = 120
 fix = true

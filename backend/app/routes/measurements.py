@@ -35,10 +35,14 @@ app = APIRouter()
 
 
 # Internal helpers to make post-transaction computations testable and covered
-def _compute_water_retained_for_plant(cur, plant_id_hex: str, *,
-                                      measured_weight_g: int | None,
-                                      last_wet_weight_g: int | None,
-                                      water_loss_total_pct: float | None) -> float:
+def _compute_water_retained_for_plant(
+    cur,
+    plant_id_hex: str,
+    *,
+    measured_weight_g: int | None,
+    last_wet_weight_g: int | None,
+    water_loss_total_pct: float | None,
+) -> float:
     """Fetch plant min/max and compute rounded water_retained_pct.
 
     This mirrors the inline logic used after create/update operations.
@@ -89,7 +93,9 @@ class ReportedWateringCreateRequest(BaseModel):
 
 
 @app.post("/measurements/reported-watering")
-async def create_reported_watering(payload: ReportedWateringCreateRequest, get_conn_fn = Depends(get_conn_factory)):
+async def create_reported_watering(
+    payload: ReportedWateringCreateRequest, get_conn_fn=Depends(get_conn_factory)
+):
     """
     Create a lightweight watering marker when a delegate reports watering without measurements.
 
@@ -137,8 +143,8 @@ async def create_reported_watering(payload: ReportedWateringCreateRequest, get_c
                         new_id,
                         payload.plant_id,
                         measured_at_dt,
-                        None,            # measured_weight_g
-                        0,               # water_loss_total_pct marks a watering event for scheduling
+                        None,  # measured_weight_g
+                        0,  # water_loss_total_pct marks a watering event for scheduling
                         final_note,
                     ),
                 )
@@ -164,8 +170,6 @@ async def create_reported_watering(payload: ReportedWateringCreateRequest, get_c
     return await run_in_threadpool(do_insert)
 
 
-
-
 def _to_dt_string(s: str | None):
     if not s:
         return None
@@ -173,7 +177,7 @@ def _to_dt_string(s: str | None):
 
 
 @app.get("/measurements/last", response_model=LastMeasurementResponse | None)
-async def get_last_measurement(plant_id: str, get_conn_fn = Depends(get_conn_factory)):
+async def get_last_measurement(plant_id: str, get_conn_fn=Depends(get_conn_factory)):
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -197,7 +201,9 @@ async def get_last_measurement(plant_id: str, get_conn_fn = Depends(get_conn_fac
                 if not row:
                     return None
                 return {
-                    "measured_at": row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None,
+                    "measured_at": (
+                        row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None
+                    ),
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
                     "last_wet_weight_g": row[3],
@@ -213,7 +219,7 @@ async def get_last_measurement(plant_id: str, get_conn_fn = Depends(get_conn_fac
 
 
 @app.get("/measurements/calibrating", response_model=list[PlantCalibrationItem])
-async def list_plants_for_calibration(get_conn_fn = Depends(get_conn_factory)):
+async def list_plants_for_calibration(get_conn_fn=Depends(get_conn_factory)):
     """Returns plants enriched with calibration data (underwatering after repotting)."""
 
     def fetch():
@@ -252,8 +258,8 @@ async def list_plants_for_calibration(get_conn_fn = Depends(get_conn_factory)):
 class CorrectionsRequest(BaseModel):
     plant_id: str
     from_ts: str | None = None  # ISO local, optional
-    to_ts: str | None = None    # ISO local, optional
-    cap: str | None = None      # 'capacity' | 'retained_ratio'
+    to_ts: str | None = None  # ISO local, optional
+    cap: str | None = None  # 'capacity' | 'retained_ratio'
     edit_last_wet: bool | None = True
     # Optional hints from UI: the chosen starting measurement and the most negative diff value
     start_measurement_id: str | None = None
@@ -261,7 +267,9 @@ class CorrectionsRequest(BaseModel):
 
 
 @app.post("/measurements/corrections")
-async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_fn = Depends(get_conn_factory)):
+async def apply_measurements_corrections(
+    payload: CorrectionsRequest, get_conn_fn=Depends(get_conn_factory)
+):
     """
     Deterministically correct past over-watering events for a plant.
 
@@ -294,7 +302,7 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                     FROM plants
                     WHERE id = UNHEX(%s)
                     """,
-                    (plant_hex,)
+                    (plant_hex,),
                 )
                 row = cur.fetchone()
                 if not row:
@@ -305,8 +313,16 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                     return {"updated": 0, "total_excess_g": 0, "details": []}
 
             # Determine window
-            from_dt = parse_timestamp_local(payload.from_ts, fixed_milliseconds=0) if payload.from_ts else None
-            to_dt = parse_timestamp_local(payload.to_ts, fixed_milliseconds=999) if payload.to_ts else None
+            from_dt = (
+                parse_timestamp_local(payload.from_ts, fixed_milliseconds=0)
+                if payload.from_ts
+                else None
+            )
+            to_dt = (
+                parse_timestamp_local(payload.to_ts, fixed_milliseconds=999)
+                if payload.to_ts
+                else None
+            )
             if not from_dt and not to_dt:
                 # Default: since last repotting
                 last_repot = get_last_repotting_event(conn, plant_hex)
@@ -316,7 +332,9 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                         if isinstance(last_repot.measured_at, datetime):
                             from_dt = last_repot.measured_at
                         else:
-                            from_dt = parse_timestamp_local(str(last_repot.measured_at), fixed_milliseconds=0)
+                            from_dt = parse_timestamp_local(
+                                str(last_repot.measured_at), fixed_milliseconds=0
+                            )
                     except Exception:
                         from_dt = None
 
@@ -347,7 +365,7 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                     WHERE {where_clause} AND last_wet_weight_g IS NOT NULL AND last_wet_weight_g > %s
                     ORDER BY measured_at ASC
                     """,
-                    (*params, target_weight)
+                    (*params, target_weight),
                 )
                 rows = cur.fetchall() or []
 
@@ -375,7 +393,7 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                                     last_wet_weight_g = LEAST(COALESCE(last_wet_weight_g, %s), %s)
                                 WHERE id = %s
                                 """,
-                                (new_added, target_weight, target_weight, mid)
+                                (new_added, target_weight, target_weight, mid),
                             )
                         else:
                             cur.execute(
@@ -384,16 +402,22 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
                                 SET water_added_g = %s
                                 WHERE id = %s
                                 """,
-                                (new_added, mid)
+                                (new_added, mid),
                             )
                         updated += 1
                         total_excess += excess
-                        details.append({
-                            "id": bin_to_hex(mid),
-                            "measured_at": measured_at.isoformat(sep=" ", timespec="seconds") if isinstance(measured_at, datetime) else str(measured_at),
-                            "excess_g": excess,
-                            "new_water_added_g": new_added,
-                        })
+                        details.append(
+                            {
+                                "id": bin_to_hex(mid),
+                                "measured_at": (
+                                    measured_at.isoformat(sep=" ", timespec="seconds")
+                                    if isinstance(measured_at, datetime)
+                                    else str(measured_at)
+                                ),
+                                "excess_g": excess,
+                                "new_water_added_g": new_added,
+                            }
+                        )
                 conn.commit()
             except Exception:
                 try:
@@ -404,7 +428,12 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
             finally:
                 conn.autocommit(True)
 
-            return {"updated": updated, "total_excess_g": total_excess, "details": details, "target_weight_g": target_weight}
+            return {
+                "updated": updated,
+                "total_excess_g": total_excess,
+                "details": details,
+                "target_weight_g": target_weight,
+            }
         finally:
             try:
                 conn.close()
@@ -415,7 +444,7 @@ async def apply_measurements_corrections(payload: CorrectionsRequest, get_conn_f
 
 
 @app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
-async def list_measurements_for_plant(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
+async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid plant id")
 
@@ -439,18 +468,22 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn = Depends(get_con
                 results = []
                 for r in rows:
                     _id = r[0]
-                    results.append({
-                        "id": bin_to_hex(_id),
-                        "measured_at": r[1].isoformat(sep=" ", timespec="seconds") if r[1] else None,
-                        "measured_weight_g": r[2],
-                        "last_dry_weight_g": r[3],
-                        "last_wet_weight_g": r[4],
-                        "water_added_g": r[5],
-                        "water_loss_total_pct": float(r[6]) if r[6] is not None else None,
-                        "water_loss_total_g": r[7],
-                        "water_loss_day_pct": float(r[8]) if r[8] is not None else None,
-                        "water_loss_day_g": r[9],
-                    })
+                    results.append(
+                        {
+                            "id": bin_to_hex(_id),
+                            "measured_at": (
+                                r[1].isoformat(sep=" ", timespec="seconds") if r[1] else None
+                            ),
+                            "measured_weight_g": r[2],
+                            "last_dry_weight_g": r[3],
+                            "last_wet_weight_g": r[4],
+                            "water_added_g": r[5],
+                            "water_loss_total_pct": float(r[6]) if r[6] is not None else None,
+                            "water_loss_total_g": r[7],
+                            "water_loss_day_pct": float(r[8]) if r[8] is not None else None,
+                            "water_loss_day_g": r[9],
+                        }
+                    )
                 return results
         finally:
             conn.close()
@@ -460,7 +493,9 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn = Depends(get_con
 
 @app.post("/measurements/watering")
 @app.post("/measurements/weight")
-async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = Depends(get_conn_factory)):
+async def create_measurement(
+    payload: MeasurementCreateRequest, get_conn_fn=Depends(get_conn_factory)
+):
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -483,7 +518,7 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
         conn = get_conn_fn()
         try:
             conn.autocommit(False)
-            with (conn.cursor() as cur):
+            with conn.cursor() as cur:
                 # Derive effective weights and water_added
                 derived = derive_weights(
                     cursor=cur,
@@ -551,7 +586,9 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                     check_min_weight = last_dry_weight_local
                     check_max_water = wa_local
 
-                update_min_dry_weight_and_max_watering_added_g(conn, payload.plant_id, check_min_weight, check_max_water)
+                update_min_dry_weight_and_max_watering_added_g(
+                    conn, payload.plant_id, check_min_weight, check_max_water
+                )
 
                 # Commit transaction after all statements succeed
                 conn.commit()
@@ -570,12 +607,9 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
                     "data": {
                         "id": new_id.hex(),
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
-                        "water_retained_pct": water_retained_pct
+                        "water_retained_pct": water_retained_pct,
                     },
-                    "meta": {
-                        "timestamp": measured_at,
-                        "version": "1.0"
-                    }
+                    "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
         except Exception:
             try:
@@ -591,7 +625,9 @@ async def create_measurement(payload: MeasurementCreateRequest, get_conn_fn = De
 
 @app.put("/measurements/watering/{id_hex}")
 @app.put("/measurements/weight/{id_hex}")
-async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn = Depends(get_conn_factory)):
+async def update_measurement(
+    id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn=Depends(get_conn_factory)
+):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -603,7 +639,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                 # Fetch existing row to determine plant and previous measurement
                 cur.execute(
                     "SELECT plant_id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g FROM plants_measurements WHERE id=UNHEX(%s) LIMIT 1",
-                    (id_hex,)
+                    (id_hex,),
                 )
                 base = cur.fetchone()
                 if not base:
@@ -611,11 +647,15 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                 plant_id_bytes = base[0]
                 current_measured_at = base[1]
                 current_mw, current_ld, current_lw, current_wa = base[2], base[3], base[4], base[5]
-                plant_hex = plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else None
+                plant_hex = (
+                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else None
+                )
 
                 # Validate exclusivity
                 try:
-                    ensure_exclusive_water_vs_weight(payload.measured_weight_g, payload.water_added_g)
+                    ensure_exclusive_water_vs_weight(
+                        payload.measured_weight_g, payload.water_added_g
+                    )
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))
 
@@ -677,7 +717,11 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                     loss_calc.water_loss_day_pct,
                     loss_calc.water_loss_day_g,
                     hex_to_bin(payload.method_id) if payload.method_id is not None else None,
-                    (1 if payload.use_last_method else 0) if payload.use_last_method is not None else None,
+                    (
+                        (1 if payload.use_last_method else 0)
+                        if payload.use_last_method is not None
+                        else None
+                    ),
                     hex_to_bin(payload.scale_id) if payload.scale_id is not None else None,
                     (payload.note if payload.note is not None else None),
                     id_hex,
@@ -685,12 +729,18 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                 cur.execute(sql, params)
 
                 # If this is a weight measurement (not a watering event) and the weight has changed, update the min dry weight
-                if not loss_calc.is_watering_event and (mw_update is not None or current_mw is not None):
+                if not loss_calc.is_watering_event and (
+                    mw_update is not None or current_mw is not None
+                ):
                     # Calculate the effective new weight (use the updated one if provided, otherwise use the old one)
                     effective_new_weight = mw_update if mw_update is not None else current_mw
-                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, effective_new_weight, wa_eff_payload)
+                    update_min_dry_weight_and_max_watering_added_g(
+                        conn, plant_hex, effective_new_weight, wa_eff_payload
+                    )
                 else:
-                    update_min_dry_weight_and_max_watering_added_g(conn, plant_hex, derived.last_dry_weight_g, wa_eff_payload)
+                    update_min_dry_weight_and_max_watering_added_g(
+                        conn, plant_hex, derived.last_dry_weight_g, wa_eff_payload
+                    )
 
                 conn.commit()
 
@@ -708,12 +758,9 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
                     "data": {
                         "id": id_hex,
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
-                        "water_retained_pct": water_retained_pct
+                        "water_retained_pct": water_retained_pct,
                     },
-                    "meta": {
-                        "timestamp": measured_at,
-                        "version": "1.0"
-                    }
+                    "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
         except Exception as e:
             print(
@@ -732,7 +779,7 @@ async def update_measurement(id_hex: str, payload: MeasurementUpdateRequest, get
 
 
 @app.get("/measurements/{id_hex}")
-async def get_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
+async def get_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -750,7 +797,7 @@ async def get_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
                     LIMIT 1
                     """
                     ),
-                    (id_hex,)
+                    (id_hex,),
                 )
                 row = cur.fetchone()
                 if not row:
@@ -758,7 +805,9 @@ async def get_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
                 return {
                     "id": bin_to_hex(row[0]),
                     "plant_id": bin_to_hex(row[1]),
-                    "measured_at": row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None,
+                    "measured_at": (
+                        row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None
+                    ),
                     "measured_weight_g": row[3],
                     "last_dry_weight_g": row[4],
                     "last_wet_weight_g": row[5],
@@ -779,7 +828,7 @@ async def get_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
 
 
 @app.delete("/measurements/{id_hex}")
-async def delete_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory)):
+async def delete_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -795,7 +844,7 @@ async def delete_measurement(id_hex: str, get_conn_fn = Depends(get_conn_factory
                     FROM plants_measurements
                     WHERE id = UNHEX(%s)
                     """,
-                    (id_hex,)
+                    (id_hex,),
                 )
                 row = cur.fetchone()
                 if not row:

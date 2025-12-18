@@ -20,7 +20,9 @@ from typing import List, Optional
 from .last_repotting import get_last_repotting_event
 
 
-def _fetch_watering_events_since(conn, plant_id_hex: str, since_dt: Optional[datetime]) -> List[datetime]:
+def _fetch_watering_events_since(
+    conn, plant_id_hex: str, since_dt: Optional[datetime]
+) -> List[datetime]:
     """Return watering event timestamps (ascending) since given datetime (inclusive).
 
     Watering event detection per spec: measured_weight_g IS NULL AND water_loss_total_pct = 0.

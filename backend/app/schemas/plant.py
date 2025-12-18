@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, constr
 
 HexID = constr(pattern=r"^[0-9a-f]{32}$")
 
+
 class PlantListItem(BaseModel):
     id: int
     uuid: Optional[HexID] = None
@@ -25,6 +26,7 @@ class PlantListItem(BaseModel):
     frequency_days: Optional[int] = None
     next_watering_at: Optional[datetime] = None
 
+
 class PlantDetail(BaseModel):
     id: int
     uuid: Optional[HexID] = None
@@ -37,6 +39,7 @@ class PlantDetail(BaseModel):
     location_id: Optional[HexID] = None
     created_at: datetime
     water_loss_total_pct: Optional[float] = None
+
 
 class PlantCreateRequest(BaseModel):
     # Minimum fields; all but name are optional
@@ -71,6 +74,7 @@ class PlantCreateRequest(BaseModel):
     min_dry_weight_g: Optional[int] = None
     max_water_weight_g: Optional[int] = None
 
+
 class PlantUpdateRequest(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
@@ -88,7 +92,8 @@ class PlantUpdateRequest(BaseModel):
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None
-    
+
+
 class CalibrationEntry(BaseModel):
     id: Optional[str] = None
     measured_at: Optional[str] = None
@@ -98,9 +103,11 @@ class CalibrationEntry(BaseModel):
     under_g: Optional[int] = None
     under_pct: Optional[float] = None
 
+
 class CalibrationData(BaseModel):
     max_water_retained: List[CalibrationEntry]
     min_dry_weight: List[CalibrationEntry]
+
 
 class PlantCalibrationItem(PlantListItem):
     calibration: CalibrationData

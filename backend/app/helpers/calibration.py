@@ -91,8 +91,8 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
                     WHERE plant_id = UNHEX(%s)
                       AND measured_weight_g IS NULL
                     """
-                    + where_since +
-                    """
+                    + where_since
+                    + """
                     ORDER BY measured_at DESC
                     """
                 ),
@@ -121,20 +121,30 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
                     under_g_val = max(0, int(max_water) - int(water_added_g))
                 except Exception:
                     under_g_val = None
-                under_pct_val = (under_g_val / float(max_water)) * 100.0 if under_g_val is not None else None
+                under_pct_val = (
+                    (under_g_val / float(max_water)) * 100.0 if under_g_val is not None else None
+                )
             else:
                 under_g_val = None
                 under_pct_val = None
 
-            items.append({
-                "id": bin_to_hex(mid) if mid is not None else None,
-                "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds") if isinstance(measured_at_dt, datetime) else str(measured_at_dt) if measured_at_dt else None,
-                "water_added_g": int(water_added_g) if water_added_g is not None else None,
-                "last_wet_weight_g": int(last_wet_weight_g) if last_wet_weight_g is not None else None,
-                "target_weight_g": int(target_weight),
-                "under_g": int(under_g_val) if under_g_val is not None else None,
-                "under_pct": float(under_pct_val) if under_pct_val is not None else None,
-            })
+            items.append(
+                {
+                    "id": bin_to_hex(mid) if mid is not None else None,
+                    "measured_at": (
+                        measured_at_dt.isoformat(sep=" ", timespec="seconds")
+                        if isinstance(measured_at_dt, datetime)
+                        else str(measured_at_dt) if measured_at_dt else None
+                    ),
+                    "water_added_g": int(water_added_g) if water_added_g is not None else None,
+                    "last_wet_weight_g": (
+                        int(last_wet_weight_g) if last_wet_weight_g is not None else None
+                    ),
+                    "target_weight_g": int(target_weight),
+                    "under_g": int(under_g_val) if under_g_val is not None else None,
+                    "under_pct": float(under_pct_val) if under_pct_val is not None else None,
+                }
+            )
 
         if items:
             results[plant_hex] = items

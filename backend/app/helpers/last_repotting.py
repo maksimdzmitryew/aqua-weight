@@ -38,7 +38,7 @@ def get_last_repotting_event(conn, plant_id_hex: str) -> Optional[MeasurementIte
                   AND water_loss_day_g IS NULL
                 ORDER BY measured_at DESC LIMIT 1
                 """,
-                (plant_id_hex,)
+                (plant_id_hex,),
             )
             row = cur.fetchone()
 
@@ -55,10 +55,8 @@ def get_last_repotting_event(conn, plant_id_hex: str) -> Optional[MeasurementIte
                 water_loss_total_pct=row[6],
                 water_loss_total_g=row[7],
                 water_loss_day_pct=row[8],
-                water_loss_day_g=row[9]
+                water_loss_day_g=row[9],
             )
     except Exception as e:
-        print(
-            f"Failed to fetch measurement for plant: {e}"
-        )
+        print(f"Failed to fetch measurement for plant: {e}")
         return None

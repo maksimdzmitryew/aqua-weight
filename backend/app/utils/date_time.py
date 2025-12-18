@@ -50,12 +50,14 @@ def parse_dt(value: datetime | str) -> datetime:
     return dt
 
 
-def normalize_measured_at(raw: str,
-                         *,
-                         tz: timezone = timezone.utc,
-                         fill_with: str = "zeros",
-                         fixed_seconds: int | None = None,
-                         fixed_milliseconds: int | None = None) -> datetime:
+def normalize_measured_at(
+    raw: str,
+    *,
+    tz: timezone = timezone.utc,
+    fill_with: str = "zeros",
+    fixed_seconds: int | None = None,
+    fixed_milliseconds: int | None = None,
+) -> datetime:
     """
     Parse FE ISO datetime like "2025-10-21T19:33:00" and return a tz-aware UTC datetime.
     - fill_with: "zeros" | "server" | "fixed"
@@ -87,7 +89,11 @@ def normalize_measured_at(raw: str,
     if fill_with == "server":
         now = datetime.now(timezone.utc)
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
-        ms = now.microsecond // 1000 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
+        ms = (
+            now.microsecond // 1000
+            if fixed_milliseconds is None
+            else clamp_ms(int(fixed_milliseconds))
+        )
         return dt.replace(second=sec, microsecond=ms * 1000)
 
     if fill_with == "fixed":
@@ -102,11 +108,13 @@ def normalize_measured_at(raw: str,
     raise ValueError("unsupported fill_with value")
 
 
-def normalize_measured_at_local(raw: str,
-                                *,
-                                fill_with: str = "zeros",
-                                fixed_seconds: int | None = None,
-                                fixed_milliseconds: int | None = None) -> datetime:
+def normalize_measured_at_local(
+    raw: str,
+    *,
+    fill_with: str = "zeros",
+    fixed_seconds: int | None = None,
+    fixed_milliseconds: int | None = None,
+) -> datetime:
     """
     Parse FE ISO datetime like "2025-10-21T19:33" and return a timezone-naive datetime
     representing the user's local wall-clock time. This value is suitable for inserting
@@ -144,7 +152,11 @@ def normalize_measured_at_local(raw: str,
     if fill_with == "server":
         now = datetime.now()  # local time
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
-        ms = now.microsecond // 1000 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
+        ms = (
+            now.microsecond // 1000
+            if fixed_milliseconds is None
+            else clamp_ms(int(fixed_milliseconds))
+        )
         return dt.replace(second=sec, microsecond=ms * 1000)
 
     if fill_with == "fixed":

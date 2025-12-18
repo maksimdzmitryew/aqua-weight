@@ -22,6 +22,7 @@ app = APIRouter()
 async def list_plants() -> list[PlantListItem]:
     def fetch():
         return PlantsList.fetch_all()
+
     return await run_in_threadpool(fetch)
 
 
@@ -57,6 +58,7 @@ class PlantCreate(BaseModel):
     # Calculated
     min_dry_weight_g: int | None = None
     max_water_weight_g: int | None = None
+
 
 @app.post("/plants")
 async def create_plant(payload: PlantCreateRequest):
@@ -176,10 +178,15 @@ async def reorder_plants(payload: ReorderPayload):
                 if not payload.ordered_ids:
                     raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
-                cur.execute(f"SELECT COUNT(*) FROM plants WHERE archive=0 AND id IN ({placeholders})", payload.ordered_ids)
+                cur.execute(
+                    f"SELECT COUNT(*) FROM plants WHERE archive=0 AND id IN ({placeholders})",
+                    payload.ordered_ids,
+                )
                 count = cur.fetchone()[0]
                 if count != len(payload.ordered_ids):
-                    raise HTTPException(status_code=400, detail="Some ids do not exist or are archived")
+                    raise HTTPException(
+                        status_code=400, detail="Some ids do not exist or are archived"
+                    )
                 for idx, hex_id in enumerate(payload.ordered_ids, start=1):
                     cur.execute("UPDATE plants SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
             conn.commit()
@@ -191,10 +198,9 @@ async def reorder_plants(payload: ReorderPayload):
             raise
         finally:
             conn.close()
+
     await run_in_threadpool(do_update)
     return {"ok": True}
-
-
 
 
 @app.delete("/plants/{id_hex}")
@@ -253,9 +259,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                 if not exists:
                     raise HTTPException(status_code=404, detail="Plant not found")
 
-                sql = (
-                    "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
-                )
+                sql = "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
                 params = (
                     (normalize(payload.name) if payload.name is not None else None),
                     (payload.description if payload.description is not None else None),
@@ -264,9 +268,17 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     (payload.cultivar if payload.cultivar is not None else None),
                     hex_to_bytes(payload.location_id),
                     hex_to_bytes(payload.substrate_type_id),
-                    to_dt(payload.substrate_last_refresh_at) if payload.substrate_last_refresh_at is not None else None,
+                    (
+                        to_dt(payload.substrate_last_refresh_at)
+                        if payload.substrate_last_refresh_at is not None
+                        else None
+                    ),
                     hex_to_bytes(payload.light_level_id),
-                    to_dt(payload.fertilized_last_at) if payload.fertilized_last_at is not None else None,
+                    (
+                        to_dt(payload.fertilized_last_at)
+                        if payload.fertilized_last_at is not None
+                        else None
+                    ),
                     payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
                     hex_to_bytes(payload.pest_status_id),
                     hex_to_bytes(payload.health_status_id),
@@ -322,10 +334,26 @@ async def get_plant(id_hex: str) -> PlantDetail:
                 location_name = row[7]
                 created_at = row[8] or datetime.utcnow()
                 uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                location_id_hex = location_id_bytes.hex() if isinstance(location_id_bytes, (bytes, bytearray)) else None
-                return PlantDetail(id=1, uuid=uuid_hex, name=name, notes=notes, species=species_name, location=location_name, min_dry_weight_g=min_dry_weight_g, max_water_weight_g=max_water_weight_g, location_id=location_id_hex, created_at=created_at)
+                location_id_hex = (
+                    location_id_bytes.hex()
+                    if isinstance(location_id_bytes, (bytes, bytearray))
+                    else None
+                )
+                return PlantDetail(
+                    id=1,
+                    uuid=uuid_hex,
+                    name=name,
+                    notes=notes,
+                    species=species_name,
+                    location=location_name,
+                    min_dry_weight_g=min_dry_weight_g,
+                    max_water_weight_g=max_water_weight_g,
+                    location_id=location_id_hex,
+                    created_at=created_at,
+                )
         finally:
             conn.close()
+
     return await run_in_threadpool(fetch_one)
 
 

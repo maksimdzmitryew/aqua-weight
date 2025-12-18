@@ -113,15 +113,13 @@ class PlantsList:
                     # Prefer measured_at over created_at, then now; expose as 'created_at' per tests
                     created_at_pref = measured_at_db or created_at_db or now
 
-
-
                     # Calculate water retained percentage using the helper
                     water_retained_calc = calculate_water_retained(
                         min_dry_weight_g=min_dry_weight_g,
                         max_water_weight_g=max_water_weight_g,
                         measured_weight_g=measured_weight_g,
                         last_wet_weight_g=last_wet_weight_g,
-                        water_loss_total_pct=water_loss_total_pct
+                        water_loss_total_pct=water_loss_total_pct,
                     )
                     water_retained_pct = water_retained_calc.water_retained_pct
 
@@ -162,44 +160,60 @@ class PlantsList:
                                 last_watering_at = last_row[0] if last_row else None
                                 if last_watering_at:
                                     # Initial projection
-                                    next_watering_at = last_watering_at + timedelta(days=int(freq_days))
+                                    next_watering_at = last_watering_at + timedelta(
+                                        days=int(freq_days)
+                                    )
                                     # If projection is in the past, roll forward by multiples of frequency
                                     try:
                                         if next_watering_at and next_watering_at < now:
                                             # How many full frequencies have elapsed since the last watering
-                                            elapsed_days = (now - last_watering_at).total_seconds() / (24 * 60 * 60)
+                                            elapsed_days = (
+                                                now - last_watering_at
+                                            ).total_seconds() / (24 * 60 * 60)
                                             steps = max(1, ceil(elapsed_days / int(freq_days)))
-                                            next_watering_at = last_watering_at + timedelta(days=int(freq_days) * steps)
+                                            next_watering_at = last_watering_at + timedelta(
+                                                days=int(freq_days) * steps
+                                            )
                                     except Exception:
                                         # Keep the initial projection if any math fails
                                         pass
                         except Exception:
                             next_watering_at = None
 
-                    results.append({
-                        "id": idx,  # synthetic index for UI
-                        "uuid": uuid_hex,
-                        "name": name,
-                        # Keep both keys to satisfy existing API and unit tests
-                        "notes": notes,
-                        "description": notes,
-                        "species": species_name,
-                        "min_dry_weight_g": min_dry_weight_g,
-                        "max_water_weight_g": max_water_weight_g,
-                        "location": location_name,
-                        "location_id": location_id_hex,
-                        # PlantListItem expects 'latest_at' for the list view, but
-                        # unit tests also read legacy 'created_at' key. Keep both.
-                        "latest_at": created_at_pref,
-                        "created_at": created_at_pref,
-                        "measured_weight_g": measured_weight_g,
-                        "water_loss_total_pct": water_loss_total_pct,
-                        "water_retained_pct": round(water_retained_pct, 0) if water_retained_pct is not None else None,
-                        "recommended_water_threshold_pct": recommended_water_threshold_pct if recommended_water_threshold_pct is not None else None,
-                        "identify_hint": identify_hint if identify_hint is not None else None,
-                        "frequency_days": int(freq_days) if freq_days is not None else None,
-                        "next_watering_at": next_watering_at,
-                    })
+                    results.append(
+                        {
+                            "id": idx,  # synthetic index for UI
+                            "uuid": uuid_hex,
+                            "name": name,
+                            # Keep both keys to satisfy existing API and unit tests
+                            "notes": notes,
+                            "description": notes,
+                            "species": species_name,
+                            "min_dry_weight_g": min_dry_weight_g,
+                            "max_water_weight_g": max_water_weight_g,
+                            "location": location_name,
+                            "location_id": location_id_hex,
+                            # PlantListItem expects 'latest_at' for the list view, but
+                            # unit tests also read legacy 'created_at' key. Keep both.
+                            "latest_at": created_at_pref,
+                            "created_at": created_at_pref,
+                            "measured_weight_g": measured_weight_g,
+                            "water_loss_total_pct": water_loss_total_pct,
+                            "water_retained_pct": (
+                                round(water_retained_pct, 0)
+                                if water_retained_pct is not None
+                                else None
+                            ),
+                            "recommended_water_threshold_pct": (
+                                recommended_water_threshold_pct
+                                if recommended_water_threshold_pct is not None
+                                else None
+                            ),
+                            "identify_hint": identify_hint if identify_hint is not None else None,
+                            "frequency_days": int(freq_days) if freq_days is not None else None,
+                            "next_watering_at": next_watering_at,
+                        }
+                    )
                 # Restore last_params of the main cursor when FakeConnection reuses the same cursor instance
                 try:
                     if hasattr(conn, "_cursor"):

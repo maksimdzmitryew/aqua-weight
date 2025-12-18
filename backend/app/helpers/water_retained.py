@@ -13,11 +13,11 @@ class WaterRetainedCalculation:
 
 
 def calculate_water_retained(
-        min_dry_weight_g: float,
-        max_water_weight_g: float,
-        measured_weight_g: Optional[float],
-        last_wet_weight_g: Optional[float],
-        water_loss_total_pct: Optional[float]
+    min_dry_weight_g: float,
+    max_water_weight_g: float,
+    measured_weight_g: Optional[float],
+    last_wet_weight_g: Optional[float],
+    water_loss_total_pct: Optional[float],
 ) -> WaterRetainedCalculation:
     """
     Calculate water retained percentage for a plant measurement.
@@ -53,7 +53,6 @@ def calculate_water_retained(
             water_remain_g = measured_weight_g - min_dry_weight_g
         else:
             return result
-
 
     if min_dry_weight_g != measured_weight_g:
         # Wfc: Saturated weight / field capacity (historical maximum capacity)

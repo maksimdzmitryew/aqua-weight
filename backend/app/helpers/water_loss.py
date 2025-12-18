@@ -21,15 +21,15 @@ class WaterLossCalculation:
 
 
 def calculate_water_loss(
-        cursor: pymysql.cursors.Cursor,
-        plant_id_hex: str,
-        measured_at: str,
-        measured_weight_g: Optional[int],
-        last_wet_weight_g: Optional[int],
-        water_added_g: Optional[int],
-        last_watering_water_added: int,
-        prev_measured_weight: Optional[int],
-        exclude_measurement_id: Optional[str] = None
+    cursor: pymysql.cursors.Cursor,
+    plant_id_hex: str,
+    measured_at: str,
+    measured_weight_g: Optional[int],
+    last_wet_weight_g: Optional[int],
+    water_added_g: Optional[int],
+    last_watering_water_added: int,
+    prev_measured_weight: Optional[int],
+    exclude_measurement_id: Optional[str] = None,
 ) -> WaterLossCalculation:
     """
     Calculate water loss metrics for a measurement.
@@ -52,7 +52,7 @@ def calculate_water_loss(
 
     # Determine if this is a watering event
     # is_watering_event = (water_added_g is not None and int(water_added_g) > 0)
-    is_watering_event = (measured_weight_g is None)
+    is_watering_event = measured_weight_g is None
     result.is_watering_event = is_watering_event
 
     # If this is a watering event, all loss fields should be NULL
@@ -62,9 +62,11 @@ def calculate_water_loss(
 
     # Calculate daily loss
     daydiff = None
-    baseline_for_day = prev_measured_weight if (
-            measured_weight_g is not None and prev_measured_weight is not None
-    ) else last_wet_weight_g
+    baseline_for_day = (
+        prev_measured_weight
+        if (measured_weight_g is not None and prev_measured_weight is not None)
+        else last_wet_weight_g
+    )
 
     if measured_weight_g is not None and baseline_for_day is not None:
         try:
@@ -77,9 +79,7 @@ def calculate_water_loss(
                     (daydiff / float(last_watering_water_added)) * 100.0, 2
                 )
             elif (last_wet_weight_g or 0) > 0:
-                result.water_loss_day_pct = round(
-                    (daydiff / float(last_wet_weight_g)) * 100.0, 2
-                )
+                result.water_loss_day_pct = round((daydiff / float(last_wet_weight_g)) * 100.0, 2)
         except Exception:
             pass
 
@@ -93,7 +93,9 @@ def calculate_water_loss(
             exclude_params = [exclude_measurement_id]
 
         last_watering_event = get_last_watering_event(cursor, plant_id_hex)
-        last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
+        last_watering_water_added = (
+            last_watering_event["water_added_g"] if last_watering_event else 0
+        )
         last_watered_at = last_watering_event["measured_at"] if last_watering_event else None
 
         if last_watering_event:
