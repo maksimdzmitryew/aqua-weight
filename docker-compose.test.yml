@@ -12,7 +12,7 @@ services:
       - MARIADB_USER=${MARIADB_USER:-appuser}
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
     ports:
-      - "127.0.0.1:53316:3306"
+      - "53316:3306"
     volumes:
       - ./db/my.cnf:/etc/mysql/my.cnf
       - mariadb_data_test_appdbtest:/var/lib/mysql:consistent
@@ -82,7 +82,7 @@ services:
       - backend
       - frontend
     ports:
-      - "127.0.0.1:5080:80"
+      - "5080:80"
     volumes:
       # TLS certificate mounts are configurable via env vars for local vs CI.
       # Local default: ./ssl/dev.* (generate via `make dev-certs`)
