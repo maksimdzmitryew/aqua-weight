@@ -196,9 +196,9 @@ jobs:
         run: |
           set -e
           for i in {1..90}; do
-            if curl -sSf http://localhost:5080/ >/dev/null; then
+            if curl -sSf http://127.0.0.1:5080/ >/dev/null; then
               echo "nginx is up"; break; fi; echo "Waiting for nginx..."; sleep 5; done
-          if ! curl -sSf http://localhost:5080/ >/dev/null; then
+          if ! curl -sSf http://127.0.0.1:5080/ >/dev/null; then
             echo "nginx not reachable after wait; dumping container logs..."
             docker compose -f docker-compose.test.yml ps
             docker compose -f docker-compose.test.yml logs --no-color nginx || true
@@ -206,12 +206,12 @@ jobs:
             docker compose -f docker-compose.test.yml logs --no-color frontend || true
             exit 1
           fi
-          curl -sSf http://localhost:5080/ >/dev/null
+          curl -sSf http://127.0.0.1:5080/ >/dev/null
 
       - name: Run Playwright tests
         working-directory: frontend
         env:
-          E2E_BASE_URL: http://localhost:5080
+          E2E_BASE_URL: http://127.0.0.1:5080
         run: npx playwright test --config ./playwright.config.ts
 
       - name: Upload Playwright report

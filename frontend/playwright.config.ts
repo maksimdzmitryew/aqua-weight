@@ -11,7 +11,7 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report' }],
   ],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:5173',
     headless: true,
     actionTimeout: 10_000,
     navigationTimeout: 20_000,

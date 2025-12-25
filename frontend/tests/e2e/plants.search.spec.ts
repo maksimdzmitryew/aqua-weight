@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { seed, cleanup } from './utils/seed';
 
-const ORIGIN = process.env.E2E_BASE_URL || 'http://localhost:5173';
+const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Plants search & filter', () => {
   test.beforeEach(async () => {
