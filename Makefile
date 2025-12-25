@@ -31,7 +31,7 @@ help:
 	@echo ""
 	@echo "Frontend targets (local/Docker):"
 	@echo "  make fe-dev            - Start Vite dev server (local)"
-	@echo "  make fe-test-unit      - Run frontend unit tests (in Docker)"
+	@echo "  make test-fe      - Run frontend unit tests (in Docker)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
 	@echo ""
@@ -131,8 +131,8 @@ e2e-report:
 fe-dev:
 	npm run dev --prefix frontend
 
-.PHONY: fe-test-unit
-fe-test-unit:
+.PHONY: test-fe
+test-fe:
 	docker compose -f $(TEST_COMPOSE) exec e2e npm run test:unit:coverage
 
 .PHONY: fe-sb

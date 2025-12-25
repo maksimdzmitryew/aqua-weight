@@ -233,7 +233,7 @@ export default function Dashboard() {
 
       {!loading && !error && hasPlants && (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${chartsPerRow}, minmax(0, 1fr))`, gap: 16 }}>
-          {plants.map((p) => {
+          {plants.map((p, idx) => {
             const pts = series[p?.uuid] || []
             const cardBg = effectiveTheme === 'dark' ? '#111827' : 'white'
             const cardBorder = effectiveTheme === 'dark' ? '#374151' : '#e5e7eb'

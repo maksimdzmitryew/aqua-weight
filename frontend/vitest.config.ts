@@ -10,13 +10,14 @@ export default defineConfig({
     setupFiles: ['./setupTests.ts'],
     dir: './tests/unit',
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: ['**/tests/e2e/**'],
     coverage: {
       provider: 'v8',
       // Exclude fully covered files from coverage reports to keep output focused
       reporter: [
-        ['text', { skipFull: true }],
-        ['html', { skipFull: true }],
-        ['lcov', { skipFull: true }],
+        ['text'],
+        ['html'],
+        ['lcov'],
       ],
       reportsDirectory: './coverage',
       all: true,
