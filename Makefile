@@ -112,15 +112,15 @@ test-cov:
 # --- E2E ---
 .PHONY: e2e
 e2e:
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "npm install --prefix frontend && npx playwright test --config /app/frontend/playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npm install && npx playwright test --config playwright.config.ts"
 
 .PHONY: e2e-quick
 e2e-quick:
-	docker compose -f $(TEST_COMPOSE) exec e2e npx playwright test --config /app/frontend/playwright.config.ts
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npx playwright test --config playwright.config.ts"
 
 .PHONY: e2e-headed
 e2e-headed:
-	docker compose -f $(TEST_COMPOSE) exec e2e npx playwright test --config /app/frontend/playwright.config.ts --headed
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npx playwright test --config playwright.config.ts --headed"
 
 .PHONY: e2e-report
 e2e-report:

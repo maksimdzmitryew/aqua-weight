@@ -38,8 +38,9 @@ jobs:
       - name: Run Playwright tests
         env:
           E2E_BASE_URL: http://localhost:5080
+        working-directory: frontend
         run: |
-          npx playwright test --config frontend/playwright.config.ts
+          npx playwright test --config playwright.config.ts
 
       - name: Upload Playwright report
         if: always()
