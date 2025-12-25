@@ -40,17 +40,25 @@
   - Show results:
     - `docker compose -f docker-compose.test.yml exec tests mutmut results`
 
-### Backend linting (ruff) via Docker/Makefile
+### Backend linting (ruff) and formatting (black) via Docker/Makefile
+
+This project uses **Ruff** for linting (static analysis) and **Black** for code formatting.
+
+- **Ruff**: A fast Python linter that catches errors, enforces coding standards, and identifies potential bugs. It replaces many legacy tools like Flake8 and is configured to run on the `backend/app` directory.
+- **Black**: The "uncompromising" code formatter that ensures a consistent style across the entire backend codebase by automatically reformatting code according to PEP 8 standards.
+
+These tools are available inside the `runner` container, meaning no local installation is required.
+
 - Lint backend Python with ruff inside the test runner container:
-  - `make lint-backend`
+  - `make be-lint`
 - Auto-fix ruff issues in-place (writes to working tree):
-  - `make lint-backend-fix`
-- Run the CI-equivalent trimmed pre-commit (Python-only, ruff with --no-fix):
-  - `make pre-commit-backend-ci`
+  - `make be-lint-fix`
 - Related helpers:
-  - Black check: `make black-backend`
-  - Black fix: `make black-backend-fix`
-  - Mypy: `make mypy-backend`
+  - Black check: `make be-fmt`
+  - Black fix: `make be-fmt-fix`
+  - Mypy (type checking): `make be-mypy`
+- Run the CI-equivalent trimmed pre-commit (Python-only, ruff with --no-fix):
+  - `make be-pre-commit`
 
 Notes:
 - These commands execute inside the tests runner container defined in `docker-compose.test.yml` (service `runner`).

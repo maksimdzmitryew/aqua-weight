@@ -19,7 +19,7 @@ help:
 	@echo "  make test-up           - Start test stack (detached)"
 	@echo "  make test-up-f         - Start test stack (foreground)"
 	@echo "  make test-down         - Stop test stack"
-	@echo "  make test              - Run backend tests (pytest)"
+	@echo "  make test-be           - Run backend tests (pytest)"
 	@echo "  make test-logs         - Show test logs"
 	@echo "  make test-ps           - Status of test containers"
 	@echo ""
@@ -96,8 +96,8 @@ test-logs:
 test-ps:
 	docker compose -f $(TEST_COMPOSE) ps
 
-.PHONY: test
-test:
+.PHONY: test-be
+test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
 
