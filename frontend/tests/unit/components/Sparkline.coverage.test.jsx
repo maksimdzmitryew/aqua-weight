@@ -37,52 +37,15 @@ describe('Sparkline Coverage Tests', () => {
     // sx(x) = margin.left + ((x - minX) / spanX) * w
     // sy(y) = margin.top + (1 - (y - minY) / spanY) * h
     
-    // If spanX is 1 (default when maxX == minX) and x is Infinity
+    // To trigger the else branch (Number.isFinite(val) is false), we can pass
+    // non-finite values in margins, which will propagate to val.
     const data = [{ x: 1, y: 10 }]
-    // minX = 1, maxX = 1, spanX = 1
-    // minY = 10, maxY = 11, spanY = 1
+    const margin = { top: NaN, left: NaN, right: 0, bottom: 0 }
     
-    // We need to trigger sx or sy with something that results in non-finite.
-    // However, sx and sy are called inside the component with points from data.
-    // If we pass a point with NaN or Infinity, it's filtered out in line 224:
-    // const points = Array.isArray(data) ? data.filter(d => d && isFinite(d.x) && isFinite(d.y)) : []
-    
-    // Wait, line 252:
-    // const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.x)},${sy(p.y)}`).join(' ')
-    // It uses points.
-    
-    // How to get non-finite in sx/sy then?
-    // Maybe if spanX or spanY is 0? 
-    // Line 239: const spanX = maxX - minX || 1
-    // Line 240: const spanY = maxY - minY || 1
-    // They fall back to 1 if 0.
-    
-    // What if w or h is non-finite?
-    // line 221: const w = Math.max(0, vbWidth - margin.left - margin.right)
-    // line 222: const h = Math.max(0, vbHeight - margin.top - margin.bottom)
-    // vbWidth comes from width prop or measuredW.
-    // vbHeight comes from height prop.
-    
-    // If height is NaN:
-    renderWithTheme(<Sparkline data={[{x:1, y:10}, {x:2, y:20}]} width={NaN} height={NaN} />)
-    
-    // Let's look at sy again:
-    // const val = margin.top + (1 - (y - minY) / spanY) * h
-    // if h is NaN, val is NaN.
+    renderWithTheme(<Sparkline data={data} margin={margin} />)
     
     const svg = screen.getByLabelText('sparkline')
     expect(svg).toBeInTheDocument()
-  })
-
-  test('covers line 248 result check: val is NaN', () => {
-    // sy(y) {
-    //   const val = margin.top + (1 - (y - minY) / spanY) * h
-    //   const result = Number.isFinite(val) ? val : 0
-    //   return result
-    // }
-    // If h is NaN, val is NaN, so result is 0.
-    // Already covered by the test above, but let's be explicit and try with w as well for sx.
-    renderWithTheme(<Sparkline data={[{x:1, y:10}]} width={NaN} height={100} />)
   })
 
   test('covers line 469: height is not finite', () => {

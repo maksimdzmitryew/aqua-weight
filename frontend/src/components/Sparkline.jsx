@@ -216,8 +216,8 @@ export default function Sparkline({
     }
   }, [])
 
-  const vbWidth = typeof width === 'number' ? width : (measuredW || 300)
-  const vbHeight = height
+  const vbWidth = Number.isFinite(width) ? width : (measuredW || 300)
+  const vbHeight = Number.isFinite(height) ? height : 80
   const w = Math.max(0, vbWidth - margin.left - margin.right)
   const h = Math.max(0, vbHeight - margin.top - margin.bottom)
 
@@ -489,8 +489,8 @@ export default function Sparkline({
     <div style={containerStyle} ref={containerRef}>
       <svg
         ref={svgRef}
-        width={typeof width === 'number' ? width : '100%'}
-        height={height}
+        width={Number.isFinite(width) ? width : '100%'}
+        height={Number.isFinite(height) ? height : '100%'}
         role="img"
         aria-label="sparkline"
         viewBox={`0 0 ${vbWidth} ${vbHeight}`}
