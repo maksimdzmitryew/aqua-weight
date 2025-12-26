@@ -172,8 +172,8 @@ jobs:
       - name: Install Playwright binaries
         working-directory: frontend
         run: |
-          npm i -D @playwright/test
-          npx playwright install --with-deps
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          npx playwright install chromium --with-deps
 
       - name: Generate GitHub CI self-signed TLS certs
         run: |
