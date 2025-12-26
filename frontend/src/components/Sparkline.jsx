@@ -235,9 +235,9 @@ export default function Sparkline({
   let minY = Math.min(minYData, minYRef)
   let maxY = Math.max(maxYData, maxYRef)
   if (!isFinite(minY)) minY = 0
-  if (!isFinite(maxY) || maxY === minY) maxY = (isFinite(minY) ? minY + 1 : 1)
+  if (!isFinite(maxY) || maxY === minY) maxY = minY + 1
   const spanX = maxX - minX || 1
-  const spanY = maxY - minY || 1
+  const spanY = maxY - minY
 
   function sx(x) {
     const val = margin.left + ((x - minX) / spanX) * w
