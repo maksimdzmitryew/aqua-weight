@@ -22,9 +22,24 @@ jobs:
           npm ci --prefix frontend
           npx playwright install --with-deps
 
+      - name: Generate GitHub CI self-signed TLS certs
+        run: |
+          set -euo pipefail
+          mkdir -p ssl
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout ssl/github-ci.privkey.pem \
+            -out ssl/github-ci.fullchain.pem \
+            -subj "/CN=aw.max" \
+            -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
+          head -n 1 ssl/github-ci.privkey.pem
+          head -n 1 ssl/github-ci.fullchain.pem
+
       - name: Start services
         run: |
           docker compose -f docker-compose.test.yml up -d --build
+        env:
+          SSL_CERT_FILE: ./ssl/github-ci.fullchain.pem
+          SSL_KEY_FILE: ./ssl/github-ci.privkey.pem
 
       - name: Wait for services (backend + frontend) via nginx
         run: |

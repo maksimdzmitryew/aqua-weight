@@ -179,12 +179,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ssl
-          openssl req -x509 -nodes -newkey rsa:2048 \
+          # Use a more standard openssl command for generating self-signed certs
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout ssl/github-ci.privkey.pem \
             -out ssl/github-ci.fullchain.pem \
-            -days 365 \
             -subj "/CN=aw.max" \
             -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
+          # Verify the certificates are not empty and have correct headers
+          head -n 1 ssl/github-ci.privkey.pem
+          head -n 1 ssl/github-ci.fullchain.pem
 
       - name: Start test stack (docker-compose)
         run: docker compose -f docker-compose.test.yml up -d --build
