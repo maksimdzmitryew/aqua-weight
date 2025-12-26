@@ -78,6 +78,43 @@ Notes
 - To stop: docker compose down
 - To clean DB data: docker volume rm aw_mariadb_data (careful: destroys data)
 
+## Application features and settings
+
+### Vacation mode (frontend setting)
+Vacation mode is a simple toggle that helps you adapt care workflows when you’re away. It is currently a client‑side setting with no backend changes.
+
+- Location: Settings page (https://aw.max/settings)
+- Control: dropdown labeled "Vacation mode" with two options — "Disabled" and "Enabled".
+- Persistence: stored in the browser’s localStorage under the key `vacationMode`.
+  - Values: `"disabled"` (default) or `"enabled"`.
+  - The value persists across page reloads and browser restarts on the same device.
+- Usage in code (optional):
+  - Read current state in any frontend module:
+    ```js
+    const isVacationMode = (typeof localStorage !== 'undefined' && localStorage.getItem('vacationMode') === 'enabled')
+    ```
+  - Components may use this to adjust UI or scheduling behavior in future enhancements.
+
+What happens when Vacation mode is enabled (current behavior):
+- No automatic behavior changes are applied by default. The setting acts as a user preference flag that the frontend can read. There are no backend effects. 
+- Existing lists (e.g., Plants, Daily Care) continue to show the same data (including Frequency and Next watering). No thresholds or projections are altered automatically.
+- Developers can opt‑in to react to the flag in specific components (e.g., show a subtle banner, snooze certain warnings, or group tasks differently). Example:
+  ```js
+  const isVacationMode = localStorage.getItem('vacationMode') === 'enabled'
+  return (
+    <>
+      {isVacationMode && (
+        <div role="status" className="notice info">Vacation mode is enabled — reminders may be relaxed.</div>
+      )}
+      {/* ...rest of the component... */}
+    </>
+  )
+  ```
+
+Notes and future direction:
+- Because this is a frontend‑only preference, it does not change API payloads or scheduling calculations on the server. If needed later, we can formalize server‑side effects (e.g., postponing next‑watering targets) behind a versioned API.
+- Until such changes are implemented, enabling Vacation mode is informational and opt‑in for UI behavior only.
+
 ## Generating local TLS certificates (using your existing local CA)
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).
 

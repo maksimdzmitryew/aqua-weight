@@ -12,7 +12,7 @@ services:
       - MARIADB_USER=${MARIADB_USER:-appuser}
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
     ports:
-      - "127.0.0.1:53316:3306"
+      - "53316:3306"
     volumes:
       - ./db/my.cnf:/etc/mysql/my.cnf
       - mariadb_data_test_appdbtest:/var/lib/mysql:consistent
@@ -48,7 +48,7 @@ services:
       - ./backend/app:/app/app
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -66,7 +66,11 @@ services:
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
-      - frontend_node_modules_test:/app/node_modules
+      - ./frontend/node_modules_tests:/app/node_modules
+    # Ensure dev server dependencies (vite) are present in the test node_modules directory.
+    # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
+    # Always install to ensure deps match current package.json for tests
+    command: ["bash", "-lc", "cd /app && npm install --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
 
   nginx:
     build:
@@ -78,9 +82,13 @@ services:
       - backend
       - frontend
     ports:
-      - "127.0.0.1:5080:80"
+      - "5080:80"
     volumes:
-      - ./ssl:/etc/ssl/aw.max:ro
+      # TLS certificate mounts are configurable via env vars for local vs CI.
+      # Local default: ./ssl/dev.* (generate via `make dev-certs`)
+      # CI: workflow sets SSL_CERT_FILE/SSL_KEY_FILE to ./ssl/github-ci.* (generated in CI)
+      - ${SSL_CERT_FILE:-./ssl/dev.fullchain.pem}:/etc/ssl/aw.max/fullchain.pem:ro
+      - ${SSL_KEY_FILE:-./ssl/dev.privkey.pem}:/etc/ssl/aw.max/privkey.pem:ro
     healthcheck:
       test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
     
@@ -121,12 +129,15 @@ services:
       - E2E_BASE_URL=https://aw.max
     volumes:
       - ./:/app
-    command: ["tail", "-f", "/dev/null"]
+      - ./frontend/node_modules_tests:/app/frontend/node_modules
+    # Ensure dev dependencies are installed (including newly added ones)
+    # If vitest binary is missing, run npm ci, then keep container running
+    # Use npm install (not ci) to avoid lockfile sync errors when dev-only deps are added
+    command: ["bash", "-lc", "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm install --no-audit --no-fund && tail -f /dev/null"]
     networks:
       - aw-tests-net
 
 volumes:
-  frontend_node_modules_test:
   mariadb_data_test_appdbtest:
 
 networks:

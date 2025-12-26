@@ -1,12 +1,22 @@
+
 import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
-import { dailyApi } from '../api/daily'
+import StatusIcon from '../components/StatusIcon.jsx'
+import { plantsApi } from '../api/plants'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+
+function hoursSinceLocal(tsString) {
+  if (!tsString) return null;
+  const t = Date.parse(tsString); // parsed as local when no Z present
+  if (Number.isNaN(t)) return null;
+  const hours = (Date.now() - t) / (1000 * 60 * 60);
+  return hours; // fractional, can be negative for future times
+}
 
 export default function DailyCare() {
   const navigate = useNavigate()
@@ -19,9 +29,43 @@ export default function DailyCare() {
     setLoading(true)
     setError('')
     try {
-      const data = await dailyApi.list()
-      const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : []
-      setTasks(list)
+      // First get all plants to filter by water retained percentage
+      const plantsData = await plantsApi.list()
+      const allPlants = Array.isArray(plantsData) ? plantsData : []
+
+
+        // Helper aligned with BulkWatering and Plants list: retained ≤ per-plant threshold
+        function plantNeedsWater(p) {
+          const retained = Number(p?.water_retained_pct)
+          const thresh = Number(p?.recommended_water_threshold_pct)
+          return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+        }
+
+        const filteredPlants = allPlants.map(plantReview => {
+          const id = plantReview.id;
+          const needsMeasure = id != null && (hoursSinceLocal(plantReview.latest_at)) > 18;
+          const needsWater = id != null && plantNeedsWater(plantReview);
+          let task_plant = {}
+
+            task_plant = {
+                ...plantReview,
+                plantId: id,
+                needsMeasure: needsMeasure,
+                needsWater: needsWater,
+                checkedAt: Date.now()
+            };
+
+          // return a new object, copy original fields and add/override
+          return task_plant;
+
+        });
+
+      const plantsWithTasks = filteredPlants.filter(
+          plantReview => (plantReview.needsMeasure || plantReview.needsWater)
+      )
+
+      setTasks(plantsWithTasks)
+
     } catch (e) {
       setError(e?.message || 'Failed to load today\'s tasks')
     } finally {
@@ -32,9 +76,7 @@ export default function DailyCare() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      try {
-        await load()
-      } catch {}
+      await load()
     })()
     return () => { cancelled = true }
   }, [load])
@@ -47,8 +89,15 @@ export default function DailyCare() {
         titleBack="Dashboard"
         onRefresh={load}
       />
-      <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>Start Bulk Measurement</button>
-      <p>Today's suggested care actions for your plants.</p>
+      <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>
+          Bulk measurement{tasks.filter(t => t.needsMeasure).length > 0 ? ` (${tasks.filter(t => t.needsMeasure).length})` : ''}
+        </button>
+        <button className="btn" style={{ background: '#2c4fff', color: 'white' }} onClick={() => navigate('/measurements/bulk/watering')}>
+          Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
+        </button>
+      </div>
+      <p>Today's suggested care actions for your plants. We highlight those that need measurement (older than 18h) and watering (retained ≤ per‑plant threshold).</p>
 
       {loading && <Loader label="Loading tasks…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
@@ -58,24 +107,30 @@ export default function DailyCare() {
           <EmptyState title="No tasks for today" description="All caught up. Check back later for new suggestions." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="table">
+            <table className="table" role="table">
               <thead>
                 <tr>
-                    <th className="th">Location</th>
-                    <th className="th">Plant</th>
-                    <th className="th">Task</th>
-                    <th className="th">When</th>
-                  <th className="th">Notes</th>
+                    <th className="th" scope="col">Weight</th>
+                    <th className="th" scope="col">Water</th>
+                    <th className="th" scope="col">Plant</th>
+                    <th className="th">Notes</th>
+                    <th className="th" scope="col">Location</th>
+                    <th className="th" scope="col">Last updated</th>
                 </tr>
               </thead>
               <tbody>
                 {tasks.map((t, i) => (
-                  <tr key={t.id ?? t.uuid ?? i}>
+                  <tr key={t.id}>
+                      <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
+                        <StatusIcon type="measure" active={!!t.needsMeasure} />
+                      </td>
+                      <td className="td" aria-label={t.needsWater ? 'Needs watering' : 'No watering needed'}>
+                        <StatusIcon type="water" active={!!t.needsWater} />
+                      </td>
+                      <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || '—'}</td>
+                      <td className="td">{t.notes || t.reason || '—'}</td>
                       <td className="td">{t.location || '—'}</td>
-                      <td className="td">{t.name || t.plant || '—'}</td>
-                      <td className="td">{t.task || t.type || t.action || t.water_loss_total_pct + ' watering' || '—'}</td>
-                      <td className="td"><DateTimeText value={t.scheduled_for || t.due_at || t.created_at || t.updated_at} /></td>
-                    <td className="td">{t.notes || t.reason || '—'}</td>
+                      <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
                   </tr>
                 ))}
               </tbody>

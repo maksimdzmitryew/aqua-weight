@@ -7,6 +7,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+.ai
 
 # Python
 __pycache__/
@@ -17,10 +18,7 @@ __pycache__/
 .eggs/
 .build/
 dist/
-.pytest_cache/
 .mypy_cache/
-.coverage
-.coverage.*
 htmlcov/
 .cache/
 .venv/
@@ -33,6 +31,16 @@ ENV/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+
+#tests
+frontend/coverage/
+frontend/playwright-report/
+frontend/playwright-report/*
+frontend/node_modules_tests/
+.pytest_cache/
+.coverage   
+.coverage.*
+*coverage*.txt
 
 # Log files
 npm-debug.log*
@@ -71,3 +79,7 @@ docker-compose.*.local.yml
 
 # Misc
 coverage.xml
+
+# Local dev TLS certs
+ssl/dev.fullchain.pem
+ssl/dev.privkey.pem

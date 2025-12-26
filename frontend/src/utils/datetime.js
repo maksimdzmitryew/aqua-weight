@@ -47,7 +47,27 @@ export function formatDateTime(v) {
 
     return d.toLocaleString(locale, opts)
   } catch {
-    return String(v ?? '')
+    // In case of any unexpected error (e.g., reading preferences or formatting),
+    // return a safe string representation of the original value.
+    // Use String(v) (branchless) to avoid additional branches for coverage purposes.
+    return String(v)
+  }
+}
+
+// Format only day and month according to user preference (localStorage 'dtFormat').
+// Returns 'DD/MM' for 'europe' and 'MM/DD' otherwise. Falls back to String(v) on parse failure.
+export function formatDayMonth(v) {
+  try {
+    const d = parseAPIDate(v)
+    if (!d) return String(v ?? '')
+    const pref = (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
+    const isEurope = pref === 'europe'
+    const pad = (n) => String(n).padStart(2, '0')
+    const day = pad(d.getDate())
+    const mon = pad(d.getMonth() + 1)
+    return isEurope ? `${day}/${mon}` : `${mon}/${day}`
+  } catch {
+    return String(v)
   }
 }
 

@@ -12,6 +12,7 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
     { key: 'overview', label: 'Overview', to: '/dashboard' },
     { key: 'daily', label: 'Daily Care', to: '/daily' },
     { key: 'plants', label: 'Plants', to: '/plants' },
+    { key: 'calibration', label: 'Calibration', to: '/calibration' },
     { key: 'locations', label: 'Locations', to: '/locations' },
     { key: 'settings', label: 'Settings', to: '/settings' },
   ]

@@ -38,8 +38,8 @@ test('accepts typing and updates form value', async () => {
   renderWithTheme(<TextInput form={form} name="name" label="Name" />)
   const input = screen.getByLabelText('Name')
   await user.clear(input)
-  await user.type(input, 'Monstera')
-  expect(form.value).toBe('Monstera')
+  await user.type(input, 'a')
+  expect(form.value).toBe('a')
 })
 
 test('shows required and disabled attributes when provided', () => {

@@ -52,7 +52,9 @@ export default function PlantDetails() {
     setMeasError('')
     try {
       const data = await measurementsApi.listByPlant(uuid)
-      setMeasurements(Array.isArray(data) ? data : [])
+      const all = Array.isArray(data) ? data : []
+      // Show all events (both watering and weight measurements)
+      setMeasurements(all)
     } catch (e) {
       setMeasError(e?.message || 'Failed to load measurements')
     } finally {
@@ -129,7 +131,11 @@ export default function PlantDetails() {
               <div>{plant.description || '—'}</div>
               <div className="fw-600">Location</div>
               <div>{plant.location || '—'}</div>
-              <div className="fw-600">Created</div>
+              <div className="fw-600">Minimum Weight</div>
+              <div>{plant.min_dry_weight_g ? `${plant.min_dry_weight_g}g` : '—'}</div>
+              <div className="fw-600">Maximum Water</div>
+              <div>{plant.max_water_weight_g ? `${plant.max_water_weight_g}g` : '—'}</div>
+              <div className="fw-600">Added to collection</div>
               <DateTimeText as="div" value={plant.created_at} />
             </div>
           </div>
@@ -140,7 +146,7 @@ export default function PlantDetails() {
             {measError && !measLoading && <ErrorNotice message={measError} onRetry={fetchMeasurements} />}
             {!measLoading && !measError && (
               measurements.length === 0 ? (
-                <EmptyState title="No measurements yet" description="Record a watering or weight measurement to see history here." />
+                <EmptyState title="No measurements yet" description="Record a measurement to see history here." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="table">

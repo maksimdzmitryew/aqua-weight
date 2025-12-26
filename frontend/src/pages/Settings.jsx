@@ -6,6 +6,7 @@ export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
   const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
+  const [vacationMode, setVacationMode] = useState(() => localStorage.getItem('vacationMode') || 'disabled')
   const [saved, setSaved] = useState('')
 
   useEffect(() => {
@@ -18,6 +19,7 @@ export default function Settings() {
     // Theme is persisted by ThemeProvider on change; only persist other fields here
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
+    localStorage.setItem('vacationMode', vacationMode)
     setSaved('Saved!')
   }
 
@@ -72,6 +74,18 @@ export default function Settings() {
           <select id="dt_format" value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={styles.input}>
             <option value="europe">Europe (DD/MM/YYYY 24h)</option>
             <option value="usa">USA (MM/DD/YYYY 12h)</option>
+          </select>
+        </div>
+        <div style={fieldRow}>
+          <label style={label} htmlFor="vacation_mode">Vacation mode</label>
+          <select
+            id="vacation_mode"
+            value={vacationMode}
+            onChange={(e) => setVacationMode(e.target.value)}
+            style={styles.input}
+          >
+            <option value="disabled">Disabled</option>
+            <option value="enabled">Enabled</option>
           </select>
         </div>
         <div style={{ marginTop: 16 }}>

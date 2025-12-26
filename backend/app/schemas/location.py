@@ -1,8 +1,14 @@
-from typing import Optional
 from datetime import datetime
+from typing import TYPE_CHECKING, Optional
+
 from pydantic import BaseModel, Field, constr
 
-HexID = constr(pattern=r"^[0-9a-f]{32}$")
+# For mypy: use a simple alias during type checking; keep runtime validation with pydantic
+if TYPE_CHECKING:
+    HexID = str
+else:
+    HexID = constr(pattern=r"^[0-9a-f]{32}$")
+
 
 class LocationListItem(BaseModel):
     id: int
@@ -11,6 +17,7 @@ class LocationListItem(BaseModel):
     description: Optional[str] = None
     created_at: datetime
 
+
 class LocationDetail(BaseModel):
     id: int
     uuid: Optional[HexID] = None
@@ -18,10 +25,12 @@ class LocationDetail(BaseModel):
     description: Optional[str] = None
     created_at: datetime
 
+
 class LocationCreateRequest(BaseModel):
     name: str
     description: Optional[str] = None
     sort_order: int = Field(default=0, ge=0)
+
 
 class LocationUpdateByNameRequest(BaseModel):
     original_name: str

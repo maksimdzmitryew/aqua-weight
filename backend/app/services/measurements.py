@@ -3,18 +3,20 @@ Stateless helpers for measurement endpoints.
 Centralizes timestamp parsing, payload validation, and shared computations
 across weight, watering, and repotting flows.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Optional
+
 import pymysql
 
-from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 from ..helpers.watering import get_last_watering_event
-
+from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 
 # --- Timestamp helpers -------------------------------------------------------
+
 
 def parse_timestamp_utc(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
     """
@@ -29,7 +31,9 @@ def parse_timestamp_local(raw: str, *, fixed_milliseconds: int | None = None) ->
     Parse FE ISO string and return a timezone-naive LOCAL datetime with zeroed seconds and
     optional fixed milliseconds for deterministic ordering, suitable for SQL DATETIME.
     """
-    return normalize_measured_at_local(raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds)
+    return normalize_measured_at_local(
+        raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds
+    )
 
 
 def ts_to_db_string(dt: datetime) -> str:
@@ -39,7 +43,10 @@ def ts_to_db_string(dt: datetime) -> str:
 
 # --- Validation --------------------------------------------------------------
 
-def ensure_exclusive_water_vs_weight(measured_weight_g: Optional[int], water_added_g: Optional[int]) -> None:
+
+def ensure_exclusive_water_vs_weight(
+    measured_weight_g: Optional[int], water_added_g: Optional[int]
+) -> None:
     """
     Enforce exclusivity between measured_weight_g and water_added_g for standard
     measurement events:
@@ -52,6 +59,7 @@ def ensure_exclusive_water_vs_weight(measured_weight_g: Optional[int], water_add
 
 
 # --- Derivations -------------------------------------------------------------
+
 
 @dataclass
 class DerivedWeights:
@@ -138,7 +146,11 @@ def derive_weights(
     if payload_water_added_g is not None and int(payload_water_added_g) > 0:
         wa_local = int(payload_water_added_g)
     else:
-        wa_local = (lw_local or 0) - (ld_local or 0) if measured_weight_g is None else last_watering_water_added
+        wa_local = (
+            (lw_local or 0) - (ld_local or 0)
+            if measured_weight_g is None
+            else last_watering_water_added
+        )
 
     # If watering event, prefer recomputing from wet/dry if available
     if measured_weight_g is None:

@@ -1,19 +1,28 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional
-import json
 import datetime
+import uuid
+
+from fastapi import APIRouter, HTTPException
 from pytz import timezone
 from starlette.concurrency import run_in_threadpool
-import uuid
-import re
-from ..helpers.watering import get_last_watering_event
-from ..db import get_conn, HEX_RE
-from ..services.measurements import parse_timestamp_local, compute_water_losses, DerivedWeights
+
+from ..db import HEX_RE, get_conn
 from ..helpers.last_plant_event import LastPlantEvent
-from ..schemas.measurement import RepottingCreateRequest, RepottingUpdateRequest, RepottingResponse
+from ..helpers.watering import get_last_watering_event as _get_last_watering_event
+from ..schemas.measurement import (
+    RepottingCreateRequest,
+    RepottingResponse,
+    RepottingUpdateRequest,
+)
+from ..services.measurements import DerivedWeights, compute_water_losses, parse_timestamp_local
 
 app = APIRouter()
+
+
+# Expose a stable alias for tests/monkeypatching.
+# Some environments may not keep imported names on the module object as expected;
+# define an explicit shim to guarantee attribute presence.
+def get_last_watering_event(cursor, plant_id_hex):
+    return _get_last_watering_event(cursor, plant_id_hex)
 
 
 @app.post("/measurements/repotting", response_model=RepottingResponse)
@@ -28,7 +37,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     repotted_weight_g = payload.last_wet_weight_g
-    note = payload.note if not None else None
+    note = payload.note if payload.note is not None else None
 
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -40,8 +49,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
 
             with conn.cursor() as cur:
 
-                last_watering_event = get_last_watering_event(cur, payload.plant_id)
-                last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
+                # Optionally retrieve last watering event if needed in future; not used in current logic
 
                 # Fetch previous last record for this plant using the helper class
                 last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
@@ -137,7 +145,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                         new_measured_weight_g,
                         None,
                         prev_last_water,
-                        note
+                        note,
                     ),
                 )
 
@@ -147,8 +155,8 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     "measured_at": measured_at,
                     "measured_weight_g": measured_weight_g,
                     "last_wet_weight_g": repotted_weight_g,
-#                    "water_loss_total_g": loss_calc.water_loss_total_g,
-#                    "note": note
+                    #                    "water_loss_total_g": loss_calc.water_loss_total_g,
+                    #                    "note": note
                 }
                 return result
         finally:
@@ -159,6 +167,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
 
     return await run_in_threadpool(do_insert)
 
+
 @app.put("/measurements/repotting/{id_hex}", response_model=RepottingResponse)
 async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
     required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
@@ -167,7 +176,9 @@ async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
         if getattr(payload, field, None) is None:
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
-    plant_id = payload.__dict__.get("plant_id")  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
+    plant_id = payload.__dict__.get(
+        "plant_id"
+    )  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     last_wet_weight_g = payload.last_wet_weight_g
@@ -189,7 +200,15 @@ async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
                     SET plant_id=%s, measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
                     WHERE id=%s
                     """
-            data = (plant_id, local_dt, measured_weight_g, last_wet_weight_g, water_loss_total_g, note, id_hex)
+            data = (
+                plant_id,
+                local_dt,
+                measured_weight_g,
+                last_wet_weight_g,
+                water_loss_total_g,
+                note,
+                id_hex,
+            )
             cursor.execute(query, data)
 
             result = {

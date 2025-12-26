@@ -1,11 +1,14 @@
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
+import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
+import { waterLossCellStyle } from '../utils/waterLoss.js'
+import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
   const [plants, setPlants] = useState([])
@@ -16,13 +19,23 @@ export default function BulkWeightMeasurement() {
   const [inputStatus, setInputStatus] = useState({});
   // State to track measurement IDs for each plant
   const [measurementIds, setMeasurementIds] = useState({});
+  // Toggle to switch between only-needs-water vs all plants
+  // Default ON for Bulk weight page: show all plants by default
+  const [showAll, setShowAll] = useState(true)
+  // Snapshot of plants that needed watering on initial load
+  const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       try {
         const data = await plantsApi.list()
-        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
+        if (!cancelled) {
+          const list = Array.isArray(data) ? data : []
+          setPlants(list)
+          // Snapshot plants that needed water at initial load
+          setInitialNeedsWaterIds(list.filter(plantNeedsWater).map(p => p.uuid))
+        }
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
       } finally {
@@ -79,7 +92,11 @@ export default function BulkWeightMeasurement() {
           return {
             ...p,
             current_weight: numeric,
-            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct
+            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
+            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
+            // Update timestamps so the UI can reflect the latest change
+            latest_at: data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
+            measured_at: data?.measured_at || p.measured_at,
           };
         }
         return p;
@@ -101,22 +118,21 @@ export default function BulkWeightMeasurement() {
     }
   }
 
-
-  function getWaterLossCellStyle(waterLossPct) {
-    if (waterLossPct > 100) {
-      return { background: '#dc2626', color: 'white' }
-    } else if (waterLossPct > 80) {
-      return { background: '#fecaca' }
-    } else if (waterLossPct > 40) {
-      return { background: '#fef3c7' }
-    } else if (waterLossPct > 3) {
-      return { background: '#bbf7d0' }
-    } else if (waterLossPct > -1) {
-      return { color: 'green' }
-    } else {
-      return { color: 'red' }
-    }
+  // Helper: determine if a plant needs water
+  function plantNeedsWater(p) {
+    const retained = Number(p?.water_retained_pct)
+    const thresh = Number(p?.recommended_water_threshold_pct)
+    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
   }
+
+  // Derived list depending on toggle
+  const displayedPlants = useMemo(() => {
+    if (showAll) return plants
+    // When showing only those that need watering, use the snapshot captured at page load
+    if (!initialNeedsWaterIds || initialNeedsWaterIds.length === 0) return []
+    const initialSet = new Set(initialNeedsWaterIds)
+    return plants.filter(p => initialSet.has(p.uuid))
+  }, [plants, showAll, initialNeedsWaterIds])
 
   return (
     <DashboardLayout title="Bulk weight measurement">
@@ -128,90 +144,35 @@ export default function BulkWeightMeasurement() {
 
       <p>Start bulk weight measurement for all plants.</p>
 
+      {/* Toggle to switch visibility mode */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+          />
+          <span>Show all plants</span>
+        </label>
+        <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
+          {showAll ? 'Showing all plants.' : 'Showing only plants that need watering (retained ≤ threshold).'}
+        </span>
+      </div>
+
       {loading && <div>Loading…</div>}
       {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (
-        <div className="overflow-x-auto">
-          <table className="table">
-                <thead>
-                  <tr>
-                    <th className="th">New weight</th>
-                    <th className="th">Water loss</th>
-                    <th className="th">Name</th>
-                    <th className="th">Description</th>
-                    <th className="th">Location</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plants.map((p) => (
-                    <tr key={p.id}>
-                        <td className="td">
-                          <input
-                            type="number"
-                            className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                            defaultValue={p.current_weight || ''}
-                            onBlur={(e) => {
-                              if (e.target.value && p.uuid) {
-                                handleWeightMeasurement(p.uuid, e.target.value);
-                              }
-                            }}
-                            onChange={(e) => {
-                              const input = e.target;
-                              input.value = e.target.value;
-                            }}
-                          />
-                        </td>
-                      <td className="td" style={getWaterLossCellStyle(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.water_loss_total_pct}%
-                          </a>
-                        ) : (
-                          p.water_loss_total_pct
-                        )}
-                      </td>
-                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.name}
-                          </a>
-                        ) : (
-                          p.name
-                        )}
-                      </td>
-                      <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                        {p.uuid ? (
-                          <a
-                            href={`/plants/${p.uuid}`}
-                            onClick={(e) => { e.preventDefault(); handleView(p) }}
-                            className="block-link"
-                          >
-                            {p.description || '—'}
-                          </a>
-                        ) : (
-                          p.description || '—'
-                        )}
-                      </td>
-                      <td className="td">{p.location || '—'}</td>
-                    </tr>
-                  ))}
-                  {plants.length === 0 && (
-                    <tr>
-                      <td className="td" colSpan={5}>No plants found</td>
-                    </tr>
-                  )}
-            </tbody>
-          </table>
-        </div>
+        <BulkMeasurementTable
+          plants={displayedPlants}
+          inputStatus={inputStatus}
+          onCommitValue={handleWeightMeasurement}
+          onViewPlant={handleView}
+          firstColumnLabel="Weight gr, Water %"
+          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+          waterLossCellStyle={waterLossCellStyle}
+          showUpdatedColumn={true}
+        />
       )}
     </DashboardLayout>
   )

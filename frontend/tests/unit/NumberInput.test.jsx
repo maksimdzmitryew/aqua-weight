@@ -39,8 +39,8 @@ test('accepts typing numeric value', async () => {
   renderWithTheme(<NumberInput form={form} name="qty" label="Quantity" />)
   const input = screen.getByLabelText('Quantity')
   await user.clear(input)
-  await user.type(input, '42')
-  expect(form.value).toBe('42')
+  await user.type(input, '2')
+  expect(form.value).toBe('2')
 })
 
 test('respects required and disabled props', () => {

@@ -15,8 +15,11 @@ import MeasurementCreate from './pages/MeasurementCreate.jsx'
 import WateringCreate from './pages/WateringCreate.jsx'
 import RepottingCreate from './pages/RepottingCreate.jsx'
 import PlantDetails from './pages/PlantDetails.jsx'
+import PlantStats from './pages/PlantStats.jsx'
 import DailyCare from './pages/DailyCare.jsx'
 import BulkWeightMeasurement from './pages/BulkWeightMeasurement.jsx'
+import BulkWatering from './pages/BulkWatering.jsx'
+import Calibration from './pages/Calibration.jsx'
 import './styles/theme.css'
 
 createRoot(document.getElementById('root')).render(
@@ -30,15 +33,18 @@ createRoot(document.getElementById('root')).render(
           <Route path="/plants" element={<PlantsList />} />
           <Route path="/plants/new" element={<PlantCreate />} />
           <Route path="/plants/:uuid" element={<PlantDetails />} />
+          <Route path="/stats/:uuid" element={<PlantStats />} />
           <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
           <Route path="/locations" element={<LocationsList />} />
           <Route path="/locations/new" element={<LocationCreate />} />
           <Route path="/locations/:id/edit" element={<LocationEdit />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/calibration" element={<Calibration />} />
           <Route path="/measurement/weight" element={<MeasurementCreate />} />
           <Route path="/measurement/watering" element={<WateringCreate />} />
           <Route path="/measurement/repotting" element={<RepottingCreate />} />
           <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
+          <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

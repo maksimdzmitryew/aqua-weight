@@ -1,20 +1,20 @@
-
 """
 Helper functions for watering-related operations.
 """
 
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import pymysql
+
 from ..db import bin_to_hex
 
 
 def get_last_watering_event(
-    cursor: pymysql.cursors.Cursor,
-    plant_id_hex: str
+    cursor: pymysql.cursors.Cursor, plant_id_hex: str
 ) -> Optional[Dict[str, Any]]:
     """
     Get the last watering event for a given plant.
-    
+
     A watering event is identified by:
     - measured_weight_g IS NULL
     - water_loss_total_pct IS 0
@@ -25,11 +25,11 @@ def get_last_watering_event(
     - last_dry_weight_g IS NOT NULL
     - last_wet_weight_g IS NOT NULL
     - water_added_g > 0
-    
+
     Args:
         cursor: Database cursor
         plant_id_hex: ULID/UUID of the plant as hex string (32 chars)
-    
+
     Returns:
         Dictionary with watering event data or None if not found
     """
@@ -65,13 +65,13 @@ def get_last_watering_event(
         ORDER BY measured_at DESC
         LIMIT 1
     """
-    
+
     cursor.execute(query, (plant_id_hex,))
     row = cursor.fetchone()
-    
+
     if not row:
         return None
-    
+
     # Convert to dictionary
     from ..utils.date_time import to_iso_utc
 

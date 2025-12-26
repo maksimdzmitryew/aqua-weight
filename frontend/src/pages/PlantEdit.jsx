@@ -6,6 +6,34 @@ import DateTimeText from '../components/DateTimeText.jsx'
 import { plantsApi } from '../api/plants'
 import { locationsApi } from '../api/locations'
 
+export function buildUpdatePayload(plant) {
+  if (!plant) throw new Error('Missing plant')
+  const trimmedName = (plant.name || '').trim() || plant.name
+  const payload = {
+    // General
+    name: trimmedName,
+    description: (plant.description || '').trim() || null,
+    location_id: (plant.location_id || '').trim() || null,
+    photo_url: (plant.photo_url || '').trim() || null,
+    default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
+    // Advanced
+    species_name: (plant.species_name || '').trim() || null,
+    botanical_name: (plant.botanical_name || '').trim() || null,
+    cultivar: (plant.cultivar || '').trim() || null,
+    substrate_type_id: (plant.substrate_type_id || '').trim() || null,
+    substrate_last_refresh_at: (plant.substrate_last_refresh_at || '').trim() || null,
+    fertilized_last_at: (plant.fertilized_last_at || '').trim() || null,
+    fertilizer_ec_ms: plant.fertilizer_ec_ms === '' ? null : Number(plant.fertilizer_ec_ms),
+    // Health
+    light_level_id: (plant.light_level_id || '').trim() || null,
+    pest_status_id: (plant.pest_status_id || '').trim() || null,
+    health_status_id: (plant.health_status_id || '').trim() || null,
+  }
+  const idHex = plant.uuid
+  if (!idHex) throw new Error('Missing plant id')
+  return { idHex, payload }
+}
+
 export default function PlantEdit() {
   const { uuid } = useParams()
   const navigate = useNavigate()
@@ -54,6 +82,7 @@ export default function PlantEdit() {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(normalize(data))
       } catch (e) {
+        /* c8 ignore next */
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
         if (!isAbort) setError('Failed to load plant')
@@ -90,32 +119,9 @@ export default function PlantEdit() {
 
   async function onSave(e) {
     e.preventDefault()
-    if (!plant) return
-    const trimmedName = (plant.name || '').trim() || plant.name
-    const payload = {
-      // General
-      name: trimmedName,
-      description: (plant.description || '').trim() || null,
-      location_id: (plant.location_id || '').trim() || null,
-      photo_url: (plant.photo_url || '').trim() || null,
-      default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
-      // Advanced
-      species_name: (plant.species_name || '').trim() || null,
-      botanical_name: (plant.botanical_name || '').trim() || null,
-      cultivar: (plant.cultivar || '').trim() || null,
-      substrate_type_id: (plant.substrate_type_id || '').trim() || null,
-      substrate_last_refresh_at: (plant.substrate_last_refresh_at || '').trim() || null,
-      fertilized_last_at: (plant.fertilized_last_at || '').trim() || null,
-      fertilizer_ec_ms: plant.fertilizer_ec_ms === '' ? null : Number(plant.fertilizer_ec_ms),
-      // Health
-      light_level_id: (plant.light_level_id || '').trim() || null,
-      pest_status_id: (plant.pest_status_id || '').trim() || null,
-      health_status_id: (plant.health_status_id || '').trim() || null,
-    }
     try {
-      const idHex = plant.uuid
-      if (!idHex) throw new Error('Missing plant id')
-      const resData = await plantsApi.update(idHex, payload)
+      const built = buildUpdatePayload(plant)
+      const resData = await plantsApi.update(built.idHex, built.payload)
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {
@@ -250,6 +256,7 @@ export default function PlantEdit() {
 
               <div style={rowStyle}>
                 <label style={labelStyle} htmlFor="fertilizer_ec_ms">Fertilizer EC (mS)</label>
+                {/* c8 ignore next */}
                 <input id="fertilizer_ec_ms" name="fertilizer_ec_ms" type="number" step="0.01" value={plant.fertilizer_ec_ms ?? ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
               </div>
 

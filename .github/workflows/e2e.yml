@@ -18,35 +18,61 @@ jobs:
           node-version: '20'
 
       - name: Install Playwright deps and browsers
+        working-directory: frontend
         run: |
-          npm ci --prefix frontend
-          npx playwright install --with-deps
+          npm ci
+          npx playwright install chromium --with-deps
 
-      - name: Add hosts entry for aw.max
+      - name: Generate GitHub CI self-signed TLS certs
         run: |
-          echo "127.0.0.1 aw.max" | sudo tee -a /etc/hosts
+          set -euo pipefail
+          mkdir -p ssl
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout ssl/github-ci.privkey.pem \
+            -out ssl/github-ci.fullchain.pem \
+            -subj "/CN=aw.max" \
+            -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
+          head -n 1 ssl/github-ci.privkey.pem
+          head -n 1 ssl/github-ci.fullchain.pem
 
       - name: Start services
         run: |
-          docker compose up -d --build
+          docker compose -f docker-compose.test.yml up -d --build
         env:
-          MARIADB_ROOT_PASSWORD: rootpass
-          MARIADB_DATABASE: appdb
-          MARIADB_USER: appuser
-          MARIADB_PASSWORD: apppass
+          SSL_CERT_FILE: ./ssl/github-ci.fullchain.pem
+          SSL_KEY_FILE: ./ssl/github-ci.privkey.pem
 
-      - name: Wait for services
+      - name: Wait for services (backend + frontend) via nginx
         run: |
+          set -e
           echo "Waiting for backend health..."
+          for i in {1..90}; do
+            if curl -sSf http://127.0.0.1:5080/api/health | grep -q '"ok"'; then echo OK; break; fi; sleep 5; done
+          echo "Waiting for frontend root..."
           for i in {1..30}; do
-            if curl -sk https://aw.max/health | grep -q '"ok"'; then
-              echo OK; break; fi; sleep 3; done
+            if curl -sSf http://127.0.0.1:5080/ >/dev/null; then echo OK; break; fi; sleep 5; done
+          
+          # Debug info before tests
+          echo "Service status:"
+          docker compose -f docker-compose.test.yml ps
+          echo "Network status:"
+          sudo netstat -tunlp | grep 5080 || true
+          
+          if ! curl -sSf http://127.0.0.1:5080/api/health >/dev/null; then
+            echo "Stack not reachable after wait; dumping container logs..."
+            docker compose -f docker-compose.test.yml ps
+            docker compose -f docker-compose.test.yml logs --no-color nginx || true
+            docker compose -f docker-compose.test.yml logs --no-color backend || true
+            docker compose -f docker-compose.test.yml logs --no-color frontend || true
+            exit 1
+          fi
 
       - name: Run Playwright tests
         env:
-          E2E_BASE_URL: https://aw.max
+          E2E_BASE_URL: http://127.0.0.1:5080
+        working-directory: frontend
         run: |
-          npx playwright test --config frontend/playwright.config.ts
+          npx playwright test --config playwright.config.ts
 
       - name: Upload Playwright report
         if: always()
