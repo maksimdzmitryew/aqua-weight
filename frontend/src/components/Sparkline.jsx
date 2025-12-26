@@ -216,8 +216,8 @@ export default function Sparkline({
     }
   }, [])
 
-  const vbWidth = typeof width === 'number' ? width : (measuredW || 300)
-  const vbHeight = height
+  const vbWidth = Number.isFinite(width) ? width : (measuredW || 300)
+  const vbHeight = Number.isFinite(height) ? height : 80
   const w = Math.max(0, vbWidth - margin.left - margin.right)
   const h = Math.max(0, vbHeight - margin.top - margin.bottom)
 
@@ -235,12 +235,19 @@ export default function Sparkline({
   let minY = Math.min(minYData, minYRef)
   let maxY = Math.max(maxYData, maxYRef)
   if (!isFinite(minY)) minY = 0
-  if (!isFinite(maxY) || maxY === minY) maxY = (isFinite(minY) ? minY + 1 : 1)
+  if (!isFinite(maxY) || maxY === minY) maxY = minY + 1
   const spanX = maxX - minX || 1
-  const spanY = maxY - minY || 1
+  const spanY = maxY - minY
 
-  function sx(x) { return margin.left + ((x - minX) / spanX) * w }
-  function sy(y) { return margin.top + (1 - (y - minY) / spanY) * h }
+  function sx(x) {
+    const val = margin.left + ((x - minX) / spanX) * w
+    return Number.isFinite(val) ? val : 0
+  }
+  function sy(y) {
+    const val = margin.top + (1 - (y - minY) / spanY) * h
+    const result = Number.isFinite(val) ? val : 0
+    return result
+  }
 
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.x)},${sy(p.y)}`).join(' ')
 
@@ -456,7 +463,17 @@ export default function Sparkline({
     htmlTip = { left: cssLeft, top: cssTop, width: tooltipWidth, height: tooltipHeight }
   }
 
-  const containerStyle = { position: 'relative', width, height }
+  const containerStyle = {
+    position: 'relative',
+    width: Number.isFinite(width) ? width : '100%',
+    height: Number.isFinite(height) ? height : '100%'
+  }
+
+  const svgStyle = {
+    display: 'block',
+    position: 'absolute',
+    inset: 0
+  }
 
   // Determine if the first-below-threshold marker occurs on the same day as any peak.
   const hideFirstBelow = shouldHideFirstBelow(firstBelowThresh, peakVLines, dayKey)
@@ -472,15 +489,15 @@ export default function Sparkline({
     <div style={containerStyle} ref={containerRef}>
       <svg
         ref={svgRef}
-        width={typeof width === 'number' ? width : '100%'}
-        height={height}
+        width={Number.isFinite(width) ? width : '100%'}
+        height={Number.isFinite(height) ? height : '100%'}
         role="img"
         aria-label="sparkline"
         viewBox={`0 0 ${vbWidth} ${vbHeight}`}
         // Use the default meet behavior so proportions are preserved and the
         // geometry matches the measured pixel width of the container.
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block', position: 'absolute', inset: 0 }}
+        style={svgStyle}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >

@@ -38,9 +38,10 @@ frontend/playwright-report/
 frontend/playwright-report/*
 frontend/node_modules_tests/
 .pytest_cache/
-.coverage   
-.coverage.*
-*coverage*.txt
+.*.txt
+.coverage
+*coverage*
+lcov.info
 
 # Log files
 npm-debug.log*

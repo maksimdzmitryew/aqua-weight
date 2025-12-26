@@ -231,8 +231,9 @@ describe('pages/PlantDetails', () => {
   test('plant load error with message containing "abort" is ignored (no error shown)', async () => {
     const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({ message: 'Abort in flight' })
     renderWithRoute(['/plants/ab2'])
-    // Wait for loading to finish; absence of alert indicates ignored error
-    await screen.findByRole('button', { name: /edit/i }).catch(() => {})
+    // Wait for the async effect to finish by checking for the absence of the loader
+    // PlantDetails renders an empty div when plant is null and not loading
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     spy.mockRestore()
   })
@@ -240,8 +241,8 @@ describe('pages/PlantDetails', () => {
   test('plant load error named AbortError is ignored (no error shown)', async () => {
     const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({ name: 'AbortError' })
     renderWithRoute(['/plants/ab3'])
-    // Wait a tick
-    await new Promise(r => setTimeout(r, 10))
+    // Wait for the async effect to finish by checking for the absence of the loader
+    await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument())
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     spy.mockRestore()
   })
