@@ -13,6 +13,7 @@ export default defineConfig({
     exclude: ['**/tests/e2e/**'],
     coverage: {
       provider: 'v8',
+      skipFull: true,
       // Exclude fully covered files from coverage reports to keep output focused
       reporter: [
         ['text'],

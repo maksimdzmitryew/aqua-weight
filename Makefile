@@ -24,10 +24,10 @@ help:
 	@echo "  make test-ps           - Status of test containers"
 	@echo ""
 	@echo "E2E targets (in Docker):"
-	@echo "  make e2e               - Run Playwright E2E tests"
+	@echo "  make test-e2e          - Run Playwright E2E tests"
+	@echo "  make e2e-deps          - Run Playwright E2E tests with reinstalling deps"
 	@echo "  make e2e-headed        - Run Playwright E2E tests in headed mode"
 	@echo "  make e2e-report        - Open Playwright report"
-	@echo "  make e2e-quick         - Run Playwright E2E tests without reinstalling deps"
 	@echo ""
 	@echo "Frontend targets (local/Docker):"
 	@echo "  make fe-dev            - Start Vite dev server (local)"
@@ -110,12 +110,12 @@ test-cov:
 	docker compose -f $(TEST_COMPOSE) exec runner pytest -q --cov=app --cov-report=term-missing
 
 # --- E2E ---
-.PHONY: e2e
-e2e:
+.PHONY: e2e-deps
+e2e-deps:
 	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npm install && npx playwright test --config playwright.config.ts"
 
-.PHONY: e2e-quick
-e2e-quick:
+.PHONY: test-e2e
+test-e2e:
 	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npx playwright test --config playwright.config.ts"
 
 .PHONY: e2e-headed

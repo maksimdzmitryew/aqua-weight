@@ -40,14 +40,46 @@ export async function waitForAppReady(baseURL: string, timeoutMs = 180000): Prom
 export async function seed(apiBase: string) {
   await waitForAppReady(apiBase);
   const api = await createApiClient(apiBase);
-  const res = await api.post('/api/test/seed');
-  expect(res.ok()).toBeTruthy();
+  
+  // Retry logic for seed
+  let lastErr: any = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await api.post('/api/test/seed');
+      if (res.ok()) {
+        await api.dispose();
+        return;
+      }
+      lastErr = new Error(`Seed failed with status ${res.status()}`);
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
   await api.dispose();
+  throw lastErr || new Error('Seed failed after retries');
 }
 
 export async function cleanup(apiBase: string) {
+  // Ensure app is ready before cleanup too, in case it's called first
+  await waitForAppReady(apiBase);
   const api = await createApiClient(apiBase);
-  const res = await api.post('/api/test/cleanup');
-  expect(res.ok()).toBeTruthy();
+  
+  // Retry logic for cleanup
+  let lastErr: any = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await api.post('/api/test/cleanup');
+      if (res.ok()) {
+        await api.dispose();
+        return;
+      }
+      lastErr = new Error(`Cleanup failed with status ${res.status()}`);
+    } catch (e) {
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
   await api.dispose();
+  throw lastErr || new Error('Cleanup failed after retries');
 }
