@@ -239,8 +239,15 @@ export default function Sparkline({
   const spanX = maxX - minX || 1
   const spanY = maxY - minY || 1
 
-  function sx(x) { return margin.left + ((x - minX) / spanX) * w }
-  function sy(y) { return margin.top + (1 - (y - minY) / spanY) * h }
+  function sx(x) {
+    const val = margin.left + ((x - minX) / spanX) * w
+    return Number.isFinite(val) ? val : 0
+  }
+  function sy(y) {
+    const val = margin.top + (1 - (y - minY) / spanY) * h
+    const result = Number.isFinite(val) ? val : 0
+    return result
+  }
 
   const path = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.x)},${sy(p.y)}`).join(' ')
 
@@ -456,7 +463,17 @@ export default function Sparkline({
     htmlTip = { left: cssLeft, top: cssTop, width: tooltipWidth, height: tooltipHeight }
   }
 
-  const containerStyle = { position: 'relative', width, height }
+  const containerStyle = {
+    position: 'relative',
+    width: Number.isFinite(width) ? width : '100%',
+    height: Number.isFinite(height) ? height : '100%'
+  }
+
+  const svgStyle = {
+    display: 'block',
+    position: 'absolute',
+    inset: 0
+  }
 
   // Determine if the first-below-threshold marker occurs on the same day as any peak.
   const hideFirstBelow = shouldHideFirstBelow(firstBelowThresh, peakVLines, dayKey)
@@ -480,7 +497,7 @@ export default function Sparkline({
         // Use the default meet behavior so proportions are preserved and the
         // geometry matches the measured pixel width of the container.
         preserveAspectRatio="xMidYMid meet"
-        style={{ display: 'block', position: 'absolute', inset: 0 }}
+        style={svgStyle}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
       >

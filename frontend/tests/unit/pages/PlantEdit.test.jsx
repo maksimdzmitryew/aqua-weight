@@ -168,7 +168,7 @@ describe('pages/PlantEdit', () => {
 
   test('load error with undefined message triggers generic error (non-abort)', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => { throw { name: 'SomeError' } }),
+      http.get('/api/plants/:uuid', () => HttpResponse.error()),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErr2/edit'])
@@ -178,7 +178,7 @@ describe('pages/PlantEdit', () => {
 
   test('load error where thrown error is null still shows generic error', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => { throw null }),
+      http.get('/api/plants/:uuid', () => HttpResponse.error()),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErr3/edit'])
@@ -240,7 +240,7 @@ describe('pages/PlantEdit', () => {
 
   test('plant load Error with empty message shows generic error (covers msg falsy path)', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => { throw new Error('') }),
+      http.get('/api/plants/:uuid', () => HttpResponse.json({ message: '' }, { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErrEmptyMsg/edit'])
@@ -250,7 +250,7 @@ describe('pages/PlantEdit', () => {
 
   test('plant load throws undefined error object and shows generic error', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => { throw undefined }),
+      http.get('/api/plants/:uuid', () => HttpResponse.error()),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErrUndef/edit'])
@@ -260,7 +260,7 @@ describe('pages/PlantEdit', () => {
 
   test('plant load Error with non-empty message shows generic error (non-abort)', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => { throw new Error('Boom') }),
+      http.get('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErrBoom/edit'])

@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import { act } from 'react-dom/test-utils'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'

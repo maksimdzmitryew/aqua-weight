@@ -234,6 +234,7 @@ export default function Dashboard() {
       {!loading && !error && hasPlants && (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${chartsPerRow}, minmax(0, 1fr))`, gap: 16 }}>
           {plants.map((p, idx) => {
+            const plantKey = p?.uuid || `idx-${idx}`
             const pts = series[p?.uuid] || []
             const cardBg = effectiveTheme === 'dark' ? '#111827' : 'white'
             const cardBorder = effectiveTheme === 'dark' ? '#374151' : '#e5e7eb'
@@ -256,7 +257,7 @@ export default function Dashboard() {
             }
             return (
               <div
-                key={p.uuid}
+                key={plantKey}
                 onClick={() => p?.uuid && navigate(`/stats/${p.uuid}`, { state: { plant: p } })}
                 style={{ border: `1px solid ${cardBorder}`, borderRadius: 8, padding: 12, background: cardBg, cursor: 'pointer' }}
                 title="Open statistics"

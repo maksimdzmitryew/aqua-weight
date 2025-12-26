@@ -49,6 +49,10 @@ export const handlers = [
     return HttpResponse.json({ ok: true })
   }),
 
+  http.get('/api/plants/:uuid/measurements', () => {
+    return HttpResponse.json([])
+  }),
+
   // Measurements: watering
   http.post('/api/measurements/watering', async ({ request }) => {
     const payload = await request.json()

@@ -41,6 +41,8 @@ describe('pages/Dashboard', () => {
     // Updated expectations to match current UI content
     expect(screen.getByRole('heading', { name: /overview/i })).toBeInTheDocument()
     expect(screen.getByText(/each plant is represented by its weight trend/i)).toBeInTheDocument()
+    // Wait for the async loading to finish (empty state) to avoid act warnings
+    await screen.findByText(/no plants yet/i)
   })
 
   test('shows loader then empty state when no plants (covers early return in measurements loader)', async () => {
@@ -365,6 +367,9 @@ describe('pages/Dashboard', () => {
     fireEvent.click(toggle)
     expect(toggle).toBeChecked()
     expect(localStorage.getItem('chart.showSuggestedInterval')).toBe('1')
+
+    // Wait for async background work to settle
+    await screen.findByText(/no plants yet/i)
   })
 
   test('filters out entries with invalid weight while keeping valid dates (covers null path around 128/129)', async () => {

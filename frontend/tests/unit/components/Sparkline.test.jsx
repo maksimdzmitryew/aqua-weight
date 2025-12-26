@@ -1290,26 +1290,26 @@ describe('components/Sparkline', () => {
   })
 
   test('line 238 inner ternary else branch: when isFinite(minY) reports false, fallback uses 1', () => {
-    // Hack: temporarily override global isFinite to return false for 0 so the inner
+    // Hack: temporarily override global Number.isFinite to return false for 0 so the inner
     // ternary (isFinite(minY) ? minY + 1 : 1) takes the else path. This targets branch coverage only.
-    const origIsFinite = globalThis.isFinite
+    const origIsFinite = Number.isFinite
     // @ts-ignore
-    globalThis.isFinite = (v) => (v === 0 ? false : origIsFinite(v))
+    Number.isFinite = (v) => (v === 0 ? false : origIsFinite(v))
     try {
       renderWithTheme(<Sparkline data={[]} refLines={[]} width={240} height={80} />)
       // If render succeeded, the branch executed; assert SVG exists
       expect(screen.getByLabelText('sparkline')).toBeInTheDocument()
     } finally {
-      globalThis.isFinite = origIsFinite
+      Number.isFinite = origIsFinite
     }
   })
   
   test('line 240 fallback via NaN difference: force maxY/minY to NaN without triggering 238 (covers 240)', () => {
-    const origIsFinite = globalThis.isFinite
+    const origIsFinite = Number.isFinite
     // Treat NaN as finite so guards at 237-238 do not correct it
     // but allow normal finite numbers as usual.
     // @ts-ignore
-    globalThis.isFinite = (v) => (Number.isNaN(v) ? true : origIsFinite(v))
+    Number.isFinite = (v) => (Number.isNaN(v) ? true : origIsFinite(v))
     try {
       const t0 = Date.now()
       const pts = [
@@ -1321,7 +1321,7 @@ describe('components/Sparkline', () => {
       // If we reached here without error, the branch executed; assert SVG exists
       expect(screen.getByLabelText('sparkline')).toBeInTheDocument()
     } finally {
-      globalThis.isFinite = origIsFinite
+      Number.isFinite = origIsFinite
     }
   })
   test('USA 12h clock shows 12 at midnight (covers 317: hh===0 -> 12)', () => {

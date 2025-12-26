@@ -58,13 +58,14 @@ export default function BulkMeasurementTable({
           </tr>
         </thead>
         <tbody>
-          {plants.map((p) => {
+          {plants.map((p, idx) => {
+            const rowKey = p.uuid || p.id || `row-${idx}`
             const retained = Number(p?.water_retained_pct)
             const thresh = Number(p?.recommended_water_threshold_pct)
             const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
             const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
             return (
-            <tr key={p.uuid || p.id} style={deemphasize ? { opacity: 0.55 } : undefined}>
+            <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
                   <input
                     type="number"
