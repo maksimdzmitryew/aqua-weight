@@ -162,3 +162,41 @@ def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
     assert derived.water_added_g == 30
     # last dry preserved
     assert derived.last_dry_weight_g == 100
+
+
+def test_derive_weights_recompute_lw_when_missing_line_168(monkeypatch):
+    # Watering flow: measured_weight_g is None
+    # Provide payload_water_added_g > 0 and ld_local > 0
+    # last_wet_weight_g is None
+    # Expect: wa_local equals payload, and lw_local IS recomputed at line 168
+    from backend.app.services import measurements as svc
+
+    monkeypatch.setattr(
+        svc,
+        "get_last_watering_event",
+        lambda cursor, plant_id_hex: None,
+    )
+
+    class _Cur:
+        def execute(self, sql, params=None):
+            pass
+        def fetchone(self):
+            return None
+
+    cur = _Cur()
+
+    derived = svc.derive_weights(
+        cursor=cur,
+        plant_id_hex="0" * 32,
+        measured_at_db="2025-01-01 00:00:00",
+        measured_weight_g=None,            # watering flow
+        last_dry_weight_g=100,             # ld_local > 0
+        last_wet_weight_g=None,            # triggers recompute at 168
+        payload_water_added_g=30,          # positive payload
+        exclude_measurement_id=None,
+    )
+
+    # lw_local should be recomputed: 100 + 30 = 130
+    assert derived.last_wet_weight_g == 130
+    assert derived.water_added_g == 30
+    assert derived.last_dry_weight_g == 100
