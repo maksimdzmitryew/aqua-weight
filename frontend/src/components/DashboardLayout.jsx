@@ -4,6 +4,7 @@ import useDocumentTitle from '../hooks/useDocumentTitle.js'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
 
   // Keep browser tab title in sync for all dashboard pages
   useDocumentTitle(title)
@@ -44,7 +45,29 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
       </aside>
 
       {/* Main content */}
-      <main className="main">{children}</main>
+      <main className="main">
+        {operationMode === 'vacation' && (
+          <div role="status" style={noticeStyle}>
+            Vacation mode — watering by approximated historical schedule
+          </div>
+        )}
+        {operationMode === 'manual' && (
+          <div role="status" style={noticeStyle}>
+            Manual mode — weighing and watering is based on human input
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   )
+}
+
+const noticeStyle = {
+  padding: '12px',
+  marginBottom: '16px',
+  borderRadius: '6px',
+  background: '#e0f2fe',
+  color: '#0369a1',
+  border: '1px solid #bae6fd',
+  fontWeight: 500
 }

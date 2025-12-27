@@ -79,17 +79,17 @@ describe('pages/Settings', () => {
     expect(window.localStorage.getItem('theme')).toBe('system')
   })
 
-  test('vacation mode selection is applied and persisted on save', async () => {
+  test('operation mode selection is applied and persisted on save', async () => {
     const user = userEvent.setup()
     renderPage()
 
-    const vacation = screen.getByLabelText(/vacation mode/i)
+    const operation = screen.getByLabelText(/operation mode/i)
     // change to enabled
-    await user.selectOptions(vacation, 'enabled')
+    await user.selectOptions(operation, 'manual')
     // save
     await user.click(screen.getByRole('button', { name: /save/i }))
     // persisted via the save handler
-    expect(window.localStorage.getItem('vacationMode')).toBe('enabled')
+    expect(window.localStorage.getItem('operationMode')).toBe('manual')
   })
 
   test('clears success message after 1.5s via timeout callback', async () => {

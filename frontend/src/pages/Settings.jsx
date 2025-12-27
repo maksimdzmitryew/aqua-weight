@@ -6,7 +6,7 @@ export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
   const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
-  const [vacationMode, setVacationMode] = useState(() => localStorage.getItem('vacationMode') || 'disabled')
+  const [operationMode, setOperationMode] = useState(() => localStorage.getItem('operationMode') || 'manual')
   const [saved, setSaved] = useState('')
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function Settings() {
     // Theme is persisted by ThemeProvider on change; only persist other fields here
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
-    localStorage.setItem('vacationMode', vacationMode)
+    localStorage.setItem('operationMode', operationMode)
     setSaved('Saved!')
   }
 
@@ -77,15 +77,16 @@ export default function Settings() {
           </select>
         </div>
         <div style={fieldRow}>
-          <label style={label} htmlFor="vacation_mode">Vacation mode</label>
+          <label style={label} htmlFor="operation_mode">Operation mode</label>
           <select
-            id="vacation_mode"
-            value={vacationMode}
-            onChange={(e) => setVacationMode(e.target.value)}
+            id="operation_mode"
+            value={operationMode}
+            onChange={(e) => setOperationMode(e.target.value)}
             style={styles.input}
           >
-            <option value="disabled">Disabled</option>
-            <option value="enabled">Enabled</option>
+            <option value="automatic">Automatic</option>
+            <option value="manual">Manual</option>
+            <option value="vacation">Vacation</option>
           </select>
         </div>
         <div style={{ marginTop: 16 }}>
