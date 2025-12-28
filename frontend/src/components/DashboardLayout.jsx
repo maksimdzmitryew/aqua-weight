@@ -4,7 +4,7 @@ import useDocumentTitle from '../hooks/useDocumentTitle.js'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
 
   // Keep browser tab title in sync for all dashboard pages
   useDocumentTitle(title)

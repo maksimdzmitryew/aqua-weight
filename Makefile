@@ -63,6 +63,14 @@ run-up-f:
 run-down:
 	docker compose -f $(RUN_COMPOSE) down
 
+.PHONY: run-start
+run-start:
+	docker compose -f $(RUN_COMPOSE) start
+
+.PHONY: run-stop
+run-stop:
+	docker compose -f $(RUN_COMPOSE) stop
+
 .PHONY: run-logs
 run-logs:
 	docker compose -f $(RUN_COMPOSE) logs -f
@@ -87,6 +95,14 @@ test-up-f:
 .PHONY: test-down
 test-down:
 	docker compose -f $(TEST_COMPOSE) down
+
+.PHONY: test-start
+test-start:
+	docker compose -f $(TEST_COMPOSE) start
+
+.PHONY: test-stop
+test-stop:
+	docker compose -f $(TEST_COMPOSE) stop
 
 .PHONY: test-logs
 test-logs:
