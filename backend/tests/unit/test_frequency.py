@@ -45,7 +45,9 @@ def test_compute_frequency_days_not_enough():
     orig = freq.get_last_repotting_event
     try:
         freq.get_last_repotting_event = lambda c, h: None  # type: ignore
-        assert freq.compute_frequency_days(conn, plant_hex) is None
+        f, c = freq.compute_frequency_days(conn, plant_hex)
+        assert f is None
+        assert c == 1
     finally:
         freq.get_last_repotting_event = orig  # type: ignore
 
@@ -66,7 +68,9 @@ def test_compute_frequency_days_bad_iso_repot_parsing_falls_back():
     try:
         freq.get_last_repotting_event = lambda c, h: rep  # type: ignore
         # Parsing fails → since_dt None → both events counted → interval 2 days -> result 2
-        assert freq.compute_frequency_days(conn, plant_hex) == 2
+        f, c = freq.compute_frequency_days(conn, plant_hex)
+        assert f == 2
+        assert c == 2
     finally:
         freq.get_last_repotting_event = orig  # type: ignore
 
@@ -94,7 +98,10 @@ def test_compute_frequency_days_median_rounded_and_filter_since():
     try:
         freq.get_last_repotting_event = lambda c, h: rep  # type: ignore
         # Intervals: [3, 7] -> median = 5 -> rounded 5
-        assert freq.compute_frequency_days(conn, plant_hex) == 5
+        # Note: fetch_watering_events_since filters base-1, so 3 events used
+        f, c = freq.compute_frequency_days(conn, plant_hex)
+        assert f == 5
+        assert c == 3
     finally:
         freq.get_last_repotting_event = orig  # type: ignore
 
@@ -110,7 +117,9 @@ def test_compute_frequency_days_ignores_negative_interval():
         freq.get_last_repotting_event = lambda c, h: None  # type: ignore
         # DB orders ascending, so effective sequence is [t0-1, t0, t0, t0+1]
         # Intervals: [1, 0, 1] -> median = 1 -> result 1 day
-        assert freq.compute_frequency_days(conn, plant_hex) == 1
+        f, c = freq.compute_frequency_days(conn, plant_hex)
+        assert f == 1
+        assert c == 4
     finally:
         freq.get_last_repotting_event = orig  # type: ignore
 
@@ -126,8 +135,10 @@ def test_compute_frequency_days_empty_intervals_branch_via_descending_events():
     try:
         freq.get_last_repotting_event = lambda c, h: None  # type: ignore
         freq._fetch_watering_events_since = lambda c, h, s: list(events_desc)  # type: ignore
-        # All consecutive deltas negative -> intervals_days remains empty -> return None (line 87)
-        assert freq.compute_frequency_days(_FakeConn({}), plant_hex) is None
+        # All consecutive deltas negative -> intervals_days remains empty -> return None, count
+        f, c = freq.compute_frequency_days(_FakeConn({}), plant_hex)
+        assert f is None
+        assert c == 3
     finally:
         freq._fetch_watering_events_since = orig_fetch  # type: ignore
         freq.get_last_repotting_event = orig_repot  # type: ignore

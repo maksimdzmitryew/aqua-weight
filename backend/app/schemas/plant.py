@@ -28,7 +28,10 @@ class PlantListItem(BaseModel):
     identify_hint: Optional[str] = None
     # Calculated scheduling
     frequency_days: Optional[int] = None
+    frequency_confidence: Optional[int] = None
     next_watering_at: Optional[datetime] = None
+    first_calculated_at: Optional[datetime] = None
+    days_offset: Optional[int] = None
 
 
 class PlantDetail(BaseModel):

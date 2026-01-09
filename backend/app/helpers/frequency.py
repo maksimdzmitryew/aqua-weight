@@ -57,25 +57,25 @@ def _fetch_watering_events_since(
         return [r[0] for r in rows if r and r[0] is not None]
 
 
-def compute_frequency_days(conn, plant_id_hex: str) -> Optional[int]:
+def compute_frequency_days(conn, plant_id_hex: str) -> tuple[Optional[int], int]:
     """Compute watering frequency in days for a plant.
 
-    Returns an integer number of days, rounded to nearest, or None if not enough data.
+    Returns (frequency_days, event_count).
+    Frequency is an integer number of days, rounded to nearest, or None if not enough data.
+    Event count is the number of watering events found.
     """
     last_repot = get_last_repotting_event(conn, plant_id_hex)
     since_dt = None
     if last_repot and last_repot.measured_at:
-        # last_repot.measured_at is an ISO string; DB comparisons require datetime.
-        # Read the exact datetime again by selecting with LIMIT 1 to avoid parse issues,
-        # or parse ISO. We can parse ISO safely as it was created from DB.
         try:
             since_dt = datetime.fromisoformat(last_repot.measured_at)
         except Exception:
             since_dt = None
 
     events = _fetch_watering_events_since(conn, plant_id_hex, since_dt)
-    if len(events) < 2:
-        return None
+    event_count = len(events)
+    if event_count < 2:
+        return None, event_count
 
     # Compute consecutive intervals in days (float)
     day_secs = 24 * 60 * 60
@@ -86,10 +86,10 @@ def compute_frequency_days(conn, plant_id_hex: str) -> Optional[int]:
             intervals_days.append(dt)
 
     if not intervals_days:
-        return None
+        return None, event_count
 
     # Use median for robustness to an outlier extra-long or short interval
     freq = median(intervals_days)
 
     # Round to nearest whole day and return as int
-    return int(round(freq))
+    return int(round(freq)), event_count

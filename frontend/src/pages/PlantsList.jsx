@@ -29,12 +29,43 @@ export default function PlantsList() {
   const [toDelete, setToDelete] = useState(null)
   const PAGE_LIMIT = 100
 
+  const operationMode = localStorage.getItem('operationMode') || 'manual'
+
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
       try {
-        const data = await plantsApi.list(controller.signal)
-        setPlants(Array.isArray(data) ? data : [])
+        let data = await plantsApi.list(controller.signal)
+        const plantsData = Array.isArray(data) ? data : []
+
+        try {
+          const approx = await plantsApi.getApproximation(controller.signal)
+          const approxMap = (approx?.items || []).reduce((acc, item) => {
+            acc[item.plant_uuid] = item
+            return acc
+          }, {})
+
+          data = plantsData.map((p) => {
+            const a = approxMap[p.uuid]
+            if (a) {
+              return {
+                ...p,
+                water_retained_pct: a.virtual_water_retained_pct,
+                frequency_days: a.frequency_days,
+                frequency_confidence: a.frequency_confidence,
+                next_watering_at: a.next_watering_at,
+                first_calculated_at: a.first_calculated_at,
+                days_offset: a.days_offset,
+              }
+            }
+            return p
+          })
+        } catch (e) {
+          console.error('Failed to load approximations', e)
+          data = plantsData
+        }
+
+        setPlants(data)
       } catch (e) {
         // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
         /* c8 ignore next 3 - defensive parsing and abort heuristics; functionally exercised but branch-count noise */
@@ -223,40 +254,31 @@ export default function PlantsList() {
               <thead>
                 <tr>
                   <th className="th" scope="col" title="Current retained water percentage and quick actions">
-                    <span>Care, Water retained</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Care, Water retained <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
-                    <span>Thresh</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Watering frequency">
-                    <span>Frequency</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Frequency <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Next planned watering date">
-                    <span>Next watering</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Next watering <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Plant name">
-                    <span>Name</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Notes">
-                    <span>Notes</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Notes <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th hide-column-phone" scope="col" title="Location">
-                    <span>Location</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th hide-column-tablet" scope="col" title="Last update time">
-                    <span>Updated</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th right" scope="col" title="Row actions">
-                    <span>Actions</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                 </tr>
               </thead>
@@ -286,11 +308,31 @@ export default function PlantsList() {
                     </td>
                     {/* Frequency */}
                     <td className="td">
-                      {Number.isFinite(p?.frequency_days) ? `${p.frequency_days} d` : '—'}
+                      {Number.isFinite(p?.frequency_days) ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {p.frequency_days} d
+                          {p.frequency_confidence !== undefined && (
+                            <span
+                              title={`${p.frequency_confidence} watering events used for calculation`}
+                              style={{
+                                fontSize: '0.8em',
+                                color: `rgba(var(--text-rgb, 107, 114, 128), ${Math.min(1, 0.3 + (p.frequency_confidence / 10))})`,
+                              }}
+                            >
+                               &nbsp;({p.frequency_confidence})
+                            </span>
+                          )}
+                        </span>
+                      ) : '—'}
                     </td>
                     {/* Next watering (date only, DD/MM or MM/DD per user preference) */}
-                    <td className="td">
-                      <DateTimeText value={p.next_watering_at} mode="daymonth" />
+                    <td className="td" style={operationMode === 'vacation' && p.days_offset < 0 ? { background: '#fecaca' } : {}}>
+                      <DateTimeText value={p.first_calculated_at || p.next_watering_at} mode="daymonth" showTooltip={false} />
+                      {p.days_offset !== undefined && p.days_offset !== null && (
+                        <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>
+                          ({p.days_offset}d)
+                        </span>
+                      )}
                     </td>
                     <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (

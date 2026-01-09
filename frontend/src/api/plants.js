@@ -31,4 +31,7 @@ export const plantsApi = {
     if (!uuid) throw new ApiError('Missing plant id')
     return apiClient.delete(`/plants/${uuid}`, { signal })
   },
+  getApproximation(signal) {
+    return apiClient.get('/measurements/approximation/watering', { signal })
+  },
 }

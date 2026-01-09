@@ -21,6 +21,8 @@ from ..schemas.measurement import (
     MeasurementCreateRequest,
     MeasurementItem,
     MeasurementUpdateRequest,
+    WateringApproximationItem,
+    WateringApproximationResponse,
 )
 from ..schemas.plant import PlantCalibrationItem
 from ..services.measurements import (
@@ -174,6 +176,41 @@ def _to_dt_string(s: str | None):
     if not s:
         return None
     return s.strip().replace("T", " ")
+
+
+@app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
+async def get_watering_approximation():
+    """
+    Calculate virtual water retained, frequency, and next watering date for all active plants.
+    Currently, this endpoint is a simple projection based on existing PlantsList logic,
+    but it's intended for extension when automated IOT measurements or other data sources
+    are not available (e.g., in Vacation mode).
+    """
+
+    def fetch():
+        plants = PlantsList.fetch_all()
+        items = []
+        for p in plants:
+            next_at = p.get("next_watering_at")
+            first_at = p.get("first_calculated_at")
+            items.append(
+                WateringApproximationItem(
+                    plant_uuid=p["uuid"],
+                    virtual_water_retained_pct=p.get("water_retained_pct"),
+                    frequency_days=p.get("frequency_days"),
+                    frequency_confidence=p.get("frequency_confidence"),
+                    next_watering_at=next_at.isoformat()
+                    if next_at and hasattr(next_at, "isoformat")
+                    else (str(next_at) if next_at else None),
+                    first_calculated_at=first_at.isoformat()
+                    if first_at and hasattr(first_at, "isoformat")
+                    else (str(first_at) if first_at else None),
+                    days_offset=p.get("days_offset"),
+                )
+            )
+        return WateringApproximationResponse(items=items)
+
+    return await run_in_threadpool(fetch)
 
 
 @app.get("/measurements/last", response_model=LastMeasurementResponse | None)

@@ -87,3 +87,17 @@ class RepottingResponse(BaseModel):
     measured_weight_g: Optional[int] = None
     last_wet_weight_g: Optional[int] = None
     note: Optional[str] = None
+
+
+class WateringApproximationItem(BaseModel):
+    plant_uuid: HexID
+    virtual_water_retained_pct: Optional[float] = None
+    frequency_days: Optional[int] = None
+    frequency_confidence: Optional[int] = None
+    next_watering_at: Optional[str] = None
+    first_calculated_at: Optional[str] = None
+    days_offset: Optional[int] = None
+
+
+class WateringApproximationResponse(BaseModel):
+    items: List[WateringApproximationItem]

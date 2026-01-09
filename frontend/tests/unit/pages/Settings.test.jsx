@@ -84,12 +84,17 @@ describe('pages/Settings', () => {
     renderPage()
 
     const operation = screen.getByLabelText(/operation mode/i)
-    // change to enabled
-    await user.selectOptions(operation, 'manual')
+    // change to vacation
+    await user.selectOptions(operation, 'vacation')
     // save
     await user.click(screen.getByRole('button', { name: /save/i }))
     // persisted via the save handler
-    expect(window.localStorage.getItem('operationMode')).toBe('manual')
+    expect(window.localStorage.getItem('operationMode')).toBe('vacation')
+
+    // change to automatic
+    await user.selectOptions(operation, 'automatic')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+    expect(window.localStorage.getItem('operationMode')).toBe('automatic')
   })
 
   test('clears success message after 1.5s via timeout callback', async () => {

@@ -259,7 +259,7 @@ export default function Calibration() {
                             ? { backgroundColor: 'var(--warn-row-bg, rgba(255, 165, 0, 0.10))' }
                             : undefined
                           return (
-                            <tr key={idx} style={trStyle} title={isMostNegative ? `Most under target by ${Math.abs(diffVal)}g` : undefined}>
+                          <tr key={idx} style={trStyle} title={isMostNegative ? `Most under target by ${Math.abs(diffVal)}g` : undefined}>
                               <td>{it.measured_at || '—'}</td>
                               <td style={{ textAlign: 'right' }}>{it.water_added_g ?? '—'}</td>
                               <td style={{ textAlign: 'right' }}>{it.last_wet_weight_g ?? '—'}</td>

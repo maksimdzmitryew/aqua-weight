@@ -796,3 +796,82 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
   expect(alert).toHaveTextContent(/failed to load plants/i)
   spy.mockRestore()
 })
+
+test('successfully loads and merges plant approximations', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([
+      { uuid: 'u1', name: 'Aloe' },
+      { uuid: 'u2', name: 'Monstera' }
+    ])),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
+      items: [
+        {
+          plant_uuid: 'u1',
+          virtual_water_retained_pct: 75,
+          frequency_days: 5,
+          frequency_confidence: 10,
+          next_watering_at: '2025-01-10T12:00:00Z',
+          first_calculated_at: '2025-01-09T12:00:00Z',
+          days_offset: 1
+        }
+      ]
+    }))
+  )
+
+  renderPage()
+
+  // Wait for Aloe to be rendered with its approximated frequency
+  expect(await screen.findByText('Aloe')).toBeInTheDocument()
+  expect(screen.getByText('5 d')).toBeInTheDocument()
+  expect(screen.getByText('(10)')).toBeInTheDocument()
+  expect(screen.getByText('(1d)')).toBeInTheDocument()
+})
+
+test('logs error and continues when approximations fail to load', async () => {
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([
+      { uuid: 'u1', name: 'Aloe' }
+    ])),
+    http.get('/api/measurements/approximation/watering', () => 
+      HttpResponse.json({ message: 'Approximation error' }, { status: 500 })
+    )
+  )
+
+  renderPage()
+
+  // Should still render the plant list even if approximations fail
+  expect(await screen.findByText('Aloe')).toBeInTheDocument()
+  
+  expect(consoleSpy).toHaveBeenCalledWith('Failed to load approximations', expect.anything())
+  consoleSpy.mockRestore()
+})
+
+test('handles null/missing approximation items gracefully', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }])),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null }))
+  )
+  renderPage()
+  expect(await screen.findByText('Aloe')).toBeInTheDocument()
+})
+
+test('applies vacation mode warning style for negative days_offset', async () => {
+  localStorage.setItem('operationMode', 'vacation')
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }])),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
+      items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }]
+    }))
+  )
+  try {
+    renderPage()
+    const aloe = await screen.findByText('Aloe')
+    const row = aloe.closest('tr')
+    // Next watering cell is the 4th cell (index 3)
+    const nextWateringCell = within(row).getAllByRole('cell')[3]
+    expect(nextWateringCell).toHaveStyle('background: #fecaca')
+  } finally {
+    localStorage.removeItem('operationMode')
+  }
+})

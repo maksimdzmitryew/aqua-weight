@@ -77,4 +77,7 @@ export const handlers = [
       water_loss_total_pct: 58,
     })
   }),
+  http.get('/api/measurements/approximation/watering', () => {
+    return HttpResponse.json({ items: [] })
+  }),
 ]

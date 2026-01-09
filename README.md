@@ -96,13 +96,13 @@ Operation mode allows you to switch between different care behaviors. It is curr
   - Components may use this to adjust UI or scheduling behavior.
 
 What happens with each option:
-- **Automatic**: (To be implemented) Intended for automated care workflows. No notice is shown.
+- **Automatic**: Receives data from IoT measurement devices.
 - **Manual**: Default mode. Displays a notice: "Manual mode — weighing and watering is based on human input".
-- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule".
+- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". In this mode, the system fully relies on previously collected data for watering plants. It uses an approximation of water evaporation based on available historical manual or automated measurements.
 
 Notes and future direction:
-- Because this is a frontend‑only preference, it does not change API payloads or scheduling calculations on the server yet.
 - "Manual" and "Vacation" modes currently show informational banners across all pages via the `DashboardLayout`.
+- In "Vacation" mode, the "Plants" page uses a central approximation API endpoint (`/api/measurements/approximation/watering`) to provide "virtual" water retained, calculated frequency, and next watering date.
 - Mapping from legacy "Vacation mode" (`enabled`/`disabled`) is not automatically performed; users will default to "Manual".
 
 ## Generating local TLS certificates (using your existing local CA)

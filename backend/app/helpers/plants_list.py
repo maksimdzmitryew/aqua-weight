@@ -133,52 +133,65 @@ class PlantsList:
 
                     # Compute frequency (in days) based on watering events since last repot
                     try:
-                        freq_days = compute_frequency_days(conn, uuid_hex)
+                        freq_days, freq_count = compute_frequency_days(conn, uuid_hex)
                     except Exception:
-                        freq_days = None
+                        freq_days, freq_count = None, 0
 
-                    # Compute next watering date: last watering + frequency
+                    # Find last watering event for fallback/projection
+                    last_watering_at = None
+                    try:
+                        with conn.cursor() as cur2:
+                            cur2.execute(
+                                """
+                                SELECT measured_at
+                                FROM plants_measurements
+                                WHERE plant_id = UNHEX(%s)
+                                  AND measured_weight_g IS NULL
+                                  AND water_loss_total_pct = 0
+                                ORDER BY measured_at DESC
+                                LIMIT 1
+                                """,
+                                (uuid_hex,),
+                            )
+                            last_row = cur2.fetchone()
+                            last_watering_at = last_row[0] if last_row else None
+                    except Exception:
+                        pass
+
+                    # Compute next watering date: static projection based on last watering event
                     next_watering_at = None
-                    if freq_days is not None and freq_days > 0:
+                    first_calculated_at = None
+                    days_offset = None
+                    if freq_days is not None and freq_days > 0 and last_watering_at:
                         try:
-                            with conn.cursor() as cur2:
-                                cur2.execute(
-                                    (
-                                        """
-                                        SELECT measured_at
-                                        FROM plants_measurements
-                                        WHERE plant_id = UNHEX(%s)
-                                          AND measured_weight_g IS NULL
-                                          AND water_loss_total_pct = 0
-                                        ORDER BY measured_at DESC
-                                        LIMIT 1
-                                        """
-                                    ),
-                                    (uuid_hex,),
-                                )
-                                last_row = cur2.fetchone()
-                                last_watering_at = last_row[0] if last_row else None
-                                if last_watering_at:
-                                    # Initial projection
+                            # Initial projection: last watering + frequency
+                            first_calculated_at = last_watering_at + timedelta(
+                                days=int(freq_days)
+                            )
+                            next_watering_at = first_calculated_at
+
+                            # Calculate days offset from today for the first_calculated_at
+                            # days_offset: how many days ago (negative) or in future (positive)
+                            today_date = now.date()
+                            first_date = first_calculated_at.date()
+                            days_offset = (first_date - today_date).days
+
+                            # If projection is in the past, roll forward by multiples of frequency
+                            try:
+                                if next_watering_at and next_watering_at < now:
+                                    elapsed_days = (now - last_watering_at).total_seconds() / (24 * 3600)
+                                    steps = max(1, ceil(elapsed_days / int(freq_days)))
                                     next_watering_at = last_watering_at + timedelta(
-                                        days=int(freq_days)
+                                        days=int(freq_days) * steps
                                     )
-                                    # If projection is in the past, roll forward by multiples of frequency
-                                    try:
-                                        if next_watering_at and next_watering_at < now:
-                                            # How many full frequencies have elapsed since the last watering
-                                            elapsed_days = (
-                                                now - last_watering_at
-                                            ).total_seconds() / (24 * 60 * 60)
-                                            steps = max(1, ceil(elapsed_days / int(freq_days)))
-                                            next_watering_at = last_watering_at + timedelta(
-                                                days=int(freq_days) * steps
-                                            )
-                                    except Exception:
-                                        # Keep the initial projection if any math fails
-                                        pass
+                            except Exception:
+                                # Keep the initial projection if any math fails
+                                pass
                         except Exception:
                             next_watering_at = None
+                            first_calculated_at = None
+                            days_offset = None
+                    # Ensure next_watering_at is returned as None if it couldn't be calculated
 
                     results.append(
                         {
@@ -211,7 +224,10 @@ class PlantsList:
                             ),
                             "identify_hint": identify_hint if identify_hint is not None else None,
                             "frequency_days": int(freq_days) if freq_days is not None else None,
+                            "frequency_confidence": freq_count,
                             "next_watering_at": next_watering_at,
+                            "first_calculated_at": first_calculated_at,
+                            "days_offset": days_offset,
                         }
                     )
                 # Restore last_params of the main cursor when FakeConnection reuses the same cursor instance
