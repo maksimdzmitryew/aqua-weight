@@ -22,7 +22,11 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => sessionStorage.getItem('plants_search_query') || '')
+
+  useEffect(() => {
+    sessionStorage.setItem('plants_search_query', query)
+  }, [query])
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)

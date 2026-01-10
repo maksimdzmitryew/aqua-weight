@@ -31,6 +31,10 @@ function renderWithRoute(initialEntries) {
 describe('pages/PlantEdit', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
+    // Default mock for locations to avoid MSW warnings in every test
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json([]))
+    )
   })
 
   test('buildUpdatePayload throws when plant is null', () => {
@@ -78,7 +82,24 @@ describe('pages/PlantEdit', () => {
       light_level_id: null,
       pest_status_id: null,
       health_status_id: null,
+      recommended_water_threshold_pct: null,
+      min_dry_weight_g: null,
+      max_water_weight_g: null,
     })
+  })
+
+  test('buildUpdatePayload handles numeric fields', () => {
+    const plant = {
+      uuid: 'uNumeric',
+      name: 'Num',
+      recommended_water_threshold_pct: '40',
+      min_dry_weight_g: '200',
+      max_water_weight_g: '100',
+    }
+    const built = buildUpdatePayload(plant)
+    expect(built.payload.recommended_water_threshold_pct).toBe(40)
+    expect(built.payload.min_dry_weight_g).toBe(200)
+    expect(built.payload.max_water_weight_g).toBe(100)
   })
 
   test('buildUpdatePayload allows null original name when trimmed is empty (falls back to null)', () => {
@@ -439,5 +460,132 @@ describe('pages/PlantEdit', () => {
     expect(mockNavigate).not.toHaveBeenCalled()
     updateSpy.mockRestore()
     alertSpy.mockRestore()
+  })
+
+  test('buildUpdatePayload exhaustive coverage', () => {
+    // Test with all fields as empty strings or null
+    const p1 = {
+      uuid: 'uuid1',
+      name: ' ', // trimmedName will be ' ' (hits || plant.name)
+      description: ' ', // trimmedDescription will be null
+      location_id: ' ',
+      photo_url: ' ',
+      default_measurement_method_id: '',
+      species_name: ' ',
+      botanical_name: null,
+      cultivar: undefined,
+      recommended_water_threshold_pct: '',
+      min_dry_weight_g: null,
+      max_water_weight_g: undefined,
+    }
+    const b1 = buildUpdatePayload(p1)
+    expect(b1.payload.name).toBe(' ')
+    expect(b1.payload.description).toBeNull()
+
+    // Test with values that don't need trimming/fallback
+    const p2 = {
+      uuid: 'uuid2',
+      name: 'Aloe',
+      description: 'D',
+      recommended_water_threshold_pct: 0,
+      species_name: 'Aloe vera' // hits left side of ?? in normalize later, but here test payload
+    }
+    const b2 = buildUpdatePayload(p2)
+    expect(b2.payload.name).toBe('Aloe')
+    expect(b2.payload.recommended_water_threshold_pct).toBe(0)
+    expect(b2.payload.species_name).toBe('Aloe vera')
+  })
+
+  test('normalize additional branches', async () => {
+    // We can't easily export normalize, but we can hit it via prefills
+    // Case where species_name is already present (hits left side of ?? species)
+    const init = {
+      pathname: '/plants/uNorm/edit',
+      state: { plant: { uuid: 'uNorm', name: 'N', species_name: 'S', species: 'Ignore' } }
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    renderWithRoute([init])
+    await userEvent.click(screen.getByRole('tab', { name: /advanced/i }))
+    expect(screen.getByDisplayValue('S')).toBeInTheDocument()
+  })
+
+  test('calculated tab and normalize location fallback', async () => {
+    const init = {
+      pathname: '/plants/uCalc/edit',
+      state: {
+        plant: {
+          uuid: 'uCalc',
+          name: 'Calc',
+          location: 'loc-uuid', // triggers location_id fallback in normalize
+          recommended_water_threshold_pct: 30,
+          min_dry_weight_g: 150,
+          max_water_weight_g: 80,
+        }
+      }
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([{ uuid: 'loc-uuid', name: 'Kitchen' }])))
+    renderWithRoute([init])
+
+    // Verify location fallback worked
+    const select = await screen.findByLabelText(/location/i)
+    expect(select).toHaveValue('loc-uuid')
+
+    const calcTab = await screen.findByRole('tab', { name: /calculated/i })
+    await userEvent.click(calcTab)
+
+    const thresh = await screen.findByLabelText(/recommended water threshold/i)
+    const minDry = screen.getByLabelText(/min dry weight/i)
+    const maxWater = screen.getByLabelText(/max water weight/i)
+    
+    expect(thresh).toHaveValue(30)
+    expect(minDry).toHaveValue(150)
+    expect(maxWater).toHaveValue(80)
+
+    // Type into these to exercise onChange
+    await userEvent.clear(thresh)
+    await userEvent.type(thresh, '35')
+    expect(thresh).toHaveValue(35)
+
+    await userEvent.clear(minDry)
+    await userEvent.type(minDry, '200')
+    expect(minDry).toHaveValue(200)
+
+    await userEvent.clear(maxWater)
+    await userEvent.type(maxWater, '100')
+    expect(maxWater).toHaveValue(100)
+  })
+
+  test('normalize fallbacks with minimal plant data', async () => {
+    const init = {
+      pathname: '/plants/uMin/edit',
+      state: {
+        plant: {
+          uuid: 'uMin',
+          name: 'Min',
+          // missing everything else
+        }
+      }
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    renderWithRoute([init])
+
+    // Check Calculated tab with empty values
+    const calcTab = await screen.findByRole('tab', { name: /calculated/i })
+    await userEvent.click(calcTab)
+    expect(await screen.findByLabelText(/recommended water threshold/i)).toHaveValue(null)
+    expect(screen.getByLabelText(/min dry weight/i)).toHaveValue(null)
+    expect(screen.getByLabelText(/max water weight/i)).toHaveValue(null)
+
+    // Check Health tab with empty values
+    await userEvent.click(screen.getByRole('tab', { name: /health/i }))
+    expect(screen.getByLabelText(/light level id/i)).toHaveValue('')
+    expect(screen.getByLabelText(/pest status id/i)).toHaveValue('')
+    expect(screen.getByLabelText(/health status id/i)).toHaveValue('')
+  })
+
+  test('exercises unmount cleanup functions', async () => {
+    const { unmount } = renderWithRoute(['/plants/uUnmount/edit'])
+    // Just unmount to trigger cleanup arrows
+    unmount()
   })
 })

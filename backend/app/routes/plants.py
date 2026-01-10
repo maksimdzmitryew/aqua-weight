@@ -259,7 +259,7 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                 if not exists:
                     raise HTTPException(status_code=404, detail="Plant not found")
 
-                sql = "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s WHERE id=UNHEX(%s)"
+                sql = "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s, min_dry_weight_g=%s, max_water_weight_g=%s, recommended_water_threshold_pct=%s WHERE id=UNHEX(%s)"
                 params = (
                     (normalize(payload.name) if payload.name is not None else None),
                     (payload.description if payload.description is not None else None),
@@ -284,6 +284,9 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                     hex_to_bytes(payload.health_status_id),
                     (payload.photo_url if payload.photo_url is not None else None),
                     hex_to_bytes(payload.default_measurement_method_id),
+                    payload.min_dry_weight_g,
+                    payload.max_water_weight_g,
+                    payload.recommended_water_threshold_pct,
                     id_hex,
                 )
                 cur.execute(sql, params)

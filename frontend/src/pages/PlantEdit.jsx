@@ -28,6 +28,9 @@ export function buildUpdatePayload(plant) {
     light_level_id: (plant.light_level_id || '').trim() || null,
     pest_status_id: (plant.pest_status_id || '').trim() || null,
     health_status_id: (plant.health_status_id || '').trim() || null,
+    recommended_water_threshold_pct: (plant.recommended_water_threshold_pct === '' || plant.recommended_water_threshold_pct == null) ? null : Number(plant.recommended_water_threshold_pct),
+    min_dry_weight_g: (plant.min_dry_weight_g === '' || plant.min_dry_weight_g == null) ? null : Number(plant.min_dry_weight_g),
+    max_water_weight_g: (plant.max_water_weight_g === '' || plant.max_water_weight_g == null) ? null : Number(plant.max_water_weight_g),
   }
   const idHex = plant.uuid
   if (!idHex) throw new Error('Missing plant id')
@@ -65,6 +68,9 @@ export default function PlantEdit() {
       light_level_id: p.light_level_id ?? '',
       pest_status_id: p.pest_status_id ?? '',
       health_status_id: p.health_status_id ?? '',
+      recommended_water_threshold_pct: p.recommended_water_threshold_pct ?? '',
+      min_dry_weight_g: p.min_dry_weight_g ?? '',
+      max_water_weight_g: p.max_water_weight_g ?? '',
     }
   }
 
@@ -184,6 +190,7 @@ export default function PlantEdit() {
           <div style={tabsWrap} role="tablist" aria-label="Edit plant tabs">
             <button type="button" role="tab" aria-selected={activeTab === 'general'} onClick={() => setActiveTab('general')} style={tabBtn(activeTab === 'general')}>General</button>
             <button type="button" role="tab" aria-selected={activeTab === 'advanced'} onClick={() => setActiveTab('advanced')} style={tabBtn(activeTab === 'advanced')}>Advanced</button>
+            <button type="button" role="tab" aria-selected={activeTab === 'calculated'} onClick={() => setActiveTab('calculated')} style={tabBtn(activeTab === 'calculated')}>Calculated</button>
             <button type="button" role="tab" aria-selected={activeTab === 'health'} onClick={() => setActiveTab('health')} style={tabBtn(activeTab === 'health')}>Health</button>
           </div>
 
@@ -268,6 +275,25 @@ export default function PlantEdit() {
               <div style={rowStyle}>
                 <div style={labelStyle}>Created</div>
                 <DateTimeText as="div" value={plant.created_at} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'calculated' && (
+            <div>
+              <div style={rowStyle}>
+                <label style={labelStyle} htmlFor="recommended_water_threshold_pct">Recommended Water Threshold (%)</label>
+                <input id="recommended_water_threshold_pct" name="recommended_water_threshold_pct" type="number" value={plant.recommended_water_threshold_pct} onChange={onChange} style={inputStyle} placeholder="Optional" />
+              </div>
+
+              <div style={rowStyle}>
+                <label style={labelStyle} htmlFor="min_dry_weight_g">Min Dry Weight (g)</label>
+                <input id="min_dry_weight_g" name="min_dry_weight_g" type="number" value={plant.min_dry_weight_g} onChange={onChange} style={inputStyle} placeholder="Optional" />
+              </div>
+
+              <div style={rowStyle}>
+                <label style={labelStyle} htmlFor="max_water_weight_g">Max Water Weight (g)</label>
+                <input id="max_water_weight_g" name="max_water_weight_g" type="number" value={plant.max_water_weight_g} onChange={onChange} style={inputStyle} placeholder="Optional" />
               </div>
             </div>
           )}

@@ -70,6 +70,8 @@ def _compute_water_retained_for_plant(
         last_wet_weight_g=last_wet_weight_g,
         water_loss_total_pct=water_loss_total_pct,
     )
+    if water_retained_calc.water_retained_pct is None:
+        return 0.0
     return round(water_retained_calc.water_retained_pct, 0)
 
 

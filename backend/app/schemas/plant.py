@@ -96,6 +96,8 @@ class PlantUpdateRequest(BaseModel):
     fertilized_last_at: Optional[str] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
+    max_water_weight_g: Optional[int] = Field(default=None, ge=0)
+    recommended_water_threshold_pct: Optional[int] = Field(default=None, ge=0, le=100)
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None

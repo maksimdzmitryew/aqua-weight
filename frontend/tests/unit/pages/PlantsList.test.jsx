@@ -19,9 +19,10 @@ function renderPage() {
   )
 }
 
-// Ensure MSW handlers are reset after each test in this file to avoid leaking overrides
+// Ensure MSW handlers and sessionStorage are reset after each test in this file to avoid leaking state
 afterEach(() => {
   server.resetHandlers()
+  sessionStorage.clear()
 })
 
 test('renders plants after loading', async () => {

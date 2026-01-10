@@ -49,7 +49,7 @@ def update_min_dry_weight_and_max_watering_added_g(
                 """,
                 (current_weight_min, current_watering_max, plant_id_hex),
             )
-            conn.commit()
+        conn.commit()
     except Exception as e:
         print(
             "Could not update weight and waterings: ",

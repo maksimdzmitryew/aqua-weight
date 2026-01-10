@@ -437,6 +437,30 @@ async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test__compute_water_retained_for_plant_pct_none(monkeypatch):
+    """Covers line 74: returns 0.0 when water_retained_pct is None."""
+    class _Calc:
+        def __init__(self, pct):
+            self.water_retained_pct = pct
+    monkeypatch.setattr(
+        measurements_routes,
+        "calculate_water_retained",
+        lambda **kwargs: _Calc(None),
+    )
+
+    cur = _FakeCursor()
+    cur.rows_one = [80, 20]
+    pct = measurements_routes._compute_water_retained_for_plant(
+        cur,
+        "aa" * 16,
+        measured_weight_g=100,
+        last_wet_weight_g=100,
+        water_loss_total_pct=0.0,
+    )
+    assert pct == 0.0
+
+
+@pytest.mark.asyncio
 async def test__post_delete_recalculate_and_commit_branch(monkeypatch):
     """Directly cover helper branch at 75-77: update invoked when measured_weight_g is not None, then commit."""
     calls: list = []
@@ -470,6 +494,44 @@ async def test_delete_measurement_rollback_raises_covers_inner_except(app: FastA
     r = await async_client.delete(f"/api/measurements/{gid}")
     assert r.status_code >= 500
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_get_watering_approximation_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers lines 192-215: fetch function in get_watering_approximation."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+
+    mock_plants = [
+        {
+            "uuid": "aa" * 16,
+            "next_watering_at": now + timedelta(days=2),
+            "first_calculated_at": now - timedelta(days=5),
+            "water_retained_pct": 75.0,
+            "frequency_days": 7,
+            "frequency_confidence": 1,
+            "days_offset": 0
+        },
+        {
+            "uuid": "bb" * 16,
+            "next_watering_at": "Not a datetime", # Test the string fallback
+            "first_calculated_at": None,
+            "water_retained_pct": None,
+            "frequency_days": None,
+            "frequency_confidence": None,
+            "days_offset": None
+        }
+    ]
+
+    monkeypatch.setattr("backend.app.routes.measurements.PlantsList.fetch_all", lambda: mock_plants)
+
+    resp = await async_client.get("/api/measurements/approximation/watering")
+    assert resp.status_code == 200
+    data = resp.json()["items"]
+    assert len(data) == 2
+    assert data[0]["plant_uuid"] == "aa" * 16
+    assert data[1]["next_watering_at"] == "Not a datetime"
+    assert data[1]["first_calculated_at"] is None
 
 
 @pytest.mark.asyncio

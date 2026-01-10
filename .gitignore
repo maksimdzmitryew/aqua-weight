@@ -39,6 +39,8 @@ frontend/playwright-report/*
 frontend/node_modules_tests/
 .pytest_cache/
 .*.txt
+*output*.txt
+verbose_report.txt
 .coverage
 *coverage*
 lcov.info

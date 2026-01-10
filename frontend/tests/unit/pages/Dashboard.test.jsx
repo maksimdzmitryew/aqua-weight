@@ -492,6 +492,43 @@ describe('pages/Dashboard', () => {
 
     setItemSpy.mockRestore()
   })
+
+  test('navigates on Enter and Space keydown on plant card (covers 264-268)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    const navigate = vi.fn()
+    vi.doMock('react-router-dom', async () => {
+      const actual = await vi.importActual('react-router-dom')
+      return { ...actual, useNavigate: () => navigate }
+    })
+
+    const plant = { uuid: 'p-key', name: 'KeyNav' }
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-01-02 10:00:00', measured_weight_g: 20 },
+      { measured_at: '2024-01-01 10:00:00', measured_weight_g: 10 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const card = await screen.findByTitle('Open statistics')
+
+    // Enter key
+    fireEvent.keyDown(card, { key: 'Enter', code: 'Enter' })
+    expect(navigate).toHaveBeenCalledWith('/stats/p-key', { state: { plant } })
+
+    // Space key
+    fireEvent.keyDown(card, { key: ' ', code: 'Space' })
+    expect(navigate).toHaveBeenCalledWith('/stats/p-key', { state: { plant } })
+    expect(navigate).toHaveBeenCalledTimes(2)
+  })
 })
 
 // --- additional coverage for remaining branches/funcs ---

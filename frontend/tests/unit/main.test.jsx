@@ -127,6 +127,7 @@ describe('src/main.jsx bootstrap', () => {
       '/measurement/repotting',
       '/measurements/bulk/weight',
       '/measurements/bulk/watering',
+      '*',
     ]
 
     // Assert we have the same number of Route children

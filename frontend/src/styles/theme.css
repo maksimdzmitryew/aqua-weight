@@ -187,3 +187,26 @@
   padding: 16px;
 }
 .fw-600 { font-weight: 600; }
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    border-bottom: 1px solid var(--border);
+  }
+  .hide-column-phone {
+    display: none;
+  }
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .hide-column-tablet {
+    display: none;
+  }
+}
