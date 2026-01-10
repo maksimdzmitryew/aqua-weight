@@ -341,7 +341,16 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
 }, 15000)
 
 test('limits list to PAGE_LIMIT and shows meta count', async () => {
-  const many = Array.from({ length: 150 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
+  // Use a smaller number than PAGE_LIMIT (100) but still enough to see the logic.
+  // Actually, to test the "limit" logic we need MORE than 100, which is slow.
+  // We can mock PAGE_LIMIT if it was exported or used from a config.
+  // Since it's hardcoded in the component, we have to either:
+  // 1. Render 101+ items (slow)
+  // 2. Change the component to accept PAGE_LIMIT as a prop (requires code change)
+  // 3. Just test that it renders what we give it and verify the text.
+  
+  // If we give it 105 items, it should show "Showing 100 of 105".
+  const many = Array.from({ length: 105 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
   server.use(
     http.get('/api/plants', () => HttpResponse.json(many))
   )
@@ -354,15 +363,14 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
     </ThemeProvider>
   )
 
-  // Only first 100 should be rendered in table body
   await screen.findByText('P1')
-  // Use waitFor to allow table render with many rows in JSDOM
+  // We expect 100 rows in the body
   await waitFor(() => {
     const bodyRows = screen.getAllByRole('row').slice(1)
     expect(bodyRows.length).toBe(100)
   })
-  expect(screen.getByText(/Showing 100 of 150/)).toBeInTheDocument()
-}, 30000)
+  expect(screen.getByText(/Showing 100 of 105/)).toBeInTheDocument()
+})
 
 test('row branches: link vs plain text, needsWater badge, and view/edit guards without uuid', async () => {
   server.use(

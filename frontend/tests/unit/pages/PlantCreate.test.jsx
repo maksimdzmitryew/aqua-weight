@@ -42,7 +42,6 @@ describe('pages/PlantCreate', () => {
   })
 
   test('submits full payload with trimmed strings and number conversions across tabs', async () => {
-    const user = userEvent.setup()
     // Intercept POST and capture payload for assertions after navigation
     let capturedBody = null
     server.use(
@@ -54,61 +53,56 @@ describe('pages/PlantCreate', () => {
 
     renderPage()
     // Fill General
-    await user.type(await screen.findByRole('textbox', { name: /name/i }), '  My Plant  ')
-    await user.type(screen.getByLabelText(/plant type/i), '  Type  ')
-    await user.type(screen.getByLabelText(/identify hint/i), '  Hint  ')
-    await user.type(screen.getByLabelText(/typical action/i), '  Action  ')
-    await user.type(screen.getByLabelText(/description/i), '  Some description  ')
-    await user.type(screen.getByLabelText(/^notes$/i), '  Note  ')
-    await user.selectOptions(screen.getByLabelText(/location/i), 'l2')
-    await user.type(screen.getByLabelText(/photo url/i), '  https://example.com/p.jpg  ')
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: '  My Plant  ' } })
+    fireEvent.change(screen.getByLabelText(/plant type/i), { target: { value: '  Type  ' } })
+    fireEvent.change(screen.getByLabelText(/identify hint/i), { target: { value: '  Hint  ' } })
+    fireEvent.change(screen.getByLabelText(/typical action/i), { target: { value: '  Action  ' } })
+    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: '  Some description  ' } })
+    fireEvent.change(screen.getByLabelText(/^notes$/i), { target: { value: '  Note  ' } })
+    fireEvent.change(screen.getByLabelText(/location/i), { target: { value: 'l2' } })
+    fireEvent.change(screen.getByLabelText(/photo url/i), { target: { value: '  https://example.com/p.jpg  ' } })
 
     // Service tab
-    await user.click(screen.getByRole('tab', { name: /service/i }))
-    await user.type(screen.getByLabelText(/default measurement method id/i), '  mm1  ')
-    await user.type(screen.getByLabelText(/scale id/i), '  sc1  ')
+    fireEvent.click(screen.getByRole('tab', { name: /service/i }))
+    fireEvent.change(screen.getByLabelText(/default measurement method id/i), { target: { value: '  mm1  ' } })
+    fireEvent.change(screen.getByLabelText(/scale id/i), { target: { value: '  sc1  ' } })
     // Toggle checkboxes to exercise checkbox branch and mapping
     const repotted = screen.getByLabelText(/repotted/i)
     const archive = screen.getByLabelText(/archive/i)
     expect(repotted).not.toBeChecked()
     expect(archive).not.toBeChecked()
-    await user.click(repotted)
-    await user.click(archive)
+    fireEvent.click(repotted)
+    fireEvent.click(archive)
 
     // Care tab
-    await user.click(screen.getByRole('tab', { name: /care/i }))
-    await user.clear(screen.getByLabelText(/recommended water threshold/i))
-    await user.type(screen.getByLabelText(/recommended water threshold/i), '35')
-    await user.clear(screen.getByLabelText(/biomass weight/i))
-    await user.type(screen.getByLabelText(/biomass weight/i), '123')
-    await user.type(screen.getByLabelText(/biomass last at/i), '2024-02-20T10:30')
+    fireEvent.click(screen.getByRole('tab', { name: /care/i }))
+    fireEvent.change(screen.getByLabelText(/recommended water threshold/i), { target: { value: '35' } })
+    fireEvent.change(screen.getByLabelText(/biomass weight/i), { target: { value: '123' } })
+    fireEvent.change(screen.getByLabelText(/biomass last at/i), { target: { value: '2024-02-20T10:30' } })
 
     // Advanced tab
-    await user.click(screen.getByRole('tab', { name: /advanced/i }))
-    await user.type(screen.getByLabelText(/species name/i), '  Species  ')
-    await user.type(screen.getByLabelText(/botanical name/i), '  Botanical  ')
-    await user.type(screen.getByLabelText(/cultivar/i), '  Cult  ')
-    await user.type(screen.getByLabelText(/substrate type id/i), '  sub1  ')
-    await user.type(screen.getByLabelText(/substrate last refresh at/i), '2024-01-15T00:00')
-    await user.type(screen.getByLabelText(/fertilized last at/i), '2024-03-01T00:00')
-    await user.clear(screen.getByLabelText(/fertilizer ec/i))
-    await user.type(screen.getByLabelText(/fertilizer ec/i), '2.5')
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
+    fireEvent.change(screen.getByLabelText(/species name/i), { target: { value: '  Species  ' } })
+    fireEvent.change(screen.getByLabelText(/botanical name/i), { target: { value: '  Botanical  ' } })
+    fireEvent.change(screen.getByLabelText(/cultivar/i), { target: { value: '  Cult  ' } })
+    fireEvent.change(screen.getByLabelText(/substrate type id/i), { target: { value: '  sub1  ' } })
+    fireEvent.change(screen.getByLabelText(/substrate last refresh at/i), { target: { value: '2024-01-15T00:00' } })
+    fireEvent.change(screen.getByLabelText(/fertilized last at/i), { target: { value: '2024-03-01T00:00' } })
+    fireEvent.change(screen.getByLabelText(/fertilizer ec/i), { target: { value: '2.5' } })
 
     // Health tab
-    await user.click(screen.getByRole('tab', { name: /health/i }))
-    await user.type(screen.getByLabelText(/light level id/i), '  light1  ')
-    await user.type(screen.getByLabelText(/pest status id/i), '  pest1  ')
-    await user.type(screen.getByLabelText(/health status id/i), '  ok  ')
+    fireEvent.click(screen.getByRole('tab', { name: /health/i }))
+    fireEvent.change(screen.getByLabelText(/light level id/i), { target: { value: '  light1  ' } })
+    fireEvent.change(screen.getByLabelText(/pest status id/i), { target: { value: '  pest1  ' } })
+    fireEvent.change(screen.getByLabelText(/health status id/i), { target: { value: '  ok  ' } })
 
     // Calculated tab
-    await user.click(screen.getByRole('tab', { name: /calculated/i }))
-    await user.clear(screen.getByLabelText(/min dry weight/i))
-    await user.type(screen.getByLabelText(/min dry weight/i), '10')
-    await user.clear(screen.getByLabelText(/max water weight/i))
-    await user.type(screen.getByLabelText(/max water weight/i), '20')
+    fireEvent.click(screen.getByRole('tab', { name: /calculated/i }))
+    fireEvent.change(screen.getByLabelText(/min dry weight/i), { target: { value: '10' } })
+    fireEvent.change(screen.getByLabelText(/max water weight/i), { target: { value: '20' } })
 
     // Save
-    await user.click(screen.getByRole('button', { name: /^save$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/plants')
     })
