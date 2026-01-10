@@ -7,7 +7,22 @@ import PlantsList from '../../../src/pages/PlantsList.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { plantsApi } from '../../../src/api/plants'
-import { vi, afterEach } from 'vitest'
+import { vi, afterEach, beforeEach } from 'vitest'
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, onCreate, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Dashboard</button>
+      <button onClick={onCreate}>Create</button>
+      {actions}
+    </div>
+  )
+}))
 
 function renderPage() {
   return render(
@@ -355,7 +370,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
     http.get('/api/plants', () => HttpResponse.json(many))
   )
 
-  render(
+  const { unmount } = render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
@@ -370,6 +385,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
     expect(bodyRows.length).toBe(100)
   })
   expect(screen.getByText(/Showing 100 of 105/)).toBeInTheDocument()
+  unmount()
 })
 
 test('row branches: link vs plain text, needsWater badge, and view/edit guards without uuid', async () => {

@@ -13,6 +13,10 @@ vi.mock('../../../src/components/Sparkline.jsx', () => ({
   ),
 }))
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
 // Note: We avoid global mocks for react-router and api modules to prevent cross-file leakage
 
 describe('pages/Dashboard', () => {

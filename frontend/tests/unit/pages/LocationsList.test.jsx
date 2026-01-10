@@ -15,6 +15,20 @@ vi.mock('react-router-dom', async () => {
   return { __esModule: true, ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, onCreate, title }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Dashboard</button>
+      <button onClick={onCreate}>Create</button>
+    </div>
+  )
+}))
+
 function renderPage(initialEntries) {
   return render(
     <ThemeProvider>

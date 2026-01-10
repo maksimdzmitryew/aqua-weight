@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
@@ -7,6 +7,11 @@ import { server } from '../msw/server'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import Calibration from '../../../src/pages/Calibration.jsx'
 import { calibrationApi } from '../../../src/api/calibration'
+import { vi } from 'vitest'
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
 
 function renderPage() {
   return render(
@@ -75,10 +80,10 @@ test('renders a plant with filtered rows, sorting, and highlights most under tar
 
   // Toggle "underwatered" to allow >= 0 diffs
   const underwatered = screen.getByLabelText(/underwatered/i)
-  await userEvent.click(underwatered)
+  fireEvent.click(underwatered)
   // Also toggle legacy filter to include rows with 0 Below Max Water (under_g)
   const zeroAll = screen.getByLabelText(/zero below max water, all/i)
-  await userEvent.click(zeroAll)
+  fireEvent.click(zeroAll)
   await waitFor(() => {
     const r = within(screen.getByRole('table')).getAllByRole('row')
     expect(r.length).toBe(1 + 3)

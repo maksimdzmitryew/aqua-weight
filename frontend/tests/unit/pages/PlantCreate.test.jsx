@@ -17,6 +17,10 @@ vi.mock('react-router-dom', async () => {
   return { __esModule: true, ...actual, useNavigate: () => mockNavigate }
 })
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
 function renderPage(initialEntries = ['/plants/new']) {
   return render(
     <ThemeProvider>

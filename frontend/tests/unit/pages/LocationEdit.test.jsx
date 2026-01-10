@@ -20,6 +20,10 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
 function renderWithRoute(path, element, { initialEntries = [path] } = {}) {
   return render(
     <ThemeProvider>
