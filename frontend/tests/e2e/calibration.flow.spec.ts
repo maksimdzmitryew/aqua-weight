@@ -9,14 +9,14 @@ test.describe('Calibration Flow', () => {
     await seed(ORIGIN);
     
     // 1. Create a NEW plant
-    await page.goto(`${ORIGIN}/plants/new`);
+    await page.goto(`${ORIGIN}/plants/new`, { waitUntil: 'commit' });
     await page.getByLabel(/name/i).fill('Calibration Plant');
     await page.getByLabel(/location/i).selectOption('11111111111111111111111111111111');
     await page.getByRole('button', { name: /save/i }).click();
     await expect(page).toHaveURL(/\/plants/);
 
     // 2. Establish baseline via a weight measurement (dry weight)
-    await page.goto(`${ORIGIN}/measurement/weight`);
+    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Calibration Plant' });
     await page.getByLabel(/measured weight \(g\)/i).fill('200');
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00');
@@ -24,7 +24,7 @@ test.describe('Calibration Flow', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
     // 3. Establish LARGE max water via a watering event
-    await page.goto(`${ORIGIN}/measurement/watering`);
+    await page.goto(`${ORIGIN}/measurement/watering`, { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Calibration Plant' });
     await page.getByLabel(/measured at/i).fill('2025-01-01T11:00');
     await page.getByLabel(/current weight/i).fill('400'); // 200g water
@@ -34,7 +34,7 @@ test.describe('Calibration Flow', () => {
     // Now min_dry=200, max_water=200.
 
     // 4. MANUALLY REDUCE max_water_weight_g to 100g to create an overfill
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.getByRole('row', { name: /calibration plant/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
     await page.getByLabel(/max water weight/i).fill('100');
@@ -51,7 +51,7 @@ test.describe('Calibration Flow', () => {
 
   test('full overfill correction flow', async ({ page }) => {
     // 5. Navigate to calibration
-    await page.goto('/calibration');
+    await page.goto('/calibration', { waitUntil: 'commit' });
     await page.waitForLoadState('networkidle');
 
     // To see overfills (where under_g is 0), we MUST check this filter

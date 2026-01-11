@@ -15,7 +15,7 @@ test.describe('Responsive Design & Mobile UI', () => {
     // Set viewport to mobile size
     await page.setViewportSize(devices['iPhone 13'].viewport);
     
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     // On mobile, the sidebar is at the top (column layout)
     const sidebar = page.locator('aside.sidebar');
@@ -33,7 +33,7 @@ test.describe('Responsive Design & Mobile UI', () => {
   });
 
   test('grid fluidity on resize', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     // Change to 5 charts per row
     await page.getByLabel(/charts per row/i).selectOption('5');

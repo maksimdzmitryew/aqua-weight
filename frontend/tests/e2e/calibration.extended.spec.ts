@@ -13,7 +13,7 @@ test.describe('Advanced Calibration Interactions', () => {
 
   test('calibration flow: trigger correction and verify UI refresh', async ({ page }) => {
     // 1. Just verify the button exists and is clickable when some data is present
-    await page.goto('/calibration');
+    await page.goto('/calibration', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /calibration/i })).toBeVisible();
     
     // Check filters
@@ -30,7 +30,7 @@ test.describe('Advanced Calibration Interactions', () => {
   });
 
   test('calibration filters interaction', async ({ page }) => {
-    await page.goto('/calibration');
+    await page.goto('/calibration', { waitUntil: 'commit' });
     
     const f1 = page.getByLabel(/underwatered/i);
     const f2 = page.getByLabel(/zero Below Max Water, all/i);

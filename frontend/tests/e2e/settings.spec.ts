@@ -12,7 +12,7 @@ test.describe('Settings', () => {
   });
 
   test('theme toggle, date format, and operation mode', async ({ page }) => {
-    await page.goto('/settings');
+    await page.goto('/settings', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible();
 
     // 1. Theme Toggle
@@ -29,7 +29,7 @@ test.describe('Settings', () => {
     await page.getByLabel(/date\/time format/i).selectOption('usa');
     await page.getByRole('button', { name: /save/i }).click();
     
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     // The date might be inside a span that Playwright thinks is hidden (e.g. mobile view or similar)
     // We can try to wait for it and then check its existence in the DOM at least, 
     // or use attached: true. But we want it visible.
@@ -37,7 +37,7 @@ test.describe('Settings', () => {
     await expect(page.getByText(/\d{2}\/\d{2}\/\d{4}/).first()).toBeAttached();
     
     // 3. Operation Mode
-    await page.goto('/settings');
+    await page.goto('/settings', { waitUntil: 'commit' });
     await page.getByLabel(/operation mode/i).selectOption('vacation');
     await page.getByRole('button', { name: /save/i }).click();
     

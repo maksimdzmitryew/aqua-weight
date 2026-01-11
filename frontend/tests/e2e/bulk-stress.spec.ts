@@ -13,7 +13,7 @@ test.describe('Data Integrity during Rapid Input', () => {
   });
 
   test('rapid input in bulk weight maps correctly to rows even with slow API', async ({ page }) => {
-    await page.goto('/measurements/bulk/weight');
+    await page.goto('/measurements/bulk/weight', { waitUntil: 'commit' });
     
     // Wait for at least 2 plants to be loaded
     const inputs = page.locator('table input[type="number"]');

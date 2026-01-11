@@ -9,7 +9,7 @@ test.describe('Bulk Watering Styles', () => {
     await seed(ORIGIN);
     
     // Plant 1: Thirsty (Seed Fern)
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.waitForLoadState('networkidle');
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
@@ -26,7 +26,7 @@ test.describe('Bulk Watering Styles', () => {
     await expect(page).not.toHaveURL(/\/measurement\/watering/);
 
     // Plant 2: Satisfied (New Plant)
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: /\+\s*Create/i }).click();
     await page.getByLabel(/name/i).fill('Satisfied Plant');
@@ -52,7 +52,7 @@ test.describe('Bulk Watering Styles', () => {
   });
 
   test('conditional styling in bulk watering show all mode', async ({ page }) => {
-    await page.goto('/measurements/bulk/watering');
+    await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' });
     await page.waitForLoadState('networkidle');
     await page.getByLabel(/show all plants/i).check();
 

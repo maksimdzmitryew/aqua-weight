@@ -12,7 +12,7 @@ test.describe('Calibration', () => {
   });
 
   test('filters and basic view', async ({ page }) => {
-    await page.goto('/calibration');
+    await page.goto('/calibration', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /calibration/i })).toBeVisible();
 
     // With minimal seed, there might not be any calibration entries yet

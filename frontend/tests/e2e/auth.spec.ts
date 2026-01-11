@@ -13,7 +13,7 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
   });
 
   test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     // Intercept any API call and return 401
     await page.route('**/api/plants', async route => {
@@ -25,7 +25,7 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     });
 
     // Reload or navigate to trigger the request
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
 
     // Verification: Ensure the UI shows a "Session Expired" notification or equivalent error message
     // Based on Dashboard.jsx code: {error && <ErrorNotice message={error} />}

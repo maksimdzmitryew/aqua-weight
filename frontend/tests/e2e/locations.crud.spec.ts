@@ -13,7 +13,7 @@ test.describe('Locations Management', () => {
 
   test('list locations, create, edit, and delete', async ({ page }) => {
     // 1. List Locations
-    await page.goto('/locations');
+    await page.goto('/locations', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /locations/i, exact: true })).toBeVisible();
     
     // Verify seeded locations are visible (assuming seed provides some)

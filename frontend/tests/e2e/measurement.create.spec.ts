@@ -9,7 +9,7 @@ test.describe('Measurements', () => {
 
   test('create measurement for a plant and see it reflected in list', async ({ page }) => {
     // Assume at least one plant exists from seed
-    await page.goto('/measurement/weight');
+    await page.goto('/measurement/weight', { waitUntil: 'commit' });
 
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight/i).fill('123.4');
@@ -17,7 +17,7 @@ test.describe('Measurements', () => {
     await page.getByRole('button', { name: /save measurement/i }).click();
 
     // Navigate to plants list and verify aggregate/latest value present
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
     await expect(page.getByText(/seed fern/i)).toBeVisible();
   });

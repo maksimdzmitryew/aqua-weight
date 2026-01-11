@@ -13,7 +13,17 @@ let isAppReady = false;
 
 export async function waitForAppReady(baseURL: string, timeoutMs = 180000): Promise<void> {
   if (isAppReady) return;
+  // If we're already in a test run, assume the app is ready after the first check.
+  // We can do a quick check once.
   const api = await createApiClient(baseURL);
+  try {
+    const be = await api.get('/api/health');
+    if (be.ok()) {
+      isAppReady = true;
+      return;
+    }
+  } catch (e) {}
+  
   const start = Date.now();
   let lastErr: any = null;
   try {

@@ -13,7 +13,7 @@ test.describe('Offline Resilience', () => {
   });
 
   test('simulate loss of network connectivity while mid-form', async ({ page, context }) => {
-    await page.goto('/plants/new');
+    await page.goto('/plants/new', { waitUntil: 'commit' });
     await expect(page.locator('h1')).toContainText(/create/i);
 
     // Fill some data

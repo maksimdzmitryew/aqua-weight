@@ -13,7 +13,7 @@ test.describe('Concurrency and Error Handling', () => {
   });
 
   test('UI-driven API conflict handling (409 Conflict)', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
     await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}\/edit/);
 
@@ -50,12 +50,12 @@ test.describe('Concurrency and Error Handling', () => {
     */
     
     // Listen for alert
-    page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('A plant with this name already exists');
-      await dialog.dismiss();
-    });
-
+    const dialogPromise = page.waitForEvent('dialog');
     await page.getByRole('button', { name: /save/i }).click();
+
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toContain('A plant with this name already exists');
+    await dialog.dismiss();
 
     // Verify form data is retained and we stay on the same page
     await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}\/edit/);
@@ -63,7 +63,7 @@ test.describe('Concurrency and Error Handling', () => {
   });
 
   test('UI resilience during slow network', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
 
     const nameInput = page.getByLabel(/name/i);

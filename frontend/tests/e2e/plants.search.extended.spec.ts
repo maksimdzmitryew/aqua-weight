@@ -13,7 +13,7 @@ test.describe('Search Persistence and Navigation', () => {
   });
 
   test('search filter behavior during navigation', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
 
     // 1. Apply search filter

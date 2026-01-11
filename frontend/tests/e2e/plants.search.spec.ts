@@ -12,7 +12,7 @@ test.describe('Plants search & filter', () => {
   });
 
   test('filters by text and handles numeric input', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
 
     const table = page.getByRole('table');

@@ -12,7 +12,7 @@ test.describe('Localization Persistence beyond Date Formats', () => {
   });
 
   test('numerical decimal separators consistency placeholder', async ({ page }) => {
-    await page.goto('/settings');
+    await page.goto('/settings', { waitUntil: 'commit' });
     // Currently the app only has date format localization.
     // The task asks to "Verify if numerical decimal separators (comma vs. dot) are handled consistently 
     // across forms if localization settings are expanded in the future."
@@ -22,7 +22,7 @@ test.describe('Localization Persistence beyond Date Formats', () => {
     await expect(page.getByLabel(/date\/time format/i)).toBeVisible();
     
     // Check a form that uses numeric input, e.g., Plant Create
-    await page.goto('/plants/new');
+    await page.goto('/plants/new', { waitUntil: 'commit' });
     
     // In PlantCreate.jsx, "Min Dry Weight" is in the "Calculated" tab
     await page.getByRole('tab', { name: /calculated/i }).click();

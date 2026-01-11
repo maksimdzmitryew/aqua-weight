@@ -31,7 +31,7 @@ test.describe('Sparkline Edge Cases', () => {
     });
 
     // Go to Dashboard where Sparklines are shown
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     // Verify Sparkline is visible in a card
     // The Dashboard loads plants first, then measurements.
@@ -65,7 +65,7 @@ test.describe('Sparkline Edge Cases', () => {
           body: JSON.stringify(flatData),
         });
     });
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     const sparkline = page.locator('svg[role="img"][aria-label="sparkline"]').first();
     await expect(sparkline).toBeVisible();
@@ -80,8 +80,8 @@ test.describe('Sparkline Edge Cases', () => {
         body: JSON.stringify([]),
       });
     });
-    // Just re-trigger the load by navigating or clicking if possible, but dashboard might need reload to re-fetch
-    await page.goto('/dashboard'); 
+    // Just re-trigger the load by navigating
+    await page.goto('/dashboard', { waitUntil: 'commit' }); 
     
     // Cards with "Not enough data to chart" should be shown instead of Sparkline
     await expect(page.getByText(/not enough data to chart/i).first()).toBeVisible();

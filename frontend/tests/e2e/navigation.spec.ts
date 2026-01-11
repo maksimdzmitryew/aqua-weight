@@ -13,7 +13,7 @@ test.describe('Layout and Navigation', () => {
   });
 
   test('sidebar active states and navigation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/dashboard`);
+    await page.goto(`${ORIGIN}/dashboard`, { waitUntil: 'commit' });
     
     // Check if Overview is active
     await expect(page.getByRole('link', { name: /overview/i })).toHaveClass(/active/);
@@ -31,7 +31,7 @@ test.describe('Layout and Navigation', () => {
   });
 
   test('back to home navigation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/dashboard`);
+    await page.goto(`${ORIGIN}/dashboard`, { waitUntil: 'commit' });
     
     // Back to Home link in sidebar
     await page.getByRole('link', { name: /back to home/i }).click();
@@ -40,7 +40,7 @@ test.describe('Layout and Navigation', () => {
   });
 
   test('page header quick create navigation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/locations`);
+    await page.goto(`${ORIGIN}/locations`, { waitUntil: 'commit' });
     
     // PageHeader might have a plus button or "Create" text
     // In LocationsList.jsx: onCreate={() => navigate('/locations/new')}

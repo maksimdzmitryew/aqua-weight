@@ -12,7 +12,7 @@ test.describe('Bulk weight measurement', () => {
   test.beforeAll(async () => { await seed(ORIGIN); });
   test.afterAll(async () => { await cleanup(ORIGIN); });
   test.beforeEach(async ({ page }) => {
-    await page.goto('/measurements/bulk/weight');
+    await page.goto('/measurements/bulk/weight', { waitUntil: 'commit' });
   });
 
   test('success path', async ({ page }) => {

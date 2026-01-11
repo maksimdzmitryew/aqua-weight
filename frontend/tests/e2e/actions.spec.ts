@@ -12,7 +12,7 @@ test.describe('Specialized Creations', () => {
   });
 
   test('repotting: create and verify in plant details', async ({ page }) => {
-    await page.goto('/measurement/weight');
+    await page.goto('/measurement/weight', { waitUntil: 'commit' });
     // 1. Create a base weight measurement because backend requires a previous event for repotting
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('350');
@@ -20,7 +20,7 @@ test.describe('Specialized Creations', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
     // 2. Perform repotting
-    await page.goto('/measurement/repotting');
+    await page.goto('/measurement/repotting', { waitUntil: 'commit' });
     await expect(page.getByText('Repotting', { exact: true })).toBeVisible();
 
     const plantSelect = page.getByLabel(/plant/i);
@@ -41,14 +41,14 @@ test.describe('Specialized Creations', () => {
 
   test('single watering: create and verify in plant details', async ({ page }) => {
     // Use Seed Ivy to avoid conflict with Seed Fern from previous test
-    await page.goto('/measurement/weight');
+    await page.goto('/measurement/weight', { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Ivy' });
     await page.getByLabel(/measured weight \(g\)/i).fill('350');
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
     // 2. Perform watering
-    await page.goto('/measurement/watering');
+    await page.goto('/measurement/watering', { waitUntil: 'commit' });
     await expect(page.getByText('Watering', { exact: true })).toBeVisible();
 
     const plantSelect = page.getByLabel(/plant/i);

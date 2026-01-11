@@ -8,7 +8,7 @@ test.describe('Bulk Watering State', () => {
     const page = await browser.newPage();
     await seed(ORIGIN);
     // Setup: Seed Fern needs min_dry_weight and max_water_weight to calculate retained %
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
     await page.getByLabel(/recommended water threshold/i).fill('50');
@@ -18,7 +18,7 @@ test.describe('Bulk Watering State', () => {
     await expect(page).toHaveURL(/\/plants/);
 
     // Initial measurement to establish baseline
-    await page.goto(`${ORIGIN}/measurement/weight`);
+    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('225'); // 25% retained (25/100)
     await page.getByRole('button', { name: /save measurement/i }).click();
@@ -31,7 +31,7 @@ test.describe('Bulk Watering State', () => {
   });
 
   test('immediate deemphasis styling after bulk watering', async ({ page }) => {
-    await page.goto('/measurements/bulk/watering');
+    await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' });
     await page.getByLabel(/show all plants/i).check();
 
     const row = page.getByRole('row', { name: /seed fern/i });

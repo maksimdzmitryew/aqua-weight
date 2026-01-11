@@ -13,7 +13,7 @@ test.describe('Navigation State Persistence', () => {
   });
 
   test('search filter is preserved after navigating back from details', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
 
     // 1. Apply search filter

@@ -10,7 +10,7 @@ test.describe('Advanced Dashboard Interactivity', () => {
 
   test('suggested watering interval toggle and persistence', async ({ page }) => {
     await seed(ORIGIN);
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     
     const toggle = page.getByLabel(/show suggested watering interval/i);
     await expect(toggle).toBeChecked(); // Default should be checked
@@ -29,7 +29,7 @@ test.describe('Advanced Dashboard Interactivity', () => {
   test('empty state when no plants exist', async ({ page }) => {
     // Explicitly cleanup to ensure no plants
     await cleanup(ORIGIN);
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
 
     await expect(page.getByText(/no plants yet/i)).toBeVisible();
     

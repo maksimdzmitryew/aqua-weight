@@ -8,7 +8,7 @@ test.describe('Daily care', () => {
   test.afterAll(async () => { await cleanup(ORIGIN); });
 
   test('shows tasks that need watering and allows navigation to bulk actions', async ({ page }) => {
-    await page.goto('/daily');
+    await page.goto('/daily', { waitUntil: 'commit' });
 
     // Header should be visible
     await expect(page.getByRole('heading', { name: /daily care/i })).toBeVisible();

@@ -13,7 +13,7 @@ test.describe('Plants CRUD', () => {
 
   test('create plant → list shows plant → edit → delete', async ({ page }) => {
     // Go to plants list
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
 
     // Create Plant

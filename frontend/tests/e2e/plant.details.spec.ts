@@ -13,7 +13,7 @@ test.describe('Plant Details & Stats', () => {
 
   test('navigation, content verification and stats', async ({ page }) => {
     // 1. Navigation from Plants List
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     // Click on "Seed Fern" - assume it's there from minimal seed
     await page.getByRole('link', { name: 'Seed Fern' }).click();
     await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}/);
@@ -33,7 +33,7 @@ test.describe('Plant Details & Stats', () => {
     // Route for Stats is /stats/:uuid
     const url = page.url();
     const uuid = url.split('/').pop();
-    await page.goto(`/stats/${uuid}`);
+    await page.goto(`/stats/${uuid}`, { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: 'Seed Fern' })).toBeVisible();
     await expect(page.getByText(/Weight since last repotting/i)).toBeVisible();
     

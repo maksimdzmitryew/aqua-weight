@@ -9,7 +9,7 @@ test.describe('Dashboard Controls', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
   });
 
   test.afterAll(async () => {
@@ -18,31 +18,31 @@ test.describe('Dashboard Controls', () => {
 
   test('reference line toggles update sparkline', async ({ page }) => {
     // 1. Setup measurements on different days
-    await page.goto('/measurement/weight');
+    await page.goto('/measurement/weight', { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('300');
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
-    await expect(page.getByRole('button', { name: /save measurement/i })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/\/measurement\/weight/);
     
-    await page.goto('/measurement/weight');
+    await page.goto('/measurement/weight', { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('280');
     await page.getByLabel(/measured at/i).fill('2025-01-02T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
-    await expect(page.getByRole('button', { name: /save measurement/i })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
     // 2. Setup watering to establish max_water_weight_g
-    await page.goto('/measurement/watering');
+    await page.goto('/measurement/watering', { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/current weight/i).fill('500'); // last_wet_weight_g
     await page.getByLabel(/weight before watering/i).fill('280'); // last_dry_weight_g
     await page.getByLabel(/water added/i).fill('220');
     await page.getByRole('button', { name: /save watering/i }).click();
-    await expect(page.getByRole('button', { name: /save watering/i })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/\/measurement\/watering/);
 
     // 3. Go to Dashboard and verify sparkline
-    await page.goto('/dashboard');
+    await page.goto('/dashboard', { waitUntil: 'commit' });
     const sparkline = page.locator('svg').first();
     await expect(sparkline).toBeVisible({ timeout: 15000 });
 
@@ -83,7 +83,7 @@ test.describe('Dashboard Controls', () => {
     await expect(grid).toHaveAttribute('style', /grid-template-columns: repeat\(3,/);
     
     // Persistence check
-    await page.reload();
+    await page.reload({ waitUntil: 'commit' });
     await expect(page.getByLabel(/charts per row/i)).toHaveValue('3');
     await expect(grid).toHaveAttribute('style', /grid-template-columns: repeat\(3,/);
   });

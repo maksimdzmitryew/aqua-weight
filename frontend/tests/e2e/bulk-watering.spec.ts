@@ -12,7 +12,7 @@ test.describe('Bulk Watering', () => {
   });
 
   test('watering flow: filter, input value, and verify success', async ({ page }) => {
-    await page.goto('/measurements/bulk/watering');
+    await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /bulk watering/i })).toBeVisible();
 
     // 1. Initial State: "Seed Fern" should be visible because it needs water (retained NaN/0)

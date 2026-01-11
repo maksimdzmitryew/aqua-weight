@@ -13,7 +13,7 @@ test.describe('Form Validation', () => {
   });
 
   test('plant creation validation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/plants/new`);
+    await page.goto(`${ORIGIN}/plants/new`, { waitUntil: 'commit' });
     
     // Bypass browser validation to test application-level validation
     await page.locator('#name').evaluate(el => el.removeAttribute('required'));
@@ -31,7 +31,7 @@ test.describe('Form Validation', () => {
   });
 
   test('location creation validation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/locations/new`);
+    await page.goto(`${ORIGIN}/locations/new`, { waitUntil: 'commit' });
     
     await page.locator('#name').evaluate(el => el.removeAttribute('required'));
     
@@ -43,7 +43,7 @@ test.describe('Form Validation', () => {
   });
 
   test('measurement form validation', async ({ page }) => {
-    await page.goto(`${ORIGIN}/measurement/weight`);
+    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' });
     
     // The Select component for plant_id is usually a native select
     await page.getByLabel(/plant/i).evaluate(el => el.removeAttribute('required'));

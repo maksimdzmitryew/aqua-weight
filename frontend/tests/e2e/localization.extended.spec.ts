@@ -15,7 +15,7 @@ test.describe('Advanced Localization', () => {
   test.use({ locale: 'de-DE' }); // German locale uses comma as decimal separator
 
   test('numerical decimal separators (comma vs. dot) in inputs', async ({ page }) => {
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     
     // Create a new plant to test numeric input
     await page.getByRole('button', { name: /\+ create/i }).click();

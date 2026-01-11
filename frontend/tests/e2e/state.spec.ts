@@ -36,7 +36,7 @@ test.describe('Persistence & State Sync', () => {
 
   test('form dirty state and clear on navigate', async ({ page }) => {
     await seed(ORIGIN);
-    await page.goto('/locations/new');
+    await page.goto('/locations/new', { waitUntil: 'commit' });
     
     await page.getByLabel(/name/i).fill('Partial Name');
     

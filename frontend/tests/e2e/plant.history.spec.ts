@@ -14,14 +14,14 @@ test.describe('Plant History Management', () => {
 
   test('delete measurement from history table', async ({ page }) => {
     // 1. Create a measurement
-    await page.goto(`${ORIGIN}/measurement/weight`);
+    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' });
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('357');
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page.getByRole('button', { name: /save measurement/i })).toHaveCount(0);
 
     // 2. Go to Plant Details
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.getByText('Seed Fern').click();
     
     // Verify we are on details page
@@ -45,7 +45,7 @@ test.describe('Plant History Management', () => {
   });
 
   test('quick action buttons from details page', async ({ page }) => {
-    await page.goto(`${ORIGIN}/plants`);
+    await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' });
     await page.getByText('Seed Fern').click();
     
     // Click "Watering" quick action
