@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
@@ -52,7 +52,7 @@ describe('pages/BulkWatering', () => {
 
     // Toggle "Show all plants"
     const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    await userEvent.click(toggle)
+    fireEvent.click(toggle) // uncheck
 
     // Both rows appear
     expect(await screen.findByText('Monstera')).toBeInTheDocument()
@@ -74,26 +74,23 @@ describe('pages/BulkWatering', () => {
     const input = within(row).getByRole('spinbutton')
 
     // Enter negative → error status (no request should be sent by page logic)
-    await userEvent.clear(input)
-    await userEvent.type(input, '-5')
-    await userEvent.tab() // blur
+    fireEvent.change(input, { target: { value: '-5' } })
+    fireEvent.blur(input)
     expect(input.className).toMatch(/bg-error/)
 
     // Enter valid number and blur → create path; badge text should update from 20% to 40% (per handler)
-    await userEvent.clear(input)
-    await userEvent.type(input, '123')
-    await userEvent.tab()
+    fireEvent.change(input, { target: { value: '123' } })
+    fireEvent.blur(input)
     // Success styling applied
-    expect(input.className).toMatch(/bg-success/)
+    await waitFor(() => expect(input.className).toMatch(/bg-success/))
     // Updated retained percentage in the same row
-    expect(within(row).getByText(/40%/)).toBeInTheDocument()
+    expect(await within(row).findByText(/40%/)).toBeInTheDocument()
 
     // Second commit triggers update path → retained becomes 42%
-    await userEvent.click(input)
-    await userEvent.clear(input)
-    await userEvent.type(input, '124')
-    await userEvent.tab()
-    expect(within(row).getByText(/42%/)).toBeInTheDocument()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '124' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/42%/)).toBeInTheDocument()
   })
 
   test('shows error when plants API fails to load', async () => {
@@ -109,12 +106,11 @@ describe('pages/BulkWatering', () => {
   test('clicking plant name navigates to plant details using handleView', async () => {
     renderPage()
     const aloe = await screen.findByText('Aloe')
-    await userEvent.click(aloe)
+    fireEvent.click(aloe)
     expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
   })
 
   test('handles wrapped API response {status, data} and logs on error in update path', async () => {
-    const user = userEvent.setup()
     // First, wrap POST response
     server.use(
       http.post('/api/measurements/watering', async ({ request }) => {
@@ -138,10 +134,9 @@ describe('pages/BulkWatering', () => {
     const row = aloeCell.closest('tr')
     const input = within(row).getByRole('spinbutton')
 
-    await user.clear(input)
-    await user.type(input, '130')
-    await user.tab()
-    expect(within(row).getByText(/55%/)).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: '130' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/55%/)).toBeInTheDocument()
 
     // Now make PUT fail to exercise catch path
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -149,12 +144,11 @@ describe('pages/BulkWatering', () => {
       http.put('/api/measurements/watering/:id', () => HttpResponse.json({ message: 'boom' }, { status: 500 }))
     )
 
-    await user.click(input)
-    await user.clear(input)
-    await user.type(input, '131')
-    await user.tab()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '131' } })
+    fireEvent.blur(input)
 
-    expect(errSpy).toHaveBeenCalled()
+    await waitFor(() => expect(errSpy).toHaveBeenCalled())
     errSpy.mockRestore()
   })
 
@@ -183,15 +177,16 @@ describe('pages/BulkWatering', () => {
     const row = cactus.closest('tr')
     const input = within(row).getByRole('spinbutton')
 
-    await userEvent.clear(input)
-    await userEvent.type(input, '200')
-    await userEvent.tab()
+    fireEvent.change(input, { target: { value: '200' } })
+    fireEvent.blur(input)
 
     // Updated column should display a formatted date (not the empty placeholder)
     // Find the Updated cell (it has DateTimeText inside). We assert that it doesn't show the empty symbol.
-    const cells = within(row).getAllByRole('cell')
-    const updatedCell = cells[cells.length - 1]
-    expect(updatedCell.textContent?.trim()).not.toBe('—')
+    await waitFor(() => {
+      const cells = within(row).getAllByRole('cell')
+      const updatedCell = cells[cells.length - 1]
+      expect(updatedCell.textContent?.trim()).not.toBe('—')
+    })
   })
 
   test('update response missing metrics keeps previous values (nullish coalescing branches)', async () => {
@@ -216,16 +211,14 @@ describe('pages/BulkWatering', () => {
     const input = within(row).getByRole('spinbutton')
 
     // First commit (POST) sets retained to 40%
-    await userEvent.clear(input)
-    await userEvent.type(input, '200')
-    await userEvent.tab()
-    expect(within(row).getByText(/40%/)).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: '200' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/40%/)).toBeInTheDocument()
 
     // Second commit (PUT) omits metrics, so retained in UI should remain 40%
-    await userEvent.click(input)
-    await userEvent.clear(input)
-    await userEvent.type(input, '201')
-    await userEvent.tab()
-    expect(within(row).getByText(/40%/)).toBeInTheDocument()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '201' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/40%/)).toBeInTheDocument()
   })
 })

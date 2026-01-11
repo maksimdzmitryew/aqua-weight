@@ -36,8 +36,6 @@ describe('pages/Settings', () => {
     window.localStorage.setItem('displayName', 'Alice')
     window.localStorage.setItem('dtFormat', 'europe')
 
-    const user = userEvent.setup()
-
     renderPage()
 
     const name = screen.getByLabelText(/display name/i)
@@ -47,12 +45,11 @@ describe('pages/Settings', () => {
     expect(dt).toHaveValue('europe')
 
     // change values
-    await user.clear(name)
-    await user.type(name, 'Bob')
-    await user.selectOptions(dt, 'usa')
+    fireEvent.change(name, { target: { value: 'Bob' } })
+    fireEvent.change(dt, { target: { value: 'usa' } })
 
     // submit form
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     // success message appears
     expect(screen.getByText('Saved!')).toBeInTheDocument()
 
@@ -65,35 +62,33 @@ describe('pages/Settings', () => {
   })
 
   test('changing theme select persists theme via ThemeProvider', async () => {
-    const user = userEvent.setup()
     renderPage()
 
     const theme = screen.getByLabelText(/theme/i)
     // default is whatever provider picked (localStorage or light); change to dark
-    await user.selectOptions(theme, 'dark')
+    fireEvent.change(theme, { target: { value: 'dark' } })
     // ThemeProvider persists to localStorage in effect
     expect(window.localStorage.getItem('theme')).toBe('dark')
 
     // Change to system as well
-    await user.selectOptions(theme, 'system')
+    fireEvent.change(theme, { target: { value: 'system' } })
     expect(window.localStorage.getItem('theme')).toBe('system')
   })
 
   test('operation mode selection is applied and persisted on save', async () => {
-    const user = userEvent.setup()
     renderPage()
 
     const operation = screen.getByLabelText(/operation mode/i)
     // change to vacation
-    await user.selectOptions(operation, 'vacation')
+    fireEvent.change(operation, { target: { value: 'vacation' } })
     // save
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     // persisted via the save handler
     expect(window.localStorage.getItem('operationMode')).toBe('vacation')
 
     // change to automatic
-    await user.selectOptions(operation, 'automatic')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(operation, { target: { value: 'automatic' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(window.localStorage.getItem('operationMode')).toBe('automatic')
   })
 

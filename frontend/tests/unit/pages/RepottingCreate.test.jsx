@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import RepottingCreate from '../../../src/pages/RepottingCreate.jsx'
@@ -13,6 +12,94 @@ const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return { __esModule: true, ...actual, useNavigate: () => mockNavigate }
+})
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
+  default: ({ label, form, name, required }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="datetime-local"
+        {...form.register(name)}
+        required={required}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
+  default: ({ label, form, name, children, required, disabled }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <select
+        id={name}
+        {...form.register(name)}
+        required={required}
+        disabled={disabled}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
+  default: ({ label, form, name, min }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="number"
+        min={min}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
+  default: ({ label, form, name, placeholder }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="text"
+        placeholder={placeholder}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    nowLocalISOMinutes: () => '2025-01-10T23:00',
+    toLocalISOMinutes: (val) => val ? val.substring(0, 16) : ''
+  }
 })
 
 function renderWithRouter(initialEntries) {
@@ -44,7 +131,7 @@ describe('pages/RepottingCreate', () => {
   })
 
   test('create flow: preselects plant from query, submits and navigates to plant page', async () => {
-    const user = userEvent.setup()
+    
     let captured = null
     server.use(
       http.post('/api/measurements/repotting', async ({ request }) => {
@@ -60,16 +147,14 @@ describe('pages/RepottingCreate', () => {
 
     // Numeric fields are optional now; still fill them here to assert number conversion
     const weightBefore = screen.getByLabelText(/weight before repotting/i)
-    await user.clear(weightBefore)
-    await user.type(weightBefore, '200')
+    fireEvent.change(weightBefore, { target: { value: '200' } })
 
     const lastWet = screen.getByLabelText(/weight after repotting/i)
-    await user.clear(lastWet)
-    await user.type(lastWet, '350')
+    fireEvent.change(lastWet, { target: { value: '350' } })
 
     const submit = screen.getByRole('button', { name: /save repotting/i })
     await waitFor(() => expect(submit).not.toBeDisabled())
-    await user.click(submit)
+    fireEvent.click(submit)
 
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/p2'))
     expect(captured).toEqual(expect.objectContaining({
@@ -80,7 +165,7 @@ describe('pages/RepottingCreate', () => {
   })
 
   test('edit flow: loads existing by id, updates via PUT and navigates', async () => {
-    const user = userEvent.setup()
+    
     server.use(
       http.get('/api/measurements/:id', ({ params }) => {
         expect(params.id).toBe('77')
@@ -108,19 +193,17 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/edit?id=77'])
 
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
-    await user.clear(weightBefore)
-    await user.type(weightBefore, '123')
+    fireEvent.change(weightBefore, { target: { value: '123' } })
 
     const lastWet = screen.getByLabelText(/weight after repotting/i)
-    await user.clear(lastWet)
-    await user.type(lastWet, '456')
+    fireEvent.change(lastWet, { target: { value: '456' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/p1'))
   })
 
   test('edit flow: allows blank numeric fields mapping to nulls in payload', async () => {
-    const user = userEvent.setup()
+    
     let putBody = null
     server.use(
       http.get('/api/measurements/:id', () => HttpResponse.json({
@@ -140,11 +223,11 @@ describe('pages/RepottingCreate', () => {
 
     // Clear both numeric inputs to hit null branches
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
-    await user.clear(weightBefore)
+    fireEvent.change(weightBefore, { target: { value: '' } })
     const lastWet = screen.getByLabelText(/weight after repotting/i)
-    await user.clear(lastWet)
+    fireEvent.change(lastWet, { target: { value: '' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
 
     await waitFor(() => expect(putBody).not.toBeNull())
     expect(putBody).toEqual(expect.objectContaining({
@@ -218,7 +301,7 @@ describe('pages/RepottingCreate', () => {
   })
 
   test('edit flow: save error shows server message (update branch)', async () => {
-    const user = userEvent.setup()
+    
     server.use(
       http.get('/api/measurements/:id', () => HttpResponse.json({
         id: 42,
@@ -233,18 +316,18 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/edit?id=42'])
 
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
-    await user.clear(weightBefore)
-    await user.type(weightBefore, '11')
+    fireEvent.change(weightBefore, { target: { value: '' } })
+    fireEvent.change(weightBefore, { target: { value: '11' } })
     const lastWet = screen.getByLabelText(/weight after repotting/i)
-    await user.clear(lastWet)
-    await user.type(lastWet, '22')
+    fireEvent.change(lastWet, { target: { value: '' } })
+    fireEvent.change(lastWet, { target: { value: '22' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
     expect(await screen.findByText(/bad/i)).toBeInTheDocument()
   })
 
   test('edit flow: update error without message falls back to generic', async () => {
-    const user = userEvent.setup()
+    
     server.use(
       http.get('/api/measurements/:id', () => HttpResponse.json({
         id: 44,
@@ -261,14 +344,14 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/edit?id=44'])
     // Ensure submit is enabled and click it (no need to change values)
     await screen.findByLabelText(/plant/i)
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
 
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 
   test('save error shows generic message', async () => {
-    const user = userEvent.setup()
+    
     // Plants load succeeds (default handler), but save fails
     server.use(
       http.post('/api/measurements/repotting', () => HttpResponse.text('boom', { status: 500 }))
@@ -279,28 +362,28 @@ describe('pages/RepottingCreate', () => {
     const plantSelect = await screen.findByLabelText(/plant/i)
     // Wait until the options are populated (beyond the placeholder)
     await screen.findByRole('option', { name: /aloe/i })
-    await user.selectOptions(plantSelect, 'p1')
+    fireEvent.change(plantSelect, { target: { value: 'p1' } })
     const weightBefore = screen.getByLabelText(/weight before repotting/i)
-    await user.clear(weightBefore)
-    await user.type(weightBefore, '1')
+    fireEvent.change(weightBefore, { target: { value: '' } })
+    fireEvent.change(weightBefore, { target: { value: '1' } })
     const lastWet = screen.getByLabelText(/weight after repotting/i)
-    await user.clear(lastWet)
-    await user.type(lastWet, '2')
+    fireEvent.change(lastWet, { target: { value: '' } })
+    fireEvent.change(lastWet, { target: { value: '2' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
     // ApiError message is derived from response text 'boom'
     expect(await screen.findByText(/boom/i)).toBeInTheDocument()
   })
 
   test('cancel navigates back to /plants and button disabled when form incomplete', async () => {
-    const user = userEvent.setup()
+    
     renderWithRouter(['/repotting/new'])
 
     const submit = await screen.findByRole('button', { name: /save repotting/i })
     expect(submit).toBeDisabled()
 
     const cancel = screen.getByRole('button', { name: /cancel/i })
-    await user.click(cancel)
+    fireEvent.click(cancel)
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 
@@ -324,7 +407,7 @@ describe('pages/RepottingCreate', () => {
   })
 
   test('create flow: allows blank numeric fields and posts nulls in payload (branch for ternaries)', async () => {
-    const user = userEvent.setup()
+    
     let captured = null
     server.use(
       http.post('/api/measurements/repotting', async ({ request }) => {
@@ -337,11 +420,11 @@ describe('pages/RepottingCreate', () => {
 
     // Select plant, leave numbers blank
     const plantSelect = await screen.findByLabelText(/plant/i)
-    await user.selectOptions(plantSelect, 'p1')
+    fireEvent.change(plantSelect, { target: { value: 'p1' } })
 
     const submit = screen.getByRole('button', { name: /save repotting/i })
     await waitFor(() => expect(submit).not.toBeDisabled())
-    await user.click(submit)
+    fireEvent.click(submit)
 
     await waitFor(() => expect(captured).not.toBeNull())
     expect(captured).toEqual(expect.objectContaining({
@@ -352,23 +435,23 @@ describe('pages/RepottingCreate', () => {
   })
 
   test('create flow: error without message falls back to generic message (catch branch)', async () => {
-    const user = userEvent.setup()
+    
     // Mock the module function to throw an error-like object without a message
     const mod = await vi.importActual('../../../src/api/measurements')
     const spy = vi.spyOn(mod.measurementsApi.repotting, 'create').mockRejectedValueOnce({})
 
     renderWithRouter(['/repotting/new'])
     const plantSelect = await screen.findByLabelText(/plant/i)
-    await user.selectOptions(plantSelect, 'p2')
+    fireEvent.change(plantSelect, { target: { value: 'p2' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
 
     spy.mockRestore()
   })
 
   test('dark theme branch and measured_at onChange handler are covered', async () => {
-    const user = userEvent.setup()
+    
     try { localStorage.setItem('theme', 'dark') } catch {}
 
     let captured = null
@@ -383,14 +466,14 @@ describe('pages/RepottingCreate', () => {
 
     // Select plant to enable submit
     const plantSelect = await screen.findByLabelText(/plant/i)
-    await user.selectOptions(plantSelect, 'p1')
+    fireEvent.change(plantSelect, { target: { value: 'p1' } })
 
     // Change measured_at to ensure onChange branch executed
     const measuredAt = screen.getByLabelText(/measured at/i)
-    await user.clear(measuredAt)
-    await user.type(measuredAt, '2025-02-02T12:34')
+    fireEvent.change(measuredAt, { target: { value: '' } })
+    fireEvent.change(measuredAt, { target: { value: '2025-02-02T12:34' } })
 
-    await user.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
 
     await waitFor(() => expect(captured).not.toBeNull())
     expect(captured.measured_at).toBe('2025-02-02T12:34')

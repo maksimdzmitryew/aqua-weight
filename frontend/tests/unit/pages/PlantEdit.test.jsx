@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, within, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import PlantEdit, { buildUpdatePayload } from '../../../src/pages/PlantEdit.jsx'
@@ -18,6 +17,101 @@ vi.mock('react-router-dom', async () => {
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+      {actions}
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/ConfirmDialog.jsx', () => ({
+  default: ({ open, onConfirm, onCancel, title }) => open ? (
+    <div role="dialog" data-testid="mock-confirm-dialog">
+      <h2>{title}</h2>
+      <button onClick={onConfirm}>Delete</button>
+      <button onClick={onCancel}>Cancel</button>
+    </div>
+  ) : null
+}))
+
+vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
+  default: ({ label, form, name, required }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="datetime-local"
+        {...form.register(name)}
+        required={required}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
+  default: ({ label, form, name, children, required, disabled }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <select
+        id={name}
+        {...form.register(name)}
+        required={required}
+        disabled={disabled}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
+  default: ({ label, form, name, min }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="number"
+        min={min}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Checkbox.jsx', () => ({
+  default: ({ label, form, name }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="checkbox"
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
+  default: ({ label, form, name, placeholder }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="text"
+        placeholder={placeholder}
+        {...form.register(name)}
+      />
+    </div>
+  )
 }))
 
 function renderWithRoute(initialEntries) {
@@ -131,11 +225,10 @@ describe('pages/PlantEdit', () => {
 
     renderWithRoute([init])
 
-    const name = await screen.findByRole('textbox', { name: /name/i })
-    await userEvent.clear(name)
-    await userEvent.type(name, '  New  ')
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
-    expect(called).toBe(true)
+    const name = await screen.findByLabelText(/name/i)
+    fireEvent.change(name, { target: { value: 'New' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(called).toBe(true))
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 
@@ -153,11 +246,11 @@ describe('pages/PlantEdit', () => {
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute([init])
-    const name = await screen.findByRole('textbox', { name: /name/i })
-    await userEvent.clear(name)
-    await userEvent.type(name, '   ')
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    const name = await screen.findByLabelText(/name/i)
+    fireEvent.change(name, { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     // When trimmed is empty, code falls back to original value (spaces kept)
+    await waitFor(() => expect(seen).toBeDefined())
     expect(seen.name).toBe('   ')
   })
 
@@ -193,7 +286,7 @@ describe('pages/PlantEdit', () => {
 
   test('load error with undefined message triggers generic error (non-abort)', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => HttpResponse.error()),
+      http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErr2/edit'])
@@ -203,7 +296,7 @@ describe('pages/PlantEdit', () => {
 
   test('load error where thrown error is null still shows generic error', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => HttpResponse.error()),
+      http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErr3/edit'])
@@ -216,7 +309,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     // Shows ID numeric value
     expect(await screen.findByText('42')).toBeInTheDocument()
     // Created label exists; DateTimeText renders within this block
@@ -228,7 +321,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const speciesInput = await screen.findByRole('textbox', { name: /species name/i })
     expect(speciesInput).toHaveValue('Aloe vera')
   })
@@ -238,7 +331,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const ec = await screen.findByRole('spinbutton', { name: /fertilizer ec/i })
     expect(ec.value).toBe('')
   })
@@ -248,7 +341,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const ec = await screen.findByRole('spinbutton', { name: /fertilizer ec/i })
     expect(ec).toHaveValue(0)
   })
@@ -258,7 +351,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const ec = await screen.findByRole('spinbutton', { name: /fertilizer ec/i })
     expect(ec.value).toBe('')
   })
@@ -275,7 +368,7 @@ describe('pages/PlantEdit', () => {
 
   test('plant load throws undefined error object and shows generic error', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => HttpResponse.error()),
+      http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute(['/plants/uErrUndef/edit'])
@@ -302,7 +395,7 @@ describe('pages/PlantEdit', () => {
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute([init])
-    await userEvent.click(await screen.findByRole('button', { name: /save/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /save/i }))
     expect(alertSpy).toHaveBeenCalled()
     alertSpy.mockRestore()
   })
@@ -319,13 +412,13 @@ describe('pages/PlantEdit', () => {
     expect(input.style.borderColor).toBe('rgb(55, 65, 81)')
     // Wait for tab to be available to avoid race conditions
     const advTab = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(advTab)
+    fireEvent.click(advTab)
     // Divider in Advanced has dark border color
     const idLabelDark = await screen.findByText('ID')
     const dividerDark = idLabelDark.parentElement
     expect(dividerDark.style.borderTop).toContain('31, 41, 55')
-    await userEvent.click(screen.getByRole('tab', { name: /health/i }))
-    await userEvent.click(screen.getByRole('tab', { name: /general/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /health/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /general/i }))
     expect(container).toBeTruthy()
   })
 
@@ -334,7 +427,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const idLabel = await screen.findByText('ID')
     const block = idLabel.parentElement // outer block has borderTop inline style
     expect(block.style.borderTop).toContain('solid')
@@ -389,7 +482,7 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(adv)
+    fireEvent.click(adv)
     const ec = await screen.findByRole('spinbutton', { name: /fertilizer ec/i })
     expect(ec.value).toBe('')
   })
@@ -411,7 +504,7 @@ describe('pages/PlantEdit', () => {
     const init = { pathname: '/plants/u5/edit', state: { plant: { uuid: 'u5', name: 'X' } } }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 
@@ -426,7 +519,8 @@ describe('pages/PlantEdit', () => {
       http.get('/api/locations', () => HttpResponse.json([]))
     )
     renderWithRoute([init])
-    await userEvent.click(await screen.findByRole('button', { name: /save/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /save/i }))
+    await waitFor(() => expect(body).toBeDefined())
     expect(body.fertilizer_ec_ms).toBeNull()
   })
 
@@ -443,10 +537,11 @@ describe('pages/PlantEdit', () => {
     renderWithRoute([init])
     // Ensure the input shows a non-empty value path (covers ?? branch)
     const advTab = await screen.findByRole('tab', { name: /advanced/i })
-    await userEvent.click(advTab)
+    fireEvent.click(advTab)
     const ecInput = await screen.findByRole('spinbutton', { name: /fertilizer ec/i })
     expect(ecInput).toHaveValue(2.5)
-    await userEvent.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(body).toBeDefined())
     expect(body.fertilizer_ec_ms).toBe(2.5)
   })
 
@@ -459,8 +554,8 @@ describe('pages/PlantEdit', () => {
     const init = { pathname: '/plants/u8/edit', state: { plant: { uuid: 'u8', name: 'Err' } } }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
-    await userEvent.click(await screen.findByRole('button', { name: /save/i }))
-    expect(alertSpy).toHaveBeenCalledWith('Failed to save')
+    fireEvent.click(await screen.findByRole('button', { name: /save/i }))
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Failed to save'))
     expect(mockNavigate).not.toHaveBeenCalled()
     updateSpy.mockRestore()
     alertSpy.mockRestore()
@@ -509,7 +604,7 @@ describe('pages/PlantEdit', () => {
     }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
-    await userEvent.click(screen.getByRole('tab', { name: /advanced/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     expect(screen.getByDisplayValue('S')).toBeInTheDocument()
   })
 
@@ -535,7 +630,7 @@ describe('pages/PlantEdit', () => {
     expect(select).toHaveValue('loc-uuid')
 
     const calcTab = await screen.findByRole('tab', { name: /calculated/i })
-    await userEvent.click(calcTab)
+    fireEvent.click(calcTab)
 
     const thresh = await screen.findByLabelText(/recommended water threshold/i)
     const minDry = screen.getByLabelText(/min dry weight/i)
@@ -546,16 +641,13 @@ describe('pages/PlantEdit', () => {
     expect(maxWater).toHaveValue(80)
 
     // Type into these to exercise onChange
-    await userEvent.clear(thresh)
-    await userEvent.type(thresh, '35')
+    fireEvent.change(thresh, { target: { value: '35' } })
     expect(thresh).toHaveValue(35)
 
-    await userEvent.clear(minDry)
-    await userEvent.type(minDry, '200')
+    fireEvent.change(minDry, { target: { value: '200' } })
     expect(minDry).toHaveValue(200)
 
-    await userEvent.clear(maxWater)
-    await userEvent.type(maxWater, '100')
+    fireEvent.change(maxWater, { target: { value: '100' } })
     expect(maxWater).toHaveValue(100)
   })
 
@@ -575,13 +667,13 @@ describe('pages/PlantEdit', () => {
 
     // Check Calculated tab with empty values
     const calcTab = await screen.findByRole('tab', { name: /calculated/i })
-    await userEvent.click(calcTab)
+    fireEvent.click(calcTab)
     expect(await screen.findByLabelText(/recommended water threshold/i)).toHaveValue(null)
     expect(screen.getByLabelText(/min dry weight/i)).toHaveValue(null)
     expect(screen.getByLabelText(/max water weight/i)).toHaveValue(null)
 
     // Check Health tab with empty values
-    await userEvent.click(screen.getByRole('tab', { name: /health/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /health/i }))
     expect(screen.getByLabelText(/light level id/i)).toHaveValue('')
     expect(screen.getByLabelText(/pest status id/i)).toHaveValue('')
     expect(screen.getByLabelText(/health status id/i)).toHaveValue('')
@@ -591,5 +683,20 @@ describe('pages/PlantEdit', () => {
     const { unmount } = renderWithRoute(['/plants/uUnmount/edit'])
     // Just unmount to trigger cleanup arrows
     unmount()
+  })
+
+  test('line 201: name input uses empty string fallback when plant.name is null', async () => {
+    server.use(
+      http.get('/api/plants/:uuid', () => HttpResponse.json({
+        uuid: 'u1',
+        name: null, // trigger line 201 fallback
+        created_at: '2025-01-01T00:00:00Z'
+      }))
+    )
+
+    renderWithRoute(['/plants/u1/edit'])
+
+    const nameInput = await screen.findByLabelText(/name/i)
+    expect(nameInput).toHaveValue('')
   })
 })

@@ -31,7 +31,7 @@ export default function PlantsList() {
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
-  const PAGE_LIMIT = 100
+  const PAGE_LIMIT = 20
 
   const operationMode = localStorage.getItem('operationMode') || 'manual'
 

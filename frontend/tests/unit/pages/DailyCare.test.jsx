@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import DailyCare from '../../../src/pages/DailyCare.jsx'
@@ -20,30 +20,95 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children, title }) => (
+    <div data-testid="mock-dashboard-layout">
+      <h1>{title}</h1>
+      {children}
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, onCreate, onRefresh, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Dashboard</button>
+      {onRefresh && <button onClick={onRefresh}>Refresh</button>}
+      {onCreate && <button onClick={onCreate}>Create</button>}
+      {actions}
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/IconButton.jsx', () => ({
+  default: ({ onClick, label, icon }) => (
+    <button onClick={onClick} aria-label={label} data-icon={icon}>
+      {label}
+    </button>
+  )
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
+  default: ({ title }) => (
+    <div role="note" data-testid="empty-state">
+      <h3>{title}</h3>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/StatusIcon.jsx', () => ({
+  default: ({ type, active }) => <div role="img" aria-label={active ? (type === 'measure' ? 'Needs measurement' : 'Needs watering') : (type === 'measure' ? 'No measurement needed' : 'No watering needed')} />
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    formatDateTime: (val) => val
+  }
+})
+
 function renderPage() {
   return render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <DailyCare />
-      </MemoryRouter>
-    </ThemeProvider>
+    <MemoryRouter>
+      <DailyCare />
+    </MemoryRouter>
   )
 }
 
 test('shows tasks table with measure/water indicators', async () => {
-  // default MSW handlers provide two plants; one will need water (20%), both need measurement (>18h)
+  // provide one plant that needs both water and measurement
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([
+      {
+        uuid: 'u1', id: 1, name: 'Aloe', latest_at: '2020-01-01T00:00:00', water_retained_pct: 10, recommended_water_threshold_pct: 30,
+      }
+    ]))
+  )
   renderPage()
 
   // Table should appear once loaded
   const table = await screen.findByRole('table')
   const rows = within(table).getAllByRole('row')
-  // header + 2 items
-  expect(rows.length).toBeGreaterThanOrEqual(3)
+  // header + 1 item
+  expect(rows.length).toBe(2)
 
   // Check accessible names on status icons (role="img")
-  // There should be icons for measurement state, and at least one for watering needed
-  expect(await screen.findAllByRole('img', { name: /Needs measurement|No measurement needed/ })).toBeTruthy()
-  expect(await screen.findByRole('img', { name: 'Needs watering' })).toBeInTheDocument()
+  expect(await screen.findByRole('img', { name: 'Needs measurement' })).toBeInTheDocument()
+  expect(screen.getByRole('img', { name: 'Needs watering' })).toBeInTheDocument()
 })
 
 test('renders empty state when no tasks are due', async () => {
@@ -88,7 +153,6 @@ test("shows default error message when API rejects without message", async () =>
 })
 
 test('header actions: refresh reloads data; buttons navigate and show counts', async () => {
-  const user = userEvent.setup()
   // First response: two plants, one needs water and measurement; another only needs measurement
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
@@ -112,10 +176,10 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
   expect(waterBtn.textContent).toMatch(/\(1\)/)
 
   // Navigate via buttons
-  await user.click(weightBtn)
+  fireEvent.click(weightBtn)
   expect(mockNavigate).toHaveBeenCalledWith('/measurements/bulk/weight')
   mockNavigate.mockClear()
-  await user.click(waterBtn)
+  fireEvent.click(waterBtn)
   expect(mockNavigate).toHaveBeenCalledWith('/measurements/bulk/watering')
 
   // Now change server response and click refresh to re-load
@@ -125,7 +189,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
     ]))
   )
   const refreshBtn = screen.getByRole('button', { name: /refresh/i })
-  await user.click(refreshBtn)
+  fireEvent.click(refreshBtn)
   // Empty state now (no tasks due)
   expect(await screen.findByRole('note')).toHaveTextContent(/No tasks for today/i)
 })
@@ -219,7 +283,7 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
   // Wait for header to be present and click the back button
   // The button text is "← Dashboard"; match by the titleBack part to be robust
   const backBtn = await screen.findByRole('button', { name: /Dashboard/i })
-  await userEvent.click(backBtn)
+  fireEvent.click(backBtn)
   expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
 
   unmount()

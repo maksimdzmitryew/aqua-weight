@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, within, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import LocationsList from '../../../src/pages/LocationsList.jsx'
@@ -19,6 +18,28 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
 }))
 
+vi.mock('../../../src/components/ConfirmDialog.jsx', () => ({
+  default: ({ open, onConfirm, onCancel, title }) => open ? (
+    <div role="dialog" data-testid="mock-confirm-dialog">
+      <h2>{title}</h2>
+      <button onClick={onConfirm}>Delete</button>
+      <button onClick={onCancel}>Cancel</button>
+    </div>
+  ) : null
+}))
+
+vi.mock('../../../src/components/IconButton.jsx', () => ({
+  default: ({ onClick, label, icon }) => (
+    <button onClick={onClick} aria-label={label} data-icon={icon}>
+      {label}
+    </button>
+  )
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
   default: ({ onBack, onCreate, title }) => (
     <div data-testid="mock-page-header">
@@ -27,6 +48,10 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onCreate}>Create</button>
     </div>
   )
+}))
+
+vi.mock('../../../src/utils/datetime.js', () => ({
+  formatDateTime: (val) => val
 }))
 
 function renderPage(initialEntries) {
@@ -76,12 +101,12 @@ describe('pages/LocationsList', () => {
 
     // Header back and create buttons
     const backBtn = screen.getByRole('button', { name: /dashboard/i })
-    await userEvent.click(backBtn)
+    fireEvent.click(backBtn)
     // navigate called to /dashboard (assertions in parent tests may have mocked navigate)
     // We cannot assert here without a mock; at least click should not throw
 
     const createBtn = screen.getByRole('button', { name: /create/i })
-    await userEvent.click(createBtn)
+    fireEvent.click(createBtn)
 
     replaceSpy.mockRestore()
   })
@@ -163,9 +188,9 @@ describe('pages/LocationsList', () => {
     renderPage()
 
     expect(await screen.findByText('NoId')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /delete location noid/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete location noid/i }))
     const dlg1 = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
     expect(await screen.findByText(/cannot delete this location: missing identifier/i)).toBeInTheDocument()
 
     // 2) API error case
@@ -177,9 +202,9 @@ describe('pages/LocationsList', () => {
     )
     renderPage()
     expect(await screen.findByText('X')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /delete location x/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete location x/i }))
     const dlg2 = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg2).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg2).getByRole('button', { name: /delete/i }))
     // Row remains after failure
     expect(await screen.findByText('X')).toBeInTheDocument()
     // Error message from server surfaces in saveError
@@ -194,9 +219,9 @@ describe('pages/LocationsList', () => {
     )
     renderPage()
     expect(await screen.findByText('Y')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /delete location y/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete location y/i }))
     const dlg3 = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg3).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg3).getByRole('button', { name: /delete/i }))
     // Row should disappear → fall back row text is shown
     await screen.findByText('No locations found')
   })
@@ -214,7 +239,7 @@ describe('pages/LocationsList', () => {
 
     // Load then click View → alert called with details string
     expect(await screen.findByText('Old')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /view location old/i }))
+    fireEvent.click(screen.getByRole('button', { name: /view location old/i }))
     expect(alertSpy).toHaveBeenCalled()
     const msg = alertSpy.mock.calls[0][0]
     expect(String(msg)).toContain('Location #10')
@@ -235,7 +260,7 @@ describe('pages/LocationsList', () => {
     expect(await screen.findByText('To Edit')).toBeInTheDocument()
 
     // Click Edit action
-    await userEvent.click(screen.getByRole('button', { name: /edit location to edit/i }))
+    fireEvent.click(screen.getByRole('button', { name: /edit location to edit/i }))
 
     expect(mockNavigate).toHaveBeenCalled()
     const [path, opts] = mockNavigate.mock.calls[0]
@@ -404,7 +429,7 @@ describe('pages/LocationsList', () => {
         </MemoryRouter>
       </ThemeProvider>
     )
-    await userEvent.click(await screen.findByRole('button', { name: /trigger-confirm/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /trigger-confirm/i }))
     expect(removeSpy).not.toHaveBeenCalled()
     // cleanup mocks so they don't affect other tests
     vi.resetModules()
@@ -421,7 +446,7 @@ describe('pages/LocationsList', () => {
     )
     renderPage()
     expect(await screen.findByText('NoDesc')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /view location nodesc/i }))
+    fireEvent.click(screen.getByRole('button', { name: /view location nodesc/i }))
     const msg = String(alertSpy.mock.calls[0][0])
     expect(msg).toContain('—')
     alertSpy.mockRestore()
@@ -476,9 +501,9 @@ describe('pages/LocationsList', () => {
       </ThemeProvider>
     )
     expect(await screen.findByText('Del')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /delete location del/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete location del/i }))
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     // Assert generic fallback or any status-derived message is surfaced
     expect(await screen.findByText(/failed to delete location|internal server error|500/i)).toBeInTheDocument()
     // Row remains
@@ -524,9 +549,9 @@ describe('pages/LocationsList', () => {
     )
 
     expect(await screen.findByText('Row')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /delete location row/i }))
+    fireEvent.click(screen.getByRole('button', { name: /delete location row/i }))
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
 
     // The specific error message should be surfaced as saveError
     expect(await screen.findByText(/kaboom/i)).toBeInTheDocument()

@@ -1,6 +1,5 @@
 import React from 'react'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import WateringCreate from '../../../src/pages/WateringCreate.jsx'
@@ -13,6 +12,94 @@ const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return { __esModule: true, ...actual, useNavigate: () => mockNavigate }
+})
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
+  default: ({ label, form, name, required }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="datetime-local"
+        {...form.register(name)}
+        required={required}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
+  default: ({ label, form, name, children, required, disabled }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <select
+        id={name}
+        {...form.register(name)}
+        required={required}
+        disabled={disabled}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
+  default: ({ label, form, name, min }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="number"
+        min={min}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
+  default: ({ label, form, name, placeholder }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="text"
+        placeholder={placeholder}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    nowLocalISOMinutes: () => '2025-01-10T23:00',
+    toLocalISOMinutes: (val) => val ? val.substring(0, 16) : ''
+  }
 })
 
 function renderWithRouter(initialEntries) {
@@ -56,12 +143,11 @@ describe('pages/WateringCreate', () => {
 
     // Fill a couple fields
     const curr = screen.getByLabelText(/current weight/i)
-    await userEvent.clear(curr)
-    await userEvent.type(curr, '123')
+    await fireEvent.change(curr, { target: { value: '123' } })
 
     const submit = screen.getByRole('button', { name: /save watering/i })
     await waitFor(() => expect(submit).not.toBeDisabled())
-    await userEvent.click(submit)
+    fireEvent.click(submit)
 
     await waitFor(() => expect(posted).not.toBeNull())
     expect(posted.plant_id).toBe('u1')
@@ -94,9 +180,8 @@ describe('pages/WateringCreate', () => {
 
     // Change a field and submit
     const curr = screen.getByLabelText(/current weight/i)
-    await userEvent.clear(curr)
-    await userEvent.type(curr, '200')
-    await userEvent.click(screen.getByRole('button', { name: /update watering/i }))
+    await fireEvent.change(curr, { target: { value: '200' } })
+    fireEvent.click(screen.getByRole('button', { name: /update watering/i }))
 
     // Navigates to plant details of loaded plant_id
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u2'))
@@ -144,7 +229,7 @@ describe('pages/WateringCreate', () => {
     renderWithRouter(['/new?plant=u1'])
     // Wait for select to ensure form rendered under dark theme
     await screen.findByLabelText(/plant/i)
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     // document.referrer is empty string in jsdom
     expect(mockNavigate).toHaveBeenCalledWith('')
   })
@@ -203,7 +288,8 @@ describe('pages/WateringCreate', () => {
   })
 
   test('edit flow: measured_at provided but unparsable falls back to current form measured_at', async () => {
-    // Ensure plants list exists
+    // Return a measured_at that exists (truthy) but toLocalISOMinutes returns '' (falsy)
+    // To trigger: toLocalISOMinutes(data.measured_at) || form.values.measured_at
     server.use(
       http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
       http.get('/api/measurements/:id', () => HttpResponse.json({ id: 611, plant_id: 'u2', measured_at: 'not-a-date' }))
@@ -211,12 +297,12 @@ describe('pages/WateringCreate', () => {
     renderWithRouter(['/edit?id=611'])
     const input = await screen.findByLabelText(/measured at/i)
     const initial = input.value
-    // Wait a tick to allow effect to run and attempt to set measured_at from invalid value
-    await new Promise(r => setTimeout(r, 30))
-    expect(input).toHaveValue(initial)
+    // Wait for effect to run
+    await waitFor(() => expect(input).toHaveValue(initial))
   })
 
   test('edit flow: measured_at maps via toLocalISOMinutes (truthy branch of OR)', async () => {
+    // Return a measured_at that is truthy and toLocalISOMinutes returns a truthy value
     const dt = await import('../../../src/utils/datetime.js')
     const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('2000-01-01T00:00')
     server.use(
@@ -225,7 +311,23 @@ describe('pages/WateringCreate', () => {
     )
     renderWithRouter(['/edit?id=612'])
     const input = await screen.findByLabelText(/measured at/i)
-    expect(input).toHaveValue('2000-01-01T00:00')
+    await waitFor(() => expect(input).toHaveValue('2000-01-01T00:00'))
+    spy.mockRestore()
+  })
+
+  test('edit flow: measured_at maps via toLocalISOMinutes but returns falsy from toLocalISOMinutes', async () => {
+    // Return a measured_at that is truthy but toLocalISOMinutes returns '' (falsy)
+    // to exercise the second part of the ||: toLocalISOMinutes(data.measured_at) || form.values.measured_at
+    const dt = await import('../../../src/utils/datetime.js')
+    const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('')
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
+      http.get('/api/measurements/:id', () => HttpResponse.json({ id: 613, plant_id: 'u2', measured_at: 'some-truthy-date' }))
+    )
+    renderWithRouter(['/edit?id=613'])
+    const input = await screen.findByLabelText(/measured at/i)
+    const initial = input.value
+    await waitFor(() => expect(input).toHaveValue(initial))
     spy.mockRestore()
   })
 
@@ -242,5 +344,36 @@ describe('pages/WateringCreate', () => {
     fireEvent.submit(form)
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     spy.mockRestore()
+  })
+
+  test('edit flow: API returns null data (covers data?. branch)', async () => {
+    // Return null from API to exercise the data?. branch in loadExisting
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json(null))
+    )
+
+    renderWithRouter(['/edit?id=123'])
+
+    // Wait for the GET to resolve
+    const dt = await screen.findByLabelText(/measured at/i)
+    const initial = dt.value
+    await waitFor(() => expect(dt).toHaveValue(initial))
+    
+    // Check that other fields are also handled (defaults used)
+    const wetWeight = screen.getByLabelText(/current weight/i)
+    expect(wetWeight).toHaveValue(null)
+  })
+
+  test('edit flow: API returns empty object (covers data?. branch)', async () => {
+    // Return empty object from API to exercise the data?.measured_at when data is NOT null but measured_at is missing
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({}))
+    )
+
+    renderWithRouter(['/edit?id=456'])
+
+    const dt = await screen.findByLabelText(/measured at/i)
+    const initial = dt.value
+    await waitFor(() => expect(dt).toHaveValue(initial))
   })
 })

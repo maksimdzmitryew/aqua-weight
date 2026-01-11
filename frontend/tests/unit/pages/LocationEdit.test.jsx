@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import LocationEdit from '../../../src/pages/LocationEdit.jsx'
@@ -24,6 +23,32 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
 }))
 
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+      {actions}
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/utils/datetime.js', () => ({
+  formatDateTime: (val) => val
+}))
+
 function renderWithRoute(path, element, { initialEntries = [path] } = {}) {
   return render(
     <ThemeProvider>
@@ -43,7 +68,7 @@ describe('pages/LocationEdit', () => {
   })
 
   test('prefills from location state, trims name, saves and navigates with updated state', async () => {
-    const user = userEvent.setup()
+    
     // Successful update
     server.use(
       http.put('/api/locations/by-name', async ({ request }) => {
@@ -61,17 +86,16 @@ describe('pages/LocationEdit', () => {
 
     const name = await screen.findByRole('textbox', { name: /name/i })
     // Add spaces to exercise trim
-    await user.clear(name)
-    await user.type(name, '  New Name  ')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '  New Name  ' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/locations', expect.objectContaining({
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/locations', expect.objectContaining({
       state: expect.objectContaining({ updatedLocation: expect.objectContaining({ id: 2, name: 'New Name' }) })
-    }))
+    })))
   })
 
   test('client-side validation: trimmed empty name shows field error and a11y attributes', async () => {
-    const user = userEvent.setup()
+    
     const init = {
       pathname: '/locations/3/edit',
       state: { location: { id: 3, name: 'Office', created_at: '2025-01-02T00:00:00' } },
@@ -79,9 +103,9 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, '   ')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '' } })
+    fireEvent.change(name, { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     const err = await screen.findByText(/name cannot be empty/i)
     expect(err).toBeInTheDocument()
     expect(name).toHaveAttribute('aria-invalid', 'true')
@@ -89,7 +113,7 @@ describe('pages/LocationEdit', () => {
   })
 
   test('client-side validation: empty name (falsy OR branch) shows field error without typing', async () => {
-    const user = userEvent.setup()
+    
     const init = {
       pathname: '/locations/303/edit',
       state: { location: { id: 303, name: '', created_at: '2025-01-02T00:00:00' } },
@@ -100,7 +124,7 @@ describe('pages/LocationEdit', () => {
     const nameInput = await screen.findByRole('textbox', { name: /name/i })
     nameInput.removeAttribute('required')
     // Without changing the field (falsy loc.name branch for (loc.name || ''))
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/name cannot be empty/i)).toBeInTheDocument()
   })
 
@@ -133,7 +157,7 @@ describe('pages/LocationEdit', () => {
   })
 
   test('maps 409/400 update error to name field error; other errors go to general error', async () => {
-    const user = userEvent.setup()
+    
     // First: 409 conflict → field error
     server.use(
       http.put('/api/locations/by-name', () => HttpResponse.json({ message: 'Already exists' }, { status: 409 }))
@@ -145,9 +169,9 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, 'New')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '' } })
+    fireEvent.change(name, { target: { value: 'New' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument()
     // No general error
     expect(screen.queryByText(/failed to save/i)).not.toBeInTheDocument()
@@ -156,23 +180,23 @@ describe('pages/LocationEdit', () => {
     server.use(
       http.put('/api/locations/by-name', () => HttpResponse.json({ message: 'Boom' }, { status: 500 }))
     )
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/boom/i)).toBeInTheDocument()
   })
 
   test('cancel navigates back to /locations without saving', async () => {
-    const user = userEvent.setup()
+    
     const init = {
       pathname: '/locations/9/edit',
       state: { location: { id: 9, name: 'Porch' } },
     }
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
-    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/locations')
   })
 
   test('outer catch path: unexpected error after successful update sets general error (e.g., navigate throws)', async () => {
-    const user = userEvent.setup()
+    
     // Successful update
     server.use(
       http.put('/api/locations/by-name', () => HttpResponse.json({ ok: true }))
@@ -187,16 +211,15 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, 'Ok')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: 'Ok' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     // General error message should contain thrown message
     expect(await screen.findByText(/nav fail/i)).toBeInTheDocument()
   })
 
   test('renders under dark theme and applies dark border color', async () => {
-    const user = userEvent.setup()
+    
     try { localStorage.setItem('theme', 'dark') } catch {}
     const init = {
       pathname: '/locations/11/edit',
@@ -205,11 +228,11 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
     const input = await screen.findByRole('textbox', { name: /name/i })
     expect(input.style.borderColor).toBe('rgb(55, 65, 81)')
-    await user.type(input, ' X')
+    fireEvent.change(input, { target: { value: ' X' } })
   })
 
   test('uses loc.name when originalName is empty (OR-branch) and calls update with newName', async () => {
-    const user = userEvent.setup()
+    
     const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
     const init = {
       pathname: '/locations/21/edit',
@@ -218,15 +241,15 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.type(name, 'Newer')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: 'Newer' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(spy).toHaveBeenCalledWith('Newer', 'Newer')
+    await waitFor(() => expect(spy).toHaveBeenCalledWith('Newer', 'Newer'))
     spy.mockRestore()
   })
 
   test('400 with detail maps to field error and clears on change (fieldErrors clear branch)', async () => {
-    const user = userEvent.setup()
+    
     const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({ status: 400, detail: 'Taken name' })
     const init = {
       pathname: '/locations/22/edit',
@@ -235,14 +258,14 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, 'Bar')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '' } })
+    fireEvent.change(name, { target: { value: 'Bar' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     // Detail message should be shown as field error
     expect(await screen.findByText(/taken name/i)).toBeInTheDocument()
 
     // Now type another character to trigger clearing of field error
-    await user.type(name, '!')
+    fireEvent.change(name, { target: { value: '!' } })
     expect(screen.queryByText(/taken name/i)).not.toBeInTheDocument()
     spy.mockRestore()
   })
@@ -266,13 +289,13 @@ describe('pages/LocationEdit', () => {
       { id: 77, created_at: '2025-01-05T00:00:00' },
     ])
     const updSpy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
-    const user = userEvent.setup()
+    
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/77/edit'] })
     const name = await screen.findByRole('textbox', { name: /name/i })
     expect(name).toHaveValue('')
-    await user.type(name, 'Loaded')
-    await user.click(screen.getByRole('button', { name: /save/i }))
-    expect(updSpy).toHaveBeenCalledWith('Loaded', 'Loaded')
+    fireEvent.change(name, { target: { value: 'Loaded' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(updSpy).toHaveBeenCalledWith('Loaded', 'Loaded'))
     listSpy.mockRestore()
     updSpy.mockRestore()
   })
@@ -285,7 +308,7 @@ describe('pages/LocationEdit', () => {
   })
 
   test('update error without detail/message shows generic "Failed to save" (fallback branch)', async () => {
-    const user = userEvent.setup()
+    
     const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({})
     const init = {
       pathname: '/locations/66/edit',
@@ -293,15 +316,15 @@ describe('pages/LocationEdit', () => {
     }
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, 'Bar')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '' } })
+    fireEvent.change(name, { target: { value: 'Bar' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 
   test('outer catch fallback message when thrown error has no message', async () => {
-    const user = userEvent.setup()
+    
     // Successful update
     const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
     mockNavigate.mockImplementation(() => { throw {} })
@@ -313,9 +336,9 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
     const name = await screen.findByRole('textbox', { name: /name/i })
-    await user.clear(name)
-    await user.type(name, 'Beta')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(name, { target: { value: '' } })
+    fireEvent.change(name, { target: { value: 'Beta' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/failed to save location/i)).toBeInTheDocument()
     spy.mockRestore()

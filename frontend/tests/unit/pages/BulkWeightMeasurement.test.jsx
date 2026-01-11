@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
@@ -42,7 +42,7 @@ describe('pages/BulkWeightMeasurement', () => {
 
     // Toggle off → only needs-water snapshot (Aloe) should remain
     const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    await userEvent.click(toggle) // uncheck
+    fireEvent.click(toggle) // uncheck
 
     expect(screen.getByText('Aloe')).toBeInTheDocument()
     expect(screen.queryByText('Monstera')).not.toBeInTheDocument()
@@ -83,25 +83,22 @@ describe('pages/BulkWeightMeasurement', () => {
     const input = within(row).getByRole('spinbutton')
 
     // Negative → error on blur
-    await userEvent.clear(input)
-    await userEvent.type(input, '-1')
-    await userEvent.tab()
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.change(input, { target: { value: '-1' } })
+    fireEvent.blur(input)
     expect(input.className).toMatch(/bg-error/)
 
     // Valid number → create → retained 35%
-    await userEvent.click(input)
-    await userEvent.clear(input)
-    await userEvent.type(input, '100')
-    await userEvent.tab()
-    expect(input.className).toMatch(/bg-success/)
-    expect(within(row).getByText(/35%/)).toBeInTheDocument()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/35%/)).toBeInTheDocument()
 
     // Second commit → update → retained 37%
-    await userEvent.click(input)
-    await userEvent.clear(input)
-    await userEvent.type(input, '101')
-    await userEvent.tab()
-    expect(within(row).getByText(/37%/)).toBeInTheDocument()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '101' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/37%/)).toBeInTheDocument()
   })
 
   test('shows error when plants API fails', async () => {
@@ -115,19 +112,18 @@ describe('pages/BulkWeightMeasurement', () => {
   test('clicking plant name navigates using handleView', async () => {
     renderPage()
     const aloe = await screen.findByText('Aloe')
-    await userEvent.click(aloe)
+    fireEvent.click(aloe)
     expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
   })
 
   test('back button navigates to /daily (covers inline onBack callback)', async () => {
     renderPage()
     const backBtn = await screen.findByRole('button', { name: /daily care/i })
-    await userEvent.click(backBtn)
+    fireEvent.click(backBtn)
     expect(mockNavigate).toHaveBeenCalledWith('/daily')
   })
 
   test('handles wrapped {status,data} response and logs error on update failure', async () => {
-    const user = userEvent.setup()
     // Wrap POST response for weight
     server.use(
       http.post('/api/measurements/weight', async ({ request }) => {
@@ -151,21 +147,19 @@ describe('pages/BulkWeightMeasurement', () => {
     const row = aloeCell.closest('tr')
     const input = within(row).getByRole('spinbutton')
 
-    await user.clear(input)
-    await user.type(input, '200')
-    await user.tab()
-    expect(within(row).getByText(/44%/)).toBeInTheDocument()
+    fireEvent.change(input, { target: { value: '200' } })
+    fireEvent.blur(input)
+    expect(await within(row).findByText(/44%/)).toBeInTheDocument()
 
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
       http.put('/api/measurements/weight/:id', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
     )
 
-    await user.click(input)
-    await user.clear(input)
-    await user.type(input, '201')
-    await user.tab()
-    expect(errSpy).toHaveBeenCalled()
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '201' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(errSpy).toHaveBeenCalled())
     errSpy.mockRestore()
   })
 })

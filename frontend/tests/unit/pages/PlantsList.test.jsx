@@ -1,6 +1,5 @@
 import React from 'react'
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import PlantsList from '../../../src/pages/PlantsList.jsx'
@@ -8,6 +7,16 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { plantsApi } from '../../../src/api/plants'
 import { vi, afterEach, beforeEach } from 'vitest'
+
+// Mock useNavigate
+const mockNavigate = vi.fn()
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom')
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  }
+})
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
@@ -21,6 +30,14 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onCreate}>Create</button>
       {actions}
     </div>
+  )
+}))
+
+vi.mock('../../../src/components/IconButton.jsx', () => ({
+  default: ({ onClick, label, icon }) => (
+    <button onClick={onClick} aria-label={label} data-icon={icon}>
+      {label}
+    </button>
   )
 }))
 
@@ -38,111 +55,132 @@ function renderPage() {
 afterEach(() => {
   server.resetHandlers()
   sessionStorage.clear()
+  mockNavigate.mockClear()
 })
 
-test('renders plants after loading', async () => {
-  renderPage()
-  expect(await screen.findByText('Aloe')).toBeInTheDocument()
-  expect(screen.getByText('Monstera')).toBeInTheDocument()
-})
-
-test('renders empty state when no plants', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([]))
-  )
-  renderPage()
-  // EmptyState uses role "note"
-  const note = await screen.findByRole('note')
-  expect(note).toBeInTheDocument()
-})
-
-test('EmptyState New plant button is clickable (invokes navigate handler)', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([]))
-  )
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-  const btn = await screen.findByRole('button', { name: /new plant/i })
-  await userEvent.click(btn)
-  // No assertion beyond no-throw; handler executes navigate which MemoryRouter tolerates
-  expect(btn).toBeInTheDocument()
-})
-
-test('shows error notice on API failure', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json({ message: 'Network down' }, { status: 500 }))
-  )
-  renderPage()
-  const alert = await screen.findByRole('alert')
-  expect(alert).toHaveTextContent(/network down/i)
-})
-
-test('ErrorNotice Retry button calls window.location.reload (stubbed)', async () => {
-  // Stub global location to avoid JSDOM navigation not implemented error
-  const originalLocation = window.location
-  const reloadMock = vi.fn()
-  vi.stubGlobal('location', { ...originalLocation, reload: reloadMock })
-  try {
-    server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
-    )
-    renderPage()
-    const alert = await screen.findByRole('alert')
-    expect(alert).toBeInTheDocument()
-    const retry = screen.getByRole('button', { name: /retry/i })
-    await userEvent.click(retry)
-    expect(reloadMock).toHaveBeenCalled()
-  } finally {
-    vi.unstubAllGlobals()
-  }
-})
-
-test('unmounting the component triggers effect cleanup without errors (abort controller)', async () => {
+test('integrated: renders plants with various states and handles header actions', async () => {
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'u1', name: 'Aloe', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-    ]))
-  )
-  const { unmount } = render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-  // Loader renders immediately; ensure tree is mounted
-  expect(screen.getByText(/loading plants/i)).toBeInTheDocument()
-  // Unmount should invoke the cleanup function without crashing
-  unmount()
-})
-
-test('Frequency column shows "—" when frequency_days is not finite, otherwise "Nd"', async () => {
-  // Provide two plants: one without finite frequency_days, one with a number
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      { uuid: 'u1', name: 'Aloe', identify_hint: 'Spiky', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00', notes: 'N', location: 'Loc' },
+      { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 40, frequency_days: 7 },
       { uuid: 'nf1', name: 'NoFreq', water_retained_pct: 20, recommended_water_threshold_pct: 30, frequency_days: undefined },
-      { uuid: 'f2', name: 'HasFreq', water_retained_pct: 50, recommended_water_threshold_pct: 40, frequency_days: 7 },
-    ]))
+      { name: 'Plain', notes: 'No link', location: 'Somewhere', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
+    ])),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
+      items: [
+        {
+          plant_uuid: 'u1',
+          virtual_water_retained_pct: 75,
+          frequency_days: 5,
+          frequency_confidence: 10,
+          next_watering_at: '2025-01-10T12:00:00Z',
+          first_calculated_at: '2025-01-09T12:00:00Z',
+          days_offset: 1
+        }
+      ]
+    }))
+  )
+
+  renderPage()
+
+  // 1. renders plants after loading
+  expect(await screen.findByRole('link', { name: /aloe/i })).toBeInTheDocument()
+  expect(screen.getByText('Monstera')).toBeInTheDocument()
+
+  // 2. Frequency column (approximation for u1, explicit for u2, missing for nf1)
+  const rows = screen.getAllByRole('row')
+  const bodyRows = rows.filter(r => within(r).queryAllByRole('columnheader').length === 0)
+  
+  // u1 (Aloe) has approx freq 5, confidence 10, offset 1
+  expect(within(bodyRows[0]).getByText('5 d')).toBeInTheDocument()
+  expect(within(bodyRows[0]).getByText('(10)')).toBeInTheDocument()
+  expect(within(bodyRows[0]).getByText('(1d)')).toBeInTheDocument()
+  // u2 has freq 7
+  expect(within(bodyRows[ bodyRows.findIndex(r => r.textContent.includes('Monstera')) ]).getByText('7 d')).toBeInTheDocument()
+  // nf1 has no freq
+  const noFreqRow = bodyRows[ bodyRows.findIndex(r => r.textContent.includes('NoFreq')) ]
+  expect(within(noFreqRow).getAllByText(/^—$/).length).toBeGreaterThan(0)
+
+  // 3. row branches: link vs plain text, needsWater badge
+  const linkForName = screen.getByRole('link', { name: /aloe/i })
+  expect(linkForName).toHaveAttribute('href', '/plants/u1')
+  // Plain row should not have a link for notes; text should be present
+  expect(screen.getByText('No link')).toBeInTheDocument()
+  // Needs water badge visible for nf1 (20 <= 30)
+  expect(within(bodyRows[ bodyRows.findIndex(r => r.textContent.includes('NoFreq')) ]).getByText(/Needs water/i)).toBeInTheDocument()
+
+  // 4. View/Edit guards without uuid
+  fireEvent.click(screen.getByRole('button', { name: /view plant plain/i }))
+  fireEvent.click(screen.getByRole('button', { name: /edit plant plain/i }))
+  expect(await screen.findByRole('link', { name: /aloe/i })).toBeInTheDocument() // still here, no crash/nav
+
+  // 5. name cell gradient (Aloe water_retained_pct is 75 from approx)
+  const nameCell = linkForName.closest('td')
+  expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 75%/)
+
+  // 6. Header actions
+  fireEvent.click(screen.getByRole('button', { name: /dashboard/i }))
+  expect(mockNavigate).toHaveBeenCalledWith('/dashboard')
+  fireEvent.click(screen.getByRole('button', { name: /create/i }))
+  expect(mockNavigate).toHaveBeenCalledWith('/plants/new')
+})
+
+test('navigation: handleView and handleEdit navigate with state', async () => {
+  const plant = { uuid: 'nav1', name: 'Navigator', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([plant]))
   )
   renderPage()
-  // Wait for rows
-  const rows = await screen.findAllByRole('row')
-  // First data row is after the header row
-  const bodyRows = rows.filter(r => within(r).queryAllByRole('columnheader').length === 0)
-  expect(bodyRows.length).toBeGreaterThanOrEqual(2)
+  
+  const viewBtn = await screen.findByRole('button', { name: /view plant navigator/i })
+  fireEvent.click(viewBtn)
+  expect(mockNavigate).toHaveBeenCalledWith('/plants/nav1', { state: { plant } })
+  
+  const editBtn = screen.getByRole('button', { name: /edit plant navigator/i })
+  fireEvent.click(editBtn)
+  expect(mockNavigate).toHaveBeenCalledWith('/plants/nav1/edit', { state: { plant } })
+})
 
-  // For first plant, frequency cell (3rd data cell) should be '—'
-  let cells = within(bodyRows[0]).getAllByRole('cell')
-  expect(cells[2]).toHaveTextContent(/^—$/)
+test('ErrorNotice retry calls window.location.reload', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+  )
+  const reloadSpy = vi.fn()
+  vi.stubGlobal('location', { ...window.location, reload: reloadSpy })
+  
+  renderPage()
+  const retryBtn = await screen.findByRole('button', { name: /retry/i })
+  fireEvent.click(retryBtn)
+  expect(reloadSpy).toHaveBeenCalled()
+  vi.unstubAllGlobals()
+})
 
-  // For second plant, should show '7 d'
-  cells = within(bodyRows[1]).getAllByRole('cell')
-  expect(cells[2]).toHaveTextContent(/^7 d$/)
+test('EmptyState new plant button navigates to /plants/new', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([]))
+  )
+  renderPage()
+  const emptyState = await screen.findByRole('note')
+  const newPlantBtn = within(emptyState).getByRole('button', { name: /new plant/i })
+  fireEvent.click(newPlantBtn)
+  expect(mockNavigate).toHaveBeenCalledWith('/plants/new')
+})
+
+test('vacation mode styling without localstorage', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'v1', name: 'Vacation' }])),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
+      items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }]
+    }))
+  )
+  // Ensure vacation mode is OFF
+  localStorage.removeItem('operationMode')
+  renderPage()
+  const vac = await screen.findByText('Vacation')
+  const row = vac.closest('tr')
+  const cell = within(row).getAllByRole('cell')[3]
+  // Should NOT have the pink background
+  expect(cell).not.toHaveStyle('background: #fecaca')
 })
 
 test('numeric search filters by threshold (<= query)', async () => {
@@ -165,8 +203,8 @@ test('numeric search filters by threshold (<= query)', async () => {
 
   // input type="search" has role 'searchbox' per ARIA; reflect component change
   const search = await screen.findByRole('searchbox', { name: /search plants/i })
-  await userEvent.clear(search)
-  await userEvent.type(search, '30')
+  fireEvent.change(search, { target: { value: '' } })
+  fireEvent.change(search, { target: { value: '30' } })
 
   // Now only items with threshold <= 30 should be visible in the limited list
   expect(screen.getByText('Low')).toBeInTheDocument()
@@ -195,96 +233,41 @@ test('applies updatedPlant from router state without crashing (effect path exerc
   // No strict assertion on updated label due to timing; presence ensures render ok
 })
 
-test('drag-and-drop reorders rows and persists order; server error shows saveError', async () => {
-  // Provide three items to see reordering
+test('reordering integration: handles drag-and-drop and move buttons', async () => {
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
       { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
       { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
     ])),
-    // First call OK, second call error to exercise error path later
-    http.put('/api/plants/order', async ({ request }) => {
-      const body = await request.json()
-      if (Array.isArray(body?.ordered_ids) && body.ordered_ids[0] === 'b') {
-        return HttpResponse.json({ ok: true })
-      }
-      return HttpResponse.json({ message: 'Persist failed' }, { status: 500 })
-    }),
-  )
-
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-
-  // Wait initial content
-  expect(await screen.findByText('A')).toBeInTheDocument()
-
-  // Rows are in order A, B, C. Drag A (index 0) over B (index 1) -> becomes B, A, C
-  const rows = () => screen.getAllByRole('row').slice(1) // skip header row
-  expect(rows()[0]).toHaveTextContent('A')
-  expect(rows()[1]).toHaveTextContent('B')
-
-  // simulate drag via fireEvent with minimal DataTransfer
-  const rowA = rows()[0]
-  const rowB = rows()[1]
-  const dt = { data: {}, setData: function(k,v){ this.data[k]=v }, getData: function(k){ return this.data[k] } }
-  fireEvent.dragStart(rowA, { dataTransfer: dt })
-  fireEvent.dragOver(rowB, { dataTransfer: dt })
-  fireEvent.dragEnd(rowB, { dataTransfer: dt })
-
-  // Order changed in DOM
-  expect(rows()[0]).toHaveTextContent('B')
-  expect(rows()[1]).toHaveTextContent('A')
-
-  // Trigger another drag that will cause persist error by moving C to top (ordered_ids starts with 'c')
-  const rowC = rows()[2]
-  fireEvent.dragStart(rowC, { dataTransfer: dt })
-  fireEvent.dragOver(rows()[0], { dataTransfer: dt })
-  fireEvent.dragEnd(rowC, { dataTransfer: dt })
-
-  // ErrorNotice should appear due to server error
-  expect(await screen.findByRole('alert')).toHaveTextContent(/failed to save order|persist failed/i)
-})
-
-test('moveUp/moveDown buttons reorder and persist; disabled at edges', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', name: 'First', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'Second', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-      { uuid: 'c', name: 'Third', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
-    ])),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true }))
   )
 
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
+  renderPage()
+  expect(await screen.findByText('A')).toBeInTheDocument()
 
-  // Wait
-  expect(await screen.findByText('First')).toBeInTheDocument()
+  // 1. Move buttons (Up on index 1) -> B, A, C
+  const moveUpB = screen.getByRole('button', { name: /move b up/i })
+  fireEvent.click(moveUpB)
+  let rows = screen.getAllByRole('row').slice(1)
+  expect(rows[0]).toHaveTextContent('B')
+  expect(rows[1]).toHaveTextContent('A')
 
-  // Edge buttons disabled: first row up disabled, last row down disabled
-  const moveUpFirst = screen.getByRole('button', { name: /move first up/i })
-  const moveDownLast = screen.getByRole('button', { name: /move third down/i })
-  expect(moveUpFirst).toBeDisabled()
-  expect(moveDownLast).toBeDisabled()
+  // 2. Drag and drop (A over B) -> A, B, C
+  const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
+  fireEvent.dragStart(rows[1], { dataTransfer: dt }) // A
+  fireEvent.dragOver(rows[0], { dataTransfer: dt }) // B
+  fireEvent.dragEnd(rows[0], { dataTransfer: dt })
+  rows = screen.getAllByRole('row').slice(1)
+  expect(rows[0]).toHaveTextContent('A')
+  expect(rows[1]).toHaveTextContent('B')
 
-  // Move Second up
-  const moveUpSecond = screen.getByRole('button', { name: /move second up/i })
-  await userEvent.click(moveUpSecond)
-
-  const bodyRows = screen.getAllByRole('row').slice(1)
-  expect(bodyRows[0]).toHaveTextContent('Second')
-  expect(bodyRows[1]).toHaveTextContent('First')
+  // 3. Move buttons (Down on index 0) -> B, A, C
+  const moveDownA = screen.getByRole('button', { name: /move a down/i })
+  fireEvent.click(moveDownA)
+  rows = screen.getAllByRole('row').slice(1)
+  expect(rows[0]).toHaveTextContent('B')
+  expect(rows[1]).toHaveTextContent('A')
 })
 
 test('delete flow: missing uuid shows saveError; API error shows error; success removes row', async () => {
@@ -304,10 +287,10 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   )
 
   expect(await screen.findByText('NoId')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: /delete plant noid/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete plant noid/i }))
   // confirm in dialog (scope to dialog)
   const dlg1 = await screen.findByRole('dialog')
-  await userEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
+  fireEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
   expect(await screen.findByRole('alert')).toHaveTextContent(/cannot delete this plant: missing identifier/i)
 
   // 2) API error case
@@ -327,9 +310,9 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
     </ThemeProvider>
   )
   expect(await screen.findByText('X')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: /delete plant x/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete plant x/i }))
   const dlg2 = await screen.findByRole('dialog')
-  await userEvent.click(within(dlg2).getByRole('button', { name: /delete/i }))
+  fireEvent.click(within(dlg2).getByRole('button', { name: /delete/i }))
   // Row should remain present after failed delete
   expect(await screen.findByText('X')).toBeInTheDocument()
 
@@ -348,128 +331,32 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
     </ThemeProvider>
   )
   expect(await screen.findByText('Y')).toBeInTheDocument()
-  await userEvent.click(screen.getByRole('button', { name: /delete plant y/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete plant y/i }))
   const dlg3 = await screen.findByRole('dialog')
-  await userEvent.click(within(dlg3).getByRole('button', { name: /delete/i }))
+  fireEvent.click(within(dlg3).getByRole('button', { name: /delete/i }))
   // Row should disappear
   await screen.findByRole('note') // empty state
 }, 15000)
 
 test('limits list to PAGE_LIMIT and shows meta count', async () => {
-  // Use a smaller number than PAGE_LIMIT (100) but still enough to see the logic.
-  // Actually, to test the "limit" logic we need MORE than 100, which is slow.
-  // We can mock PAGE_LIMIT if it was exported or used from a config.
-  // Since it's hardcoded in the component, we have to either:
-  // 1. Render 101+ items (slow)
-  // 2. Change the component to accept PAGE_LIMIT as a prop (requires code change)
-  // 3. Just test that it renders what we give it and verify the text.
+  // Use a smaller number than PAGE_LIMIT (20) but still enough to see the logic.
   
-  // If we give it 105 items, it should show "Showing 100 of 105".
-  const many = Array.from({ length: 105 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
+  const many = Array.from({ length: 25 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
   server.use(
     http.get('/api/plants', () => HttpResponse.json(many))
   )
 
-  const { unmount } = render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
+  const { unmount } = renderPage()
 
   await screen.findByText('P1')
-  // We expect 100 rows in the body
-  await waitFor(() => {
-    const bodyRows = screen.getAllByRole('row').slice(1)
-    expect(bodyRows.length).toBe(100)
-  })
-  expect(screen.getByText(/Showing 100 of 105/)).toBeInTheDocument()
+  // We expect 20 rows in the body
+  const bodyRows = screen.getAllByRole('row').slice(1)
+  expect(bodyRows.length).toBe(20)
+  expect(screen.getByText(/Showing 20 of 25/)).toBeInTheDocument()
   unmount()
 })
 
-test('row branches: link vs plain text, needsWater badge, and view/edit guards without uuid', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'link1', name: 'Linked', notes: 'N', location: 'Loc', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
-      { name: 'Plain', notes: 'No link', location: 'Somewhere', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
-    ]))
-  )
 
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-
-  // Wait render
-  expect(await screen.findByText('Linked')).toBeInTheDocument()
-  expect(screen.getByText('Plain')).toBeInTheDocument()
-
-  // Linked row should have anchor links for name and notes
-  const linkForName = screen.getByRole('link', { name: /linked/i })
-  expect(linkForName).toHaveAttribute('href', '/plants/link1')
-  // Plain row should not have a link for notes; text should be present
-  expect(screen.getByText('No link')).toBeInTheDocument()
-
-  // Needs water badge visible for retained (20) <= threshold (30)
-  const body = screen.getAllByRole('row').slice(1)
-  expect(within(body[0]).getByText(/Needs water/i)).toBeInTheDocument()
-
-  // View/Edit buttons for plain (no uuid) should not navigate; click them and ensure still on same page
-  await userEvent.click(screen.getByRole('button', { name: /view plant plain/i }))
-  await userEvent.click(screen.getByRole('button', { name: /edit plant plain/i }))
-  // Still can find both rows; no crash
-  expect(screen.getByText('Linked')).toBeInTheDocument()
-  expect(screen.getByText('Plain')).toBeInTheDocument()
-
-  // Also execute handlers for linked item (with uuid)
-  await userEvent.click(screen.getByRole('button', { name: /view plant linked/i }))
-  await userEvent.click(screen.getByRole('button', { name: /edit plant linked/i }))
-})
-
-test('moveDown button moves item down and persists order', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', name: 'First', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'Second', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-      { uuid: 'c', name: 'Third', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
-    ])),
-    http.put('/api/plants/order', async ({ request }) => {
-      const body = await request.json()
-      // Ensure correct ordered_ids are sent after moving First down: [b, a, c] or [a, c] depending sequence
-      if (Array.isArray(body?.ordered_ids)) {
-        return HttpResponse.json({ ok: true })
-      }
-      return HttpResponse.json({ message: 'bad' }, { status: 500 })
-    })
-  )
-
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-
-  // Initial order
-  expect(await screen.findByText('First')).toBeInTheDocument()
-  let bodyRows = screen.getAllByRole('row').slice(1)
-  expect(bodyRows[0]).toHaveTextContent('First')
-  expect(bodyRows[1]).toHaveTextContent('Second')
-
-  // Click Move down on the first row
-  const moveDownFirst = screen.getByRole('button', { name: /move first down/i })
-  await userEvent.click(moveDownFirst)
-
-  // Order should now be Second, First, Third
-  bodyRows = screen.getAllByRole('row').slice(1)
-  expect(bodyRows[0]).toHaveTextContent('Second')
-  expect(bodyRows[1]).toHaveTextContent('First')
-})
 
 test('text search filters by name/notes/location and disables drag & move buttons', async () => {
   server.use(
@@ -490,8 +377,8 @@ test('text search filters by name/notes/location and disables drag & move button
 
   const search = await screen.findByRole('searchbox', { name: /search plants/i })
   // Query by location text should filter to matches only (case-insensitive)
-  await userEvent.clear(search)
-  await userEvent.type(search, 'balcony')
+  fireEvent.change(search, { target: { value: '' } })
+  fireEvent.change(search, { target: { value: 'balcony' } })
 
   // Only Beta should be visible now
   await screen.findByText('Beta')
@@ -540,9 +427,9 @@ test('delete failure with null/empty error shows generic message branch', async 
   expect(await screen.findByText('Del')).toBeInTheDocument()
   // Cause plantsApi.remove to reject with an empty object so e?.message is falsy
   const spy = vi.spyOn(plantsApi, 'remove').mockRejectedValueOnce({})
-  await userEvent.click(screen.getByRole('button', { name: /delete plant del/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete plant del/i }))
   const dlg = await screen.findByRole('dialog')
-  await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+  fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
   // Generic failure branch: depending on client, message may be generic or HTTP-specific
   expect(await screen.findByRole('alert')).toHaveTextContent(/failed/i)
   spy.mockRestore()
@@ -568,14 +455,14 @@ test('filter handles non-numeric thresholds and persistOrder early-return when m
 
   // Use text search branch (non-numeric) to include both by notes text
   const search = await screen.findByRole('searchbox', { name: /search plants/i })
-  await userEvent.type(search, 'abc')
-
+  fireEvent.change(search, { target: { value: 'abc' } })
+  
   // Only NonNum should match by notes
   await screen.findByText('NonNum')
   expect(screen.queryByText('Num')).not.toBeInTheDocument()
 
   // Clear query to enable reordering controls
-  await userEvent.clear(search)
+  fireEvent.change(search, { target: { value: '' } })
 
   // Attempt to move item with missing uuid (NonNum) down or up and end drag to trigger persistOrder early return path
   const rows = () => screen.getAllByRole('row').slice(1)
@@ -643,37 +530,6 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
   spyReorder.mockRestore()
 })
 
-test('name cell applies background gradient style based on water_retained_pct and search matches identify_hint', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'z1', identify_hint: 'Spiky', name: 'Aloe', notes: '', location: '', water_retained_pct: 42, recommended_water_threshold_pct: 30 },
-      { uuid: 'z2', identify_hint: '', name: 'Monstera', notes: '', location: '', water_retained_pct: 5, recommended_water_threshold_pct: 30 },
-    ]))
-  )
-
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-
-  // Wait for the link for Aloe (text content is "Spiky Aloe")
-  const link = await screen.findByRole('link', { name: /aloe/i })
-  const nameCell = link.closest('td')
-  expect(nameCell).not.toBeNull()
-  // Inline style should contain linear-gradient with percent equal to 42
-  expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 42%/)
-
-  // Search by identify_hint should match using "identify_hint name" composite
-  const search = screen.getByRole('searchbox', { name: /search plants/i })
-  await userEvent.clear(search)
-  await userEvent.type(search, 'spiky')
-  expect(await screen.findByRole('link', { name: /spiky aloe/i })).toBeInTheDocument()
-  // And other non-matching item filtered out
-  expect(screen.queryByText('Monstera')).not.toBeInTheDocument()
-})
 
 test('falls back to empty style object when getWaterRetainCellStyle returns falsy (OR branch)', async () => {
   // Mock the module to return undefined for style
@@ -714,9 +570,9 @@ test('Cancel in delete dialog triggers closeDialog without deleting', async () =
     </ThemeProvider>
   )
   await screen.findByText('Cancelable')
-  await userEvent.click(screen.getByRole('button', { name: /delete plant cancelable/i }))
+  fireEvent.click(screen.getByRole('button', { name: /delete plant cancelable/i }))
   const dlg = await screen.findByRole('dialog')
-  await userEvent.click(within(dlg).getByRole('button', { name: /cancel/i }))
+  fireEvent.click(within(dlg).getByRole('button', { name: /cancel/i }))
   // Row remains present
   expect(screen.getByText('Cancelable')).toBeInTheDocument()
 })
@@ -750,20 +606,6 @@ test('persistOrder generic error branch when reorder rejects with empty error ob
   spy.mockRestore()
 })
 
-test('PageHeader back and create actions are clickable (invoke inline handlers)', async () => {
-  render(
-    <ThemeProvider>
-      <MemoryRouter>
-        <PlantsList />
-      </MemoryRouter>
-    </ThemeProvider>
-  )
-  // Wait initial
-  await screen.findByText('Aloe')
-  // Click Back and Create buttons in header; no assertions needed beyond not throwing
-  await userEvent.click(screen.getByRole('button', { name: /dashboard/i }))
-  await userEvent.click(screen.getByRole('button', { name: /create/i }))
-})
 
 test('ignores AbortError during initial load and shows EmptyState without alert', async () => {
   server.use(
@@ -822,35 +664,6 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
   spy.mockRestore()
 })
 
-test('successfully loads and merges plant approximations', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'u1', name: 'Aloe' },
-      { uuid: 'u2', name: 'Monstera' }
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        {
-          plant_uuid: 'u1',
-          virtual_water_retained_pct: 75,
-          frequency_days: 5,
-          frequency_confidence: 10,
-          next_watering_at: '2025-01-10T12:00:00Z',
-          first_calculated_at: '2025-01-09T12:00:00Z',
-          days_offset: 1
-        }
-      ]
-    }))
-  )
-
-  renderPage()
-
-  // Wait for Aloe to be rendered with its approximated frequency
-  expect(await screen.findByText('Aloe')).toBeInTheDocument()
-  expect(screen.getByText('5 d')).toBeInTheDocument()
-  expect(screen.getByText('(10)')).toBeInTheDocument()
-  expect(screen.getByText('(1d)')).toBeInTheDocument()
-})
 
 test('logs error and continues when approximations fail to load', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})

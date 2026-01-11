@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import MeasurementCreate from '../../../src/pages/MeasurementCreate.jsx'
@@ -14,6 +13,113 @@ const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom')
   return { __esModule: true, ...actual, useNavigate: () => mockNavigate }
+})
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children, title }) => (
+    <div data-testid="mock-dashboard-layout">
+      <h1>{title}</h1>
+      {children}
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
+  default: ({ label, form, name, required }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="datetime-local"
+        {...form.register(name)}
+        required={required}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
+  default: ({ label, form, name, children, required, disabled }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <select
+        id={name}
+        {...form.register(name)}
+        required={required}
+        disabled={disabled}
+      >
+        {children}
+      </select>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
+  default: ({ label, form, name, min }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="number"
+        min={min}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/Checkbox.jsx', () => ({
+  default: ({ label, form, name }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="checkbox"
+        {...form.register(name)}
+        checked={form.values[name]}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
+  default: ({ label, form, name, placeholder }) => (
+    <div>
+      <label htmlFor={name}>{label}</label>
+      <input
+        id={name}
+        type="text"
+        placeholder={placeholder}
+        {...form.register(name)}
+      />
+    </div>
+  )
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    nowLocalISOMinutes: () => '2025-01-10T23:00',
+    toLocalISOMinutes: (val) => (val && val !== 'invalid') ? val.substring(0, 16) : ''
+  }
 })
 
 function renderWithRouter(initialEntries) {
@@ -63,7 +169,7 @@ describe('pages/MeasurementCreate', () => {
     const submit = screen.getByRole('button', { name: /save measurement/i })
     // Wait until form becomes valid (button enabled)
     await waitFor(() => expect(submit).not.toBeDisabled())
-    await userEvent.click(submit)
+    fireEvent.click(submit)
     // Ensure POST was invoked (covers submit path)
     await waitFor(() => expect(called).toBe(true))
   })
@@ -100,18 +206,15 @@ describe('pages/MeasurementCreate', () => {
 
     // Update measurement and fix invalid hex fields so the form becomes valid
     const weight = screen.getByLabelText(/measured weight/i)
-    await userEvent.clear(weight)
-    await userEvent.type(weight, '200')
+    await fireEvent.change(weight, { target: { value: '200' } })
 
     const method = screen.getByLabelText(/method \(optional, hex id\)/i)
-    await userEvent.clear(method)
-    await userEvent.type(method, 'a'.repeat(32))
+    await fireEvent.change(method, { target: { value: 'a'.repeat(32) } })
 
     const scale = screen.getByLabelText(/scale \(optional, hex id\)/i)
-    await userEvent.clear(scale)
-    await userEvent.type(scale, 'b'.repeat(32))
+    await fireEvent.change(scale, { target: { value: 'b'.repeat(32) } })
 
-    await userEvent.click(screen.getByRole('button', { name: /update measurement/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update measurement/i }))
     // On success without from-state, it should navigate -1 fallback
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith(-1))
   }, 15000)
@@ -125,7 +228,7 @@ describe('pages/MeasurementCreate', () => {
     renderWithRouter(['/edit?id=404'])
 
     // Component should render edit mode title and not crash, even though GET failed
-    expect(await screen.findByText(/edit measurement/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /edit measurement/i })).toBeInTheDocument()
 
     // Plant select is disabled in edit mode regardless; no general error should be shown from this failure
     const plantSelect = await screen.findByLabelText(/plant/i)
@@ -171,7 +274,7 @@ describe('pages/MeasurementCreate', () => {
       http.get('/api/measurements/:id', () => HttpResponse.json({
         id: 777,
         plant_id: '', // missing plant id should fallback to current form value (empty)
-        // measured_at missing to exercise fallback to existing form value
+        measured_at: null, // missing measured_at to exercise fallback to existing form value (line 65)
         measured_weight_g: null, // becomes '' in input
         method_id: '', // becomes ''
         // use_last_method missing -> defaults to true
@@ -181,6 +284,11 @@ describe('pages/MeasurementCreate', () => {
     )
 
     renderWithRouter(['/edit?id=777'])
+
+    // Wait for the GET to resolve
+    const dt = await screen.findByLabelText(/measured at/i)
+    const initial = dt.value
+    await waitFor(() => expect(dt).toHaveValue(initial))
 
     // Weight input should be empty string due to null -> '' mapping
     const weight = await screen.findByLabelText(/measured weight/i)
@@ -195,13 +303,44 @@ describe('pages/MeasurementCreate', () => {
     expect(screen.getByLabelText(/scale \(optional, hex id\)/i)).toHaveValue('')
   })
 
+  test('submit with location.state.from navigates to that path', async () => {
+    server.use(
+      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 }))
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom-path' } }])
+
+    const submit = await screen.findByRole('button', { name: /save measurement/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/custom-path'))
+  })
+
+  test('edit flow: API returns null data', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json(null))
+    )
+
+    renderWithRouter(['/edit?id=123'])
+
+    // Wait for the GET to resolve
+    const dt = await screen.findByLabelText(/measured at/i)
+    const initial = dt.value
+    await waitFor(() => expect(dt).toHaveValue(initial))
+    
+    // Check that other fields also use fallbacks (not crashing)
+    expect(screen.getByLabelText(/measured weight/i)).toHaveValue(null)
+  })
+
   test('edit flow: invalid measured_at falls back to current form value', async () => {
     // Return a measured_at that cannot be parsed by toLocalISOMinutes to hit the `|| form.values.measured_at` branch
+    // and also cover the branch where data?.measured_at is truthy but toLocalISOMinutes returns falsy (empty string)
     server.use(
       http.get('/api/measurements/:id', () => HttpResponse.json({
         id: 909,
         plant_id: 'u1',
-        measured_at: 'not-a-date', // unparsable
+        measured_at: 'invalid', // will make toLocalISOMinutes return '' in the mock
         measured_weight_g: 10,
       }))
     )
@@ -220,7 +359,7 @@ describe('pages/MeasurementCreate', () => {
     // Spy on API layer to reject with an object lacking `message` to hit the fallback branch (e.message || 'Failed to save')
     const spy = vi.spyOn(measurementsApi.weight, 'create').mockRejectedValueOnce({})
     renderWithRouter(['/new?plant=u1'])
-    await userEvent.click(await screen.findByRole('button', { name: /save measurement/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /save measurement/i }))
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     spy.mockRestore()
   })
@@ -239,7 +378,9 @@ describe('pages/MeasurementCreate', () => {
     )
 
     renderWithRouter(['/new?plant=u1'])
-    await userEvent.click(screen.getByRole('button', { name: /save measurement/i }))
+    const saveBtn = await screen.findByRole('button', { name: /save measurement/i })
+    await waitFor(() => expect(saveBtn).not.toBeDisabled())
+    fireEvent.click(saveBtn)
     expect(await screen.findByText(/nope|Failed to save/i)).toBeInTheDocument()
   })
 
@@ -255,7 +396,7 @@ describe('pages/MeasurementCreate', () => {
     // textarea border color for dark theme (#374151)
     expect(note.style.border).toContain('rgb(55, 65, 81)')
 
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 })

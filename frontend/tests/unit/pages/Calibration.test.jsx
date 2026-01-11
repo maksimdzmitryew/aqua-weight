@@ -1,6 +1,5 @@
 import React from 'react'
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { http, HttpResponse } from 'msw'
 import { server } from '../msw/server'
@@ -11,6 +10,39 @@ import { vi } from 'vitest'
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
+  default: ({ title, subtitle }) => (
+    <div role="note" data-testid="empty-state">
+      <h3>{title}</h3>
+      <p>{subtitle}</p>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ title }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+    </div>
+  )
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/utils/datetime.js', () => ({
+  formatDateTime: (val) => val
 }))
 
 function renderPage() {
@@ -132,7 +164,7 @@ test('Correct overfill button sends composed payload and refreshes list', async 
   // Wait for card
   await screen.findByText('Snake')
   const btn = await screen.findByRole('button', { name: /correct overfill/i })
-  await userEvent.click(btn)
+  fireEvent.click(btn)
   // POST handler assertion above verifies call; then component refreshes
   // Wait until the plant card disappears (list refreshed)
   await waitFor(() => {
@@ -161,7 +193,7 @@ test('shows formatted error when correction API fails with object detail', async
   renderPage()
   await screen.findByText('ZZ')
   const btn = await screen.findByRole('button', { name: /correct overfill/i })
-  await userEvent.click(btn)
+  fireEvent.click(btn)
 
   const alert = await screen.findByRole('alert')
   // ErrorNotice renders message text from setError
@@ -215,7 +247,7 @@ test('"Last" toggle ensures latest zero-under row is visible even when hidden by
   expect(within(table).getAllByRole('row').length).toBe(1 + 1)
   // Toggle "zero Below Max Water, last" to include the latest watering even if zero
   const lastToggle = screen.getByLabelText(/zero below max water, last/i)
-  await userEvent.click(lastToggle)
+  fireEvent.click(lastToggle)
   await waitFor(() => {
     expect(within(screen.getByRole('table')).getAllByRole('row').length).toBe(1 + 2)
   })
@@ -249,8 +281,8 @@ test('most negative entry is re-inserted when zero filter would hide it, and fal
   expect(dataCells[0]).toHaveTextContent('2025-05-01')
 
   // Now toggle "underwatered" and zero filter to reveal twin row; fallback equality should highlight it too
-  await userEvent.click(screen.getByLabelText(/underwatered/i))
-  await userEvent.click(screen.getByLabelText(/zero below max water, all/i))
+  fireEvent.click(screen.getByLabelText(/underwatered/i))
+  fireEvent.click(screen.getByLabelText(/zero below max water, all/i))
   await waitFor(() => {
     const r = within(screen.getByRole('table')).getAllByRole('row')
     expect(r.length).toBeGreaterThanOrEqual(1 + 2)
@@ -281,9 +313,9 @@ test('summary shows Maximum Weight dash when values missing and positive diff sh
   renderPage()
   // Ensure at least one row is visible so the card renders
   const underToggle = await screen.findByLabelText(/underwatered/i)
-  await userEvent.click(underToggle)
+  fireEvent.click(underToggle)
   const zeroAllToggle = await screen.findByLabelText(/zero below max water, all/i)
-  await userEvent.click(zeroAllToggle)
+  fireEvent.click(zeroAllToggle)
   await screen.findByText('Cactus')
   const summary = screen.getByText(/maximum weight:/i).parentElement
   expect(summary?.textContent || '').toMatch(/maximum weight: —/i)
@@ -291,11 +323,11 @@ test('summary shows Maximum Weight dash when values missing and positive diff sh
   // Ensure filters are enabled so the positive diff row is visible
   const under2 = screen.getByLabelText(/underwatered/i)
   if (!(under2 instanceof HTMLInputElement) || !under2.checked) {
-    await userEvent.click(under2)
+    fireEvent.click(under2)
   }
   const zeroAll2 = screen.getByLabelText(/zero below max water, all/i)
   if (!(zeroAll2 instanceof HTMLInputElement) || !zeroAll2.checked) {
-    await userEvent.click(zeroAll2)
+    fireEvent.click(zeroAll2)
   }
   const table = await screen.findByRole('table')
   const row = within(table).getAllByRole('row')[1]
@@ -358,7 +390,7 @@ test('min-diff selection skips entries with non-number weights (covers continue 
   )
   renderPage()
   await screen.findByText('Skip')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   await waitFor(() => expect(corrected).toBe(true))
 })
 
@@ -382,8 +414,8 @@ test('parseMs handles null, space-form date, and invalid values for sorting (cov
   renderPage()
   await screen.findByText('SortCheck')
   // Show all rows regardless of diff to avoid filter interference
-  await userEvent.click(screen.getByLabelText(/underwatered/i))
-  await userEvent.click(screen.getByLabelText(/zero below max water, all/i))
+  fireEvent.click(screen.getByLabelText(/underwatered/i))
+  fireEvent.click(screen.getByLabelText(/zero below max water, all/i))
   const rows = within(await screen.findByRole('table')).getAllByRole('row')
   const firstDataCells = within(rows[1]).getAllByRole('cell')
   // The first row should be the valid date entry
@@ -405,9 +437,9 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
   renderPage()
   // Ensure controls are enabled first so the row becomes visible
   const underwatered = await screen.findByLabelText(/underwatered/i)
-  await userEvent.click(underwatered)
+  fireEvent.click(underwatered)
   const zeroAll = await screen.findByLabelText(/zero below max water, all/i)
-  await userEvent.click(zeroAll)
+  fireEvent.click(zeroAll)
   await screen.findByText('Dashy')
   const row = within(await screen.findByRole('table')).getAllByRole('row')[1]
   const cells = within(row).getAllByRole('cell')
@@ -427,7 +459,7 @@ test('correction error prefers string detail from server', async () => {
   )
   renderPage()
   await screen.findByText('A')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alerts1 = await screen.findAllByRole('alert')
   const alert1 = alerts1[alerts1.length - 1]
   expect(alert1).toHaveTextContent(/too bad/i)
@@ -446,7 +478,7 @@ test('correction error falls back to generic message when detail is empty', asyn
   )
   renderPage()
   await screen.findByText('B')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alerts2 = await screen.findAllByRole('alert', {}, { timeout: 3000 })
   const alert2 = alerts2[alerts2.length - 1]
   expect(alert2.textContent || '').toMatch(/request failed|http 500|failed to apply corrections|\{\}/i)
@@ -474,7 +506,7 @@ test('does not duplicate most-negative row when a value-identical twin is alread
   await screen.findByText('NoDup')
   // Enable 'underwatered' to include all rows regardless of numeric completeness
   const underToggle = screen.getByLabelText(/underwatered/i)
-  await userEvent.click(underToggle)
+  fireEvent.click(underToggle)
   // Default filters: hide under_g 0 rows, so only twinVisible and incomplete remain
   const table = screen.getByRole('table')
   const rows = within(table).getAllByRole('row')
@@ -533,15 +565,15 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
   renderPage()
   // Enable the 'underwatered' toggle to include all rows regardless of diff
   const underwatered = await screen.findByLabelText(/underwatered/i)
-  await userEvent.click(underwatered)
+  fireEvent.click(underwatered)
   // Also include rows with under_g = 0 so the placeholder entry remains visible
   const zeroAll = screen.getByLabelText(/zero below max water, all/i)
-  await userEvent.click(zeroAll)
+  fireEvent.click(zeroAll)
   // Now the plant card with the action button is visible
   await screen.findByText('EmptyHist')
   const btn = screen.getByRole('button', { name: /correct overfill/i })
-  await userEvent.click(btn)
-  expect(postCalled).toBe(true)
+  fireEvent.click(btn)
+  await waitFor(() => expect(postCalled).toBe(true))
 })
 
 test('list rendering with missing calibration still shows header/button but no table', async () => {
@@ -577,7 +609,7 @@ test('post-correction refresh tolerates non-array response (covers false branch 
   renderPage()
   await screen.findByText('NonArray')
   const btn = screen.getByRole('button', { name: /correct overfill/i })
-  await userEvent.click(btn)
+  fireEvent.click(btn)
   // After refresh with non-array payload, component should set items to [] and show empty state
   const note = await screen.findByRole('note')
   expect(note).toHaveTextContent(/no plants/i)
@@ -604,7 +636,7 @@ test('correction error formats string detail (covers line 75)', async () => {
 
   renderPage()
   await screen.findByText('Err')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert1 = await screen.findByRole('alert')
   expect(alert1).toHaveTextContent(/bad request/i)
   postSpy.mockRestore()
@@ -620,7 +652,7 @@ test('correction error formats object detail (covers line 79)', async () => {
 
   renderPage()
   await screen.findByText('Err2')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert = await screen.findByRole('alert')
   expect(alert.textContent || '').toMatch(/not good|\{\s*"error"\s*:\s*"Not good"\s*\}/i)
   postSpy.mockRestore()
@@ -647,7 +679,7 @@ test('handleCorrectOverfill uses [] when entries missing (covers line 46 default
   )
   renderPage()
   await screen.findByText('NoCalForBtn')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   await waitFor(() => expect(called).toBe(true))
 })
 
@@ -675,7 +707,7 @@ test('correction error uses body string when present (covers e.body branch at li
   )
   renderPage()
   await screen.findByText('BodyMsg')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert = await screen.findByRole('alert')
   expect(alert.textContent || '').toMatch(/meaningful body message/i)
 })
@@ -695,7 +727,7 @@ test('correction error with circular detail triggers stringify catch (covers cat
 
   renderPage()
   await screen.findByText('Circ')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert = await screen.findByRole('alert')
   // Since stringify throws, component should fall back to default/fallback message (not "[object Object]")
   expect(alert.textContent || '').toMatch(/failed to apply corrections|request failed|http/i)
@@ -715,7 +747,7 @@ test('correction error uses e.message when detail and body are absent (covers th
 
   renderPage()
   await screen.findByText('OnlyMsg')
-  await userEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert = await screen.findByRole('alert')
   expect(alert.textContent || '').toMatch(/only message path/i)
   postSpy.mockRestore()

@@ -17,6 +17,30 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
 }))
 
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/Badge.jsx', () => ({
+  default: ({ children, variant }) => <span data-testid="badge" data-variant={variant}>{children}</span>
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    formatDateTime: (val) => val
+  }
+})
+
 // Note: We avoid global mocks for react-router and api modules to prevent cross-file leakage
 
 describe('pages/Dashboard', () => {

@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
 import { server } from '../msw/server'
@@ -70,7 +69,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
 
     // Toggle off "Show all" -> since initialNeedsWaterIds is empty, table should render empty state
     const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    await userEvent.click(toggle)
+    fireEvent.click(toggle)
     expect(screen.getByText(/no plants found/i)).toBeInTheDocument()
   })
 
@@ -123,9 +122,8 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     const input = within(row).getByRole('spinbutton')
 
     // Enter a valid weight to trigger POST and state update
-    await userEvent.clear(input)
-    await userEvent.type(input, '123')
-    await userEvent.tab()
+    fireEvent.change(input, { target: { value: '123' } })
+    fireEvent.blur(input)
 
     // Percentages should remain as previous since API omitted them (nullish coalescing branch)
     expect(within(row).getByText(/22%/)).toBeInTheDocument()
