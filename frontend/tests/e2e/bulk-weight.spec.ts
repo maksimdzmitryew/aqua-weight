@@ -9,11 +9,13 @@ function fixture(p: string) {
 }
 
 test.describe('Bulk weight measurement', () => {
-  test.beforeEach(async () => { await seed(ORIGIN); });
-  test.afterEach(async () => { await cleanup(ORIGIN); });
+  test.beforeAll(async () => { await seed(ORIGIN); });
+  test.afterAll(async () => { await cleanup(ORIGIN); });
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/measurements/bulk/weight');
+  });
 
   test('success path', async ({ page }) => {
-    await page.goto('/measurements/bulk/weight');
     // Fill the first weight input and blur to trigger save
     const firstInput = page.locator('table input[type="number"]').first();
     await firstInput.fill('321');
@@ -22,7 +24,6 @@ test.describe('Bulk weight measurement', () => {
   });
 
   test('failure path shows errors', async ({ page }) => {
-    await page.goto('/measurements/bulk/weight');
     const firstInput = page.locator('table input[type="number"]').first();
     // Enter an invalid negative weight; should show error styling after save attempt
     await firstInput.fill('-5');

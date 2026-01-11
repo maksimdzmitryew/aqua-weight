@@ -4,12 +4,15 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Dashboard Controls', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async () => {
     await seed(ORIGIN);
+  });
+
+  test.beforeEach(async ({ page }) => {
     await page.goto('/dashboard');
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 
@@ -66,14 +69,13 @@ test.describe('Dashboard Controls', () => {
     }).toPass();
   });
 
-  test('charts per row selector updates grid layout', async ({ page }) => {
+  test('grid layout selector updates grid layout', async ({ page }) => {
+    // 1. charts per row selector updates grid layout
     const grid = page.locator('.main > div').last(); // The grid container
     
     // Change to 1 chart per row
     await page.getByLabel(/charts per row/i).selectOption('1');
     await expect(grid).toHaveCSS('display', 'grid');
-    // It might resolve to "repeat(1, minmax(0px, 1fr))" or "976px" if the browser calculates it.
-    // Let's check for grid-template-columns presence.
     await expect(grid).toHaveAttribute('style', /grid-template-columns: repeat\(1,/);
 
     // Change to 3 charts per row

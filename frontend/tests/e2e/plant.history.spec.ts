@@ -4,11 +4,11 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Plant History Management', () => {
-  test.beforeEach(async () => {
+  test.beforeAll(async () => {
     await seed(ORIGIN);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

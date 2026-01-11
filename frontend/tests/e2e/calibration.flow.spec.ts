@@ -4,18 +4,19 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Calibration Flow', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    const page = await browser.newPage();
     await seed(ORIGIN);
     
     // 1. Create a NEW plant
-    await page.goto('/plants/new');
+    await page.goto(`${ORIGIN}/plants/new`);
     await page.getByLabel(/name/i).fill('Calibration Plant');
     await page.getByLabel(/location/i).selectOption('11111111111111111111111111111111');
     await page.getByRole('button', { name: /save/i }).click();
     await expect(page).toHaveURL(/\/plants/);
 
     // 2. Establish baseline via a weight measurement (dry weight)
-    await page.goto('/measurement/weight');
+    await page.goto(`${ORIGIN}/measurement/weight`);
     await page.getByLabel(/plant/i).selectOption({ label: 'Calibration Plant' });
     await page.getByLabel(/measured weight \(g\)/i).fill('200');
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00');
@@ -23,7 +24,7 @@ test.describe('Calibration Flow', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
     // 3. Establish LARGE max water via a watering event
-    await page.goto('/measurement/watering');
+    await page.goto(`${ORIGIN}/measurement/watering`);
     await page.getByLabel(/plant/i).selectOption({ label: 'Calibration Plant' });
     await page.getByLabel(/measured at/i).fill('2025-01-01T11:00');
     await page.getByLabel(/current weight/i).fill('400'); // 200g water
@@ -33,7 +34,7 @@ test.describe('Calibration Flow', () => {
     // Now min_dry=200, max_water=200.
 
     // 4. MANUALLY REDUCE max_water_weight_g to 100g to create an overfill
-    await page.goto('/plants');
+    await page.goto(`${ORIGIN}/plants`);
     await page.getByRole('row', { name: /calibration plant/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
     await page.getByLabel(/max water weight/i).fill('100');
@@ -41,9 +42,10 @@ test.describe('Calibration Flow', () => {
     await expect(page).toHaveURL(/\/plants/);
 
     // Now target is 200+100=300. The 400g watering event is now an OVERFILL (+100).
+    await page.close();
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

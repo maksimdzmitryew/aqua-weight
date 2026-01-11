@@ -9,7 +9,7 @@ test.describe('Keyboard Accessibility', () => {
     await page.goto('/dashboard');
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

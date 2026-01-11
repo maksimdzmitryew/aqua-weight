@@ -8,7 +8,7 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     await seed(ORIGIN);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

@@ -4,10 +4,11 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Bulk Watering State', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    const page = await browser.newPage();
     await seed(ORIGIN);
     // Setup: Seed Fern needs min_dry_weight and max_water_weight to calculate retained %
-    await page.goto('/plants');
+    await page.goto(`${ORIGIN}/plants`);
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
     await page.getByLabel(/recommended water threshold/i).fill('50');
@@ -17,14 +18,15 @@ test.describe('Bulk Watering State', () => {
     await expect(page).toHaveURL(/\/plants/);
 
     // Initial measurement to establish baseline
-    await page.goto('/measurement/weight');
+    await page.goto(`${ORIGIN}/measurement/weight`);
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('225'); // 25% retained (25/100)
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
+    await page.close();
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

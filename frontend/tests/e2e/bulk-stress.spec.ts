@@ -8,7 +8,7 @@ test.describe('Data Integrity during Rapid Input', () => {
     await seed(ORIGIN);
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 
@@ -25,7 +25,7 @@ test.describe('Data Integrity during Rapid Input', () => {
       requestCount++;
       const currentRequest = requestCount;
       // Delay second request more than first to simulate out-of-order response
-      const delay = currentRequest === 1 ? 1000 : 100;
+      const delay = currentRequest === 1 ? 200 : 50;
       await new Promise(resolve => setTimeout(resolve, delay));
       
       const plantId = route.request().postDataJSON()?.plant_id;

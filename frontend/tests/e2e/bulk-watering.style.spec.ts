@@ -4,11 +4,12 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Bulk Watering Styles', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    const page = await browser.newPage();
     await seed(ORIGIN);
     
     // Plant 1: Thirsty (Seed Fern)
-    await page.goto('/plants');
+    await page.goto(`${ORIGIN}/plants`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('row', { name: /seed fern/i }).getByRole('button', { name: /edit/i }).click();
     await page.getByRole('tab', { name: /calculated/i }).click();
@@ -25,7 +26,7 @@ test.describe('Bulk Watering Styles', () => {
     await expect(page).not.toHaveURL(/\/measurement\/watering/);
 
     // Plant 2: Satisfied (New Plant)
-    await page.goto('/plants');
+    await page.goto(`${ORIGIN}/plants`);
     await page.waitForLoadState('networkidle');
     await page.getByRole('button', { name: /\+\s*Create/i }).click();
     await page.getByLabel(/name/i).fill('Satisfied Plant');
@@ -43,9 +44,10 @@ test.describe('Bulk Watering Styles', () => {
     await page.getByLabel(/measured weight/i).fill('280'); // 80% > 20%
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
+    await page.close();
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

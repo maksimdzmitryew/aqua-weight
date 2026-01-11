@@ -4,8 +4,8 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Daily care', () => {
-  test.beforeEach(async () => { await seed(ORIGIN); });
-  test.afterEach(async () => { await cleanup(ORIGIN); });
+  test.beforeAll(async () => { await seed(ORIGIN); });
+  test.afterAll(async () => { await cleanup(ORIGIN); });
 
   test('shows tasks that need watering and allows navigation to bulk actions', async ({ page }) => {
     await page.goto('/daily');

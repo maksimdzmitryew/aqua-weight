@@ -4,25 +4,27 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Sparkline Hover', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    const page = await browser.newPage();
     await seed(ORIGIN);
     // 1. Create multiple measurements to have a trend and delta
-    await page.goto('/measurement/weight');
+    await page.goto(`${ORIGIN}/measurement/weight`);
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('300');
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
 
-    await page.goto('/measurement/weight');
+    await page.goto(`${ORIGIN}/measurement/weight`);
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('280');
     await page.getByLabel(/measured at/i).fill('2025-01-02T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
+    await page.close();
   });
 
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 

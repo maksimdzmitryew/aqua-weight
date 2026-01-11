@@ -19,6 +19,18 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    launchOptions: {
+      args: ['--disable-blink-features=LayoutInstabilityAPI'],
+    },
+    styles: `
+      *, *::before, *::after {
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        animation-iteration-count: 1 !important;
+      }
+    `,
   },
   projects: [
     {
