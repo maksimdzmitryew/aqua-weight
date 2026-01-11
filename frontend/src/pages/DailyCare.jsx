@@ -20,6 +20,7 @@ function hoursSinceLocal(tsString) {
 
 export default function DailyCare() {
   const navigate = useNavigate()
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
 
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,43 +30,47 @@ export default function DailyCare() {
     setLoading(true)
     setError('')
     try {
-      // First get all plants to filter by water retained percentage
+      // 1. Get all plants
       const plantsData = await plantsApi.list()
       const allPlants = Array.isArray(plantsData) ? plantsData : []
 
+      // 2. Get watering approximations
+      let approximations = []
+      try {
+        const approxData = await plantsApi.getApproximation()
+        approximations = approxData?.items || []
+      } catch (e) {
+        console.error('Failed to load approximations', e)
+      }
 
-        // Helper aligned with BulkWatering and Plants list: retained ≤ per-plant threshold
-        function plantNeedsWater(p) {
-          const retained = Number(p?.water_retained_pct)
-          const thresh = Number(p?.recommended_water_threshold_pct)
-          return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
-        }
+      // Map approximations to plants
+      const approxMap = approximations.reduce((acc, item) => {
+        acc[item.plant_uuid] = item
+        return acc
+      }, {})
 
-        const filteredPlants = allPlants.map(plantReview => {
-          const id = plantReview.id;
-          const needsMeasure = id != null && (hoursSinceLocal(plantReview.latest_at)) > 18;
-          const needsWater = id != null && plantNeedsWater(plantReview);
-          let task_plant = {}
+      const plantsWithTasks = allPlants
+        .map(p => {
+          const approx = approxMap[p.uuid]
+          // Needs watering if next_watering_at is today or in the past
+          // Or if days_offset <= 0
+          const needsWater = !!approx && approx.days_offset != null && approx.days_offset <= 0
 
-            task_plant = {
-                ...plantReview,
-                plantId: id,
-                needsMeasure: needsMeasure,
-                needsWater: needsWater,
-                checkedAt: Date.now()
-            };
+          // In manual mode (not vacation), we might want to show plants that need weighing
+          // For now, let's assume if it's not vacation, we use the old logic or just enable the column
+          const needsMeasure = operationMode !== 'vacation'
 
-          // return a new object, copy original fields and add/override
-          return task_plant;
-
-        });
-
-      const plantsWithTasks = filteredPlants.filter(
-          plantReview => (plantReview.needsMeasure || plantReview.needsWater)
-      )
+          return {
+            ...p,
+            plantId: p.uuid,
+            needsWater: needsWater,
+            needsMeasure: needsMeasure,
+            checkedAt: Date.now()
+          }
+        })
+        .filter(p => p.needsWater || p.needsMeasure)
 
       setTasks(plantsWithTasks)
-
     } catch (e) {
       setError(e?.message || 'Failed to load today\'s tasks')
     } finally {
@@ -90,14 +95,19 @@ export default function DailyCare() {
         onRefresh={load}
       />
       <div className="actions" style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <button className="btn btn-primary" onClick={() => navigate('/measurements/bulk/weight')}>
-          Bulk measurement{tasks.filter(t => t.needsMeasure).length > 0 ? ` (${tasks.filter(t => t.needsMeasure).length})` : ''}
+        <button
+          className="btn btn-primary"
+          disabled={operationMode === 'vacation'}
+          title={operationMode === 'vacation' ? "Bulk measurement is currently disabled" : ""}
+          onClick={() => navigate('/measurements/bulk/weight')}
+        >
+          Bulk measurement
         </button>
         <button className="btn" style={{ background: '#2c4fff', color: 'white' }} onClick={() => navigate('/measurements/bulk/watering')}>
-          Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
+          Bulk watering{operationMode === 'vacation' && tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
         </button>
       </div>
-      <p>Today's suggested care actions for your plants. We highlight those that need measurement (older than 18h) and watering (retained ≤ per‑plant threshold).</p>
+      <p>Today's suggested care actions for your plants. We highlight those that need watering according to the approximation schedule.</p>
 
       {loading && <Loader label="Loading tasks…" />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
@@ -110,8 +120,8 @@ export default function DailyCare() {
             <table className="table" role="table">
               <thead>
                 <tr>
-                    <th className="th" scope="col">Weight</th>
                     <th className="th" scope="col">Water</th>
+                    {operationMode !== 'vacation' && <th className="th" scope="col">Weight</th>}
                     <th className="th" scope="col">Plant</th>
                     <th className="th">Notes</th>
                     <th className="th" scope="col">Location</th>
@@ -121,12 +131,14 @@ export default function DailyCare() {
               <tbody>
                 {tasks.map((t, i) => (
                   <tr key={t.id}>
-                      <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
-                        <StatusIcon type="measure" active={!!t.needsMeasure} />
-                      </td>
                       <td className="td" aria-label={t.needsWater ? 'Needs watering' : 'No watering needed'}>
                         <StatusIcon type="water" active={!!t.needsWater} />
                       </td>
+                      {operationMode !== 'vacation' && (
+                        <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
+                          <StatusIcon type="measure" active={!!t.needsMeasure} />
+                        </td>
+                      )}
                       <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || '—'}</td>
                       <td className="td">{t.notes || t.reason || '—'}</td>
                       <td className="td">{t.location || '—'}</td>

@@ -19,7 +19,21 @@ vi.mock('react-router-dom', async () => {
   }
 })
 
-function renderPage() {
+vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
+  default: ({ title, description }) => (
+    <div data-testid="empty-state">
+      <h3>{title}</h3>
+      <div>{description}</div>
+    </div>
+  )
+}))
+
+function renderPage(mode = null) {
+  if (mode) {
+    localStorage.setItem('operationMode', mode)
+  } else {
+    localStorage.removeItem('operationMode')
+  }
   return render(
     <ThemeProvider>
       <MemoryRouter>
@@ -121,6 +135,22 @@ describe('pages/BulkWeightMeasurement', () => {
     const backBtn = await screen.findByRole('button', { name: /daily care/i })
     fireEvent.click(backBtn)
     expect(mockNavigate).toHaveBeenCalledWith('/daily')
+  })
+
+  test('shows explanation and link to settings in vacation mode', async () => {
+    renderPage('vacation')
+    
+    const emptyState = await screen.findByTestId('empty-state')
+    expect(emptyState).toBeInTheDocument()
+    expect(screen.getByText(/Not available in Vacation mode/i)).toBeInTheDocument()
+    expect(screen.getByText(/Bulk weight measurement is disabled while in vacation mode/i)).toBeInTheDocument()
+    
+    const settingsLink = within(emptyState).getByRole('link', { name: /Settings/i })
+    expect(settingsLink).toBeInTheDocument()
+    expect(settingsLink.getAttribute('href')).toBe('/settings')
+
+    // Table should not be present
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
   })
 
   test('handles wrapped {status,data} response and logs error on update failure', async () => {

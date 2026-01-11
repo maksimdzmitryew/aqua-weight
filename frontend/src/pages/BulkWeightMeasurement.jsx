@@ -2,15 +2,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -144,35 +146,50 @@ export default function BulkWeightMeasurement() {
 
       <p>Start bulk weight measurement for all plants.</p>
 
-      {/* Toggle to switch visibility mode */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-          />
-          <span>Show all plants</span>
-        </label>
-        <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
-          {showAll ? 'Showing all plants.' : 'Showing only plants that need watering (retained ≤ threshold).'}
-        </span>
-      </div>
-
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div className="text-danger">{error}</div>}
-
-      {!loading && !error && (
-        <BulkMeasurementTable
-          plants={displayedPlants}
-          inputStatus={inputStatus}
-          onCommitValue={handleWeightMeasurement}
-          onViewPlant={handleView}
-          firstColumnLabel="Weight gr, Water %"
-          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
-          waterLossCellStyle={waterLossCellStyle}
-          showUpdatedColumn={true}
+      {operationMode === 'vacation' ? (
+        <EmptyState
+          title="Not available in Vacation mode"
+          description={
+            <>
+              Bulk weight measurement is disabled while in vacation mode because watering is based on approximated schedules rather than manual weights.
+              <br />
+              You can change the mode in <Link to="/settings">Settings</Link>.
+            </>
+          }
         />
+      ) : (
+        <>
+          {/* Toggle to switch visibility mode */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+              <span>Show all plants</span>
+            </label>
+            <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
+              {showAll ? 'Showing all plants.' : 'Showing only plants that need watering (retained ≤ threshold).'}
+            </span>
+          </div>
+
+          {loading && <div>Loading…</div>}
+          {error && !loading && <div className="text-danger">{error}</div>}
+
+          {!loading && !error && (
+            <BulkMeasurementTable
+              plants={displayedPlants}
+              inputStatus={inputStatus}
+              onCommitValue={handleWeightMeasurement}
+              onViewPlant={handleView}
+              firstColumnLabel="Weight gr, Water %"
+              firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+              waterLossCellStyle={waterLossCellStyle}
+              showUpdatedColumn={true}
+            />
+          )}
+        </>
       )}
     </DashboardLayout>
   )
