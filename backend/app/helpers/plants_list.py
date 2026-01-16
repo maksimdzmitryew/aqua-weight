@@ -6,6 +6,7 @@ from math import ceil
 from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
 from ..helpers.water_retained import calculate_water_retained
+from ..helpers.weighing import needs_weighing
 
 
 class PlantsList:
@@ -17,7 +18,8 @@ class PlantsList:
     """
 
     @staticmethod
-    def fetch_all(min_water_loss_total_pct: float = None) -> list[dict]:
+    def fetch_all(min_water_loss_total_pct: float = None, mode: str = None) -> list[dict]:
+        mode = mode or "manual"
         conn = get_conn()
         try:
             with conn.cursor() as cur:
@@ -122,6 +124,9 @@ class PlantsList:
                         water_loss_total_pct=water_loss_total_pct,
                     )
                     water_retained_pct = water_retained_calc.water_retained_pct
+
+                    # Calculate if needs weighing
+                    needs_weighing_val = needs_weighing(measured_at_db, mode)
 
                     # watering threshold (plant-dependent). Typical thresholds:
                     # Seedlings / moisture-loving plants: water when frac ≤ 0.6 (60%)
@@ -228,6 +233,7 @@ class PlantsList:
                             "next_watering_at": next_watering_at,
                             "first_calculated_at": first_calculated_at,
                             "days_offset": days_offset,
+                            "needs_weighing": needs_weighing_val,
                         }
                     )
                 # Restore last_params of the main cursor when FakeConnection reuses the same cursor instance

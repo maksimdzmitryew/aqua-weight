@@ -294,6 +294,10 @@ export default function PlantsList() {
                   const retained = getWaterRetainedPct(p, operationMode, p._approximation)
                   const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
                   const thresh = Number(p.recommended_water_threshold_pct)
+                  // Use backend-provided needs_weighing logic indirectly by trusting the data 
+                  // but we still need to check if it needs water for the badge.
+                  // Actually, should we also have needs_watering from backend? 
+                  // For now, let's just make sure we use p.needs_weighing where appropriate.
                   const needsWater = typeof retained === 'number' && !Number.isNaN(thresh) && retained <= thresh
                   return (
                   <tr key={p.uuid || idx}
@@ -307,7 +311,10 @@ export default function PlantsList() {
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
                         {displayRetained}
                         {needsWater && (
-                          <Badge tone="warning" title="Needs water based on threshold">Needs water</Badge>
+                          <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>Needs water</Badge>
+                        )}
+                        {p.needs_weighing && (
+                           <Badge tone="info" title="Needs weighing (>18h since last update)">Needs weight</Badge>
                         )}
                       </span>
                     </td>
@@ -361,7 +368,15 @@ export default function PlantsList() {
                       )}
                     </td>
                     <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>
-                    <td className="td hide-column-tablet"><DateTimeText value={p.latest_at} /></td>
+                    <td className="td hide-column-tablet">
+                      {operationMode === 'vacation' ? (
+                        p.next_watering_at ? (
+                          <DateTimeText value={p.first_calculated_at || p.next_watering_at} />
+                        ) : '—'
+                      ) : (
+                        <DateTimeText value={p.latest_at} />
+                      )}
+                    </td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />

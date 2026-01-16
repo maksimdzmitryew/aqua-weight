@@ -20,6 +20,8 @@ export default function Settings() {
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
     localStorage.setItem('operationMode', operationMode)
+    // Set cookie for backend visibility (temporary solution as per task requirements)
+    document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
     setSaved('Saved!')
   }
 

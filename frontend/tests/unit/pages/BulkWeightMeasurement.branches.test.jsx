@@ -46,8 +46,8 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     expect(await screen.findByText('Mocked Table')).toBeInTheDocument()
   })
 
-  test('useMemo branch: when initial snapshot is empty, toggling off shows empty state', async () => {
-    // Return plants that are all ABOVE threshold so none "needs water" at initial load
+  test('useMemo branch: handles displayed plants filtering', async () => {
+    // Return plants
     server.use(
       http.get('/api/plants', () => HttpResponse.json([
         { uuid: 'p1', name: 'ZZ Plant', water_retained_pct: 80, recommended_water_threshold_pct: 30 },
@@ -65,12 +65,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
       </ThemeProvider>
     )
 
+    // Initially should show ZZ Plant because default plantNeedsAttention=true
     expect(await screen.findByText('ZZ Plant')).toBeInTheDocument()
-
-    // Toggle off "Show all" -> since initialNeedsWaterIds is empty, table should render empty state
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
-    expect(screen.getByText(/no plants found/i)).toBeInTheDocument()
+    expect(screen.getByText(/Showing all plants that need weighing/i)).toBeInTheDocument()
   })
 
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
@@ -90,7 +87,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     )
 
     // Falls back to [] and renders empty state
-    expect(await screen.findByText(/no plants found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no plants need weighing/i)).toBeInTheDocument()
   })
 
   test('OR-chain fallback for timestamps and nullish metrics keep previous values', async () => {

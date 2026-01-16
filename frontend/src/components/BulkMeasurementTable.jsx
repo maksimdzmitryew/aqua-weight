@@ -19,6 +19,7 @@ export default function BulkMeasurementTable({
   deemphasizePredicate,
   operationMode = 'manual',
   approximations = {},
+  noPlantsMessage = 'No plants found',
 }) {
   const computeWaterLossStyle = waterLossCellStyle || defaultWaterLossCellStyle
   return (
@@ -65,6 +66,7 @@ export default function BulkMeasurementTable({
             const rowKey = p.uuid || p.id || `row-${idx}`
             const approx = approximations[p.uuid]
             const needsWater = checkNeedsWater(p, operationMode, approx)
+            const needsMeasure = p.needs_weighing
             const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
             
             const retained = getWaterRetainedPct(p, operationMode, approx)
@@ -79,6 +81,7 @@ export default function BulkMeasurementTable({
                       style={{ width: 60 }}
                       className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
                       defaultValue={p.current_weight || ''}
+                      disabled={operationMode === 'vacation'}
                       onBlur={(e) => {
                         if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
                       }}
@@ -94,6 +97,11 @@ export default function BulkMeasurementTable({
                     {needsWater && (
                       <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>
                         Needs water
+                      </Badge>
+                    )}
+                    {needsMeasure && (
+                      <Badge tone="info" title="Needs weighing (>18h since last update)">
+                        Needs weight
                       </Badge>
                     )}
                     {operationMode === 'vacation' && approx?.next_watering_at && (
@@ -163,14 +171,16 @@ export default function BulkMeasurementTable({
               </td>
               {showUpdatedColumn && (
                 <td className="td hide-column-tablet">
-                  <DateTimeText value={p.latest_at || p.measured_at} />
+                  {operationMode === 'vacation' ? '—' : (
+                    <DateTimeText value={p.latest_at || p.measured_at} />
+                  )}
                 </td>
               )}
             </tr>
           )})}
           {plants.length === 0 && (
             <tr>
-              <td className="td" colSpan={showUpdatedColumn ? 7 : 6}>No plants found</td>
+              <td className="td" colSpan={showUpdatedColumn ? 7 : 6}>{noPlantsMessage}</td>
             </tr>
           )}
         </tbody>

@@ -52,7 +52,7 @@ describe('DailyCare branches', () => {
       internalError = e;
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'Plant 1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 }))
     )
 
@@ -80,7 +80,7 @@ describe('DailyCare branches', () => {
       return f;
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1' }])), // No name, no plant
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', needs_weighing: true }])), // No name, no plant
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -104,7 +104,7 @@ describe('DailyCare branches', () => {
     window.__VITEST_STUB_DATE_NOW__ = () => { internalDateNow = true; return 123; };
     
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -136,7 +136,7 @@ describe('DailyCare branches', () => {
       }, {});
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }))
     )
 
@@ -185,7 +185,7 @@ describe('DailyCare branches', () => {
     };
     // Case 1: approxData is null
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null))
     )
 
@@ -233,7 +233,7 @@ describe('DailyCare branches', () => {
     // Case 1: Needs measurement (true)
     localStorage.setItem('operationMode', 'manual')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -330,7 +330,7 @@ describe('DailyCare branches', () => {
     // Let's just use the rendered component and fire events.
 
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1' }])),
+      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 

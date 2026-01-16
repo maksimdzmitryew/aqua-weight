@@ -23,7 +23,7 @@ async def test_get_watering_approximation_success(app: FastAPI, async_client: As
     
     class MockPlantsList:
         @staticmethod
-        def fetch_all():
+        def fetch_all(**kwargs):
             return mock_plants
             
     monkeypatch.setattr("backend.app.routes.measurements.PlantsList", MockPlantsList)

@@ -2,7 +2,7 @@ import re
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Cookie, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -19,9 +19,11 @@ app = APIRouter()
 
 
 @app.get("/plants", response_model=list[PlantListItem])
-async def list_plants() -> list[PlantListItem]:
+async def list_plants(operationMode: str | None = Cookie(None)) -> list[PlantListItem]:
+    mode = operationMode or "manual"
+
     def fetch():
-        return PlantsList.fetch_all()
+        return PlantsList.fetch_all(mode=mode)
 
     return await run_in_threadpool(fetch)
 

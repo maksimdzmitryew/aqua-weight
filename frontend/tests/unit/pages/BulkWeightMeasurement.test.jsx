@@ -47,19 +47,45 @@ describe('pages/BulkWeightMeasurement', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
   })
-  test('default shows all plants; toggling off shows only needs-water snapshot', async () => {
+  test('default shows all plants that need attention (all in manual mode)', async () => {
     renderPage()
 
-    // Default showAll = true → both plants from handlers
+    // Default showAll = false -> initially shows all plants (Aloe and Monstera) 
+    // because in manual mode plantNeedsAttention returns true for all
     expect(await screen.findByText('Aloe')).toBeInTheDocument()
     expect(screen.getByText('Monstera')).toBeInTheDocument()
 
-    // Toggle off → only needs-water snapshot (Aloe) should remain
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle) // uncheck
+    // Verify hint text correctly refers to weighing and is accurate
+    expect(screen.getByText(/Showing all plants that need weighing/i)).toBeInTheDocument()
+  })
 
-    expect(screen.getByText('Aloe')).toBeInTheDocument()
-    expect(screen.queryByText('Monstera')).not.toBeInTheDocument()
+  test('toggling "Show all plants" checkbox changes visibility', async () => {
+    // Custom handlers to have one plant that needs weighing and one that doesn't
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json([
+        { uuid: 'u1', name: 'Needs Weighing', needs_weighing: true },
+        { uuid: 'u2', name: 'Full Water', needs_weighing: false }
+      ]))
+    )
+
+    renderPage()
+
+    // Initially showAll = false -> only Needs Weighing
+    expect(await screen.findByText('Needs Weighing')).toBeInTheDocument()
+    expect(screen.queryByText('Full Water')).not.toBeInTheDocument()
+
+    // Toggle "Show all plants"
+    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(toggle)
+
+    // Now both should be visible
+    expect(await screen.findByText('Full Water')).toBeInTheDocument()
+    expect(screen.getByText('Needs Weighing')).toBeInTheDocument()
+
+    // Toggle back
+    fireEvent.click(toggle)
+    expect(screen.queryByText('Full Water')).not.toBeInTheDocument()
+    expect(screen.getByText('Needs Weighing')).toBeInTheDocument()
   })
 
   test('committing weight creates then updates measurement; invalid negative marks error', async () => {
@@ -173,6 +199,7 @@ describe('pages/BulkWeightMeasurement', () => {
     )
 
     renderPage()
+
     const aloeCell = await screen.findByText('Aloe')
     const row = aloeCell.closest('tr')
     const input = within(row).getByRole('spinbutton')

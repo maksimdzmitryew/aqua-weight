@@ -40,7 +40,7 @@ describe('pages/BulkWatering', () => {
 
     renderPage()
     // Should not crash; table renders empty state row
-    expect(await screen.findByText(/no plants found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no plants need watering/i)).toBeInTheDocument()
   })
   test('initially shows only plants that needed watering; toggle shows all and deemphasizes above-threshold', async () => {
     renderPage()
@@ -65,6 +65,35 @@ describe('pages/BulkWatering', () => {
     const monRow = rows.find(r => within(r).queryByText('Monstera'))
     expect(monRow).toBeTruthy()
     expect(monRow.style.opacity).toBe('0.55')
+  })
+
+  test('toggling "Show all plants" checkbox changes visibility', async () => {
+    // Custom handlers: Aloe needs water (20 <= 30), Monstera does not (50 > 30)
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json([
+        { uuid: 'u1', name: 'Aloe', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
+        { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 30 }
+      ]))
+    )
+
+    renderPage()
+
+    // Initially only Aloe is shown
+    expect(await screen.findByText('Aloe')).toBeInTheDocument()
+    expect(screen.queryByText('Monstera')).not.toBeInTheDocument()
+
+    // Toggle "Show all plants"
+    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(toggle)
+
+    // Now both should be visible
+    expect(await screen.findByText('Monstera')).toBeInTheDocument()
+    expect(screen.getByText('Aloe')).toBeInTheDocument()
+
+    // Toggle back
+    fireEvent.click(toggle)
+    expect(screen.queryByText('Monstera')).not.toBeInTheDocument()
+    expect(screen.getByText('Aloe')).toBeInTheDocument()
   })
 
   test('vacation mode: shows only plants that need watering according to approximation and displays suggested date', async () => {

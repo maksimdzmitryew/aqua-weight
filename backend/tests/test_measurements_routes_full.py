@@ -523,7 +523,7 @@ async def test_get_watering_approximation_success(app: FastAPI, async_client: As
         }
     ]
 
-    monkeypatch.setattr("backend.app.routes.measurements.PlantsList.fetch_all", lambda: mock_plants)
+    monkeypatch.setattr("backend.app.routes.measurements.PlantsList.fetch_all", lambda **k: mock_plants)
 
     resp = await async_client.get("/api/measurements/approximation/watering")
     assert resp.status_code == 200

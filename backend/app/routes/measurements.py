@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -13,6 +13,7 @@ from ..helpers.calibration import (
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
 from ..helpers.water_retained import calculate_water_retained
+from ..helpers.weighing import needs_weighing
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
 )
@@ -181,20 +182,22 @@ def _to_dt_string(s: str | None):
 
 
 @app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
-async def get_watering_approximation():
+async def get_watering_approximation(operationMode: str | None = Cookie(None)):
     """
     Calculate virtual water retained, frequency, and next watering date for all active plants.
     Currently, this endpoint is a simple projection based on existing PlantsList logic,
     but it's intended for extension when automated IOT measurements or other data sources
     are not available (e.g., in Vacation mode).
     """
+    mode = operationMode or "manual"
 
     def fetch():
-        plants = PlantsList.fetch_all()
+        plants = PlantsList.fetch_all(mode=mode)
         items = []
         for p in plants:
             next_at = p.get("next_watering_at")
             first_at = p.get("first_calculated_at")
+            # For each plant, also calculate needs_weighing based on its latest measurement date
             items.append(
                 WateringApproximationItem(
                     plant_uuid=p["uuid"],
@@ -208,6 +211,7 @@ async def get_watering_approximation():
                     if first_at and hasattr(first_at, "isoformat")
                     else (str(first_at) if first_at else None),
                     days_offset=p.get("days_offset"),
+                    needs_weighing=p.get("needs_weighing", False)
                 )
             )
         return WateringApproximationResponse(items=items)

@@ -186,6 +186,7 @@ export default function BulkWatering() {
           deemphasizePredicate={deemphasizePredicate}
           operationMode={operationMode}
           approximations={approximations}
+          noPlantsMessage="No plants need watering"
         />
       )}
     </DashboardLayout>

@@ -97,6 +97,7 @@ class WateringApproximationItem(BaseModel):
     next_watering_at: Optional[str] = None
     first_calculated_at: Optional[str] = None
     days_offset: Optional[int] = None
+    needs_weighing: bool = False
 
 
 class WateringApproximationResponse(BaseModel):

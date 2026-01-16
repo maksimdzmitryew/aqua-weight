@@ -63,9 +63,8 @@ export default function DailyCare() {
           const approx = approxMap[p.uuid]
           const needsWater = checkNeedsWater(p, operationMode, approx)
 
-          // In manual mode (not vacation), we might want to show plants that need weighing
-          // For now, let's assume if it's not vacation, we use the old logic or just enable the column
-          const needsMeasure = operationMode !== 'vacation' && (typeof window !== 'undefined' && window.__VITEST_STUB_NEEDS_MEASURE__ ? window.__VITEST_STUB_NEEDS_MEASURE__(p) : true)
+          // Now we use the backend-provided needs_weighing property
+          const needsMeasure = p.needs_weighing ?? false
 
           return {
             ...p,

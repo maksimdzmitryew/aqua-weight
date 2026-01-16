@@ -338,7 +338,7 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
 test('bulk watering button does not show count when not in vacation mode', async () => {
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', id: 1, name: 'Aloe' }
+      { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
     ])),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
@@ -358,7 +358,7 @@ test('bulk watering button does not show count when not in vacation mode', async
 test('shows weight column and enables bulk measurement in manual mode', async () => {
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', id: 1, name: 'Aloe' }
+      { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
     ])),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
