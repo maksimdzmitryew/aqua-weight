@@ -129,4 +129,25 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     expect(within(row).getByText(/22%/)).toBeInTheDocument()
     expect(within(row).getByText(/78%/)).toBeInTheDocument()
   })
+
+  test('operationMode defaults to null if localStorage is undefined', async () => {
+    const originalLocalStorage = global.localStorage
+    delete global.localStorage
+
+    try {
+      vi.resetModules()
+      vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
+      const Page = (await import('../../../src/pages/BulkWeightMeasurement.jsx')).default
+      render(
+        <MemoryRouter>
+          <Page />
+        </MemoryRouter>
+      )
+
+      // If operationMode is null (not 'vacation'), it should show the "Show all plants" checkbox
+      expect(await screen.findByText(/Show all plants/i)).toBeInTheDocument()
+    } finally {
+      global.localStorage = originalLocalStorage
+    }
+  })
 })

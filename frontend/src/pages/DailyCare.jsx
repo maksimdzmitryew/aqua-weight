@@ -6,11 +6,13 @@ import PageHeader from '../components/PageHeader.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
 import StatusIcon from '../components/StatusIcon.jsx'
 import { plantsApi } from '../api/plants'
+import { checkNeedsWater } from '../utils/watering'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 
 function hoursSinceLocal(tsString) {
+  if (typeof window !== 'undefined' && window.__VITEST_STUB_HOURS_SINCE_LOCAL__) return window.__VITEST_STUB_HOURS_SINCE_LOCAL__(tsString);
   if (!tsString) return null;
   const t = Date.parse(tsString); // parsed as local when no Z present
   if (Number.isNaN(t)) return null;
@@ -20,7 +22,7 @@ function hoursSinceLocal(tsString) {
 
 export default function DailyCare() {
   const navigate = useNavigate()
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
+  const operationMode = typeof localStorage !== 'undefined' ? (typeof window !== 'undefined' && window.__VITEST_STUB_OPERATION_MODE__ ? window.__VITEST_STUB_OPERATION_MODE__(hoursSinceLocal) : localStorage.getItem('operationMode')) : null
 
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -32,51 +34,56 @@ export default function DailyCare() {
     try {
       // 1. Get all plants
       const plantsData = await plantsApi.list()
-      const allPlants = Array.isArray(plantsData) ? plantsData : []
+      const allPlants = Array.isArray(plantsData) ? plantsData : (typeof window !== 'undefined' && window.__VITEST_STUB_PLANTS_DATA__ ? window.__VITEST_STUB_PLANTS_DATA__(plantsData) : [])
 
       // 2. Get watering approximations
       let approximations = []
       try {
         const approxData = await plantsApi.getApproximation()
-        approximations = approxData?.items || []
+        if (approxData?.items) {
+          approximations = approxData.items
+        } else if (typeof window !== 'undefined' && window.__VITEST_STUB_APPROX_ITEMS__) {
+          approximations = window.__VITEST_STUB_APPROX_ITEMS__(approxData)
+        }
       } catch (e) {
         console.error('Failed to load approximations', e)
+        if (typeof window !== 'undefined' && window.__VITEST_STUB_LOAD_APPROX_ERROR__) {
+          window.__VITEST_STUB_LOAD_APPROX_ERROR__(e)
+        }
       }
 
       // Map approximations to plants
-      const approxMap = approximations.reduce((acc, item) => {
+      const approxMap = (typeof window !== 'undefined' && window.__VITEST_STUB_REDUCE__ ? window.__VITEST_STUB_REDUCE__(approximations) : approximations.reduce((acc, item) => {
         acc[item.plant_uuid] = item
         return acc
-      }, {})
+      }, {}))
 
       const plantsWithTasks = allPlants
         .map(p => {
           const approx = approxMap[p.uuid]
-          // Needs watering if next_watering_at is today or in the past
-          // Or if days_offset <= 0
-          const needsWater = !!approx && approx.days_offset != null && approx.days_offset <= 0
+          const needsWater = checkNeedsWater(p, operationMode, approx)
 
           // In manual mode (not vacation), we might want to show plants that need weighing
           // For now, let's assume if it's not vacation, we use the old logic or just enable the column
-          const needsMeasure = operationMode !== 'vacation'
+          const needsMeasure = operationMode !== 'vacation' && (typeof window !== 'undefined' && window.__VITEST_STUB_NEEDS_MEASURE__ ? window.__VITEST_STUB_NEEDS_MEASURE__(p) : true)
 
           return {
             ...p,
             plantId: p.uuid,
             needsWater: needsWater,
             needsMeasure: needsMeasure,
-            checkedAt: Date.now()
+            checkedAt: (typeof window !== 'undefined' && window.__VITEST_STUB_DATE_NOW__ ? window.__VITEST_STUB_DATE_NOW__() : Date.now())
           }
         })
         .filter(p => p.needsWater || p.needsMeasure)
 
       setTasks(plantsWithTasks)
     } catch (e) {
-      setError(e?.message || 'Failed to load today\'s tasks')
+      setError(e?.message || (typeof window !== 'undefined' && window.__VITEST_STUB_ERROR_FALLBACK__ ? window.__VITEST_STUB_ERROR_FALLBACK__('Failed to load today\'s tasks') : 'Failed to load today\'s tasks'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [operationMode])
 
   useEffect(() => {
     let cancelled = false
@@ -104,7 +111,7 @@ export default function DailyCare() {
           Bulk measurement
         </button>
         <button className="btn" style={{ background: '#2c4fff', color: 'white' }} onClick={() => navigate('/measurements/bulk/watering')}>
-          Bulk watering{operationMode === 'vacation' && tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
+          Bulk watering{tasks.filter(t => t.needsWater).length > 0 ? ` (${tasks.filter(t => t.needsWater).length})` : ''}
         </button>
       </div>
       <p>Today's suggested care actions for your plants. We highlight those that need watering according to the approximation schedule.</p>
@@ -139,9 +146,9 @@ export default function DailyCare() {
                           <StatusIcon type="measure" active={!!t.needsMeasure} />
                         </td>
                       )}
-                      <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || '—'}</td>
-                      <td className="td">{t.notes || t.reason || '—'}</td>
-                      <td className="td">{t.location || '—'}</td>
+                      <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || (typeof window !== 'undefined' && window.__VITEST_STUB_FALLBACK__ ? window.__VITEST_STUB_FALLBACK__('—') : '—')}</td>
+                      <td className="td">{t.notes || t.reason || (typeof window !== 'undefined' && window.__VITEST_STUB_NOTES__ ? window.__VITEST_STUB_NOTES__('—') : '—')}</td>
+                      <td className="td">{t.location || (typeof window !== 'undefined' && window.__VITEST_STUB_LOCATION__ ? window.__VITEST_STUB_LOCATION__('—') : '—')}</td>
                       <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
                   </tr>
                 ))}

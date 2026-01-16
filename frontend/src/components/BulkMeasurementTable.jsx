@@ -2,6 +2,7 @@ import React from 'react'
 import { valueStyle, getWaterRetainCellStyle, getWaterLossCellStyle as defaultWaterLossCellStyle } from '../utils/water_retained_colors.js'
 import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
+import { checkNeedsWater } from '../utils/watering'
 
 export default function BulkMeasurementTable({
   plants,
@@ -16,6 +17,8 @@ export default function BulkMeasurementTable({
   showUpdatedColumn = false,
   // Optional: deemphasize predicate to visually soften rows (e.g., above threshold)
   deemphasizePredicate,
+  operationMode = 'manual',
+  approximations = {},
 }) {
   const computeWaterLossStyle = waterLossCellStyle || defaultWaterLossCellStyle
   return (
@@ -60,33 +63,57 @@ export default function BulkMeasurementTable({
         <tbody>
           {plants.map((p, idx) => {
             const rowKey = p.uuid || p.id || `row-${idx}`
-            const retained = Number(p?.water_retained_pct)
-            const thresh = Number(p?.recommended_water_threshold_pct)
-            const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+            const approx = approximations[p.uuid]
+            const needsWater = checkNeedsWater(p, operationMode, approx)
             const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
+            
             return (
             <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
-                  <input
-                    type="number"
-                    style={{ width: 50, verticalAlign: 'middle', display: 'inline-block' }}
-                    className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                    defaultValue={p.current_weight || ''}
-                    onBlur={(e) => {
-                      if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
-                    }}
-                    onChange={(e) => {
-                      e.target.value = e.target.value
-                    }}
-                  />
-                  <span style={{ paddingLeft: 10, verticalAlign: 'middle', display: 'inline-block' }}>
-                    {p.water_retained_pct}%
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="number"
+                      style={{ width: 60 }}
+                      className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
+                      defaultValue={p.current_weight || ''}
+                      onBlur={(e) => {
+                        if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                      }}
+                      onChange={(e) => {
+                        e.target.value = e.target.value
+                      }}
+                    />
+                    {typeof p.water_retained_pct === 'number' && (
+                      <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
+                        {p.water_retained_pct}%
+                      </span>
+                    )}
                     {needsWater && (
-                      <Badge tone="warning" title="Needs water based on threshold" style={{ marginLeft: 8 }}>
+                      <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>
                         Needs water
                       </Badge>
                     )}
-                  </span>
+                    {operationMode === 'vacation' && approx?.next_watering_at && (
+                      <span
+                        style={{
+                          fontSize: '0.9em',
+                          padding: '2px 4px',
+                          borderRadius: 4,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          ...(approx.days_offset < 0 ? { background: '#fecaca', color: '#b91c1c' } : { color: '#6b7280' })
+                        }}
+                      >
+                        <DateTimeText value={approx.first_calculated_at || approx.next_watering_at} mode="daymonth" showTooltip={false} />
+                        {approx.days_offset !== undefined && approx.days_offset !== null && (
+                          <span style={{ opacity: 0.8 }}>
+                            ({approx.days_offset}d)
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="td">
                   {p.recommended_water_threshold_pct}%
