@@ -12,6 +12,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
+import { getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
 import SearchField from '../components/SearchField.jsx'
@@ -33,7 +34,7 @@ export default function PlantsList() {
   const [toDelete, setToDelete] = useState(null)
   const PAGE_LIMIT = 20
 
-  const operationMode = localStorage.getItem('operationMode') || 'manual'
+  const operationMode = useMemo(() => localStorage.getItem('operationMode') || 'manual', [])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -51,18 +52,20 @@ export default function PlantsList() {
 
           data = plantsData.map((p) => {
             const a = approxMap[p.uuid]
+            // Merge approximation data into plant object
+            const merged = { ...p }
             if (a) {
-              return {
-                ...p,
-                water_retained_pct: a.virtual_water_retained_pct,
-                frequency_days: a.frequency_days,
-                frequency_confidence: a.frequency_confidence,
-                next_watering_at: a.next_watering_at,
-                first_calculated_at: a.first_calculated_at,
-                days_offset: a.days_offset,
-              }
+              merged.frequency_days = a.frequency_days
+              merged.frequency_confidence = a.frequency_confidence
+              merged.next_watering_at = a.next_watering_at
+              merged.first_calculated_at = a.first_calculated_at
+              merged.days_offset = a.days_offset
+              // In vacation mode, we might want to store the virtual percentage too, 
+              // but the helper getWaterRetainedPct will handle it by taking both plant and approx.
             }
-            return p
+            // Store approximation for mode-aware helper
+            merged._approximation = a 
+            return merged
           })
         } catch (e) {
           console.error('Failed to load approximations', e)
@@ -288,9 +291,10 @@ export default function PlantsList() {
               </thead>
               <tbody>
                 {filteredPlants.map((p, idx) => {
-                  const retained = Number(p.water_retained_pct)
+                  const retained = getWaterRetainedPct(p, operationMode, p._approximation)
+                  const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
                   const thresh = Number(p.recommended_water_threshold_pct)
-                  const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+                  const needsWater = typeof retained === 'number' && !Number.isNaN(thresh) && retained <= thresh
                   return (
                   <tr key={p.uuid || idx}
                       draggable={!query}
@@ -301,7 +305,7 @@ export default function PlantsList() {
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>
                       <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
-                        {p.water_retained_pct}%
+                        {displayRetained}
                         {needsWater && (
                           <Badge tone="warning" title="Needs water based on threshold">Needs water</Badge>
                         )}
@@ -338,7 +342,7 @@ export default function PlantsList() {
                         </span>
                       )}
                     </td>
-                    <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(retained)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                              {p.identify_hint} {p.name}

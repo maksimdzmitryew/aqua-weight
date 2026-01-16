@@ -2,7 +2,7 @@ import React from 'react'
 import { valueStyle, getWaterRetainCellStyle, getWaterLossCellStyle as defaultWaterLossCellStyle } from '../utils/water_retained_colors.js'
 import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
-import { checkNeedsWater } from '../utils/watering'
+import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering'
 
 export default function BulkMeasurementTable({
   plants,
@@ -67,6 +67,9 @@ export default function BulkMeasurementTable({
             const needsWater = checkNeedsWater(p, operationMode, approx)
             const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
             
+            const retained = getWaterRetainedPct(p, operationMode, approx)
+            const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
+            
             return (
             <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
@@ -83,9 +86,9 @@ export default function BulkMeasurementTable({
                         e.target.value = e.target.value
                       }}
                     />
-                    {typeof p.water_retained_pct === 'number' && (
+                    {retained !== 'N/A' && (
                       <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
-                        {p.water_retained_pct}%
+                        {displayRetained}
                       </span>
                     )}
                     {needsWater && (
@@ -118,7 +121,7 @@ export default function BulkMeasurementTable({
                 <td className="td">
                   {p.recommended_water_threshold_pct}%
                 </td>
-                <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                <td className="td" style={getWaterRetainCellStyle?.(retained)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}

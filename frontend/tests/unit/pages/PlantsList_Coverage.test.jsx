@@ -47,11 +47,17 @@ test('covers approximation success branches (lines 44-45, 51-60)', async () => {
 
   renderPage()
 
-  // Wait for Aloe to be rendered with updated approximation data
-  // virtual_water_retained_pct 25 should be shown as 25%
-  await waitFor(() => {
-    expect(screen.getByText('25%')).toBeInTheDocument()
-  })
+  // virtual_water_retained_pct 25 should be shown as 25% ONLY if in vacation mode
+  const opMode = localStorage.getItem('operationMode') || 'manual'
+  if (opMode === 'vacation') {
+      await waitFor(() => {
+          expect(screen.getByText('25%')).toBeInTheDocument()
+      })
+  } else {
+      await waitFor(() => {
+          expect(screen.getByText('20%')).toBeInTheDocument()
+      })
+  }
 
   // Verify frequency_days and frequency_confidence are rendered (line 311-325)
   expect(screen.getByText(/5 d/)).toBeInTheDocument()

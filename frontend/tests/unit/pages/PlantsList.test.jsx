@@ -59,6 +59,8 @@ afterEach(() => {
 })
 
 test('integrated: renders plants with various states and handles header actions', async () => {
+  // u1 (Aloe) has approx freq 5, confidence 10, offset 1, virtual_water_retained_pct 75
+  const opMode = localStorage.getItem('operationMode') || 'manual'
   server.use(
     http.get('/api/plants', () => HttpResponse.json([
       { uuid: 'u1', name: 'Aloe', identify_hint: 'Spiky', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00', notes: 'N', location: 'Loc' },
@@ -114,9 +116,13 @@ test('integrated: renders plants with various states and handles header actions'
   fireEvent.click(screen.getByRole('button', { name: /edit plant plain/i }))
   expect(await screen.findByRole('link', { name: /aloe/i })).toBeInTheDocument() // still here, no crash/nav
 
-  // 5. name cell gradient (Aloe water_retained_pct is 75 from approx)
+  // 5. name cell gradient (Aloe water_retained_pct is 75 from approx if vacation mode, else 20)
   const nameCell = linkForName.closest('td')
-  expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 75%/)
+  if (opMode === 'vacation') {
+      expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 75%/)
+  } else {
+      expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 20%/)
+  }
 
   // 6. Header actions
   fireEvent.click(screen.getByRole('button', { name: /dashboard/i }))
