@@ -27,13 +27,10 @@ export function checkNeedsWater(plant, mode, approximation = null) {
  */
 export function getWaterRetainedPct(plant, mode, approximation = null) {
   if (mode === 'vacation') {
-    // In vacation mode, we should use the approximated value if available
-    const approxVal = approximation?.virtual_water_retained_pct
-    return (approxVal !== undefined && approxVal !== null) ? Math.round(approxVal) : 'N/A'
+    return 0
   }
 
   // If in non-vacation mode, we ALWAYS use the plant's DB value.
-  // We ignore approximation even if it was pre-merged or passed.
   const val = plant?.water_retained_pct
   return (val !== undefined && val !== null) ? Math.round(val) : 'N/A'
 }
