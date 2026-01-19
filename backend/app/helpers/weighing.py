@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 
+
 def needs_weighing(last_measured_at: Optional[datetime], mode: str) -> bool:
     """
     Determines if a plant needs weighing.

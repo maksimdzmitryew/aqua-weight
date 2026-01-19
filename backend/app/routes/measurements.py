@@ -13,7 +13,6 @@ from ..helpers.calibration import (
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
 from ..helpers.water_retained import calculate_water_retained
-from ..helpers.weighing import needs_weighing
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
 )

@@ -8,6 +8,6 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--no-fix]
+        args: ["--no-fix"]
         types_or: [python]
         files: ^backend/|
