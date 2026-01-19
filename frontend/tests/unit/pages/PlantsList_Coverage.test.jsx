@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import PlantsList from '../../../src/pages/PlantsList.jsx'
@@ -94,4 +94,60 @@ test('covers approximation failure branch (lines 64-66)', async () => {
   expect(consoleSpy).toHaveBeenCalledWith('Failed to load approximations', expect.anything())
 
   consoleSpy.mockRestore()
+})
+
+test('covers line 314 (vacation mode badge title) and line 375 (vacation mode missing next_watering_at)', async () => {
+  localStorage.setItem('operationMode', 'vacation')
+  const plants = [
+    { 
+        uuid: 'u1', 
+        name: 'Aloe', 
+        water_retained_pct: 10, 
+        recommended_water_threshold_pct: 30,
+        next_watering_at: null // This should trigger '—' on line 375 when in vacation mode
+    },
+  ]
+  const approximation = {
+    items: [
+      {
+        plant_uuid: 'u1',
+        virtual_water_retained_pct: 5, // < 30, so needsWater is true
+        next_watering_at: null, // Ensure it is null here too
+      }
+    ]
+  }
+
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json(plants)),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json(approximation))
+  )
+
+  try {
+    renderPage()
+
+    // Line 314: check badge title in vacation mode
+    await waitFor(() => {
+      const badge = screen.getByText('Needs water')
+      expect(badge).toBeInTheDocument()
+      expect(badge).toHaveAttribute('title', 'Needs water based on approximation')
+    })
+
+    // Line 375: check for '—' in the last column when in vacation mode and next_watering_at is null
+    const row = screen.getByText('Aloe').closest('tr')
+    const cells = within(row).getAllByRole('cell')
+    // Last column is at index 7 (Location is 6, DateTime/Latest is 7)
+    // Actually let's count: 
+    // 0: Needs water/Retained
+    // 1: Threshold
+    // 2: Frequency
+    // 3: Next watering
+    // 4: Name
+    // 5: Notes
+    // 6: Location
+    // 7: Latest/Approx datetime
+    expect(cells[7]).toHaveTextContent('—')
+
+  } finally {
+    localStorage.removeItem('operationMode')
+  }
 })
