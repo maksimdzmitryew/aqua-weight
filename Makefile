@@ -11,6 +11,8 @@ help:
 	@echo "  make run-up            - Start runtime containers (detached)"
 	@echo "  make run-up-f          - Start runtime containers (foreground)"
 	@echo "  make run-down          - Stop runtime containers"
+	@echo "  make run-start         - Start runtime containers"
+	@echo "  make run-stop          - Stop runtime containers"
 	@echo "  make run-logs          - Show runtime logs"
 	@echo "  make run-ps            - Status of runtime containers"
 	@echo ""

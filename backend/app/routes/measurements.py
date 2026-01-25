@@ -103,14 +103,17 @@ async def create_reported_watering(
     """
     Create a lightweight watering marker when a delegate reports watering without measurements.
 
-    Storage signature (designed to be picked up by scheduling analytics):
-      - measured_weight_g = NULL
+    Storage signature (Vacation mode):
       - water_loss_total_pct = 0
-      - other weight/loss fields left NULL
-      - measured_at = provided timestamp (or now, parsed via existing utility)
+      - water_added_g = equals water_added_g from a previous watering event (logic handled by analytics/fetching)
+      - measured_weight_g = NULL
+      - last_dry_weight_g = NULL
+      - last_wet_weight_g = NULL
+      - water_loss_total_g = NULL
+      - water_loss_day_pct = NULL
+      - water_loss_day_g = NULL
+      - measured_at = provided timestamp (or now)
       - note = "[reported] ..." with optional reporter and free-form note
-
-    This intentionally does NOT attempt to derive weights or compute losses.
     """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -538,6 +541,19 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
 async def create_measurement(
     payload: MeasurementCreateRequest, get_conn_fn=Depends(get_conn_factory)
 ):
+    """
+    Create a new measurement or watering event.
+
+    Storage signature for Watering (Automatic and Manual mode):
+      - last_dry_weight_g > 0
+      - last_wet_weight_g > 0
+      - water_added_g > 0
+      - water_loss_total_pct = 0
+      - measured_weight_g = NULL
+      - water_loss_total_g = NULL
+      - water_loss_day_pct = NULL
+      - water_loss_day_g = NULL
+    """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
