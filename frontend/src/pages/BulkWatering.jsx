@@ -124,6 +124,71 @@ export default function BulkWatering() {
     }
   }
 
+  async function handleVacationWateringCommit(plantId) {
+    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      const data = await measurementsApi.watering.createVacation({ plant_id: plantId })
+      const measurement = data?.data || data
+      if (measurement?.id) {
+        setMeasurementIds(prev => ({ ...prev, [plantId]: measurement.id }))
+        setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+        
+        // Update plant data in list
+        setPlants(prev => prev.map(p => {
+          if (p.uuid === plantId) {
+            return {
+              ...p,
+              water_loss_total_pct: measurement.water_loss_total_pct ?? p.water_loss_total_pct,
+              water_retained_pct: measurement.water_retained_pct ?? p.water_retained_pct,
+              latest_at: measurement.latest_at || measurement.measured_at || p.latest_at,
+              measured_at: measurement.measured_at || p.measured_at,
+            }
+          }
+          return p
+        }))
+      } else {
+        setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      }
+    } catch (err) {
+      console.error('Error saving vacation watering:', err)
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
+  async function handleVacationWateringDelete(plantId, measurementId) {
+    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      await measurementsApi.delete(measurementId)
+      setMeasurementIds(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      setInputStatus(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      
+      // Revert plant data in list to previous state (approximate)
+      setPlants(prev => prev.map(p => {
+        if (p.uuid === plantId) {
+          const approx = approximations[plantId]
+          return {
+            ...p,
+            water_loss_total_pct: null, // Force recalculation or use previous
+            water_retained_pct: null,
+            latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
+          }
+        }
+        return p
+      }))
+    } catch (err) {
+      console.error('Error deleting vacation watering:', err)
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
     if (showAll) return plants
@@ -148,7 +213,7 @@ export default function BulkWatering() {
         titleBack="Daily Care"
       />
 
-      <p>Enter the new weight after watering. {operationMode === 'vacation' 
+      <p>{operationMode === 'vacation' ? 'Click the water drop icon to record watering based on historical data.' : 'Enter the new weight after watering.'} {operationMode === 'vacation' 
         ? 'By default, we show only plants that need water according to the approximation schedule.'
         : 'By default, we show only plants that need water (retained ≤ threshold).'}
       </p>
@@ -178,6 +243,9 @@ export default function BulkWatering() {
           plants={displayedPlants}
           inputStatus={inputStatus}
           onCommitValue={handleWateringCommit}
+          onCommitVacationWatering={handleVacationWateringCommit}
+          onDeleteVacationWatering={handleVacationWateringDelete}
+          measurementIds={measurementIds}
           onViewPlant={handleView}
           firstColumnLabel="Weight gr, Water date"
           firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."

@@ -98,7 +98,7 @@ Operation mode allows you to switch between different care behaviors. It is curr
 What happens with each option:
 - **Automatic**: Receives data from IoT measurement devices. Watering is identified by `last_dry_weight_g`, `last_wet_weight_g`, and `water_added_g` being > 0 (non-NULL), while `water_loss_total_pct` is 0. Other fields (`measured_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
 - **Manual**: Default mode. Displays a notice: "Manual mode — weighing and watering is based on human input". Watering follows the same data signature as Automatic mode.
-- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". Watering is defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from the previous watering event. Other fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
+- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". Watering is defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from any latest measurement event (watering or weighing). Other fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
 
 Notes and future direction:
 - "Manual" and "Vacation" modes currently show informational banners across all pages via the `DashboardLayout`.

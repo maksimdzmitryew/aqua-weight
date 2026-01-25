@@ -3,11 +3,15 @@ import { valueStyle, getWaterRetainCellStyle, getWaterLossCellStyle as defaultWa
 import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
 import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering'
+import WaterDropIcon from './icons/WaterDropIcon.jsx'
 
 export default function BulkMeasurementTable({
   plants,
   inputStatus,
   onCommitValue,
+  onCommitVacationWatering,
+  onDeleteVacationWatering,
+  measurementIds = {},
   onViewPlant,
   firstColumnLabel = 'New value',
   firstColumnTooltip,
@@ -72,23 +76,56 @@ export default function BulkMeasurementTable({
             const retained = getWaterRetainedPct(p, operationMode, approx)
             const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
             
+            const status = inputStatus[p.uuid]
+            const mId = measurementIds[p.uuid]
+            const isSaving = status === 'saving'
+
+            let dropColor = '#3b82f6' // blue-500
+            if (status === 'success' || mId) dropColor = '#10b981' // green-500
+            if (status === 'error') dropColor = '#ef4444' // red-500
+
             return (
             <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-                    <input
-                      type="number"
-                      style={{ width: 60 }}
-                      className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                      defaultValue={p.current_weight || ''}
-                      disabled={operationMode === 'vacation'}
-                      onBlur={(e) => {
-                        if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
-                      }}
-                      onChange={(e) => {
-                        e.target.value = e.target.value
-                      }}
-                    />
+                    {operationMode !== 'vacation' ? (
+                      <input
+                        type="number"
+                        style={{ width: 60 }}
+                        className={`input ${status === 'success' ? 'bg-success' : ''} ${status === 'error' ? 'bg-error' : ''}`}
+                        defaultValue={p.current_weight || ''}
+                        onBlur={(e) => {
+                          if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => {
+                          if (mId) {
+                            onDeleteVacationWatering?.(p.uuid, mId)
+                          } else {
+                            onCommitVacationWatering?.(p.uuid)
+                          }
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: isSaving ? 'wait' : 'pointer',
+                          padding: 4,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 4,
+                          transition: 'background 0.2s',
+                        }}
+                        className="hover-bg-muted"
+                        title={mId ? "Delete vacation watering" : "Record vacation watering"}
+                      >
+                        <WaterDropIcon color={dropColor} size={24} className={isSaving ? 'animate-pulse' : ''} />
+                      </button>
+                    )}
                     {retained !== 'N/A' && (
                       <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
                         {displayRetained}

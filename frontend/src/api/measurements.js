@@ -35,6 +35,12 @@ export const measurementsApi = {
         signal,
       })
     },
+    createVacation(payload, signal) {
+      return apiClient.post('/measurements/vacation/watering', payload, {
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+      })
+    },
     update(id, payload, signal) {
       if (!id) throw new ApiError('Missing measurement id')
       return apiClient.put(`/measurements/watering/${id}`, payload, {

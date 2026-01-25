@@ -169,3 +169,8 @@ def normalize_measured_at_local(
         return dt.replace(second=sec, microsecond=ms * 1000)
 
     raise ValueError("unsupported fill_with value")
+
+
+def now_local_iso() -> str:
+    """Return current local time as ISO 8601 string without timezone offset."""
+    return datetime.now().isoformat(sep="T", timespec="minutes")
