@@ -108,6 +108,10 @@ async def create_vacation_watering(
       - water_loss_total_g = NULL
       - water_loss_day_pct = NULL
       - water_loss_day_g = NULL
+
+    Note: This watering event is ignored by the backend frequency calculator
+    (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
+    are NULL.
     """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -240,6 +244,10 @@ async def create_reported_watering(
       - water_loss_day_g = NULL
       - measured_at = provided timestamp (or now)
       - note = "[reported] ..." with optional reporter and free-form note
+
+    Note: This watering event is ignored by the backend frequency calculator
+    (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
+    are NULL.
     """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")

@@ -143,6 +143,8 @@ class PlantsList:
                         freq_days, freq_count = None, 0
 
                     # Find last watering event for fallback/projection
+                    # Note: We include both Manual/Automatic (weights > 0) 
+                    # and Vacation (weights are NULL) watering events for the projection base date.
                     last_watering_at = None
                     try:
                         with conn.cursor() as cur2:

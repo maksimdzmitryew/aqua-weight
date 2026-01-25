@@ -81,7 +81,7 @@ Notes
 ## Application features and settings
 
 ### Operation mode (frontend setting)
-Operation mode allows you to switch between different care behaviors. It is currently a client‑side setting with no backend changes.
+Operation mode allows you to switch between different care behaviors.
 
 - Location: Settings page (https://aw.max/settings)
 - Control: dropdown labeled "Operation mode" with three options — "Automatic", "Manual", and "Vacation".
@@ -98,7 +98,11 @@ Operation mode allows you to switch between different care behaviors. It is curr
 What happens with each option:
 - **Automatic**: Receives data from IoT measurement devices. Watering is identified by `last_dry_weight_g`, `last_wet_weight_g`, and `water_added_g` being > 0 (non-NULL), while `water_loss_total_pct` is 0. Other fields (`measured_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
 - **Manual**: Default mode. Displays a notice: "Manual mode — weighing and watering is based on human input". Watering follows the same data signature as Automatic mode.
-- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". Watering is defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from any latest measurement event (watering or weighing). Other fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
+- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". 
+  - **Watering Event**: Defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from any latest measurement event (watering or weighing). All weight fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`) and other loss fields are NULL.
+  - **Bulk Watering UI**: In this mode, the weight input is hidden and replaced by a water drop icon. Clicking the icon records a vacation watering event with the signature above. Clicking it again deletes the event.
+
+**Note on Watering Frequency**: The system calculates watering frequency (interval between events) only using "Automatic" and "Manual" watering events (where `last_dry_weight_g` and `last_wet_weight_g` are present and > 0). "Vacation" mode watering events (where weights are NULL) are used as the base date for the next projection but do not influence the historical frequency interval.
 
 Notes and future direction:
 - "Manual" and "Vacation" modes currently show informational banners across all pages via the `DashboardLayout`.

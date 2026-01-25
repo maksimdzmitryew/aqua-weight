@@ -25,7 +25,15 @@ def _fetch_watering_events_since(
 ) -> List[datetime]:
     """Return watering event timestamps (ascending) since given datetime (inclusive).
 
-    Watering event detection per spec: measured_weight_g IS NULL AND water_loss_total_pct = 0.
+    Watering event detection per spec:
+      - measured_weight_g IS NULL
+      - water_loss_total_pct = 0
+      - last_dry_weight_g > 0
+      - last_wet_weight_g > 0
+
+    Note: This backend function only detects watering for "automatic" and "manual" modes.
+    To detect watering for vacation, a query should check that last_dry_weight_g
+    and last_wet_weight_g are NULL and not numeric.
     """
     with conn.cursor() as cur:
         if since_dt is None:
@@ -36,6 +44,8 @@ def _fetch_watering_events_since(
                 WHERE plant_id = UNHEX(%s)
                   AND measured_weight_g IS NULL
                   AND water_loss_total_pct = 0
+                  AND last_dry_weight_g > 0
+                  AND last_wet_weight_g > 0
                 ORDER BY measured_at ASC
                 """,
                 (plant_id_hex,),
@@ -49,6 +59,8 @@ def _fetch_watering_events_since(
                   AND measured_at >= %s
                   AND measured_weight_g IS NULL
                   AND water_loss_total_pct = 0
+                  AND last_dry_weight_g > 0
+                  AND last_wet_weight_g > 0
                 ORDER BY measured_at ASC
                 """,
                 (plant_id_hex, since_dt),
