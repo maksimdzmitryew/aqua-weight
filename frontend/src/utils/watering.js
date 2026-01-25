@@ -7,6 +7,12 @@
  * @returns {boolean} - True if the plant needs watering.
  */
 export function checkNeedsWater(plant, mode, approximation = null) {
+  // If the plant was just watered (signature: water_loss_total_pct is 0),
+  // it doesn't need water, regardless of mode.
+  if (plant?.water_loss_total_pct === 0) {
+    return false
+  }
+
   if (mode === 'vacation') {
     return !!approximation && approximation.days_offset != null && approximation.days_offset <= 0
   }
@@ -27,6 +33,9 @@ export function checkNeedsWater(plant, mode, approximation = null) {
  */
 export function getWaterRetainedPct(plant, mode, approximation = null) {
   if (mode === 'vacation') {
+    if (plant?.water_loss_total_pct === 0) {
+      return 100
+    }
     return 0
   }
 

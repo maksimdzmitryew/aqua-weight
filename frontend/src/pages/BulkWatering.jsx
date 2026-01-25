@@ -16,6 +16,7 @@ export default function BulkWatering() {
   const navigate = useNavigate()
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
+  const [originalWaterLoss, setOriginalWaterLoss] = useState({})
   // Toggle to switch between only-needs-water vs all plants
   const [showAll, setShowAll] = useState(false)
   // Snapshot of plants that needed watering on initial load
@@ -77,6 +78,11 @@ export default function BulkWatering() {
       return
     }
 
+    const plant = plants.find(p => p.uuid === plantId)
+    if (plant && !measurementIds[plantId]) {
+      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
+    }
+
     setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
 
     try {
@@ -125,6 +131,10 @@ export default function BulkWatering() {
   }
 
   async function handleVacationWateringCommit(plantId) {
+    const plant = plants.find(p => p.uuid === plantId)
+    if (plant) {
+      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
+    }
     setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
     try {
       const data = await measurementsApi.watering.createVacation({ plant_id: plantId })
@@ -173,16 +183,20 @@ export default function BulkWatering() {
       // Revert plant data in list to previous state (approximate)
       setPlants(prev => prev.map(p => {
         if (p.uuid === plantId) {
-          const approx = approximations[plantId]
           return {
             ...p,
-            water_loss_total_pct: null, // Force recalculation or use previous
+            water_loss_total_pct: originalWaterLoss[plantId] !== undefined ? originalWaterLoss[plantId] : p.water_loss_total_pct,
             water_retained_pct: null,
             latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
           }
         }
         return p
       }))
+      setOriginalWaterLoss(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
     } catch (err) {
       console.error('Error deleting vacation watering:', err)
       setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
