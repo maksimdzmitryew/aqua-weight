@@ -59,8 +59,8 @@ const RepottingCreate = () => {
   }, [isEdit, editId])
 
   useEffect(() => {
-    if (preselect) setPlantId(preselect)
-  }, [preselect])
+    if (preselect && !isEdit) setPlantId(preselect)
+  }, [preselect, isEdit])
 
   // Allow submission even if numeric fields are blank; blanks will map to nulls
   const canSave = useMemo(() => !!(plantId && measuredAt), [plantId, measuredAt])
@@ -104,7 +104,7 @@ const RepottingCreate = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <div>
             <label style={labelStyle} htmlFor="plant_id">Plant</label>
-            <select id="plant_id" value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle}>
+            <select id="plant_id" value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
               <option value="">Select plant…</option>
               {plants.map(p => (
                 <option key={p.uuid} value={p.uuid}>{p.name}</option>

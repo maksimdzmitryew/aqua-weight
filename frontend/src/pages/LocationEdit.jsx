@@ -144,6 +144,7 @@ export default function LocationEdit() {
               aria-invalid={!!fieldErrors.name}
               aria-describedby={fieldErrors.name ? 'name-error' : undefined}
               required
+              disabled
             />
             {fieldErrors.name && (
               <div id="name-error" style={{ color: 'crimson', marginTop: 6 }}>{fieldErrors.name}</div>

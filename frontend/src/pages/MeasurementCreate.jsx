@@ -51,8 +51,8 @@ export default function MeasurementCreate() {
   }, [])
 
   useEffect(() => {
-    if (preselect) form.setValue('plant_id', preselect)
-  }, [preselect])
+    if (preselect && !isEdit) form.setValue('plant_id', preselect)
+  }, [preselect, isEdit])
 
   // Load existing measurement in edit mode
   useEffect(() => {

@@ -22,6 +22,9 @@ export default function WateringCreate() {
   const [plants, setPlants] = useState([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [isVacationSignature, setIsVacationSignature] = useState(false)
+
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
 
   const form = useForm({
     plant_id: preselect || '',
@@ -46,8 +49,8 @@ export default function WateringCreate() {
   }, [])
 
   useEffect(() => {
-    if (preselect) form.setValue('plant_id', preselect)
-  }, [preselect])
+    if (preselect && !isEdit) form.setValue('plant_id', preselect)
+  }, [preselect, isEdit])
 
   // Load existing watering in edit mode (reuse this page for add/edit)
   useEffect(() => {
@@ -58,6 +61,11 @@ export default function WateringCreate() {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
         const measured_at = data?.measured_at ? toLocalISOMinutes(data.measured_at) || form.values.measured_at : form.values.measured_at
+        
+        // Detection: if both weights are NULL, it's a Vacation/Reported signature
+        const isVac = data?.last_dry_weight_g === null && data?.last_wet_weight_g === null
+        setIsVacationSignature(isVac)
+
         form.setValues({
           ...form.values,
           plant_id: data?.plant_id || form.values.plant_id,
@@ -78,17 +86,32 @@ export default function WateringCreate() {
     setSaving(true)
     setError('')
     try {
-      const common = {
-        measured_at: vals.measured_at,
-        last_dry_weight_g: vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
-        last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
-        water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
-      }
-      const payload = isEdit ? common : { plant_id: vals.plant_id, ...common }
       if (isEdit) {
+        // When editing, if it's a Vacation signature, we must send nulls for weights
+        const payload = {
+          measured_at: vals.measured_at,
+          last_dry_weight_g: isVacationSignature ? null : (vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null),
+          last_wet_weight_g: isVacationSignature ? null : (vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null),
+          water_added_g: isVacationSignature ? null : (vals.water_added_g !== '' ? Number(vals.water_added_g) : null),
+        }
         await measurementsApi.watering.update(editId, payload)
       } else {
-        await measurementsApi.watering.create(payload)
+        // Adding new
+        if (operationMode === 'vacation') {
+          await measurementsApi.watering.createVacation({
+            plant_id: vals.plant_id,
+            measured_at: vals.measured_at,
+          })
+        } else {
+          const payload = {
+            plant_id: vals.plant_id,
+            measured_at: vals.measured_at,
+            last_dry_weight_g: vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
+            last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+            water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
+          }
+          await measurementsApi.watering.create(payload)
+        }
       }
       navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
@@ -97,6 +120,9 @@ export default function WateringCreate() {
       setSaving(false)
     }
   })
+
+  // Determine if weight fields should be visible
+  const showWeightFields = isEdit ? !isVacationSignature : operationMode !== 'vacation'
 
   return (
     <DashboardLayout title={isEdit ? 'Edit Watering' : 'Watering'}>
@@ -110,10 +136,14 @@ export default function WateringCreate() {
               <option key={p.uuid} value={p.uuid}>{p.name}</option>
             ))}
           </Select>
-          <NumberInput form={form} name="last_wet_weight_g" label="Current weight (g)" min={0} validators={[minNumber(0)]} />
-          <NumberInput form={form} name="last_dry_weight_g" label="[optional] Weight before watering (g)" min={0} validators={[minNumber(0)]} />
-          <div />
-          <NumberInput form={form} name="water_added_g" label="[optional] Water added (g)" min={0} validators={[minNumber(0)]} />
+          {showWeightFields && (
+            <>
+              <NumberInput form={form} name="last_wet_weight_g" label="Current weight (g)" min={0} validators={[minNumber(0)]} />
+              <NumberInput form={form} name="last_dry_weight_g" label="[optional] Weight before watering (g)" min={0} validators={[minNumber(0)]} />
+              <div />
+              <NumberInput form={form} name="water_added_g" label="[optional] Water added (g)" min={0} validators={[minNumber(0)]} />
+            </>
+          )}
         </div>
         <div style={{ marginTop: 16 }}>
           <button disabled={!form.valid || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>

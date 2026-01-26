@@ -198,7 +198,7 @@ export default function PlantEdit() {
             <div>
               <div style={rowStyle}>
                 <label style={labelStyle} htmlFor="name">Name</label>
-                <input id="name" name="name" value={plant.name || ''} onChange={onChange} style={inputStyle} required />
+                <input id="name" name="name" value={plant.name || ''} onChange={onChange} style={inputStyle} required disabled />
               </div>
 
               <div style={rowStyle}>

@@ -12,6 +12,7 @@ from ..helpers.calibration import (
 )
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
+from ..helpers.water_loss import WaterLossCalculation, calculate_water_loss
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
@@ -26,6 +27,7 @@ from ..schemas.measurement import (
 )
 from ..schemas.plant import PlantCalibrationItem
 from ..services.measurements import (
+    DerivedWeights,
     compute_water_losses,
     derive_weights,
     ensure_exclusive_water_vs_weight,
@@ -842,6 +844,14 @@ async def create_measurement(
 async def update_measurement(
     id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn=Depends(get_conn_factory)
 ):
+    """
+    Update an existing measurement or watering event.
+
+    Safety:
+    If the event is a Vacation/Reported watering (signature: weights are NULL),
+    the system preserves this signature during updates by bypassing weight
+    derivation and loss re-calculations, unless physical weights are explicitly provided.
+    """
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -892,26 +902,43 @@ async def update_measurement(
                 measured_at_eff = measured_at if measured_at is not None else current_measured_at
 
                 # Use derivation helper to recompute consistent fields
-                derived = derive_weights(
-                    cursor=cur,
-                    plant_id_hex=plant_hex,
-                    measured_at_db=measured_at_eff,
-                    measured_weight_g=mw_eff,
-                    last_dry_weight_g=ld_eff,
-                    last_wet_weight_g=lw_eff,
-                    payload_water_added_g=wa_eff_payload,
-                    exclude_measurement_id=id_hex,
-                )
+                # Skip re-derivation if this is a Vacation/Reported watering event (weights are NULL)
+                # to preserve the technical signature.
+                is_vacation_event = current_mw is None and current_ld is None and current_lw is None
+                
+                if is_vacation_event and mw is None and ld is None and lw is None:
+                    # Maintain the Vacation signature
+                    derived = DerivedWeights(
+                        last_dry_weight_g=None,
+                        last_wet_weight_g=None,
+                        water_added_g=wa_eff_payload or current_wa or 0,
+                        prev_measured_weight=None, # Not used for Vacation events
+                        last_watering_water_added=current_wa or 0
+                    )
+                    loss_calc = WaterLossCalculation()
+                    loss_calc.water_loss_total_pct = 0.0
+                    loss_calc.is_watering_event = True
+                else:
+                    derived = derive_weights(
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
+                        measured_at_db=measured_at_eff,
+                        measured_weight_g=mw_eff,
+                        last_dry_weight_g=ld_eff,
+                        last_wet_weight_g=lw_eff,
+                        payload_water_added_g=wa_eff_payload,
+                        exclude_measurement_id=id_hex,
+                    )
 
-                # Determine previous measurement (by time) for day loss calc happens in compute
-                loss_calc = compute_water_losses(
-                    cursor=cur,
-                    plant_id_hex=plant_hex,
-                    measured_at_db=measured_at_eff,
-                    measured_weight_g=mw_eff,
-                    derived=derived,
-                    exclude_measurement_id=id_hex,
-                )
+                    # Determine previous measurement (by time) for day loss calc happens in compute
+                    loss_calc = compute_water_losses(
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
+                        measured_at_db=measured_at_eff,
+                        measured_weight_g=mw_eff,
+                        derived=derived,
+                        exclude_measurement_id=id_hex,
+                    )
 
                 mw_update = None if loss_calc.is_watering_event else mw_eff
                 wa_update = int(derived.water_added_g) if derived.water_added_g else 0
