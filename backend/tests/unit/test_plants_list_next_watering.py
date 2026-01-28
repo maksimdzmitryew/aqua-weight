@@ -83,11 +83,10 @@ def test_next_watering_projection_and_roll_forward(monkeypatch):
 
     assert items and items[0]["frequency_days"] == freq_days
     assert items[0]["frequency_confidence"] == 5
-    # Projection should be at least 'now' (rolled forward); verify it advanced beyond last_watering_at
     nxt = items[0]["next_watering_at"]
     assert nxt is not None
-    assert nxt > now - timedelta(days=1)  # should not be in the past
-    assert nxt > last_watering_at
+    # nxt should be last_watering_at + freq_days = (now - 10d) + 3d = now - 7d
+    assert nxt == last_watering_at + timedelta(days=freq_days)
 
 
 def test_next_watering_math_exception_falls_back_to_initial_projection(monkeypatch):
@@ -232,3 +231,27 @@ def test_next_watering_calculation_exception_resets_values(monkeypatch):
     assert items[0]["next_watering_at"] is None
     assert items[0]["first_calculated_at"] is None
     assert items[0]["days_offset"] is None
+
+def test_next_watering_vacation_mode_decay(monkeypatch):
+    # Verify linear decay in vacation mode
+    now = datetime.utcnow()
+    pid = bytes.fromhex("dd" * 16)
+    last_watering_at = now - timedelta(days=5)
+    freq_days = 10
+
+    # Retained should be 100 * (1 - 5/10) = 50%
+    rows = [_row(pid, "Ivy", None, created_at=now - timedelta(days=20), measured_at=now - timedelta(days=5), water_loss_total_pct=0.0)]
+    cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
+    fake_conn = FakeConn(cursor)
+
+    import backend.app.helpers.plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 5))
+
+    # Fetch with mode="vacation"
+    items = PlantsList.fetch_all(mode="vacation")
+
+    assert items[0]["water_retained_pct"] == 50.0
+    # Next watering should be last_watering_at + freq = now + 5d
+    assert items[0]["next_watering_at"] == last_watering_at + timedelta(days=freq_days)
+    assert items[0]["days_offset"] == 5

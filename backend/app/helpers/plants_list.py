@@ -165,6 +165,13 @@ class PlantsList:
                     except Exception:
                         pass
 
+                    # Implement linear decay for water_retained_pct in vacation mode
+                    if mode == "vacation" and last_watering_at and freq_days and freq_days > 0:
+                        days_since_watering = (now - last_watering_at).total_seconds() / (24 * 3600)
+                        # Linear decay: 100% at last_watering_at, 0% at (last_watering_at + freq_days)
+                        projected_retained = 100 * (1 - (days_since_watering / freq_days))
+                        water_retained_pct = max(0.0, projected_retained)
+
                     # Compute next watering date: static projection based on last watering event
                     next_watering_at = None
                     first_calculated_at = None
@@ -182,18 +189,6 @@ class PlantsList:
                             today_date = now.date()
                             first_date = first_calculated_at.date()
                             days_offset = (first_date - today_date).days
-
-                            # If projection is in the past, roll forward by multiples of frequency
-                            try:
-                                if next_watering_at and next_watering_at < now:
-                                    elapsed_days = (now - last_watering_at).total_seconds() / (24 * 3600)
-                                    steps = max(1, ceil(elapsed_days / int(freq_days)))
-                                    next_watering_at = last_watering_at + timedelta(
-                                        days=int(freq_days) * steps
-                                    )
-                            except Exception:
-                                # Keep the initial projection if any math fails
-                                pass
                         except Exception:
                             next_watering_at = None
                             first_calculated_at = None
