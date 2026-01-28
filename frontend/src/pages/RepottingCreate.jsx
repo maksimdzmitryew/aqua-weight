@@ -1,29 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
-
+import { useForm, required, minNumber } from '../components/form/useForm.js'
+import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
+import Select from '../components/form/fields/Select.jsx'
+import NumberInput from '../components/form/fields/NumberInput.jsx'
 
 const RepottingCreate = () => {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
-  const editId = search.get('id') // Check for 'id' parameter in search query
+  const editId = search.get('id')
+  const location = useLocation()
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
-  
+
   const [plants, setPlants] = useState([])
-  const [plantId, setPlantId] = useState(preselect || '')
-  const [measuredAt, setMeasuredAt] = useState(nowLocalISOMinutes())
-  const [lastWet, setLastWet] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  const [weightBeforeRepotting, setWeightBeforeRepotting] = useState('') // Rename lastDryWeightBeforeRepotting to weightBeforeRepotting
-
   const isEdit = !!editId
+
+  const form = useForm({
+    plant_id: preselect || '',
+    measured_at: nowLocalISOMinutes(),
+    weight_before_repotting_g: '',
+    last_wet_weight_g: '',
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -46,10 +52,12 @@ const RepottingCreate = () => {
       try {
         const data = await measurementsApi.repotting.get(editId)
         if (cancelled) return
-        setPlantId(data.plant_id)
-        setMeasuredAt(data.measured_at)
-        setWeightBeforeRepotting(String(data.weight_before_repotting_g))
-        setLastWet(String(data.last_wet_weight_g))
+        form.setValues({
+          plant_id: data.plant_id,
+          measured_at: data.measured_at,
+          weight_before_repotting_g: data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
+          last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
+        })
       } catch (_) {
         if (!cancelled) setError('Failed to load repotting event')
       }
@@ -59,76 +67,52 @@ const RepottingCreate = () => {
   }, [isEdit, editId])
 
   useEffect(() => {
-    if (preselect && !isEdit) setPlantId(preselect)
+    if (preselect && !isEdit) form.setValue('plant_id', preselect)
   }, [preselect, isEdit])
 
-  // Allow submission even if numeric fields are blank; blanks will map to nulls
-  const canSave = useMemo(() => !!(plantId && measuredAt), [plantId, measuredAt])
-
-  async function onSubmit(e) {
-    e.preventDefault()
-    if (!canSave) return
+  const onSubmit = form.handleSubmit(async (vals) => {
     setSaving(true)
     setError('')
     try {
       const payload = {
-        plant_id: plantId,
-        measured_at: measuredAt,
-        measured_weight_g: weightBeforeRepotting !== '' ? Number(weightBeforeRepotting) : null,
-        last_wet_weight_g: lastWet !== '' ? Number(lastWet) : null,
+        plant_id: vals.plant_id,
+        measured_at: vals.measured_at,
+        measured_weight_g: vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
+        last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
       }
       if (isEdit) {
         await measurementsApi.repotting.update(editId, payload)
       } else {
         await measurementsApi.repotting.create(payload)
       }
-      navigate(`/plants/${plantId}`)
+      const from = location.state?.from
+      if (from) navigate(from)
+      else navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
       setSaving(false)
     }
-  }
-
-  const labelStyle = { display: 'block', marginBottom: 4, fontWeight: 600 }
-  const inputStyle = {
-    width: '100%', padding: '8px 10px', borderRadius: 6,
-    border: isDark ? '1px solid #374151' : '1px solid #d1d5db',
-    background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827'
-  }
+  })
 
   return (
-    <DashboardLayout title="Repotting">
+    <DashboardLayout title={isEdit ? 'Edit Repotting' : 'Repotting'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <div>
-            <label style={labelStyle} htmlFor="plant_id">Plant</label>
-            <select id="plant_id" value={plantId} onChange={(e)=>setPlantId(e.target.value)} style={inputStyle} disabled={isEdit}>
-              <option value="">Select plant…</option>
-              {plants.map(p => (
-                <option key={p.uuid} value={p.uuid}>{p.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle} htmlFor="measured_at">Measured at</label>
-            <input id="measured_at" type="datetime-local" value={measuredAt} onChange={(e)=>setMeasuredAt(e.target.value)} style={inputStyle} />
-          </div>
-
-          <div>
-            <label style={labelStyle} htmlFor="weight_before_repotting_g">Weight before repotting (g)</label>
-            <input id="weight_before_repotting_g" type="number" value={weightBeforeRepotting} onChange={(e) => setWeightBeforeRepotting(e.target.value)} style={inputStyle} min={0} />
-          </div>
-          
-          <div>
-            <label style={labelStyle} htmlFor="last_wet_weight_g">Weight after repotting (g)</label>
-            <input id="last_wet_weight_g" type="number" value={lastWet} onChange={(e)=>setLastWet(e.target.value)} style={inputStyle} min={0} />
-          </div>
+          <Select form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit}>
+            <option value="">Select plant…</option>
+            {plants.map(p => (
+              <option key={p.uuid} value={p.uuid}>{p.name}</option>
+            ))}
+          </Select>
+          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
+          <NumberInput form={form} name="weight_before_repotting_g" label="Weight before repotting (g)" min={0} validators={[minNumber(0)]} />
+          <NumberInput form={form} name="last_wet_weight_g" label="Weight after repotting (g)" min={0} validators={[minNumber(0)]} />
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!canSave || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>Save repotting</button>
-          <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update repotting' : 'Save repotting'}</button>
+          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>
     </DashboardLayout>

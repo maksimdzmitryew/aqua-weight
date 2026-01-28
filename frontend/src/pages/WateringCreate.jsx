@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
@@ -15,6 +15,7 @@ export default function WateringCreate() {
   const preselect = search.get('plant')
   const editId = search.get('id')
   const isEdit = !!editId
+  const location = useLocation();
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -113,7 +114,9 @@ export default function WateringCreate() {
           await measurementsApi.watering.create(payload)
         }
       }
-      navigate(`/plants/${vals.plant_id}`)
+      const from = location.state?.from
+      if (from) navigate(from)
+      else navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
@@ -146,8 +149,8 @@ export default function WateringCreate() {
           )}
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update watering' : 'Save watering'}</button>
-          <button type="button" onClick={()=>navigate(document.referrer)} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update watering' : 'Save watering'}</button>
+          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>
     </DashboardLayout>
