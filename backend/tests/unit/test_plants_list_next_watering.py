@@ -238,9 +238,17 @@ def test_next_watering_vacation_mode_decay(monkeypatch):
     pid = bytes.fromhex("dd" * 16)
     last_watering_at = now - timedelta(days=5)
     freq_days = 10
+    threshold = 30.0
 
-    # Retained should be 100 * (1 - 5/10) = 50%
-    rows = [_row(pid, "Ivy", None, created_at=now - timedelta(days=20), measured_at=now - timedelta(days=5), water_loss_total_pct=0.0)]
+    # 5 days since watering for 10-day freq means we are 50% through the cycle
+    # consumption = 5 * (100 - 30) / 10 = 35
+    # Retained should be 100 - 35 = 65%
+    rows = [
+        (
+            pid, "Ivy", None, None, None, None, threshold, None, None, None,
+            now - timedelta(days=20), now - timedelta(days=5), None, None, 0.0
+        )
+    ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
@@ -251,7 +259,7 @@ def test_next_watering_vacation_mode_decay(monkeypatch):
     # Fetch with mode="vacation"
     items = PlantsList.fetch_all(mode="vacation")
 
-    assert items[0]["water_retained_pct"] == 50.0
+    assert items[0]["water_retained_pct"] == 65.0
     # Next watering should be last_watering_at + freq = now + 5d
     assert items[0]["next_watering_at"] == last_watering_at + timedelta(days=freq_days)
     assert items[0]["days_offset"] == 5

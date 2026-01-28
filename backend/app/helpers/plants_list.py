@@ -168,8 +168,10 @@ class PlantsList:
                     # Implement linear decay for water_retained_pct in vacation mode
                     if mode == "vacation" and last_watering_at and freq_days and freq_days > 0:
                         days_since_watering = (now - last_watering_at).total_seconds() / (24 * 3600)
-                        # Linear decay: 100% at last_watering_at, 0% at (last_watering_at + freq_days)
-                        projected_retained = 100 * (1 - (days_since_watering / freq_days))
+                        threshold = recommended_water_threshold_pct if recommended_water_threshold_pct is not None else 40.0
+                        # Linear decay towards threshold at freq_days
+                        consumption = days_since_watering * (100.0 - threshold) / freq_days
+                        projected_retained = 100.0 - consumption
                         water_retained_pct = max(0.0, projected_retained)
 
                     # Compute next watering date: static projection based on last watering event
