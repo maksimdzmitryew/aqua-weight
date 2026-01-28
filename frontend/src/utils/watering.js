@@ -33,6 +33,10 @@ export function checkNeedsWater(plant, mode, approximation = null) {
  * @returns {string|number} - The percentage to display or "N/A".
  */
 export function getWaterRetainedPct(plant, mode, approximation = null) {
+  if (mode === 'vacation' && approximation) {
+    const val = approximation.virtual_water_retained_pct
+    return (val !== undefined && val !== null) ? Math.round(val) : 'N/A'
+  }
   const val = plant?.water_retained_pct
   return (val !== undefined && val !== null) ? Math.round(val) : 'N/A'
 }

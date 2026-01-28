@@ -156,6 +156,19 @@ export default function BulkWatering() {
           }
           return p
         }))
+
+        // Refresh approximations to update days_offset and next_watering_at
+        try {
+          const approxData = await plantsApi.getApproximation()
+          const approxItems = approxData?.items || []
+          const approxMap = approxItems.reduce((acc, item) => {
+            acc[item.plant_uuid] = item
+            return acc
+          }, {})
+          setApproximations(approxMap)
+        } catch (e) {
+          console.error('Failed to refresh approximations', e)
+        }
       } else {
         setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
       }
@@ -197,6 +210,19 @@ export default function BulkWatering() {
         delete next[plantId]
         return next
       })
+
+      // Refresh approximations to update days_offset and next_watering_at
+      try {
+        const approxData = await plantsApi.getApproximation()
+        const approxItems = approxData?.items || []
+        const approxMap = approxItems.reduce((acc, item) => {
+          acc[item.plant_uuid] = item
+          return acc
+        }, {})
+        setApproximations(approxMap)
+      } catch (e) {
+        console.error('Failed to refresh approximations', e)
+      }
     } catch (err) {
       console.error('Error deleting vacation watering:', err)
       setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))

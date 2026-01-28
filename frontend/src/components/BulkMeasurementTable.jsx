@@ -53,7 +53,7 @@ export default function BulkMeasurementTable({
               <span>Location</span>
               <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
             </th>
-            <th className="th" scope="col" title="Water loss since last watering">
+            <th className="th" scope="col" title={operationMode === 'vacation' ? "Projected water loss based on frequency (100 - retained %)" : "Water loss since last watering based on weight"}>
               <span>Water loss</span>
               <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
             </th>
@@ -76,6 +76,10 @@ export default function BulkMeasurementTable({
             const retained = getWaterRetainedPct(p, operationMode, approx)
             const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
             
+            const displayWaterLoss = operationMode === 'vacation' && typeof retained === 'number'
+              ? 100 - retained
+              : (p.water_loss_total_pct !== undefined && p.water_loss_total_pct !== null ? Math.round(p.water_loss_total_pct) : p.water_loss_total_pct)
+
             const status = inputStatus[p.uuid]
             const mId = measurementIds[p.uuid]
             const isSaving = status === 'saving'
@@ -131,16 +135,6 @@ export default function BulkMeasurementTable({
                         {displayRetained}
                       </span>
                     )}
-                    {needsWater && (
-                      <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>
-                        Needs water
-                      </Badge>
-                    )}
-                    {needsMeasure && (
-                      <Badge tone="info" title="Needs weighing (>18h since last update)">
-                        Needs weight
-                      </Badge>
-                    )}
                     {operationMode === 'vacation' && approx?.next_watering_at && (
                       <span
                         style={{
@@ -160,6 +154,16 @@ export default function BulkMeasurementTable({
                           </span>
                         )}
                       </span>
+                    )}
+                    {needsWater && (
+                      <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>
+                        Needs water
+                      </Badge>
+                    )}
+                    {needsMeasure && (
+                      <Badge tone="info" title="Needs weighing (>18h since last update)">
+                        Needs weight
+                      </Badge>
                     )}
                   </div>
                 </td>
@@ -193,17 +197,17 @@ export default function BulkMeasurementTable({
                 )}
               </td>
               <td className="td hide-column-phone">{p.location || '—'}</td>
-              <td className="td" style={computeWaterLossStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+              <td className="td" style={computeWaterLossStyle?.(displayWaterLoss)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}
                     onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
                     className="block-link"
                   >
-                    {p.water_loss_total_pct}%
+                    {displayWaterLoss}%
                   </a>
                 ) : (
-                  p.water_loss_total_pct
+                  displayWaterLoss
                 )}
               </td>
               {showUpdatedColumn && (
