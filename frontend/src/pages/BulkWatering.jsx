@@ -287,8 +287,8 @@ export default function BulkWatering() {
           onDeleteVacationWatering={handleVacationWateringDelete}
           measurementIds={measurementIds}
           onViewPlant={handleView}
-          firstColumnLabel="Weight gr, Water date"
-          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+          firstColumnLabel="Water: Retained %, Next date"
+          firstColumnTooltip="Manual/Automatic: Enter weight in grams. Vacation: Record watering icon. Column also shows water retained (%) and next scheduled watering."
           waterLossCellStyle={waterLossCellStyle}
           showUpdatedColumn={true}
           deemphasizePredicate={deemphasizePredicate}

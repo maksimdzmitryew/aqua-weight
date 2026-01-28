@@ -32,35 +32,35 @@ export default function BulkMeasurementTable({
         <thead>
           <tr>
             <th className="th" scope="col" title={firstColumnTooltip}>
-              <span>{firstColumnLabel}</span>
+              <span style={{ pointerEvents: 'none' }}>{firstColumnLabel}</span>
               {firstColumnTooltip && (
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
               )}
             </th>
             <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
-              <span>Thresh</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Thresh</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th" scope="col" title="Plant name">
-              <span>Name</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Name</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th" scope="col" title="Notes">
-              <span>Notes</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Notes</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th hide-column-phone" scope="col" title="Location">
-              <span>Location</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Location</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th" scope="col" title={operationMode === 'vacation' ? "Projected water loss based on frequency (100 - retained %)" : "Water loss since last watering based on weight"}>
-              <span>Water loss</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Water loss</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             {showUpdatedColumn && (
               <th className="th hide-column-tablet" scope="col" title="Last update time">
-                <span>Updated</span>
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                <span style={{ pointerEvents: 'none' }}>Updated</span>
+                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
               </th>
             )}
           </tr>

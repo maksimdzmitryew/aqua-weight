@@ -226,7 +226,7 @@ describe('pages/BulkWatering', () => {
 
   test('correct column label is present', async () => {
     renderPage()
-    expect(await screen.findByText('Weight gr, Water date')).toBeInTheDocument()
+    expect(await screen.findByText('Water: Retained %, Next date')).toBeInTheDocument()
   })
 
   test('operationMode defaults to manual if localStorage is undefined', async () => {
