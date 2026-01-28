@@ -80,3 +80,41 @@ def test_normalize_measured_at_local_modes_and_tz():
     # invalid fill_with
     with pytest.raises(ValueError):
         normalize_measured_at_local(base, fill_with="unknown")
+
+
+def test_parse_dt_datetime_input():
+    # Covers line 29: if isinstance(value, datetime)
+    dt = datetime(2025, 1, 1, 10, 0, 0, tzinfo=timezone.utc)
+    assert parse_dt(dt) == dt
+
+
+def test_normalize_measured_at_clamp_negative():
+    # Covers line 79: if ms < 0
+    base = "2025-10-21T19:33"
+    out = normalize_measured_at(base, fill_with="fixed", fixed_seconds=0, fixed_milliseconds=-5)
+    assert out.microsecond == 0
+
+
+def test_normalize_measured_at_local_clamp_negative():
+    # Covers line 142: if ms < 0
+    base = "2025-10-21T19:33"
+    out = normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=0, fixed_milliseconds=-5)
+    assert out.microsecond == 0
+
+
+def test_normalize_measured_at_local_fixed_missing_seconds():
+    # Covers line 164: if fixed_seconds is None (for local variant)
+    base = "2025-10-21T19:33"
+    with pytest.raises(ValueError, match="fixed_seconds must be provided"):
+        normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=None, fixed_milliseconds=0)
+
+
+def test_now_local_iso():
+    from backend.app.utils.date_time import now_local_iso
+    iso_str = now_local_iso()
+    # Format: YYYY-MM-DDTHH:MM
+    assert len(iso_str) == 16
+    assert iso_str[10] == "T"
+    # Try to parse it back
+    dt = datetime.fromisoformat(iso_str)
+    assert dt is not None

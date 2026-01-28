@@ -856,3 +856,88 @@ async def test_delete_measurement_invalid_not_found_and_success(app: FastAPI, as
     assert r3.json() == {"ok": True}
 
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_create_vacation_watering_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers create_vacation_watering (118-218)."""
+    # Execute route internals synchronously
+    async def _inline(fn):
+        return fn()
+    monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
+
+    # deterministic id
+    class _UUID:
+        def __init__(self, b):
+            self.bytes = b
+    fixed_bytes = bytes.fromhex("55" * 16)
+    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+
+    cur = _FakeCursor()
+    # Mocking rows for water_added_g and (method_id, scale_id)
+    cur.rows_one = [30, bytes.fromhex("bb" * 16), bytes.fromhex("cc" * 16)] 
+    
+    conn = _FakeConn(cur)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+
+    payload = {
+        "plant_id": "aa" * 16,
+        "measured_at": "2025-01-01T12:00:00"
+    }
+    r = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["id"] == ("55" * 16)
+    assert data["note"] == "[vacation] watering"
+    
+    # Test invalid plant_id
+    r_bad = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "invalid"})
+    assert r_bad.status_code == 400
+    
+    # Test invalid measured_at
+    r_bad_ts = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "aa" * 16, "measured_at": "invalid"})
+    assert r_bad_ts.status_code == 400
+
+    # Test failure path
+    cur.raise_on_insert = True
+    r_fail = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r_fail.status_code == 500
+
+    # Test failure path with rollback exception
+    cur.raise_on_insert = True
+    monkeypatch.setattr(conn, "rollback", lambda: exec('raise RuntimeError("rollback failed")'))
+    r_fail_rollback = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r_fail_rollback.status_code == 500
+
+    app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_update_measurement_vacation_event_signature(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers update_measurement lines 911-920."""
+    async def _inline(fn):
+        return fn()
+    monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
+
+    # Base row is a vacation event (mw, ld, lw are None)
+    base_row = [
+        bytes.fromhex("aa" * 16),  # plant_id bytes
+        datetime(2025, 1, 1, 0, 0, 0),    # measured_at
+        None, None, None, 30,            # mw, ld, lw, wa
+    ]
+    cur = _FakeCursor(rows_one=base_row)
+    # Plant params for retained calc
+    cur.rows_all = [(100, 200)]
+    conn = _FakeConn(cur)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+
+    mid = "aa" * 16
+    # Update without changing weights to maintain vacation signature
+    payload = {"note": "updated vacation note"}
+    r = await async_client.put(f"/api/measurements/weight/{mid}", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "success"
+    assert data["data"]["water_loss_total_pct"] == 0.0
+
+    app.dependency_overrides.pop(get_conn_factory, None)
