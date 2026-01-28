@@ -7,14 +7,15 @@
  * @returns {boolean} - True if the plant needs watering.
  */
 export function checkNeedsWater(plant, mode, approximation = null) {
-  // If the plant was just watered (signature: water_loss_total_pct is 0),
-  // it doesn't need water, regardless of mode.
-  if (plant?.water_loss_total_pct === 0) {
-    return false
-  }
-
   if (mode === 'vacation') {
     return !!approximation && approximation.days_offset != null && approximation.days_offset <= 0
+  }
+
+  // If the plant was just watered (signature: water_loss_total_pct is 0),
+  // it doesn't need water in manual/automatic mode, UNLESS it's already dry
+  // (which can happen if the last watering was a retrospective vacation event).
+  if (plant?.water_loss_total_pct === 0 && Number(plant?.water_retained_pct) > 0) {
+    return false
   }
 
   // manual or automatic (default)
