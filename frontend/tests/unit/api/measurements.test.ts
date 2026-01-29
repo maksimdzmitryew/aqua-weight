@@ -162,4 +162,19 @@ describe('measurementsApi', () => {
     })
     expect(res).toBe(updated)
   })
+
+  it('watering.createVacation posts JSON body with headers and signal', async () => {
+    const created = { id: 'v1' }
+    const spy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce(created as any)
+
+    const ac = new AbortController()
+    const body = { plant_id: 'p1' }
+    const res = await measurementsApi.watering.createVacation(body, ac.signal)
+
+    expect(spy).toHaveBeenCalledWith('/measurements/vacation/watering', body, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: ac.signal,
+    })
+    expect(res).toBe(created)
+  })
 })

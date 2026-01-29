@@ -164,6 +164,25 @@ describe('pages/RepottingCreate', () => {
     }))
   })
 
+  test('create flow: explicitly provided 0 is sent as 0 (not null) for coverage', async () => {
+    let captured = null
+    server.use(
+      http.post('/api/measurements/repotting', async ({ request }) => {
+        captured = await request.json()
+        return HttpResponse.json({ id: 1 }, { status: 201 })
+      })
+    )
+    renderWithRouter([{ pathname: '/repotting/new', search: '?plant=p1' }])
+    const weightBefore = await screen.findByLabelText(/weight before repotting/i)
+    fireEvent.change(weightBefore, { target: { value: '0' } })
+    const lastWet = screen.getByLabelText(/weight after repotting/i)
+    fireEvent.change(lastWet, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    await waitFor(() => expect(captured).not.toBeNull())
+    expect(captured.measured_weight_g).toBe(0)
+    expect(captured.last_wet_weight_g).toBe(0)
+  })
+
   test('edit flow: loads existing by id, updates via PUT and navigates', async () => {
     
     server.use(
@@ -234,6 +253,23 @@ describe('pages/RepottingCreate', () => {
       measured_weight_g: null,
       last_wet_weight_g: null,
     }))
+  })
+
+  test('edit flow: handles null values in initial load (coverage for lines 58-59)', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 88,
+        plant_id: 'p1',
+        measured_at: '2025-01-01T10:00',
+        weight_before_repotting_g: null,
+        last_wet_weight_g: null,
+      }))
+    )
+    renderWithRouter(['/repotting/edit?id=88'])
+    const weightBefore = await screen.findByLabelText(/weight before repotting/i)
+    expect(weightBefore).toHaveValue(null)
+    const lastWet = screen.getByLabelText(/weight after repotting/i)
+    expect(lastWet).toHaveValue(null)
   })
 
   test('shows error when plants load fails', async () => {
@@ -514,5 +550,49 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/new'])
     // Wait for form elements to ensure render occurred under light theme
     expect(await screen.findByLabelText(/plant/i)).toBeInTheDocument()
+  })
+
+  test('cancel button with location.state.from navigates to it', async () => {
+    renderWithRouter([{ pathname: '/new', state: { from: '/custom' } }])
+    await screen.findByLabelText(/plant/i)
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/custom')
+  })
+
+  test('submit with location.state.from missing navigates to plant page (branch 89-90)', async () => {
+    server.use(
+      http.post('/api/measurements/repotting', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
+    renderWithRouter(['/repotting/new?plant=p1'])
+    const submit = await screen.findByRole('button', { name: /save repotting/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/p1'))
+  })
+
+  test('submit with location.state.from PRESENT navigates to it (branch 88-89)', async () => {
+    server.use(
+      http.post('/api/measurements/repotting', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
+    renderWithRouter([{ pathname: '/new', search: '?plant=p1', state: { from: '/custom-submit' } }])
+    const submit = await screen.findByRole('button', { name: /save repotting/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/custom-submit'))
+  })
+
+  test('cancel button without from state navigates back (branch 115 falsy)', async () => {
+    renderWithRouter(['/repotting/new?plant=p1'])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('edit flow: handles error on loadExisting', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+    )
+    renderWithRouter(['/repotting/edit?id=err'])
+    expect(await screen.findByText(/failed to load repotting event/i)).toBeInTheDocument()
   })
 })

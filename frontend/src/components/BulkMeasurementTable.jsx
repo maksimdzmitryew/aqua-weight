@@ -126,6 +126,7 @@ export default function BulkMeasurementTable({
                         }}
                         className="hover-bg-muted"
                         title={mId ? "Delete vacation watering" : "Record vacation watering"}
+                        aria-label={mId ? "Undo" : "Mark watered"}
                       >
                         <WaterDropIcon color={dropColor} size={24} className={isSaving ? 'animate-pulse' : ''} />
                       </button>

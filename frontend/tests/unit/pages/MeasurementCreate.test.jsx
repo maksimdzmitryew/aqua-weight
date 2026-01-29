@@ -219,6 +219,32 @@ describe('pages/MeasurementCreate', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u2'))
   }, 15000)
 
+  test('edit flow: handles null values in load and submit', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 501,
+        plant_id: 'u2',
+        measured_at: '2025-01-10T12:34:00Z',
+        measured_weight_g: null,
+        method_id: null,
+        use_last_method: null,
+        scale_id: null,
+        note: null,
+      })),
+      http.put('/api/measurements/weight/:id', async ({ request }) => {
+        const payload = await request.json()
+        return HttpResponse.json({ ok: true, payload })
+      })
+    )
+
+    renderWithRouter(['/edit?id=501'])
+    await screen.findByLabelText(/plant/i)
+
+    const submit = screen.getByRole('button', { name: /update measurement/i })
+    fireEvent.click(submit)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u2'))
+  })
+
   test('edit flow: loadExisting failure is ignored (catch path executed)', async () => {
     // Force GET to fail to cover the catch branch in loadExisting
     server.use(
@@ -396,5 +422,12 @@ describe('pages/MeasurementCreate', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('cancel button with location.state.from navigates to it', async () => {
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom' } }])
+    await screen.findByLabelText(/plant/i)
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/custom')
   })
 })

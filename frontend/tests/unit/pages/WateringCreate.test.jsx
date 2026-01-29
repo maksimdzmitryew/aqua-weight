@@ -154,6 +154,28 @@ describe('pages/WateringCreate', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/plants/u1')
   })
 
+  test('create flow: explicit 0 values are sent as 0 (not null) (branch 111-112)', async () => {
+    let posted = null
+    server.use(
+      http.post('/api/measurements/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 101 }, { status: 201 })
+      })
+    )
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+    const dry = await screen.findByLabelText(/before watering/i)
+    fireEvent.change(dry, { target: { value: '0' } })
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '0' } })
+    const added = screen.getByLabelText(/water added/i)
+    fireEvent.change(added, { target: { value: '0' } })
+    fireEvent.click(screen.getByRole('button', { name: /save watering/i }))
+    await waitFor(() => expect(posted).not.toBeNull())
+    expect(posted.last_dry_weight_g).toBe(0)
+    expect(posted.last_wet_weight_g).toBe(0)
+    expect(posted.water_added_g).toBe(0)
+  })
+
   test('edit flow: loads existing by id and updates via PUT', async () => {
     server.use(
       http.get('/api/measurements/:id', ({ params }) => HttpResponse.json({
@@ -224,7 +246,81 @@ describe('pages/WateringCreate', () => {
     expect(await screen.findByText(/nope|failed to save/i)).toBeInTheDocument()
   })
 
-  test('dark theme renders and cancel navigates back', async () => {
+  test('vacation mode: save new vacation watering', async () => {
+    localStorage.setItem('operationMode', 'vacation')
+    let posted = null
+    server.use(
+      http.post('/api/measurements/vacation/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 201 }, { status: 201 })
+      })
+    )
+
+    try {
+      renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+      
+      const submit = await screen.findByRole('button', { name: /save watering/i })
+      fireEvent.click(submit)
+
+      await waitFor(() => expect(posted).not.toBeNull())
+      expect(posted.plant_id).toBe('u1')
+      expect(mockNavigate).toHaveBeenCalledWith('/plants/u1')
+    } finally {
+      localStorage.removeItem('operationMode')
+    }
+  })
+
+  test('edit flow: handles vacation signature (no weights)', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 600,
+        plant_id: 'u1',
+        measured_at: '2025-01-10T12:00:00Z',
+        last_dry_weight_g: null,
+        last_wet_weight_g: null,
+        water_added_g: null,
+      })),
+      http.put('/api/measurements/watering/:id', async ({ request }) => {
+        const body = await request.json()
+        return HttpResponse.json({ ok: true, body })
+      })
+    )
+
+    renderWithRouter(['/edit?id=600'])
+
+    // Wait for load
+    await waitFor(() => expect(screen.queryByLabelText(/current weight/i)).not.toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: /update watering/i }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u1'))
+  })
+
+  test('edit flow: handles missing from state and null weights in submit', async () => {
+    server.use(
+      http.get('/api/measurements/:id', () => HttpResponse.json({
+        id: 700,
+        plant_id: 'u2',
+        measured_at: '2025-01-10T12:00:00Z',
+        last_dry_weight_g: 10,
+        last_wet_weight_g: 20,
+        water_added_g: 5,
+      })),
+      http.put('/api/measurements/watering/:id', () => HttpResponse.json({ ok: true }))
+    )
+
+    renderWithRouter(['/edit?id=700'])
+    const dry = await screen.findByLabelText(/before watering/i)
+    fireEvent.change(dry, { target: { value: '' } })
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '' } })
+    const add = screen.getByLabelText(/water added/i)
+    fireEvent.change(add, { target: { value: '' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /update watering/i }))
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u2'))
+  })
+
+  test('cancel navigates back with state.from if available', async () => {
     try { localStorage.setItem('theme', 'dark') } catch {}
     renderWithRouter(['/new?plant=u1'])
     // Wait for select to ensure form rendered under dark theme
@@ -330,6 +426,28 @@ describe('pages/WateringCreate', () => {
     spy.mockRestore()
   })
 
+  test('submit with location.state.from missing navigates to plant page (branch 118-119)', async () => {
+    server.use(
+      http.post('/api/measurements/watering', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
+    renderWithRouter(['/new?plant=u1'])
+    const submit = await screen.findByRole('button', { name: /save watering/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u1'))
+  })
+
+  test('submit with location.state.from PRESENT navigates to it (branch 117-118)', async () => {
+    server.use(
+      http.post('/api/measurements/watering', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom-water-submit' } }])
+    const submit = await screen.findByRole('button', { name: /save watering/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/custom-water-submit'))
+  })
+
   test('save error without message falls back to generic text', async () => {
     const mod = await import('../../../src/api/measurements')
     const spy = vi.spyOn(mod.measurementsApi.watering, 'create').mockRejectedValueOnce({})
@@ -374,5 +492,57 @@ describe('pages/WateringCreate', () => {
     const dt = await screen.findByLabelText(/measured at/i)
     const initial = dt.value
     await waitFor(() => expect(dt).toHaveValue(initial))
+  })
+
+  test('operationMode defaults to manual if localStorage is undefined (branch 28)', async () => {
+    const originalLocalStorage = global.localStorage
+    vi.stubGlobal('localStorage', undefined)
+    try {
+      render(
+        <MemoryRouter initialEntries={['/new?plant=u1']}>
+          <Routes>
+            <Route path="*" element={<WateringCreate />} />
+          </Routes>
+        </MemoryRouter>
+      )
+      expect(await screen.findByLabelText(/current weight/i)).toBeInTheDocument()
+    } finally {
+      vi.stubGlobal('localStorage', originalLocalStorage)
+    }
+  })
+
+  test('cancel button without from state navigates back (branch 153 falsy)', async () => {
+    renderWithRouter(['/new?plant=u1'])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('cancel button with location.state but NO from property navigates back (branch 153 falsy)', async () => {
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { somethingElse: 'foo' } }])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('cancel button with location.state.from as empty string navigates back (branch 153 falsy)', async () => {
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '' } }])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('cancel button with location.state.from as null navigates back (branch 153 falsy)', async () => {
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: null } }])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
+
+  test('cancel button with location.state.from as truthy navigates to that path (branch 153 truthy)', async () => {
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/some-back-path' } }])
+    const cancel = await screen.findByRole('button', { name: /cancel/i })
+    fireEvent.click(cancel)
+    expect(mockNavigate).toHaveBeenCalledWith('/some-back-path')
   })
 })
