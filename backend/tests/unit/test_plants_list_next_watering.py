@@ -89,8 +89,8 @@ def test_next_watering_projection_and_roll_forward(monkeypatch):
     assert nxt == last_watering_at + timedelta(days=freq_days)
 
 
-def test_next_watering_math_exception_falls_back_to_initial_projection(monkeypatch):
-    # When the inner math block raises, code keeps the initial projection
+def test_next_watering_math_exception_yields_none(monkeypatch):
+    # When an exception occurs during the projection, next_watering_at should be None
     now = datetime.utcnow()
     pid = bytes.fromhex("cd" * 16)
     last_watering_at = now - timedelta(days=10)
@@ -105,19 +105,18 @@ def test_next_watering_math_exception_falls_back_to_initial_projection(monkeypat
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 3))
 
-    # Force the inner roll-forward math to raise by monkeypatching ceil within the module
+    # Force the projection to raise by monkeypatching timedelta within the module
     class Boom(Exception):
         pass
 
     def _boom(*args, **kwargs):
-        raise Boom("ceil broke")
+        raise Boom("timedelta broke")
 
-    monkeypatch.setattr(pl_mod, "ceil", _boom)
+    monkeypatch.setattr(pl_mod, "timedelta", _boom)
 
     items = PlantsList.fetch_all()
     nxt = items[0]["next_watering_at"]
-    # Initial projection should be last_watering_at + freq
-    assert nxt == last_watering_at + timedelta(days=freq_days)
+    assert nxt is None
 
 
 def test_next_watering_projection_future_no_roll_forward(monkeypatch):

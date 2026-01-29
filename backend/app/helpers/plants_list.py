@@ -1,7 +1,6 @@
 """Helpers for assembling plant list information."""
 
 from datetime import datetime, timedelta
-from math import ceil
 
 from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
