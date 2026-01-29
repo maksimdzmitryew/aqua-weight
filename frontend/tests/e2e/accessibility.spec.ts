@@ -83,4 +83,134 @@ test.describe('Keyboard Accessibility', () => {
     // Clicking a card should navigate to stats
     await expect(page).toHaveURL(/\/stats\/[a-f0-9-]{32,36}/);
   });
+
+  test('form interaction and validation via keyboard', async ({ page }) => {
+    await page.goto('/plants');
+    
+    // Find "+ Create" button via keyboard in PageHeader
+    let found = false;
+    for (let i = 0; i < 50; i++) {
+        await page.keyboard.press('Tab');
+        const text = await page.evaluate(() => document.activeElement?.textContent || '');
+        const label = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
+        if (/\+ Create/i.test(text) || /\+ Create/i.test(label)) {
+            found = true;
+            break;
+        }
+    }
+    expect(found, 'Should find "+ Create" button via keyboard').toBe(true);
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/plants\/new$/);
+
+    // Fill the form using keyboard
+    // Wait for form to be visible
+    await expect(page.locator('form')).toBeVisible();
+    
+    // Type name
+    await page.locator('#name').focus();
+    await page.keyboard.type('Keyboard Plant');
+    
+    // Check if name was actually typed
+    const nameVal = await page.evaluate(() => (document.getElementById('name') as HTMLInputElement)?.value);
+    expect(nameVal).toBe('Keyboard Plant');
+
+    // Tab to submit button
+    found = false;
+    for (let i = 0; i < 40; i++) {
+        await page.keyboard.press('Tab');
+        const text = await page.evaluate(() => document.activeElement?.textContent || '');
+        const type = await page.evaluate(() => (document.activeElement as HTMLButtonElement)?.type || '');
+        const tag = await page.evaluate(() => document.activeElement?.tagName || '');
+        
+        if (tag === 'BUTTON' && /save/i.test(text) && type === 'submit') {
+            found = true;
+            break;
+        }
+    }
+    expect(found, 'Should find submit button via keyboard').toBe(true);
+    await page.keyboard.press('Enter');
+    
+    // After creation, should be on plant details or list
+    // The current code in PlantCreate.jsx says navigate('/plants')
+    await expect(page).toHaveURL(/\/plants$/);
+    await expect(page.getByText('Keyboard Plant')).toBeVisible();
+  });
+
+  test('search and filter interaction via keyboard', async ({ page }) => {
+    await page.goto('/plants');
+    
+    // Wait for table to be loaded
+    await expect(page.locator('table')).toBeVisible();
+
+    // Focus search input
+    let found = false;
+    for (let i = 0; i < 50; i++) {
+        await page.keyboard.press('Tab');
+        const ariaLabel = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') || '');
+        const placeholder = await page.evaluate(() => (document.activeElement as HTMLInputElement)?.placeholder || '');
+        if (/search plants/i.test(ariaLabel) || /search/i.test(placeholder)) {
+            found = true;
+            break;
+        }
+    }
+    expect(found, 'Should find search input via keyboard').toBe(true);
+    
+    await page.keyboard.type('NonExistentPlantNameThatWillNotBeFound');
+    // The list should update to show no data rows
+    await expect(page.locator('table tbody tr')).toHaveCount(0);
+    
+    // Clear search using keyboard
+    // Some systems use Command+A, some Control+A
+    const isMac = await page.evaluate(() => navigator.platform.toUpperCase().indexOf('MAC') >= 0);
+    const modifier = isMac ? 'Meta' : 'Control';
+    await page.keyboard.down(modifier);
+    await page.keyboard.press('a');
+    await page.keyboard.up(modifier);
+    await page.keyboard.press('Backspace');
+    
+    await expect(page.locator('table tbody tr').first()).toBeVisible();
+  });
+
+  test('sidebar navigation via keyboard', async ({ page }) => {
+    // Tab to sidebar links
+    // From DashboardLayout.jsx: Overview, Daily Care, Plants, Calibration, Locations, Settings
+    const sidebarLinks = ['Overview', 'Daily Care', 'Plants', 'Calibration', 'Locations', 'Settings'];
+    
+    for (const linkText of sidebarLinks) {
+        let found = false;
+        await page.goto('/dashboard');
+        
+        // Reset focus to the start of the document
+        await page.keyboard.press('Control+Home'); // Just in case
+
+        for (let i = 0; i < 60; i++) {
+            await page.keyboard.press('Tab');
+            const info = await page.evaluate(() => {
+                const el = document.activeElement;
+                return {
+                    text: el?.textContent || '',
+                    tag: el?.tagName || '',
+                    classList: Array.from(el?.classList || [])
+                };
+            });
+            
+            if (info.tag === 'A' && info.classList.includes('nav-link') && new RegExp(linkText, 'i').test(info.text)) {
+                found = true;
+                break;
+            }
+        }
+        expect(found, `Should find sidebar link "${linkText}" via keyboard`).toBe(true);
+        await page.keyboard.press('Enter');
+        
+        // Check URL
+        if (linkText === 'Overview') {
+            await expect(page).toHaveURL(/\/dashboard$/);
+        } else if (linkText === 'Daily Care') {
+            await expect(page).toHaveURL(/\/daily$/);
+        } else {
+            const expectedPath = linkText.toLowerCase().replace(' ', '');
+            await expect(page).toHaveURL(new RegExp(expectedPath, 'i'));
+        }
+    }
+  });
 });
