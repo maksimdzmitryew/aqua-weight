@@ -437,6 +437,30 @@ async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test__compute_water_retained_for_plant_pct_none(monkeypatch):
+    """Covers line 74: returns 0.0 when water_retained_pct is None."""
+    class _Calc:
+        def __init__(self, pct):
+            self.water_retained_pct = pct
+    monkeypatch.setattr(
+        measurements_routes,
+        "calculate_water_retained",
+        lambda **kwargs: _Calc(None),
+    )
+
+    cur = _FakeCursor()
+    cur.rows_one = [80, 20]
+    pct = measurements_routes._compute_water_retained_for_plant(
+        cur,
+        "aa" * 16,
+        measured_weight_g=100,
+        last_wet_weight_g=100,
+        water_loss_total_pct=0.0,
+    )
+    assert pct == 0.0
+
+
+@pytest.mark.asyncio
 async def test__post_delete_recalculate_and_commit_branch(monkeypatch):
     """Directly cover helper branch at 75-77: update invoked when measured_weight_g is not None, then commit."""
     calls: list = []
@@ -470,6 +494,44 @@ async def test_delete_measurement_rollback_raises_covers_inner_except(app: FastA
     r = await async_client.delete(f"/api/measurements/{gid}")
     assert r.status_code >= 500
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_get_watering_approximation_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers lines 192-215: fetch function in get_watering_approximation."""
+    from datetime import datetime, timedelta
+    now = datetime.now()
+
+    mock_plants = [
+        {
+            "uuid": "aa" * 16,
+            "next_watering_at": now + timedelta(days=2),
+            "first_calculated_at": now - timedelta(days=5),
+            "water_retained_pct": 75.0,
+            "frequency_days": 7,
+            "frequency_confidence": 1,
+            "days_offset": 0
+        },
+        {
+            "uuid": "bb" * 16,
+            "next_watering_at": "Not a datetime", # Test the string fallback
+            "first_calculated_at": None,
+            "water_retained_pct": None,
+            "frequency_days": None,
+            "frequency_confidence": None,
+            "days_offset": None
+        }
+    ]
+
+    monkeypatch.setattr("backend.app.routes.measurements.PlantsList.fetch_all", lambda **k: mock_plants)
+
+    resp = await async_client.get("/api/measurements/approximation/watering")
+    assert resp.status_code == 200
+    data = resp.json()["items"]
+    assert len(data) == 2
+    assert data[0]["plant_uuid"] == "aa" * 16
+    assert data[1]["next_watering_at"] == "Not a datetime"
+    assert data[1]["first_calculated_at"] is None
 
 
 @pytest.mark.asyncio
@@ -792,5 +854,90 @@ async def test_delete_measurement_invalid_not_found_and_success(app: FastAPI, as
     r3 = await async_client.delete(f"/api/measurements/{gid}")
     assert r3.status_code == 200
     assert r3.json() == {"ok": True}
+
+    app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_create_vacation_watering_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers create_vacation_watering (118-218)."""
+    # Execute route internals synchronously
+    async def _inline(fn):
+        return fn()
+    monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
+
+    # deterministic id
+    class _UUID:
+        def __init__(self, b):
+            self.bytes = b
+    fixed_bytes = bytes.fromhex("55" * 16)
+    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+
+    cur = _FakeCursor()
+    # Mocking rows for water_added_g and (method_id, scale_id)
+    cur.rows_one = [30, bytes.fromhex("bb" * 16), bytes.fromhex("cc" * 16)] 
+    
+    conn = _FakeConn(cur)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+
+    payload = {
+        "plant_id": "aa" * 16,
+        "measured_at": "2025-01-01T12:00:00"
+    }
+    r = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["id"] == ("55" * 16)
+    assert data["note"] == "[vacation] watering"
+    
+    # Test invalid plant_id
+    r_bad = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "invalid"})
+    assert r_bad.status_code == 400
+    
+    # Test invalid measured_at
+    r_bad_ts = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "aa" * 16, "measured_at": "invalid"})
+    assert r_bad_ts.status_code == 400
+
+    # Test failure path
+    cur.raise_on_insert = True
+    r_fail = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r_fail.status_code == 500
+
+    # Test failure path with rollback exception
+    cur.raise_on_insert = True
+    monkeypatch.setattr(conn, "rollback", lambda: exec('raise RuntimeError("rollback failed")'))
+    r_fail_rollback = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    assert r_fail_rollback.status_code == 500
+
+    app.dependency_overrides.pop(get_conn_factory, None)
+
+
+@pytest.mark.asyncio
+async def test_update_measurement_vacation_event_signature(app: FastAPI, async_client: AsyncClient, monkeypatch):
+    """Covers update_measurement lines 911-920."""
+    async def _inline(fn):
+        return fn()
+    monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
+
+    # Base row is a vacation event (mw, ld, lw are None)
+    base_row = [
+        bytes.fromhex("aa" * 16),  # plant_id bytes
+        datetime(2025, 1, 1, 0, 0, 0),    # measured_at
+        None, None, None, 30,            # mw, ld, lw, wa
+    ]
+    cur = _FakeCursor(rows_one=base_row)
+    # Plant params for retained calc
+    cur.rows_all = [(100, 200)]
+    conn = _FakeConn(cur)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+
+    mid = "aa" * 16
+    # Update without changing weights to maintain vacation signature
+    payload = {"note": "updated vacation note"}
+    r = await async_client.put(f"/api/measurements/weight/{mid}", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "success"
+    assert data["data"]["water_loss_total_pct"] == 0.0
 
     app.dependency_overrides.pop(get_conn_factory, None)

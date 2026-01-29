@@ -12,6 +12,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
+import { getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
 import SearchField from '../components/SearchField.jsx'
@@ -22,19 +23,56 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [dragIndex, setDragIndex] = useState(null)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => sessionStorage.getItem('plants_search_query') || '')
+
+  useEffect(() => {
+    sessionStorage.setItem('plants_search_query', query)
+  }, [query])
   const navigate = useNavigate()
   const routerLocation = useRouterLocation()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDelete, setToDelete] = useState(null)
-  const PAGE_LIMIT = 100
+  const PAGE_LIMIT = 20
+
+  const operationMode = useMemo(() => localStorage.getItem('operationMode') || 'manual', [])
 
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
       try {
-        const data = await plantsApi.list(controller.signal)
-        setPlants(Array.isArray(data) ? data : [])
+        let data = await plantsApi.list(controller.signal)
+        const plantsData = Array.isArray(data) ? data : []
+
+        try {
+          const approx = await plantsApi.getApproximation(controller.signal)
+          const approxMap = (approx?.items || []).reduce((acc, item) => {
+            acc[item.plant_uuid] = item
+            return acc
+          }, {})
+
+          data = plantsData.map((p) => {
+            const a = approxMap[p.uuid]
+            // Merge approximation data into plant object
+            const merged = { ...p }
+            if (a) {
+              merged.frequency_days = a.frequency_days
+              merged.frequency_confidence = a.frequency_confidence
+              merged.next_watering_at = a.next_watering_at
+              merged.first_calculated_at = a.first_calculated_at
+              merged.days_offset = a.days_offset
+              // In vacation mode, we might want to store the virtual percentage too, 
+              // but the helper getWaterRetainedPct will handle it by taking both plant and approx.
+            }
+            // Store approximation for mode-aware helper
+            merged._approximation = a 
+            return merged
+          })
+        } catch (e) {
+          console.error('Failed to load approximations', e)
+          data = plantsData
+        }
+
+        setPlants(data)
       } catch (e) {
         // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
         /* c8 ignore next 3 - defensive parsing and abort heuristics; functionally exercised but branch-count noise */
@@ -223,48 +261,44 @@ export default function PlantsList() {
               <thead>
                 <tr>
                   <th className="th" scope="col" title="Current retained water percentage and quick actions">
-                    <span>Care, Water retained</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Care, Water retained <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
-                    <span>Thresh</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Watering frequency">
-                    <span>Frequency</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Frequency <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Next planned watering date">
-                    <span>Next watering</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Next watering <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Plant name">
-                    <span>Name</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th" scope="col" title="Notes">
-                    <span>Notes</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Notes <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th hide-column-phone" scope="col" title="Location">
-                    <span>Location</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th hide-column-tablet" scope="col" title="Last update time">
-                    <span>Updated</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                   <th className="th right" scope="col" title="Row actions">
-                    <span>Actions</span>
-                    <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                    Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredPlants.map((p, idx) => {
-                  const retained = Number(p.water_retained_pct)
+                  const retained = getWaterRetainedPct(p, operationMode, p._approximation)
+                  const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
                   const thresh = Number(p.recommended_water_threshold_pct)
-                  const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+                  // Use backend-provided needs_weighing logic indirectly by trusting the data 
+                  // but we still need to check if it needs water for the badge.
+                  // Actually, should we also have needs_watering from backend? 
+                  // For now, let's just make sure we use p.needs_weighing where appropriate.
+                  const needsWater = typeof retained === 'number' && !Number.isNaN(thresh) && retained <= thresh
                   return (
                   <tr key={p.uuid || idx}
                       draggable={!query}
@@ -275,9 +309,12 @@ export default function PlantsList() {
                     <td className="td" title={p.uuid ? 'View plant' : undefined}>
                       <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
                         <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true}/>
-                        {p.water_retained_pct}%
+                        {displayRetained}
                         {needsWater && (
-                          <Badge tone="warning" title="Needs water based on threshold">Needs water</Badge>
+                          <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>Needs water</Badge>
+                        )}
+                        {p.needs_weighing && (
+                           <Badge tone="info" title="Needs weighing (>18h since last update)">Needs weight</Badge>
                         )}
                       </span>
                     </td>
@@ -286,13 +323,33 @@ export default function PlantsList() {
                     </td>
                     {/* Frequency */}
                     <td className="td">
-                      {Number.isFinite(p?.frequency_days) ? `${p.frequency_days} d` : '—'}
+                      {Number.isFinite(p?.frequency_days) ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {p.frequency_days} d
+                          {p.frequency_confidence !== undefined && (
+                            <span
+                              title={`${p.frequency_confidence} watering events used for calculation`}
+                              style={{
+                                fontSize: '0.8em',
+                                color: `rgba(var(--text-rgb, 107, 114, 128), ${Math.min(1, 0.3 + (p.frequency_confidence / 10))})`,
+                              }}
+                            >
+                               &nbsp;({p.frequency_confidence})
+                            </span>
+                          )}
+                        </span>
+                      ) : '—'}
                     </td>
                     {/* Next watering (date only, DD/MM or MM/DD per user preference) */}
-                    <td className="td">
-                      <DateTimeText value={p.next_watering_at} mode="daymonth" />
+                    <td className="td" style={operationMode === 'vacation' && p.days_offset < 0 ? { background: '#fecaca' } : {}}>
+                      <DateTimeText value={p.first_calculated_at || p.next_watering_at} mode="daymonth" showTooltip={false} />
+                      {p.days_offset !== undefined && p.days_offset !== null && (
+                        <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>
+                          ({p.days_offset}d)
+                        </span>
+                      )}
                     </td>
-                    <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(p.water_retained_pct)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
+                    <td className="td" style={{ width: 140, ...(getWaterRetainCellStyle(retained)  || {}) }} title={p.uuid ? 'View plant' : undefined}>
                         {p.uuid ? (
                         <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
                              {p.identify_hint} {p.name}
@@ -311,7 +368,15 @@ export default function PlantsList() {
                       )}
                     </td>
                     <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>
-                    <td className="td hide-column-tablet"><DateTimeText value={p.latest_at} /></td>
+                    <td className="td hide-column-tablet">
+                      {operationMode === 'vacation' ? (
+                        p.next_watering_at ? (
+                          <DateTimeText value={p.first_calculated_at || p.next_watering_at} />
+                        ) : '—'
+                      ) : (
+                        <DateTimeText value={p.latest_at} />
+                      )}
+                    </td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />
                       <IconButton icon="edit" label={`Edit plant ${p.name}`} onClick={() => handleEdit(p)} variant="subtle" />

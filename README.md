@@ -80,40 +80,36 @@ Notes
 
 ## Application features and settings
 
-### Vacation mode (frontend setting)
-Vacation mode is a simple toggle that helps you adapt care workflows when you’re away. It is currently a client‑side setting with no backend changes.
+### Operation mode (frontend setting)
+Operation mode allows you to switch between different care behaviors.
 
 - Location: Settings page (https://aw.max/settings)
-- Control: dropdown labeled "Vacation mode" with two options — "Disabled" and "Enabled".
-- Persistence: stored in the browser’s localStorage under the key `vacationMode`.
-  - Values: `"disabled"` (default) or `"enabled"`.
+- Control: dropdown labeled "Operation mode" with three options — "Automatic", "Manual", and "Vacation".
+- Persistence: stored in the browser’s localStorage under the key `operationMode`.
+  - Values: `"automatic"`, `"manual"` (default), or `"vacation"`.
   - The value persists across page reloads and browser restarts on the same device.
 - Usage in code (optional):
   - Read current state in any frontend module:
     ```js
-    const isVacationMode = (typeof localStorage !== 'undefined' && localStorage.getItem('vacationMode') === 'enabled')
+    const operationMode = (typeof localStorage !== 'undefined' && localStorage.getItem('operationMode') || 'manual')
     ```
-  - Components may use this to adjust UI or scheduling behavior in future enhancements.
+  - Components may use this to adjust UI or scheduling behavior.
 
-What happens when Vacation mode is enabled (current behavior):
-- No automatic behavior changes are applied by default. The setting acts as a user preference flag that the frontend can read. There are no backend effects. 
-- Existing lists (e.g., Plants, Daily Care) continue to show the same data (including Frequency and Next watering). No thresholds or projections are altered automatically.
-- Developers can opt‑in to react to the flag in specific components (e.g., show a subtle banner, snooze certain warnings, or group tasks differently). Example:
-  ```js
-  const isVacationMode = localStorage.getItem('vacationMode') === 'enabled'
-  return (
-    <>
-      {isVacationMode && (
-        <div role="status" className="notice info">Vacation mode is enabled — reminders may be relaxed.</div>
-      )}
-      {/* ...rest of the component... */}
-    </>
-  )
-  ```
+What happens with each option:
+- **Automatic**: Receives data from IoT measurement devices. Watering is identified by `last_dry_weight_g`, `last_wet_weight_g`, and `water_added_g` being > 0 (non-NULL), while `water_loss_total_pct` is 0. Other fields (`measured_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
+- **Manual**: Default mode. Displays a notice: "Manual mode — weighing and watering is based on human input". Watering follows the same data signature as Automatic mode.
+- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". 
+  - **Watering Event**: Defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from any latest measurement event (watering or weighing). All weight fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`) and other loss fields are NULL.
+  - **Bulk Watering UI**: In this mode, the weight input is hidden and replaced by a water drop icon. The first column is titled "Watering status". Clicking the icon records a vacation watering event with the signature above. Clicking it again deletes the event.
+  - **Water Loss Column**: In this mode, the "Water loss" column shows a projected value calculated as `100 - Projected Water Retained %`. This ensures that as the plant dries out over time according to the schedule, the visual indicators (color-coding) remain consistent with the projected state.
+  - **Water Retained Projection**: In vacation mode, "Water retained" uses a linear decay formula that starts at 100% (after watering) and decays towards the plant's `recommended_water_threshold_pct` exactly at the scheduled frequency interval. If the frequency is 10 days and threshold is 40%, the plant will show 70% retention after 5 days, and 40% after 10 days. Values continue to drop towards 0% if the plant is overdue.
+
+**Note on Watering Frequency**: The system calculates watering frequency (interval between events) only using "Automatic" and "Manual" watering events (where `last_dry_weight_g` and `last_wet_weight_g` are present and > 0). "Vacation" mode watering events (where weights are NULL) are used as the base date for the next projection but do not influence the historical frequency interval.
 
 Notes and future direction:
-- Because this is a frontend‑only preference, it does not change API payloads or scheduling calculations on the server. If needed later, we can formalize server‑side effects (e.g., postponing next‑watering targets) behind a versioned API.
-- Until such changes are implemented, enabling Vacation mode is informational and opt‑in for UI behavior only.
+- "Manual" and "Vacation" modes currently show informational banners across all pages via the `DashboardLayout`.
+- In "Vacation" mode, the "Plants" page uses a central approximation API endpoint (`/api/measurements/approximation/watering`) to provide "virtual" water retained, calculated frequency, and next watering date.
+- Mapping from legacy "Vacation mode" (`enabled`/`disabled`) is not automatically performed; users will default to "Manual".
 
 ## Generating local TLS certificates (using your existing local CA)
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).

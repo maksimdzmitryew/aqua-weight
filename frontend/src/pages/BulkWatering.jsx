@@ -7,6 +7,7 @@ import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
+import { checkNeedsWater } from '../utils/watering'
 
 export default function BulkWatering() {
   const [plants, setPlants] = useState([])
@@ -15,17 +16,13 @@ export default function BulkWatering() {
   const navigate = useNavigate()
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
+  const [originalWaterLoss, setOriginalWaterLoss] = useState({})
   // Toggle to switch between only-needs-water vs all plants
   const [showAll, setShowAll] = useState(false)
   // Snapshot of plants that needed watering on initial load
   const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
-
-  // Helper: determine if a plant needs water based on per-plant threshold
-  function plantNeedsWater(p) {
-    const retained = Number(p?.water_retained_pct)
-    const thresh = Number(p?.recommended_water_threshold_pct)
-    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
-  }
+  const [approximations, setApproximations] = useState({})
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
 
   useEffect(() => {
     let cancelled = false
@@ -33,11 +30,26 @@ export default function BulkWatering() {
       try {
         const plantsData = await plantsApi.list()
         const allPlants = Array.isArray(plantsData) ? plantsData : []
-        // Load all; filtering controlled by the UI toggle
+        
+        let approxMap = {}
+        if (operationMode === 'vacation') {
+          try {
+            const approxData = await plantsApi.getApproximation()
+            const approxItems = approxData?.items || []
+            approxMap = approxItems.reduce((acc, item) => {
+              acc[item.plant_uuid] = item
+              return acc
+            }, {})
+          } catch (e) {
+            console.error('Failed to load approximations', e)
+          }
+        }
+
         if (!cancelled) {
           setPlants(allPlants)
+          setApproximations(approxMap)
           // Snapshot which plants needed watering at the moment of initial page load
-          setInitialNeedsWaterIds(allPlants.filter(plantNeedsWater).map(p => p.uuid))
+          setInitialNeedsWaterIds(allPlants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
         }
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
@@ -47,7 +59,12 @@ export default function BulkWatering() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [operationMode])
+
+  // Helper: determine if a plant needs water based on per-plant threshold
+  function plantNeedsWater(p) {
+    return checkNeedsWater(p, operationMode, approximations[p.uuid])
+  }
 
   function handleView(p) {
     if (!p?.uuid) return
@@ -59,6 +76,11 @@ export default function BulkWatering() {
     if (Number.isNaN(numeric) || numeric < 0) {
       setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
       return
+    }
+
+    const plant = plants.find(p => p.uuid === plantId)
+    if (plant && !measurementIds[plantId]) {
+      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
     }
 
     setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
@@ -108,6 +130,105 @@ export default function BulkWatering() {
     }
   }
 
+  async function handleVacationWateringCommit(plantId) {
+    const plant = plants.find(p => p.uuid === plantId)
+    if (plant) {
+      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
+    }
+    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      const data = await measurementsApi.watering.createVacation({ plant_id: plantId })
+      const measurement = data?.data || data
+      if (measurement?.id) {
+        setMeasurementIds(prev => ({ ...prev, [plantId]: measurement.id }))
+        setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+        
+        // Update plant data in list
+        setPlants(prev => prev.map(p => {
+          if (p.uuid === plantId) {
+            return {
+              ...p,
+              water_loss_total_pct: measurement.water_loss_total_pct ?? p.water_loss_total_pct,
+              water_retained_pct: measurement.water_retained_pct ?? p.water_retained_pct,
+              latest_at: measurement.latest_at || measurement.measured_at || p.latest_at,
+              measured_at: measurement.measured_at || p.measured_at,
+            }
+          }
+          return p
+        }))
+
+        // Refresh approximations to update days_offset and next_watering_at
+        try {
+          const approxData = await plantsApi.getApproximation()
+          const approxItems = approxData?.items || []
+          const approxMap = approxItems.reduce((acc, item) => {
+            acc[item.plant_uuid] = item
+            return acc
+          }, {})
+          setApproximations(approxMap)
+        } catch (e) {
+          console.error('Failed to refresh approximations', e)
+        }
+      } else {
+        setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      }
+    } catch (err) {
+      console.error('Error saving vacation watering:', err)
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
+  async function handleVacationWateringDelete(plantId, measurementId) {
+    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      await measurementsApi.delete(measurementId)
+      setMeasurementIds(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      setInputStatus(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      
+      // Revert plant data in list to previous state (approximate)
+      setPlants(prev => prev.map(p => {
+        if (p.uuid === plantId) {
+          return {
+            ...p,
+            water_loss_total_pct: originalWaterLoss[plantId] !== undefined ? originalWaterLoss[plantId] : p.water_loss_total_pct,
+            water_retained_pct: null,
+            latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
+          }
+        }
+        return p
+      }))
+      setOriginalWaterLoss(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
+      // Refresh approximations to update days_offset and next_watering_at
+      try {
+        const approxData = await plantsApi.getApproximation()
+        const approxItems = approxData?.items || []
+        const approxMap = approxItems.reduce((acc, item) => {
+          acc[item.plant_uuid] = item
+          return acc
+        }, {})
+        setApproximations(approxMap)
+      } catch (e) {
+        console.error('Failed to refresh approximations', e)
+      }
+    } catch (err) {
+      console.error('Error deleting vacation watering:', err)
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
     if (showAll) return plants
@@ -132,7 +253,10 @@ export default function BulkWatering() {
         titleBack="Daily Care"
       />
 
-      <p>Enter the new weight after watering. By default, we show only plants that need water (retained ≤ threshold).</p>
+      <p>{operationMode === 'vacation' ? 'Click the water drop icon to record watering based on historical data.' : 'Enter the new weight after watering.'} {operationMode === 'vacation' 
+        ? 'By default, we show only plants that need water according to the approximation schedule.'
+        : 'By default, we show only plants that need water (retained ≤ threshold).'}
+      </p>
 
       {/* Toggle to switch visibility mode */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
@@ -145,7 +269,9 @@ export default function BulkWatering() {
           <span>Show all plants</span>
         </label>
         <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
-          {showAll ? 'Showing all plants; those above threshold are deemphasized.' : 'Showing only plants that need watering (retained ≤ threshold).'}
+          {showAll ? 'Showing all plants; those above threshold are deemphasized.' : (operationMode === 'vacation'
+            ? 'Showing only plants that need watering according to the approximation schedule.'
+            : 'Showing only plants that need watering (retained ≤ threshold).')}
         </span>
       </div>
 
@@ -157,12 +283,18 @@ export default function BulkWatering() {
           plants={displayedPlants}
           inputStatus={inputStatus}
           onCommitValue={handleWateringCommit}
+          onCommitVacationWatering={handleVacationWateringCommit}
+          onDeleteVacationWatering={handleVacationWateringDelete}
+          measurementIds={measurementIds}
           onViewPlant={handleView}
-          firstColumnLabel="Weight gr, Water %"
-          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+          firstColumnLabel="Water: Retained %, Next date"
+          firstColumnTooltip="Manual/Automatic: Enter weight in grams. Vacation: Record watering icon. Column also shows water retained (%) and next scheduled watering."
           waterLossCellStyle={waterLossCellStyle}
           showUpdatedColumn={true}
           deemphasizePredicate={deemphasizePredicate}
+          operationMode={operationMode}
+          approximations={approximations}
+          noPlantsMessage="No plants need watering"
         />
       )}
     </DashboardLayout>

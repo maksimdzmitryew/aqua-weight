@@ -13,6 +13,34 @@ vi.mock('../../../src/components/Sparkline.jsx', () => ({
   ),
 }))
 
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+}))
+
+vi.mock('../../../src/components/Badge.jsx', () => ({
+  default: ({ children, variant }) => <span data-testid="badge" data-variant={variant}>{children}</span>
+}))
+
+vi.mock('../../../src/components/DateTimeText.jsx', () => ({
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+}))
+
+vi.mock('../../../src/utils/datetime.js', async () => {
+  const actual = await vi.importActual('../../../src/utils/datetime.js')
+  return {
+    ...actual,
+    formatDateTime: (val) => val
+  }
+})
+
 // Note: We avoid global mocks for react-router and api modules to prevent cross-file leakage
 
 describe('pages/Dashboard', () => {
@@ -491,6 +519,43 @@ describe('pages/Dashboard', () => {
     expect(select).toHaveValue('5')
 
     setItemSpy.mockRestore()
+  })
+
+  test('navigates on Enter and Space keydown on plant card (covers 264-268)', async () => {
+    const { plantsApi } = await import('../../../src/api/plants')
+    const { measurementsApi } = await import('../../../src/api/measurements')
+    const navigate = vi.fn()
+    vi.doMock('react-router-dom', async () => {
+      const actual = await vi.importActual('react-router-dom')
+      return { ...actual, useNavigate: () => navigate }
+    })
+
+    const plant = { uuid: 'p-key', name: 'KeyNav' }
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
+      { measured_at: '2024-01-02 10:00:00', measured_weight_g: 20 },
+      { measured_at: '2024-01-01 10:00:00', measured_weight_g: 10 },
+    ])
+
+    const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <Dashboard />
+        </MemoryRouter>
+      </ThemeProvider>
+    )
+
+    const card = await screen.findByTitle('Open statistics')
+
+    // Enter key
+    fireEvent.keyDown(card, { key: 'Enter', code: 'Enter' })
+    expect(navigate).toHaveBeenCalledWith('/stats/p-key', { state: { plant } })
+
+    // Space key
+    fireEvent.keyDown(card, { key: ' ', code: 'Space' })
+    expect(navigate).toHaveBeenCalledWith('/stats/p-key', { state: { plant } })
+    expect(navigate).toHaveBeenCalledTimes(2)
   })
 })
 

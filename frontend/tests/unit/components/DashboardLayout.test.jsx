@@ -78,4 +78,47 @@ describe('DashboardLayout', () => {
     // Hook called with default title
     expect(useDocumentTitle).toHaveBeenCalledWith('Dashboard')
   })
+
+  it('renders vacation mode notice when operationMode is vacation', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn().mockReturnValue('vacation'),
+    })
+
+    renderWithRoute(<DashboardLayout />)
+    expect(screen.getByRole('status')).toHaveTextContent(/Vacation mode/i)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('renders manual mode notice when operationMode is manual', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn().mockReturnValue('manual'),
+    })
+
+    renderWithRoute(<DashboardLayout />)
+    expect(screen.getByRole('status')).toHaveTextContent(/Manual mode/i)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('renders no notice when operationMode is unknown', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn().mockReturnValue('unknown'),
+    })
+
+    renderWithRoute(<DashboardLayout />)
+    expect(screen.queryByRole('status')).toBeNull()
+
+    vi.unstubAllGlobals()
+  })
+
+  it('defaults to no notice when localStorage is undefined', () => {
+    vi.stubGlobal('localStorage', undefined)
+
+    renderWithRoute(<DashboardLayout />)
+    // Should default to null and show no notice
+    expect(screen.queryByRole('status')).toBeNull()
+
+    vi.unstubAllGlobals()
+  })
 })

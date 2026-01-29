@@ -28,7 +28,11 @@ class PlantListItem(BaseModel):
     identify_hint: Optional[str] = None
     # Calculated scheduling
     frequency_days: Optional[int] = None
+    frequency_confidence: Optional[int] = None
     next_watering_at: Optional[datetime] = None
+    first_calculated_at: Optional[datetime] = None
+    days_offset: Optional[int] = None
+    needs_weighing: bool = False
 
 
 class PlantDetail(BaseModel):
@@ -93,6 +97,8 @@ class PlantUpdateRequest(BaseModel):
     fertilized_last_at: Optional[str] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
+    max_water_weight_g: Optional[int] = Field(default=None, ge=0)
+    recommended_water_threshold_pct: Optional[int] = Field(default=None, ge=0, le=100)
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None

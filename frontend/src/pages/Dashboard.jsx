@@ -258,7 +258,16 @@ export default function Dashboard() {
             return (
               <div
                 key={plantKey}
+                className="plant-card"
                 onClick={() => p?.uuid && navigate(`/stats/${p.uuid}`, { state: { plant: p } })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    if (p?.uuid) navigate(`/stats/${p.uuid}`, { state: { plant: p } })
+                  }
+                }}
+                tabIndex={0}
+                role="button"
                 style={{ border: `1px solid ${cardBorder}`, borderRadius: 8, padding: 12, background: cardBg, cursor: 'pointer' }}
                 title="Open statistics"
               >

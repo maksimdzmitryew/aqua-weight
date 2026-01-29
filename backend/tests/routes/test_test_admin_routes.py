@@ -42,12 +42,16 @@ async def test_seed_minimal_inserts_expected_rows_and_is_idempotent(async_client
     assert body1["status"] == "ok"
     assert body1["location_id"] == "11111111111111111111111111111111"
     assert body1["plant_id"] == "22222222222222222222222222222222"
+    assert body1["plant_id_2"] == "33333333333333333333333333333333"
 
     # Validate DB state
     locs = _fetch_hex_ids_and_names("locations")
     plants = _fetch_hex_ids_and_names("plants")
     assert locs == [("11111111111111111111111111111111", "Living Room")]
-    assert plants == [("22222222222222222222222222222222", "Seed Fern")]
+    assert plants == [
+        ("22222222222222222222222222222222", "Seed Fern"),
+        ("33333333333333333333333333333333", "Seed Ivy"),
+    ]
 
     # Second seed should be idempotent and keep same data
     r2 = await async_client.post("/api/test/seed-minimal")
@@ -55,9 +59,9 @@ async def test_seed_minimal_inserts_expected_rows_and_is_idempotent(async_client
     body2 = r2.json()
     assert body2 == body1
 
-    # Still exactly one row each with same values
+    # Still exactly correct row counts and values
     assert _count_rows("locations") == 1
-    assert _count_rows("plants") == 1
+    assert _count_rows("plants") == 2
     assert _fetch_hex_ids_and_names("locations") == locs
     assert _fetch_hex_ids_and_names("plants") == plants
 
@@ -94,12 +98,13 @@ async def test_seed_endpoint_performs_reset_then_seed(async_client):
 
     # Verify only minimal records remain
     assert _count_rows("locations") == 1
-    assert _count_rows("plants") == 1
+    assert _count_rows("plants") == 2
     assert _fetch_hex_ids_and_names("locations") == [
         ("11111111111111111111111111111111", "Living Room")
     ]
     assert _fetch_hex_ids_and_names("plants") == [
-        ("22222222222222222222222222222222", "Seed Fern")
+        ("22222222222222222222222222222222", "Seed Fern"),
+        ("33333333333333333333333333333333", "Seed Ivy"),
     ]
 
 

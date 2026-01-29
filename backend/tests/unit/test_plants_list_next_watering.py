@@ -77,20 +77,20 @@ def test_next_watering_projection_and_roll_forward(monkeypatch):
     import backend.app.helpers.plants_list as pl_mod
 
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: freq_days)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 5))
 
     items = PlantsList.fetch_all()
 
     assert items and items[0]["frequency_days"] == freq_days
-    # Projection should be at least 'now' (rolled forward); verify it advanced beyond last_watering_at
+    assert items[0]["frequency_confidence"] == 5
     nxt = items[0]["next_watering_at"]
     assert nxt is not None
-    assert nxt > now - timedelta(days=1)  # should not be in the past
-    assert nxt > last_watering_at
+    # nxt should be last_watering_at + freq_days = (now - 10d) + 3d = now - 7d
+    assert nxt == last_watering_at + timedelta(days=freq_days)
 
 
-def test_next_watering_math_exception_falls_back_to_initial_projection(monkeypatch):
-    # When the inner math block raises, code keeps the initial projection
+def test_next_watering_math_exception_yields_none(monkeypatch):
+    # When an exception occurs during the projection, next_watering_at should be None
     now = datetime.utcnow()
     pid = bytes.fromhex("cd" * 16)
     last_watering_at = now - timedelta(days=10)
@@ -103,21 +103,20 @@ def test_next_watering_math_exception_falls_back_to_initial_projection(monkeypat
     import backend.app.helpers.plants_list as pl_mod
 
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: freq_days)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 3))
 
-    # Force the inner roll-forward math to raise by monkeypatching ceil within the module
+    # Force the projection to raise by monkeypatching timedelta within the module
     class Boom(Exception):
         pass
 
     def _boom(*args, **kwargs):
-        raise Boom("ceil broke")
+        raise Boom("timedelta broke")
 
-    monkeypatch.setattr(pl_mod, "ceil", _boom)
+    monkeypatch.setattr(pl_mod, "timedelta", _boom)
 
     items = PlantsList.fetch_all()
     nxt = items[0]["next_watering_at"]
-    # Initial projection should be last_watering_at + freq
-    assert nxt == last_watering_at + timedelta(days=freq_days)
+    assert nxt is None
 
 
 def test_next_watering_projection_future_no_roll_forward(monkeypatch):
@@ -134,7 +133,7 @@ def test_next_watering_projection_future_no_roll_forward(monkeypatch):
     import backend.app.helpers.plants_list as pl_mod
 
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: freq_days)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: (freq_days, 10))
 
     items = PlantsList.fetch_all()
     assert items[0]["next_watering_at"] == last_watering_at + timedelta(days=freq_days)
@@ -167,7 +166,99 @@ def test_next_watering_db_exception_yields_none(monkeypatch):
     import backend.app.helpers.plants_list as pl_mod
 
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: 4)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (4, 1))
 
     items = PlantsList.fetch_all()
     assert items[0]["next_watering_at"] is None
+
+
+def test_next_watering_fallback_last_watering_exception(monkeypatch):
+    # Cover line 157-159
+    now = datetime.utcnow()
+    pid = bytes.fromhex("bb" * 16)
+    rows = [_row(pid, "Palm", None, created_at=now, measured_at=now)]
+    
+    main_cursor = FakeCursor(rows=rows)
+    # This cursor will be used for the last watering event query
+    inner_cursor = FakeCursor(rows=[])
+    def _boom(*args, **kwargs):
+        raise RuntimeError("last watering query failed")
+    inner_cursor.execute = _boom
+
+    class MultiCursorConn(FakeConn):
+        def __init__(self, main, inner):
+            self._main = main
+            self._inner = inner
+            self._count = 0
+            self.closed = False
+        def cursor(self):
+            self._count += 1
+            return self._main if self._count == 1 else self._inner
+
+    fake_conn = MultiCursorConn(main_cursor, inner_cursor)
+    import backend.app.helpers.plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: (5, 1))
+
+    items = PlantsList.fetch_all()
+    assert items[0]["next_watering_at"] is None
+
+
+def test_next_watering_calculation_exception_resets_values(monkeypatch):
+    # Trigger Exception at line 190 by making timedelta fail
+    now = datetime.utcnow()
+    pid = bytes.fromhex("12" * 16)
+    last_watering_at = now - timedelta(days=1)
+    freq_days = 5
+
+    rows = [_row(pid, "Ivy", None, created_at=now - timedelta(days=10), measured_at=now - timedelta(days=2), water_loss_total_pct=2.0)]
+    cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
+    fake_conn = FakeConn(cursor)
+
+    import backend.app.helpers.plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 2))
+
+    # Mock timedelta to raise an exception
+    def _bad_timedelta(*args, **kwargs):
+        raise ValueError("timedelta error")
+
+    monkeypatch.setattr(pl_mod, "timedelta", _bad_timedelta)
+
+    items = PlantsList.fetch_all()
+
+    assert items[0]["next_watering_at"] is None
+    assert items[0]["first_calculated_at"] is None
+    assert items[0]["days_offset"] is None
+
+def test_next_watering_vacation_mode_decay(monkeypatch):
+    # Verify linear decay in vacation mode
+    now = datetime.utcnow()
+    pid = bytes.fromhex("dd" * 16)
+    last_watering_at = now - timedelta(days=5)
+    freq_days = 10
+    threshold = 30.0
+
+    # 5 days since watering for 10-day freq means we are 50% through the cycle
+    # consumption = 5 * (100 - 30) / 10 = 35
+    # Retained should be 100 - 35 = 65%
+    rows = [
+        (
+            pid, "Ivy", None, None, None, None, threshold, None, None, None,
+            now - timedelta(days=20), now - timedelta(days=5), None, None, 0.0
+        )
+    ]
+    cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
+    fake_conn = FakeConn(cursor)
+
+    import backend.app.helpers.plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 5))
+
+    # Fetch with mode="vacation"
+    items = PlantsList.fetch_all(mode="vacation")
+
+    assert items[0]["water_retained_pct"] == 65.0
+    # Next watering should be last_watering_at + freq = now + 5d
+    assert items[0]["next_watering_at"] == last_watering_at + timedelta(days=freq_days)
+    assert items[0]["days_offset"] == 5

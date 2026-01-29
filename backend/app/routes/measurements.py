@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -12,6 +12,7 @@ from ..helpers.calibration import (
 )
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
+from ..helpers.water_loss import WaterLossCalculation
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
@@ -21,9 +22,12 @@ from ..schemas.measurement import (
     MeasurementCreateRequest,
     MeasurementItem,
     MeasurementUpdateRequest,
+    WateringApproximationItem,
+    WateringApproximationResponse,
 )
 from ..schemas.plant import PlantCalibrationItem
 from ..services.measurements import (
+    DerivedWeights,
     compute_water_losses,
     derive_weights,
     ensure_exclusive_water_vs_weight,
@@ -68,6 +72,8 @@ def _compute_water_retained_for_plant(
         last_wet_weight_g=last_wet_weight_g,
         water_loss_total_pct=water_loss_total_pct,
     )
+    if water_retained_calc.water_retained_pct is None:
+        return 0.0
     return round(water_retained_calc.water_retained_pct, 0)
 
 
@@ -82,6 +88,136 @@ def _post_delete_recalculate_and_commit(conn, plant_id_hex: str, measured_weight
 
 
 # --- New: Simple endpoint to record a delegated/reported watering (no weights) ---
+class VacationWateringCreateRequest(BaseModel):
+    plant_id: str
+    measured_at: str | None = None
+
+
+@app.post("/measurements/vacation/watering")
+async def create_vacation_watering(
+    payload: VacationWateringCreateRequest, get_conn_fn=Depends(get_conn_factory)
+):
+    """
+    Create a watering event for Vacation mode by collecting the latest water_added_g.
+
+    The endpoint finds the latest non-NULL water_added_g for the plant (defaulting to 0 if none found)
+    and then records it with a specific Vacation mode signature:
+      - water_loss_total_pct = 0
+      - water_added_g = equals water_added_g from any latest measurement event
+      - measured_weight_g = NULL
+      - last_dry_weight_g = NULL
+      - last_wet_weight_g = NULL
+      - water_loss_total_g = NULL
+      - water_loss_day_pct = NULL
+      - water_loss_day_g = NULL
+
+    Note: This watering event is ignored by the backend frequency calculator
+    (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
+    are NULL.
+    """
+    if not HEX_RE.match(payload.plant_id or ""):
+        raise HTTPException(status_code=400, detail="Invalid plant_id")
+
+    from ..utils.date_time import now_local_iso
+
+    measured_at_str = payload.measured_at or now_local_iso()
+    try:
+        measured_at_dt = parse_timestamp_local(measured_at_str, fixed_milliseconds=0)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid measured_at: {e}")
+
+    def do_work():
+        conn = get_conn_fn()
+        try:
+            with conn.cursor() as cur:
+                # Fetch latest water_added_g that is not NULL
+                cur.execute(
+                    """
+                    SELECT water_added_g
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND water_added_g IS NOT NULL
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                    """,
+                    (payload.plant_id,),
+                )
+                row = cur.fetchone()
+                water_added_g = row[0] if row else 0
+
+                # Fetch latest method_id and scale_id for this plant
+                cur.execute(
+                    """
+                    SELECT method_id, scale_id
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND (method_id IS NOT NULL OR scale_id IS NOT NULL)
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                    """,
+                    (payload.plant_id,),
+                )
+                row = cur.fetchone()
+                method_id_bin = row[0] if row and row[0] else None
+                scale_id_bin = row[1] if row and row[1] else None
+
+                new_id = uuid.uuid4().bytes
+                final_note = "[vacation] watering"
+
+                cur.execute(
+                    """
+                    INSERT INTO plants_measurements (
+                        id, plant_id, measured_at,
+                        measured_weight_g, last_dry_weight_g, last_wet_weight_g,
+                        water_added_g, water_loss_total_pct,
+                        method_id, scale_id, note
+                    ) VALUES (%s, UNHEX(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        new_id,
+                        payload.plant_id,
+                        measured_at_dt,
+                        None,  # measured_weight_g
+                        None,  # last_dry_weight_g
+                        None,  # last_wet_weight_g
+                        water_added_g,
+                        0,  # water_loss_total_pct marks a watering event
+                        method_id_bin,
+                        scale_id_bin,
+                        final_note,
+                    ),
+                )
+                conn.commit()
+
+                # Compute water retained percentage for response
+                water_retained_pct = _compute_water_retained_for_plant(
+                    cur,
+                    payload.plant_id,
+                    measured_weight_g=None,
+                    last_wet_weight_g=None,
+                    water_loss_total_pct=0,
+                )
+
+                return {
+                    "id": bin_to_hex(new_id),
+                    "plant_id": payload.plant_id,
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds"),
+                    "water_loss_total_pct": 0.0,
+                    "water_retained_pct": water_retained_pct,
+                    "note": final_note,
+                }
+        except Exception as e:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise HTTPException(status_code=500, detail=f"Failed to create vacation watering: {e}")
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_work)
+
+
 class ReportedWateringCreateRequest(BaseModel):
     plant_id: str
     # Optional local timestamp string (e.g., from input type=datetime-local). If omitted, uses now.
@@ -99,21 +235,31 @@ async def create_reported_watering(
     """
     Create a lightweight watering marker when a delegate reports watering without measurements.
 
-    Storage signature (designed to be picked up by scheduling analytics):
-      - measured_weight_g = NULL
+    Storage signature (Manual/Delegate mode):
       - water_loss_total_pct = 0
-      - other weight/loss fields left NULL
-      - measured_at = provided timestamp (or now, parsed via existing utility)
+      - water_added_g = equals water_added_g from any latest measurement event (watering or weighing)
+      - measured_weight_g = NULL
+      - last_dry_weight_g = NULL
+      - last_wet_weight_g = NULL
+      - water_loss_total_g = NULL
+      - water_loss_day_pct = NULL
+      - water_loss_day_g = NULL
+      - measured_at = provided timestamp (or now)
       - note = "[reported] ..." with optional reporter and free-form note
 
-    This intentionally does NOT attempt to derive weights or compute losses.
+    Note: This watering event is ignored by the backend frequency calculator
+    (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
+    are NULL.
     """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     # Parse/normalize timestamp using existing utility to match other endpoints
+    from ..utils.date_time import now_local_iso
+
+    measured_at_str = payload.measured_at or now_local_iso()
     try:
-        measured_at_dt = parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
+        measured_at_dt = parse_timestamp_local(measured_at_str, fixed_milliseconds=0)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid measured_at: {e}")
 
@@ -129,14 +275,30 @@ async def create_reported_watering(
         conn = get_conn_fn()
         try:
             with conn.cursor() as cur:
+                # Fetch latest water_added_g that is not NULL
+                cur.execute(
+                    """
+                    SELECT water_added_g
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND water_added_g IS NOT NULL
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                    """,
+                    (payload.plant_id,),
+                )
+                row = cur.fetchone()
+                water_added_g = row[0] if row else 0
+
                 new_id = uuid.uuid4().bytes
                 cur.execute(
                     (
                         """
                         INSERT INTO plants_measurements (
                           id, plant_id, measured_at,
-                          measured_weight_g, water_loss_total_pct, note
-                        ) VALUES (%s, UNHEX(%s), %s, %s, %s, %s)
+                          measured_weight_g, last_dry_weight_g, last_wet_weight_g,
+                          water_added_g, water_loss_total_pct, note
+                        ) VALUES (%s, UNHEX(%s), %s, %s, %s, %s, %s, %s, %s)
                         """
                     ),
                     (
@@ -144,6 +306,9 @@ async def create_reported_watering(
                         payload.plant_id,
                         measured_at_dt,
                         None,  # measured_weight_g
+                        None,  # last_dry_weight_g
+                        None,  # last_wet_weight_g
+                        water_added_g,
                         0,  # water_loss_total_pct marks a watering event for scheduling
                         final_note,
                     ),
@@ -174,6 +339,44 @@ def _to_dt_string(s: str | None):
     if not s:
         return None
     return s.strip().replace("T", " ")
+
+
+@app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
+async def get_watering_approximation(operationMode: str | None = Cookie(None)):
+    """
+    Calculate virtual water retained, frequency, and next watering date for all active plants.
+    Currently, this endpoint is a simple projection based on existing PlantsList logic,
+    but it's intended for extension when automated IOT measurements or other data sources
+    are not available (e.g., in Vacation mode).
+    """
+    mode = operationMode or "manual"
+
+    def fetch():
+        plants = PlantsList.fetch_all(mode=mode)
+        items = []
+        for p in plants:
+            next_at = p.get("next_watering_at")
+            first_at = p.get("first_calculated_at")
+            # For each plant, also calculate needs_weighing based on its latest measurement date
+            items.append(
+                WateringApproximationItem(
+                    plant_uuid=p["uuid"],
+                    virtual_water_retained_pct=p.get("water_retained_pct"),
+                    frequency_days=p.get("frequency_days"),
+                    frequency_confidence=p.get("frequency_confidence"),
+                    next_watering_at=next_at.isoformat()
+                    if next_at and hasattr(next_at, "isoformat")
+                    else (str(next_at) if next_at else None),
+                    first_calculated_at=first_at.isoformat()
+                    if first_at and hasattr(first_at, "isoformat")
+                    else (str(first_at) if first_at else None),
+                    days_offset=p.get("days_offset"),
+                    needs_weighing=p.get("needs_weighing", False)
+                )
+            )
+        return WateringApproximationResponse(items=items)
+
+    return await run_in_threadpool(fetch)
 
 
 @app.get("/measurements/last", response_model=LastMeasurementResponse | None)
@@ -496,6 +699,19 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
 async def create_measurement(
     payload: MeasurementCreateRequest, get_conn_fn=Depends(get_conn_factory)
 ):
+    """
+    Create a new measurement or watering event.
+
+    Storage signature for Watering (Automatic and Manual mode):
+      - last_dry_weight_g > 0
+      - last_wet_weight_g > 0
+      - water_added_g > 0
+      - water_loss_total_pct = 0
+      - measured_weight_g = NULL
+      - water_loss_total_g = NULL
+      - water_loss_day_pct = NULL
+      - water_loss_day_g = NULL
+    """
     if not HEX_RE.match(payload.plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -569,9 +785,9 @@ async def create_measurement(
                         loss_calc.water_loss_total_g,
                         loss_calc.water_loss_day_pct,
                         loss_calc.water_loss_day_g,
-                        hex_to_bin(payload.method_id),
+                        hex_to_bin(payload.method_id) if payload.method_id else None,
                         1 if payload.use_last_method else 0,
-                        hex_to_bin(payload.scale_id),
+                        hex_to_bin(payload.scale_id) if payload.scale_id else None,
                         (payload.note or None),
                     ),
                 )
@@ -628,6 +844,14 @@ async def create_measurement(
 async def update_measurement(
     id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn=Depends(get_conn_factory)
 ):
+    """
+    Update an existing measurement or watering event.
+
+    Safety:
+    If the event is a Vacation/Reported watering (signature: weights are NULL),
+    the system preserves this signature during updates by bypassing weight
+    derivation and loss re-calculations, unless physical weights are explicitly provided.
+    """
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -678,26 +902,43 @@ async def update_measurement(
                 measured_at_eff = measured_at if measured_at is not None else current_measured_at
 
                 # Use derivation helper to recompute consistent fields
-                derived = derive_weights(
-                    cursor=cur,
-                    plant_id_hex=plant_hex,
-                    measured_at_db=measured_at_eff,
-                    measured_weight_g=mw_eff,
-                    last_dry_weight_g=ld_eff,
-                    last_wet_weight_g=lw_eff,
-                    payload_water_added_g=wa_eff_payload,
-                    exclude_measurement_id=id_hex,
-                )
+                # Skip re-derivation if this is a Vacation/Reported watering event (weights are NULL)
+                # to preserve the technical signature.
+                is_vacation_event = current_mw is None and current_ld is None and current_lw is None
+                
+                if is_vacation_event and mw is None and ld is None and lw is None:
+                    # Maintain the Vacation signature
+                    derived = DerivedWeights(
+                        last_dry_weight_g=None,
+                        last_wet_weight_g=None,
+                        water_added_g=wa_eff_payload or current_wa or 0,
+                        prev_measured_weight=None, # Not used for Vacation events
+                        last_watering_water_added=current_wa or 0
+                    )
+                    loss_calc = WaterLossCalculation()
+                    loss_calc.water_loss_total_pct = 0.0
+                    loss_calc.is_watering_event = True
+                else:
+                    derived = derive_weights(
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
+                        measured_at_db=measured_at_eff,
+                        measured_weight_g=mw_eff,
+                        last_dry_weight_g=ld_eff,
+                        last_wet_weight_g=lw_eff,
+                        payload_water_added_g=wa_eff_payload,
+                        exclude_measurement_id=id_hex,
+                    )
 
-                # Determine previous measurement (by time) for day loss calc happens in compute
-                loss_calc = compute_water_losses(
-                    cursor=cur,
-                    plant_id_hex=plant_hex,
-                    measured_at_db=measured_at_eff,
-                    measured_weight_g=mw_eff,
-                    derived=derived,
-                    exclude_measurement_id=id_hex,
-                )
+                    # Determine previous measurement (by time) for day loss calc happens in compute
+                    loss_calc = compute_water_losses(
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
+                        measured_at_db=measured_at_eff,
+                        measured_weight_g=mw_eff,
+                        derived=derived,
+                        exclude_measurement_id=id_hex,
+                    )
 
                 mw_update = None if loss_calc.is_watering_event else mw_eff
                 wa_update = int(derived.water_added_g) if derived.water_added_g else 0

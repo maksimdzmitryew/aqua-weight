@@ -33,14 +33,14 @@ frontend/dist/
 frontend/.vite/
 
 #tests
-frontend/coverage/
-frontend/playwright-report/
-frontend/playwright-report/*
 frontend/node_modules_tests/
 .pytest_cache/
 .*.txt
+*output*.txt
+verbose_report.txt
 .coverage
 *coverage*
+*report*
 lcov.info
 
 # Log files

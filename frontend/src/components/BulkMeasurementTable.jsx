@@ -2,11 +2,16 @@ import React from 'react'
 import { valueStyle, getWaterRetainCellStyle, getWaterLossCellStyle as defaultWaterLossCellStyle } from '../utils/water_retained_colors.js'
 import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
+import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering'
+import WaterDropIcon from './icons/WaterDropIcon.jsx'
 
 export default function BulkMeasurementTable({
   plants,
   inputStatus,
   onCommitValue,
+  onCommitVacationWatering,
+  onDeleteVacationWatering,
+  measurementIds = {},
   onViewPlant,
   firstColumnLabel = 'New value',
   firstColumnTooltip,
@@ -16,6 +21,9 @@ export default function BulkMeasurementTable({
   showUpdatedColumn = false,
   // Optional: deemphasize predicate to visually soften rows (e.g., above threshold)
   deemphasizePredicate,
+  operationMode = 'manual',
+  approximations = {},
+  noPlantsMessage = 'No plants found',
 }) {
   const computeWaterLossStyle = waterLossCellStyle || defaultWaterLossCellStyle
   return (
@@ -24,35 +32,35 @@ export default function BulkMeasurementTable({
         <thead>
           <tr>
             <th className="th" scope="col" title={firstColumnTooltip}>
-              <span>{firstColumnLabel}</span>
+              <span style={{ pointerEvents: 'none' }}>{firstColumnLabel}</span>
               {firstColumnTooltip && (
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
               )}
             </th>
             <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
-              <span>Thresh</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Thresh</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th" scope="col" title="Plant name">
-              <span>Name</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Name</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th" scope="col" title="Notes">
-              <span>Notes</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Notes</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             <th className="th hide-column-phone" scope="col" title="Location">
-              <span>Location</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+              <span style={{ pointerEvents: 'none' }}>Location</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
-            <th className="th" scope="col" title="Water loss since last watering">
-              <span>Water loss</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+            <th className="th" scope="col" title={operationMode === 'vacation' ? "Projected water loss based on frequency (100 - retained %)" : "Water loss since last watering based on weight"}>
+              <span style={{ pointerEvents: 'none' }}>Water loss</span>
+              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
             </th>
             {showUpdatedColumn && (
               <th className="th hide-column-tablet" scope="col" title="Last update time">
-                <span>Updated</span>
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                <span style={{ pointerEvents: 'none' }}>Updated</span>
+                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
               </th>
             )}
           </tr>
@@ -60,38 +68,110 @@ export default function BulkMeasurementTable({
         <tbody>
           {plants.map((p, idx) => {
             const rowKey = p.uuid || p.id || `row-${idx}`
-            const retained = Number(p?.water_retained_pct)
-            const thresh = Number(p?.recommended_water_threshold_pct)
-            const needsWater = !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+            const approx = approximations[p.uuid]
+            const needsWater = checkNeedsWater(p, operationMode, approx)
+            const needsMeasure = p.needs_weighing
             const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
+            
+            const retained = getWaterRetainedPct(p, operationMode, approx)
+            const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
+            
+            const displayWaterLoss = operationMode === 'vacation' && typeof retained === 'number'
+              ? 100 - retained
+              : (p.water_loss_total_pct !== undefined && p.water_loss_total_pct !== null ? Math.round(p.water_loss_total_pct) : p.water_loss_total_pct)
+
+            const status = inputStatus[p.uuid]
+            const mId = measurementIds[p.uuid]
+            const isSaving = status === 'saving'
+
+            let dropColor = '#3b82f6' // blue-500
+            if (status === 'success' || mId) dropColor = '#10b981' // green-500
+            if (status === 'error') dropColor = '#ef4444' // red-500
+
             return (
             <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
-                  <input
-                    type="number"
-                    style={{ width: 50, verticalAlign: 'middle', display: 'inline-block' }}
-                    className={`input ${inputStatus[p.uuid] === 'success' ? 'bg-success' : ''} ${inputStatus[p.uuid] === 'error' ? 'bg-error' : ''}`}
-                    defaultValue={p.current_weight || ''}
-                    onBlur={(e) => {
-                      if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
-                    }}
-                    onChange={(e) => {
-                      e.target.value = e.target.value
-                    }}
-                  />
-                  <span style={{ paddingLeft: 10, verticalAlign: 'middle', display: 'inline-block' }}>
-                    {p.water_retained_pct}%
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                    {operationMode !== 'vacation' ? (
+                      <input
+                        type="number"
+                        style={{ width: 60 }}
+                        className={`input ${status === 'success' ? 'bg-success' : ''} ${status === 'error' ? 'bg-error' : ''}`}
+                        defaultValue={p.current_weight || ''}
+                        onBlur={(e) => {
+                          if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSaving}
+                        onClick={() => {
+                          if (mId) {
+                            onDeleteVacationWatering?.(p.uuid, mId)
+                          } else {
+                            onCommitVacationWatering?.(p.uuid)
+                          }
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          cursor: isSaving ? 'wait' : 'pointer',
+                          padding: 4,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderRadius: 4,
+                          transition: 'background 0.2s',
+                        }}
+                        className="hover-bg-muted"
+                        title={mId ? "Delete vacation watering" : "Record vacation watering"}
+                        aria-label={mId ? "Undo" : "Mark watered"}
+                      >
+                        <WaterDropIcon color={dropColor} size={24} className={isSaving ? 'animate-pulse' : ''} />
+                      </button>
+                    )}
+                    {retained !== 'N/A' && (
+                      <span style={{ fontSize: '0.9em', color: '#6b7280' }}>
+                        {displayRetained}
+                      </span>
+                    )}
+                    {operationMode === 'vacation' && approx?.next_watering_at && (
+                      <span
+                        style={{
+                          fontSize: '0.9em',
+                          padding: '2px 4px',
+                          borderRadius: 4,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          ...(approx.days_offset < 0 ? { background: '#fecaca', color: '#b91c1c' } : { color: '#6b7280' })
+                        }}
+                      >
+                        <DateTimeText value={approx.first_calculated_at || approx.next_watering_at} mode="daymonth" showTooltip={false} />
+                        {approx.days_offset !== undefined && approx.days_offset !== null && (
+                          <span style={{ opacity: 0.8 }}>
+                            ({approx.days_offset}d)
+                          </span>
+                        )}
+                      </span>
+                    )}
                     {needsWater && (
-                      <Badge tone="warning" title="Needs water based on threshold" style={{ marginLeft: 8 }}>
+                      <Badge tone="warning" title={operationMode === 'vacation' ? "Needs water based on approximation" : "Needs water based on threshold"}>
                         Needs water
                       </Badge>
                     )}
-                  </span>
+                    {needsMeasure && (
+                      <Badge tone="info" title="Needs weighing (>18h since last update)">
+                        Needs weight
+                      </Badge>
+                    )}
+                  </div>
                 </td>
                 <td className="td">
                   {p.recommended_water_threshold_pct}%
                 </td>
-                <td className="td" style={getWaterRetainCellStyle?.(p.water_retained_pct)} title={p.uuid ? 'View plant' : undefined}>
+                <td className="td" style={getWaterRetainCellStyle?.(retained)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}
@@ -118,29 +198,31 @@ export default function BulkMeasurementTable({
                 )}
               </td>
               <td className="td hide-column-phone">{p.location || '—'}</td>
-              <td className="td" style={computeWaterLossStyle?.(p.water_loss_total_pct)} title={p.uuid ? 'View plant' : undefined}>
+              <td className="td" style={computeWaterLossStyle?.(displayWaterLoss)} title={p.uuid ? 'View plant' : undefined}>
                 {p.uuid ? (
                   <a
                     href={`/plants/${p.uuid}`}
                     onClick={(e) => { e.preventDefault(); onViewPlant?.(p) }}
                     className="block-link"
                   >
-                    {p.water_loss_total_pct}%
+                    {displayWaterLoss}%
                   </a>
                 ) : (
-                  p.water_loss_total_pct
+                  displayWaterLoss
                 )}
               </td>
               {showUpdatedColumn && (
                 <td className="td hide-column-tablet">
-                  <DateTimeText value={p.latest_at || p.measured_at} />
+                  {operationMode === 'vacation' ? '—' : (
+                    <DateTimeText value={p.latest_at || p.measured_at} />
+                  )}
                 </td>
               )}
             </tr>
           )})}
           {plants.length === 0 && (
             <tr>
-              <td className="td" colSpan={showUpdatedColumn ? 7 : 6}>No plants found</td>
+              <td className="td" colSpan={showUpdatedColumn ? 7 : 6}>{noPlantsMessage}</td>
             </tr>
           )}
         </tbody>

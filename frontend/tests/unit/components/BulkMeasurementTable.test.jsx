@@ -329,4 +329,64 @@ describe('BulkMeasurementTable', () => {
     expect(locCell).toBeTruthy()
     expect(locCell?.textContent).toBe('—')
   })
+
+  test('vacation mode: clicking drop icon calls onCommitVacationWatering or onDeleteVacationWatering', () => {
+    const onCommit = vi.fn()
+    const onDelete = vi.fn()
+    const p1 = makePlant({ uuid: 'u1', name: 'Aloe' })
+    const { rerender } = render(
+      <BulkMeasurementTable
+        plants={[p1]}
+        operationMode="vacation"
+        onCommitVacationWatering={onCommit}
+        onDeleteVacationWatering={onDelete}
+        inputStatus={{}}
+      />
+    )
+
+    // Initially no measurementId, so clicking should call onCommit
+    const dropBtn = screen.getByRole('button', { name: /mark watered/i })
+    fireEvent.click(dropBtn)
+    expect(onCommit).toHaveBeenCalledWith('u1')
+
+    // Now with measurementId, clicking should call onDelete
+    rerender(
+      <BulkMeasurementTable
+        plants={[p1]}
+        operationMode="vacation"
+        onCommitVacationWatering={onCommit}
+        onDeleteVacationWatering={onDelete}
+        measurementIds={{ u1: 'm1' }}
+        inputStatus={{}}
+      />
+    )
+    const deleteBtn = screen.getByRole('button', { name: /undo/i })
+    fireEvent.click(deleteBtn)
+    expect(onDelete).toHaveBeenCalledWith('u1', 'm1')
+  })
+
+  test('vacation mode: displays next watering date and overdue styling', () => {
+    const p = makePlant({ uuid: 'u1' })
+    const approx = {
+      plant_uuid: 'u1',
+      next_watering_at: '2026-01-12 10:00',
+      days_offset: -1, // overdue
+    }
+    render(
+      <BulkMeasurementTable
+        plants={[p]}
+        operationMode="vacation"
+        approximations={{ u1: approx }}
+        inputStatus={{}}
+      />
+    )
+
+    // Check for date and offset
+    expect(screen.getByText(/12\/01/)).toBeInTheDocument()
+    expect(screen.getByText(/\(-1d\)/)).toBeInTheDocument()
+    
+    // Check overdue style (background: #fecaca)
+    const dateSpan = screen.getByText(/\(-1d\)/).parentElement
+    expect(dateSpan?.style.background).toBe('rgb(254, 202, 202)')
+  })
 })

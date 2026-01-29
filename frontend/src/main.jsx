@@ -45,6 +45,7 @@ createRoot(document.getElementById('root')).render(
           <Route path="/measurement/repotting" element={<RepottingCreate />} />
           <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
           <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
+          <Route path="*" element={<div style={{ padding: 24 }}><h1>404: Page Not Found</h1><p>Sorry, the page you are looking for does not exist.</p><a href="/dashboard">Go to Dashboard</a></div>} />
         </Routes>
       </BrowserRouter>
     </ThemeProvider>

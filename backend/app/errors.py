@@ -1,3 +1,4 @@
+import logging
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
@@ -34,12 +35,14 @@ def register_exception_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(MySQLError)
     async def mysql_error_handler(request: Request, exc: Exception) -> JSONResponse:  # noqa: ANN001
+        logging.exception("Database error occurred")
         return JSONResponse(status_code=500, content={"detail": GENERIC_DB_ERROR_MESSAGE})
 
     @app.exception_handler(PyMySQLError)
     async def pymysql_error_handler(
         request: Request, exc: Exception
     ) -> JSONResponse:  # noqa: ANN001
+        logging.exception("Database error occurred")
         return JSONResponse(status_code=500, content={"detail": GENERIC_DB_ERROR_MESSAGE})
 
     # Optional: keep validation and HTTP exceptions default behavior; no custom handler is added for them.

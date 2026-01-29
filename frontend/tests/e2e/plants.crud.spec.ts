@@ -4,16 +4,16 @@ import { seed, cleanup } from './utils/seed';
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173';
 
 test.describe('Plants CRUD', () => {
-  test.beforeEach(async () => {
+  test.beforeAll(async () => {
     await seed(ORIGIN);
   });
-  test.afterEach(async () => {
+  test.afterAll(async () => {
     await cleanup(ORIGIN);
   });
 
   test('create plant → list shows plant → edit → delete', async ({ page }) => {
     // Go to plants list
-    await page.goto('/plants');
+    await page.goto('/plants', { waitUntil: 'commit' });
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
 
     // Create Plant
@@ -28,13 +28,14 @@ test.describe('Plants CRUD', () => {
 
     // Edit
     await page.getByRole('row', { name: /test fern/i }).getByRole('button', { name: /edit/i }).click();
-    await page.getByLabel(/name/i).fill('Test Fern v2');
+    await expect(page.getByLabel(/name/i)).toBeDisabled();
+    await page.getByLabel(/description/i).fill('Updated description');
     await page.getByRole('button', { name: /save/i }).click();
-    await expect(page.getByRole('row', { name: /test fern v2/i })).toBeVisible();
+    await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible();
 
     // Delete
-    await page.getByRole('row', { name: /test fern v2/i }).getByRole('button', { name: /delete/i }).click();
+    await page.getByRole('row', { name: /test fern/i }).getByRole('button', { name: /delete/i }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(page.getByRole('row', { name: /test fern v2/i })).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /test fern/i })).toHaveCount(0);
   });
 });

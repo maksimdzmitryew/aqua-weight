@@ -173,7 +173,7 @@ def derive_weights(
     return DerivedWeights(
         last_dry_weight_g=ld_local,
         last_wet_weight_g=lw_local,
-        water_added_g=int(wa_local) if wa_local else 0,
+        water_added_g=max(0, int(wa_local)) if wa_local else 0,
         prev_measured_weight=prev_measured_weight,
         last_watering_water_added=last_watering_water_added,
     )

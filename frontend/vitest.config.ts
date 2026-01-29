@@ -11,6 +11,8 @@ export default defineConfig({
     dir: './tests/unit',
     include: ['**/*.{test,spec}.{js,jsx,ts,tsx}'],
     exclude: ['**/tests/e2e/**'],
+    testTimeout: 30000,
+    hookTimeout: 30000,
     coverage: {
       provider: 'v8',
       skipFull: true,

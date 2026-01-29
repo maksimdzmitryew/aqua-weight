@@ -26,7 +26,7 @@ describe('App.jsx', () => {
   test('shows fallback message when backend request fails', async () => {
     // Make the request reject to hit catch() branch
     server.use(
-      http.get('/api/', () => HttpResponse.error())
+      http.get('/api/', () => HttpResponse.json(null, { status: 500 }))
     )
 
     render(<App />)

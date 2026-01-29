@@ -48,6 +48,7 @@ def seed_minimal():
     # Deterministic ULID/UUID-like hex ids (32 hex chars)
     location_id_hex = "11111111111111111111111111111111"
     plant_id_hex = "22222222222222222222222222222222"
+    plant_id_2_hex = "33333333333333333333333333333333"
 
     with connect() as conn:
         with cursor(conn) as cur:
@@ -71,7 +72,16 @@ def seed_minimal():
                 (plant_id_hex, "Seed Fern", location_id_hex),
             )
 
-    return {"status": "ok", "location_id": location_id_hex, "plant_id": plant_id_hex}
+            cur.execute(
+                """
+                INSERT INTO plants (id, name, location_id, sort_order)
+                VALUES (UNHEX(%s), %s, UNHEX(%s), 1)
+                ON DUPLICATE KEY UPDATE name = VALUES(name), location_id = VALUES(location_id)
+                """,
+                (plant_id_2_hex, "Seed Ivy", location_id_hex),
+            )
+
+    return {"status": "ok", "location_id": location_id_hex, "plant_id": plant_id_hex, "plant_id_2": plant_id_2_hex}
 
 
 # Compatibility endpoints expected by Playwright e2e tests

@@ -51,8 +51,8 @@ export default function MeasurementCreate() {
   }, [])
 
   useEffect(() => {
-    if (preselect) form.setValue('plant_id', preselect)
-  }, [preselect])
+    if (preselect && !isEdit) form.setValue('plant_id', preselect)
+  }, [preselect, isEdit])
 
   // Load existing measurement in edit mode
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function MeasurementCreate() {
       }
       const from = location.state?.from;
       if (from) navigate(from);
-      else navigate(-1); // fallback to browser history
+      else navigate(`/plants/${vals.plant_id}`);
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
@@ -129,12 +129,12 @@ export default function MeasurementCreate() {
           <TextInput form={form} name="scale_id" label="Scale (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
           <div style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Note</label>
-            <textarea id="note" {...form.register('note')} style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: isDark ? '1px solid #374151' : '1px solid #d1d5db', background: isDark ? '#111827' : '#fff', color: isDark ? '#e5e7eb' : '#111827', height: 100 }} />
+            <textarea id="note" {...form.register('note')} className="input" style={{ height: 100 }} />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" style={{ padding: '8px 14px', borderRadius: 6 }}>{isEdit ? 'Update measurement' : 'Save measurement'}</button>
-          <button type="button" onClick={()=>navigate('/plants')} style={{ marginLeft: 8, padding: '8px 14px', borderRadius: 6 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update measurement' : 'Save measurement'}</button>
+          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
         </div>
       </form>
     </DashboardLayout>

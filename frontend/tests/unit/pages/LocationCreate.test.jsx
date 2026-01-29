@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
@@ -40,13 +40,12 @@ describe('pages/LocationCreate', () => {
   })
 
   it('client-side validation: empty name shows error and a11y wiring; clears on change', async () => {
-    const user = userEvent.setup()
     renderPage()
 
     const nameInput = screen.getByRole('textbox', { name: /name/i })
     // Type whitespace so native required passes, but trim() yields empty → component shows error
-    await user.type(nameInput, '   ')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(nameInput, { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     const err = await screen.findByText(/name is required/i)
     expect(err).toBeInTheDocument()
@@ -54,7 +53,7 @@ describe('pages/LocationCreate', () => {
     expect(nameInput).toHaveAttribute('aria-describedby', 'name-error')
 
     // Type to clear error
-    await user.type(nameInput, 'Living room')
+    fireEvent.change(nameInput, { target: { value: 'Living room' } })
     expect(screen.queryByText(/name is required/i)).not.toBeInTheDocument()
   })
 
@@ -70,7 +69,6 @@ describe('pages/LocationCreate', () => {
   })
 
   it('successful save posts to API and navigates back to /locations', async () => {
-    const user = userEvent.setup()
     // Success handler (201)
     server.use(
       http.post('/api/locations', async ({ request }) => {
@@ -82,36 +80,36 @@ describe('pages/LocationCreate', () => {
 
     renderPage()
 
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Shelf')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Shelf' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     // Navigates to list
-    expect(mockNavigate).toHaveBeenCalledWith('/locations')
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/locations')
+    })
   })
 
   it('server error maps to name field error', async () => {
-    const user = userEvent.setup()
     server.use(
       http.post('/api/locations', () => HttpResponse.json({ message: 'Already exists' }, { status: 409 }))
     )
 
     renderPage()
 
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Office')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Office' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument()
   })
 
   it('server error without message shows generic fallback', async () => {
-    const user = userEvent.setup()
     // Mock the API to reject with an object that has no message (or empty message)
     const spy = vi.spyOn(locationsApi, 'create').mockRejectedValueOnce({})
 
     renderPage()
 
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Office 2')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Office 2' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
 
@@ -119,7 +117,6 @@ describe('pages/LocationCreate', () => {
   })
 
   it('sends trimmed non-null description when provided', async () => {
-    const user = userEvent.setup()
     // Intercept request to assert payload
     server.use(
       http.post('/api/locations', async ({ request }) => {
@@ -131,23 +128,23 @@ describe('pages/LocationCreate', () => {
 
     renderPage()
 
-    await user.type(screen.getByRole('textbox', { name: /name/i }), 'Desk')
-    await user.type(screen.getByRole('textbox', { name: /description/i }), '  north wall  ')
-    await user.click(screen.getByRole('button', { name: /save/i }))
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Desk' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /description/i }), { target: { value: '  north wall  ' } })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/locations')
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/locations')
+    })
   })
 
   it('cancel button navigates back to /locations without saving', async () => {
-    const user = userEvent.setup()
     renderPage()
 
-    await user.click(screen.getByRole('button', { name: /cancel/i }))
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/locations')
   })
 
   it('renders under dark theme (style branches executed)', async () => {
-    const user = userEvent.setup()
     try { localStorage.setItem('theme', 'dark') } catch {}
 
     const { container } = renderPage()
@@ -159,6 +156,6 @@ describe('pages/LocationCreate', () => {
     expect(nameInput.style.borderColor).toBe('rgb(55, 65, 81)')
 
     // Interact to ensure no runtime errors
-    await user.type(nameInput, 'Dark Themed Name')
+    fireEvent.change(nameInput, { target: { value: 'Dark Themed Name' } })
   })
 })

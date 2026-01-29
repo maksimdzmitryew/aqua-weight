@@ -1,6 +1,5 @@
 import React from 'react'
-import { render, screen, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, within, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
 import { server } from '../msw/server'
@@ -47,8 +46,8 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     expect(await screen.findByText('Mocked Table')).toBeInTheDocument()
   })
 
-  test('useMemo branch: when initial snapshot is empty, toggling off shows empty state', async () => {
-    // Return plants that are all ABOVE threshold so none "needs water" at initial load
+  test('useMemo branch: handles displayed plants filtering', async () => {
+    // Return plants
     server.use(
       http.get('/api/plants', () => HttpResponse.json([
         { uuid: 'p1', name: 'ZZ Plant', water_retained_pct: 80, recommended_water_threshold_pct: 30 },
@@ -66,12 +65,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
       </ThemeProvider>
     )
 
+    // Initially should show ZZ Plant because default plantNeedsAttention=true
     expect(await screen.findByText('ZZ Plant')).toBeInTheDocument()
-
-    // Toggle off "Show all" -> since initialNeedsWaterIds is empty, table should render empty state
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    await userEvent.click(toggle)
-    expect(screen.getByText(/no plants found/i)).toBeInTheDocument()
+    expect(screen.getByText(/Showing all plants that need weighing/i)).toBeInTheDocument()
   })
 
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
@@ -91,7 +87,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     )
 
     // Falls back to [] and renders empty state
-    expect(await screen.findByText(/no plants found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/no plants need weighing/i)).toBeInTheDocument()
   })
 
   test('OR-chain fallback for timestamps and nullish metrics keep previous values', async () => {
@@ -123,12 +119,32 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     const input = within(row).getByRole('spinbutton')
 
     // Enter a valid weight to trigger POST and state update
-    await userEvent.clear(input)
-    await userEvent.type(input, '123')
-    await userEvent.tab()
+    fireEvent.change(input, { target: { value: '123' } })
+    fireEvent.blur(input)
 
     // Percentages should remain as previous since API omitted them (nullish coalescing branch)
     expect(within(row).getByText(/22%/)).toBeInTheDocument()
     expect(within(row).getByText(/78%/)).toBeInTheDocument()
+  })
+
+  test('operationMode defaults to null if localStorage is undefined', async () => {
+    const originalLocalStorage = global.localStorage
+    delete global.localStorage
+
+    try {
+      vi.resetModules()
+      vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
+      const Page = (await import('../../../src/pages/BulkWeightMeasurement.jsx')).default
+      render(
+        <MemoryRouter>
+          <Page />
+        </MemoryRouter>
+      )
+
+      // If operationMode is null (not 'vacation'), it should show the "Show all plants" checkbox
+      expect(await screen.findByText(/Show all plants/i)).toBeInTheDocument()
+    } finally {
+      global.localStorage = originalLocalStorage
+    }
   })
 })

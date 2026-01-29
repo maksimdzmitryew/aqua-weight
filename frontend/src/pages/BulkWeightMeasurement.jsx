@@ -2,15 +2,17 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
+import EmptyState from '../components/feedback/EmptyState.jsx'
 import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
+  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -20,10 +22,10 @@ export default function BulkWeightMeasurement() {
   // State to track measurement IDs for each plant
   const [measurementIds, setMeasurementIds] = useState({});
   // Toggle to switch between only-needs-water vs all plants
-  // Default ON for Bulk weight page: show all plants by default
-  const [showAll, setShowAll] = useState(true)
-  // Snapshot of plants that needed watering on initial load
-  const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
+  // Default OFF for Bulk weight page: show all plants by default
+  const [showAll, setShowAll] = useState(false)
+  // Snapshot of plants that needed attention on initial load
+  const [initialAttentionIds, setInitialAttentionIds] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -33,8 +35,8 @@ export default function BulkWeightMeasurement() {
         if (!cancelled) {
           const list = Array.isArray(data) ? data : []
           setPlants(list)
-          // Snapshot plants that needed water at initial load
-          setInitialNeedsWaterIds(list.filter(plantNeedsWater).map(p => p.uuid))
+          // Snapshot plants that need attention (e.g. weighing) at initial load
+          setInitialAttentionIds(list.filter(plantNeedsAttention).map(p => p.uuid))
         }
       } catch (e) {
         if (!cancelled) setError('Failed to load plants')
@@ -118,21 +120,20 @@ export default function BulkWeightMeasurement() {
     }
   }
 
-  // Helper: determine if a plant needs water
-  function plantNeedsWater(p) {
-    const retained = Number(p?.water_retained_pct)
-    const thresh = Number(p?.recommended_water_threshold_pct)
-    return !Number.isNaN(retained) && !Number.isNaN(thresh) && retained <= thresh
+  // Helper: determine if a plant needs attention (weighing)
+  function plantNeedsAttention(p) {
+    // Now we use the backend-provided needs_weighing property
+    return p.needs_weighing ?? true
   }
 
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
     if (showAll) return plants
-    // When showing only those that need watering, use the snapshot captured at page load
-    if (!initialNeedsWaterIds || initialNeedsWaterIds.length === 0) return []
-    const initialSet = new Set(initialNeedsWaterIds)
+    // When showing only those that need attention, use the snapshot captured at page load
+    if (!initialAttentionIds || initialAttentionIds.length === 0) return []
+    const initialSet = new Set(initialAttentionIds)
     return plants.filter(p => initialSet.has(p.uuid))
-  }, [plants, showAll, initialNeedsWaterIds])
+  }, [plants, showAll, initialAttentionIds])
 
   return (
     <DashboardLayout title="Bulk weight measurement">
@@ -144,35 +145,51 @@ export default function BulkWeightMeasurement() {
 
       <p>Start bulk weight measurement for all plants.</p>
 
-      {/* Toggle to switch visibility mode */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-          />
-          <span>Show all plants</span>
-        </label>
-        <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
-          {showAll ? 'Showing all plants.' : 'Showing only plants that need watering (retained ≤ threshold).'}
-        </span>
-      </div>
-
-      {loading && <div>Loading…</div>}
-      {error && !loading && <div className="text-danger">{error}</div>}
-
-      {!loading && !error && (
-        <BulkMeasurementTable
-          plants={displayedPlants}
-          inputStatus={inputStatus}
-          onCommitValue={handleWeightMeasurement}
-          onViewPlant={handleView}
-          firstColumnLabel="Weight gr, Water %"
-          firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
-          waterLossCellStyle={waterLossCellStyle}
-          showUpdatedColumn={true}
+      {operationMode === 'vacation' ? (
+        <EmptyState
+          title="Not available in Vacation mode"
+          description={
+            <>
+              Bulk weight measurement is disabled while in vacation mode because watering is based on approximated schedules rather than manual weights.
+              <br />
+              You can change the mode in <Link to="/settings">Settings</Link>.
+            </>
+          }
         />
+      ) : (
+        <>
+          {/* Toggle to switch visibility mode */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+              />
+              <span>Show all plants</span>
+            </label>
+            <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
+              {showAll ? 'Showing all plants.' : 'Showing all plants that need weighing.'}
+            </span>
+          </div>
+
+          {loading && <div>Loading…</div>}
+          {error && !loading && <div className="text-danger">{error}</div>}
+
+          {!loading && !error && (
+            <BulkMeasurementTable
+              plants={displayedPlants}
+              inputStatus={inputStatus}
+              onCommitValue={handleWeightMeasurement}
+              onViewPlant={handleView}
+              firstColumnLabel="Weight gr, Water %"
+              firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."
+              waterLossCellStyle={waterLossCellStyle}
+              showUpdatedColumn={true}
+              noPlantsMessage="No plants need weighing"
+            />
+          )}
+        </>
       )}
     </DashboardLayout>
   )

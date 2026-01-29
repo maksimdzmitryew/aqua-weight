@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within, waitFor } from '@testing-library/react'
+import { render, screen, within, waitFor, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
@@ -9,6 +9,20 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { measurementsApi } from '../../../src/api/measurements'
 import { plantsApi } from '../../../src/api/plants'
+
+vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+}))
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Back</button>
+      {actions}
+    </div>
+  )
+}))
 
 // Mock navigate to observe navigations while keeping other router utilities
 const mockNavigate = vi.fn()
@@ -47,7 +61,7 @@ describe('pages/PlantDetails', () => {
 
     // Wait for Edit action and click it
     const editBtn = await screen.findByRole('button', { name: /edit/i })
-    await userEvent.click(editBtn)
+    fireEvent.click(editBtn)
     expect(mockNavigate).toHaveBeenCalledWith('/plants/u1/edit', expect.objectContaining({ state: expect.any(Object) }))
   })
 
@@ -116,10 +130,10 @@ describe('pages/PlantDetails', () => {
     expect(bodyRows.length).toBe(2)
 
     // Edit navigation path depends on measured_weight_g
-    await userEvent.click(within(bodyRows[0]).getByRole('button', { name: /edit measurement/i }))
+    fireEvent.click(within(bodyRows[0]).getByRole('button', { name: /edit measurement/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight?id=501')
     mockNavigate.mockClear()
-    await userEvent.click(within(bodyRows[1]).getByRole('button', { name: /edit measurement/i }))
+    fireEvent.click(within(bodyRows[1]).getByRole('button', { name: /edit measurement/i }))
     expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering?id=502')
 
     // Delete opens dialog and calls DELETE then refetches
@@ -132,9 +146,9 @@ describe('pages/PlantDetails', () => {
         return HttpResponse.json({ ok: true })
       })
     )
-    await userEvent.click(delBtn)
+    fireEvent.click(delBtn)
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     await waitFor(() => expect(deleted).toBe(501))
   })
 
@@ -157,7 +171,7 @@ describe('pages/PlantDetails', () => {
     expect(alert).toHaveTextContent(/failed to load measurements|boom/i)
     // Click retry button on ErrorNotice if present
     const btn = within(alert.parentElement || document.body).getByRole('button', { name: /retry/i })
-    await userEvent.click(btn)
+    fireEvent.click(btn)
     // After retry, empty state appears
     expect(await screen.findByRole('note')).toBeInTheDocument()
   })
@@ -194,12 +208,12 @@ describe('pages/PlantDetails', () => {
     renderWithRoute([init])
     const row = (await screen.findAllByRole('row')).slice(1)[0]
     // Edit with missing id should not navigate
-    await userEvent.click(within(row).getByRole('button', { name: /edit measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /edit measurement/i }))
     expect(mockNavigate).not.toHaveBeenCalled()
     // Delete path
-    await userEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     // No API call was made
     expect(delSpy).not.toHaveBeenCalled()
   })
@@ -272,9 +286,9 @@ describe('pages/PlantDetails', () => {
     renderWithRoute([init])
 
     const row = (await screen.findAllByRole('row')).slice(1)[0]
-    await userEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
     const dlg = await screen.findByRole('dialog')
-    await userEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
+    fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
 
     // After failure, dialog should close and measurements should be refetched (listCalls increments)
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
@@ -339,8 +353,8 @@ describe('pages/PlantDetails', () => {
     }
     server.use(http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([])))
     renderWithRoute([init])
-    const backBtn = await screen.findByRole('button', { name: /←\s*plants/i })
-    await userEvent.click(backBtn)
+    const backBtn = await screen.findByRole('button', { name: 'Back' })
+    fireEvent.click(backBtn)
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 

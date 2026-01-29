@@ -26,6 +26,9 @@ class DummyCreate:
         self.substrate_last_refresh_at = None
         self.fertilized_last_at = None
         self.fertilizer_ec_ms = None
+        self.min_dry_weight_g = None
+        self.max_water_weight_g = None
+        self.recommended_water_threshold_pct = None
 
 
 class DummyUpdate:
@@ -46,6 +49,9 @@ class DummyUpdate:
         self.species_name = None
         self.botanical_name = None
         self.cultivar = None
+        self.min_dry_weight_g = None
+        self.max_water_weight_g = None
+        self.recommended_water_threshold_pct = None
 
 
 @pytest.mark.anyio
