@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import DailyCare from '../../../src/pages/DailyCare.jsx'
@@ -323,39 +323,38 @@ describe('DailyCare branches', () => {
 
   test('inline handlers coverage (lines 100, 109, 113)', async () => {
     const mockNavigate = vi.fn();
-    // We need to re-mock useNavigate because the global mock in DailyCare.test.jsx
-    // might not be enough here if we want to track calls specifically in this test
-    // or if this file is run separately.
-    // Actually, DailyCare.test.jsx already mocks it. 
-    // Let's just use the rendered component and fire events.
 
     server.use(
       http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
-    render(
-      <ThemeProvider>
-        <MemoryRouter>
-          <DailyCare />
-        </MemoryRouter>
-      </ThemeProvider>
-    )
+    await act(async () => {
+      render(
+        <ThemeProvider>
+          <MemoryRouter>
+            <DailyCare />
+          </MemoryRouter>
+        </ThemeProvider>
+      )
+    })
 
     // 1. onBack (line 100)
-    // The button is in PageHeader. Mock in DailyCare.test.jsx renders a button with text "Dashboard"
     const backBtn = await screen.findByRole('button', { name: /Dashboard/i })
-    backBtn.click()
-    // Since we don't have access to the mockNavigate from DailyCare.test.jsx easily here 
-    // without more setup, we rely on the fact that it IS called.
-    // But wait, DailyCare.branches.test.jsx doesn't have the mockNavigate.
+    await act(async () => {
+      backBtn.click()
+    })
 
     // 2. Bulk measurement onClick (line 109)
     const weightBtn = await screen.findByRole('button', { name: /Bulk measurement/i })
-    weightBtn.click()
+    await act(async () => {
+      weightBtn.click()
+    })
 
     // 3. Bulk watering onClick (line 113)
     const wateringBtn = await screen.findByRole('button', { name: /Bulk watering/i })
-    wateringBtn.click()
+    await act(async () => {
+      wateringBtn.click()
+    })
   })
 })

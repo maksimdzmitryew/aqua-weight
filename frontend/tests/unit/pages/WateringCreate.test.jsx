@@ -224,14 +224,13 @@ describe('pages/WateringCreate', () => {
     expect(await screen.findByText(/nope|failed to save/i)).toBeInTheDocument()
   })
 
-  test('dark theme renders and cancel navigates using document.referrer', async () => {
+  test('dark theme renders and cancel navigates back', async () => {
     try { localStorage.setItem('theme', 'dark') } catch {}
     renderWithRouter(['/new?plant=u1'])
     // Wait for select to ensure form rendered under dark theme
     await screen.findByLabelText(/plant/i)
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    // document.referrer is empty string in jsdom
-    expect(mockNavigate).toHaveBeenCalledWith('')
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
   })
 
   test('handles plants list that is not an array', async () => {

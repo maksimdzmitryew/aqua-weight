@@ -35,20 +35,19 @@ test.describe('Locations Management', () => {
     // 3. Edit Location
     await page.getByRole('row', { name: /balcony/i }).getByRole('button', { name: /edit/i }).click();
     await expect(page.getByLabel(/name/i)).toHaveValue('Balcony');
-    await page.getByLabel(/name/i).fill('Greenhouse');
+    await expect(page.getByLabel(/name/i)).toBeDisabled();
+    await page.getByLabel(/type/i).fill('Outdoor');
     await page.getByRole('button', { name: /save/i }).click();
 
     // Verify the update
     await expect(page).toHaveURL(/\/locations/);
-    await expect(page.getByRole('row', { name: /greenhouse/i })).toBeVisible();
-    // Use regex to avoid partial matches if necessary, though here we want it gone
-    await expect(page.getByRole('row', { name: /^balcony/i })).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /balcony/i })).toBeVisible();
 
     // 4. Delete Location
-    await page.getByRole('row', { name: /greenhouse/i }).getByRole('button', { name: /delete/i }).click();
+    await page.getByRole('row', { name: /balcony/i }).getByRole('button', { name: /delete/i }).click();
     await page.getByRole('dialog').getByRole('button', { name: /delete/i, exact: true }).click();
 
     // Verify deletion
-    await expect(page.getByRole('row', { name: /greenhouse/i })).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /balcony/i })).toHaveCount(0);
   });
 });

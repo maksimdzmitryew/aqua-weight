@@ -198,7 +198,7 @@ describe('pages/RepottingCreate', () => {
     const lastWet = screen.getByLabelText(/weight after repotting/i)
     fireEvent.change(lastWet, { target: { value: '456' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update repotting/i }))
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/p1'))
   })
 
@@ -227,7 +227,7 @@ describe('pages/RepottingCreate', () => {
     const lastWet = screen.getByLabelText(/weight after repotting/i)
     fireEvent.change(lastWet, { target: { value: '' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update repotting/i }))
 
     await waitFor(() => expect(putBody).not.toBeNull())
     expect(putBody).toEqual(expect.objectContaining({
@@ -322,7 +322,7 @@ describe('pages/RepottingCreate', () => {
     fireEvent.change(lastWet, { target: { value: '' } })
     fireEvent.change(lastWet, { target: { value: '22' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update repotting/i }))
     expect(await screen.findByText(/bad/i)).toBeInTheDocument()
   })
 
@@ -344,7 +344,7 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/edit?id=44'])
     // Ensure submit is enabled and click it (no need to change values)
     await screen.findByLabelText(/plant/i)
-    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(screen.getByRole('button', { name: /update repotting/i }))
 
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -375,19 +375,46 @@ describe('pages/RepottingCreate', () => {
     expect(await screen.findByText(/boom/i)).toBeInTheDocument()
   })
 
-  test('cancel navigates back to /plants and button disabled when form incomplete', async () => {
+  test('cancel navigates back and button disabled when form incomplete', async () => {
     
-    renderWithRouter(['/repotting/new'])
+    server.use(
+      http.post('/api/measurements/repotting', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
 
-    const submit = await screen.findByRole('button', { name: /save repotting/i })
-    expect(submit).toBeDisabled()
+    renderWithRouter(['/repotting/new?plant=p1'])
+
+    // Wait for the plant select to have the correct value and options to be loaded
+    const plantSelect = await screen.findByLabelText(/plant/i)
+    await screen.findByRole('option', { name: /aloe/i })
+    await waitFor(() => expect(plantSelect.value).toBe('p1'))
+
+    const submit = screen.getByRole('button', { name: /save repotting/i })
+    // Ensure it starts enabled
+    await waitFor(() => expect(submit.disabled).toBe(false))
+    
+    // Trigger validation by selecting then clearing
+    fireEvent.change(plantSelect, { target: { value: '' } })
+    
+    // To trigger validation we need to blur, but also ensure it's touched
+    fireEvent.blur(plantSelect)
+    
+    // If it's still not disabled, try to submit which should trigger all validations
+    fireEvent.submit(submit.closest('form'))
+    
+    // Check if it's disabled now. plant_id is required, so empty value should make form invalid.
+    await waitFor(() => expect(submit.disabled).toBe(true), { timeout: 2000 });
 
     const cancel = screen.getByRole('button', { name: /cancel/i })
     fireEvent.click(cancel)
-    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
   })
 
-  test('submit handler early-returns when canSave is false (branch)', async () => {
+  test('submit handler early-returns when form incomplete (branch)', async () => {
+    
+    server.use(
+      http.post('/api/measurements/repotting', () => HttpResponse.json({ id: 99 }, { status: 201 }))
+    )
+
     // Render with defaults: plant is not selected, numeric fields empty
     renderWithRouter(['/repotting/new'])
 
@@ -397,8 +424,8 @@ describe('pages/RepottingCreate', () => {
     expect(form).not.toBeNull()
 
     // Try submitting programmatically even though button is disabled
-    // This should hit the `if (!canSave) return` branch and perform no navigation
-    form && form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    // If we trigger 'submit' event, the handleSubmit should check validity
+    fireEvent.submit(form)
 
     // Give the event loop a tick
     await Promise.resolve()
@@ -410,20 +437,24 @@ describe('pages/RepottingCreate', () => {
     
     let captured = null
     server.use(
+      http.get('/api/plants', () => HttpResponse.json([
+        { uuid: 'p1', name: 'Aloe' }
+      ])),
       http.post('/api/measurements/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 2 }, { status: 201 })
       })
     )
 
-    renderWithRouter(['/repotting/new'])
+    renderWithRouter(['/repotting/new?plant=p1'])
 
-    // Select plant, leave numbers blank
+    // Wait for the plant select to have the correct value and options to be loaded
     const plantSelect = await screen.findByLabelText(/plant/i)
-    fireEvent.change(plantSelect, { target: { value: 'p1' } })
+    await screen.findByRole('option', { name: /aloe/i })
+    await waitFor(() => expect(plantSelect.value).toBe('p1'))
 
     const submit = screen.getByRole('button', { name: /save repotting/i })
-    await waitFor(() => expect(submit).not.toBeDisabled())
+    await waitFor(() => expect(submit.disabled).toBe(false))
     fireEvent.click(submit)
 
     await waitFor(() => expect(captured).not.toBeNull())
@@ -440,11 +471,11 @@ describe('pages/RepottingCreate', () => {
     const mod = await vi.importActual('../../../src/api/measurements')
     const spy = vi.spyOn(mod.measurementsApi.repotting, 'create').mockRejectedValueOnce({})
 
-    renderWithRouter(['/repotting/new'])
-    const plantSelect = await screen.findByLabelText(/plant/i)
-    fireEvent.change(plantSelect, { target: { value: 'p2' } })
+    renderWithRouter(['/repotting/new?plant=p2'])
+    const submit = await screen.findByRole('button', { name: /save repotting/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
 
-    fireEvent.click(screen.getByRole('button', { name: /save repotting/i }))
+    fireEvent.click(submit)
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
 
     spy.mockRestore()
@@ -462,11 +493,10 @@ describe('pages/RepottingCreate', () => {
       })
     )
 
-    renderWithRouter(['/repotting/new'])
+    renderWithRouter(['/repotting/new?plant=p1'])
 
-    // Select plant to enable submit
-    const plantSelect = await screen.findByLabelText(/plant/i)
-    fireEvent.change(plantSelect, { target: { value: 'p1' } })
+    // plant is already selected
+    await screen.findByLabelText(/plant/i)
 
     // Change measured_at to ensure onChange branch executed
     const measuredAt = screen.getByLabelText(/measured at/i)

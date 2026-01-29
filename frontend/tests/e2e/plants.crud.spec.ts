@@ -28,13 +28,14 @@ test.describe('Plants CRUD', () => {
 
     // Edit
     await page.getByRole('row', { name: /test fern/i }).getByRole('button', { name: /edit/i }).click();
-    await page.getByLabel(/name/i).fill('Test Fern v2');
+    await expect(page.getByLabel(/name/i)).toBeDisabled();
+    await page.getByLabel(/description/i).fill('Updated description');
     await page.getByRole('button', { name: /save/i }).click();
-    await expect(page.getByRole('row', { name: /test fern v2/i })).toBeVisible();
+    await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible();
 
     // Delete
-    await page.getByRole('row', { name: /test fern v2/i }).getByRole('button', { name: /delete/i }).click();
+    await page.getByRole('row', { name: /test fern/i }).getByRole('button', { name: /delete/i }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
-    await expect(page.getByRole('row', { name: /test fern v2/i })).toHaveCount(0);
+    await expect(page.getByRole('row', { name: /test fern/i })).toHaveCount(0);
   });
 });

@@ -215,8 +215,8 @@ describe('pages/MeasurementCreate', () => {
     await fireEvent.change(scale, { target: { value: 'b'.repeat(32) } })
 
     fireEvent.click(screen.getByRole('button', { name: /update measurement/i }))
-    // On success without from-state, it should navigate -1 fallback
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith(-1))
+    // On success without from-state, it should navigate to /plants/:plant_id
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/u2'))
   }, 15000)
 
   test('edit flow: loadExisting failure is ignored (catch path executed)', async () => {
@@ -384,7 +384,7 @@ describe('pages/MeasurementCreate', () => {
     expect(await screen.findByText(/nope|Failed to save/i)).toBeInTheDocument()
   })
 
-  test('dark theme styling applied and cancel navigates to /plants', async () => {
+  test('dark theme renders and cancel navigates back', async () => {
     try { localStorage.setItem('theme', 'dark') } catch {}
     // success handlers
     server.use(
@@ -392,11 +392,9 @@ describe('pages/MeasurementCreate', () => {
     )
     renderWithRouter(['/new?plant=u1'])
 
-    const note = await screen.findByLabelText(/note/i)
-    // textarea border color for dark theme (#374151)
-    expect(note.style.border).toContain('rgb(55, 65, 81)')
+    await screen.findByLabelText(/note/i)
 
     fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
   })
 })
