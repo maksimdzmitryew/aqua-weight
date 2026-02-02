@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..db import HEX_RE, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
+from ..utils.settings_defaults import parse_default_threshold
 from ..schemas.plant import (
     PlantCreateRequest,
     PlantDetail,
@@ -24,10 +25,7 @@ async def list_plants(
     defaultThreshold: str | None = Cookie(None)
 ) -> list[PlantListItem]:
     mode = operationMode or "manual"
-    try:
-        def_thr = float(defaultThreshold) if defaultThreshold is not None else 40.0
-    except ValueError:
-        def_thr = 40.0
+    def_thr = parse_default_threshold(defaultThreshold)
 
     def fetch():
         return PlantsList.fetch_all(mode=mode, default_threshold=def_thr)

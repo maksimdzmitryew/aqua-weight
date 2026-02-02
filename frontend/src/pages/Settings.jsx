@@ -8,6 +8,7 @@ export default function Settings() {
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
   const [operationMode, setOperationMode] = useState(() => localStorage.getItem('operationMode') || 'manual')
   const [defaultThreshold, setDefaultThreshold] = useState(() => localStorage.getItem('defaultThreshold') || '40')
+  const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
 
   useEffect(() => {
@@ -15,16 +16,36 @@ export default function Settings() {
     return () => clearTimeout(t)
   }, [saved])
 
+  function normalizeThreshold(value) {
+    if (value === '') {
+      return { value, error: 'Default threshold is required.' }
+    }
+    const parsed = Number(value)
+    if (Number.isNaN(parsed)) {
+      return { value, error: 'Default threshold must be a number.' }
+    }
+    if (parsed < 0 || parsed > 100) {
+      return { value, error: 'Default threshold must be between 0 and 100.' }
+    }
+    return { value: String(parsed), error: '' }
+  }
+
   function save(e) {
     e.preventDefault()
+    const { value: normalizedThreshold, error } = normalizeThreshold(defaultThreshold)
+    if (error) {
+      setThresholdError(error)
+      return
+    }
+    setThresholdError('')
     // Theme is persisted by ThemeProvider on change; only persist other fields here
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
     localStorage.setItem('operationMode', operationMode)
-    localStorage.setItem('defaultThreshold', defaultThreshold)
+    localStorage.setItem('defaultThreshold', normalizedThreshold)
     // Set cookie for backend visibility (temporary solution as per task requirements)
     document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
-    document.cookie = `defaultThreshold=${defaultThreshold}; path=/; max-age=31536000; SameSite=Lax`
+    document.cookie = `defaultThreshold=${normalizedThreshold}; path=/; max-age=31536000; SameSite=Lax`
     setSaved('Saved!')
   }
 
@@ -102,9 +123,18 @@ export default function Settings() {
             min="0"
             max="100"
             value={defaultThreshold}
-            onChange={(e) => setDefaultThreshold(e.target.value)}
+            onChange={(e) => {
+              const { value, error } = normalizeThreshold(e.target.value)
+              setDefaultThreshold(value)
+              setThresholdError(error)
+            }}
             style={styles.input}
           />
+          {thresholdError && (
+            <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
+              {thresholdError}
+            </span>
+          )}
         </div>
         <div style={{ marginTop: 16 }}>
           <button type="submit" style={styles.button}>Save</button>

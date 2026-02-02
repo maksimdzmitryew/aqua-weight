@@ -12,6 +12,7 @@ from ..helpers.calibration import (
 )
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
+from ..utils.settings_defaults import parse_default_threshold
 from ..helpers.water_loss import WaterLossCalculation
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.water_weight import (
@@ -353,10 +354,7 @@ async def get_watering_approximation(
     are not available (e.g., in Vacation mode).
     """
     mode = operationMode or "manual"
-    try:
-        def_thr = float(defaultThreshold) if defaultThreshold is not None else 40.0
-    except ValueError:
-        def_thr = 40.0
+    def_thr = parse_default_threshold(defaultThreshold)
 
     def fetch():
         plants = PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
