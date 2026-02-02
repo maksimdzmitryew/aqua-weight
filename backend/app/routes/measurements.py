@@ -342,7 +342,10 @@ def _to_dt_string(s: str | None):
 
 
 @app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
-async def get_watering_approximation(operationMode: str | None = Cookie(None)):
+async def get_watering_approximation(
+    operationMode: str | None = Cookie(None),
+    defaultThreshold: str | None = Cookie(None)
+):
     """
     Calculate virtual water retained, frequency, and next watering date for all active plants.
     Currently, this endpoint is a simple projection based on existing PlantsList logic,
@@ -350,9 +353,13 @@ async def get_watering_approximation(operationMode: str | None = Cookie(None)):
     are not available (e.g., in Vacation mode).
     """
     mode = operationMode or "manual"
+    try:
+        def_thr = float(defaultThreshold) if defaultThreshold is not None else 40.0
+    except ValueError:
+        def_thr = 40.0
 
     def fetch():
-        plants = PlantsList.fetch_all(mode=mode)
+        plants = PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
         items = []
         for p in plants:
             next_at = p.get("next_watering_at")

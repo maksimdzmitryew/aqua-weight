@@ -19,11 +19,18 @@ app = APIRouter()
 
 
 @app.get("/plants", response_model=list[PlantListItem])
-async def list_plants(operationMode: str | None = Cookie(None)) -> list[PlantListItem]:
+async def list_plants(
+    operationMode: str | None = Cookie(None),
+    defaultThreshold: str | None = Cookie(None)
+) -> list[PlantListItem]:
     mode = operationMode or "manual"
+    try:
+        def_thr = float(defaultThreshold) if defaultThreshold is not None else 40.0
+    except ValueError:
+        def_thr = 40.0
 
     def fetch():
-        return PlantsList.fetch_all(mode=mode)
+        return PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
 
     return await run_in_threadpool(fetch)
 

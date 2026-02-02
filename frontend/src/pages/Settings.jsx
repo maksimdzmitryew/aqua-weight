@@ -7,6 +7,7 @@ export default function Settings() {
   const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
   const [operationMode, setOperationMode] = useState(() => localStorage.getItem('operationMode') || 'manual')
+  const [defaultThreshold, setDefaultThreshold] = useState(() => localStorage.getItem('defaultThreshold') || '40')
   const [saved, setSaved] = useState('')
 
   useEffect(() => {
@@ -20,8 +21,10 @@ export default function Settings() {
     localStorage.setItem('displayName', name)
     localStorage.setItem('dtFormat', dtFormat)
     localStorage.setItem('operationMode', operationMode)
+    localStorage.setItem('defaultThreshold', defaultThreshold)
     // Set cookie for backend visibility (temporary solution as per task requirements)
     document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
+    document.cookie = `defaultThreshold=${defaultThreshold}; path=/; max-age=31536000; SameSite=Lax`
     setSaved('Saved!')
   }
 
@@ -90,6 +93,18 @@ export default function Settings() {
             <option value="manual">Manual</option>
             <option value="vacation">Vacation</option>
           </select>
+        </div>
+        <div style={fieldRow}>
+          <label style={label} htmlFor="default_threshold">Default Watering Threshold (%)</label>
+          <input
+            id="default_threshold"
+            type="number"
+            min="0"
+            max="100"
+            value={defaultThreshold}
+            onChange={(e) => setDefaultThreshold(e.target.value)}
+            style={styles.input}
+          />
         </div>
         <div style={{ marginTop: 16 }}>
           <button type="submit" style={styles.button}>Save</button>

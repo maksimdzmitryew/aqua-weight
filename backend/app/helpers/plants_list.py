@@ -17,7 +17,7 @@ class PlantsList:
     """
 
     @staticmethod
-    def fetch_all(min_water_loss_total_pct: float = None, mode: str = None) -> list[dict]:
+    def fetch_all(min_water_loss_total_pct: float = None, mode: str = None, default_threshold: float = 40.0) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
         try:
@@ -167,7 +167,7 @@ class PlantsList:
                     # Implement linear decay for water_retained_pct in vacation mode
                     if mode == "vacation" and last_watering_at and freq_days and freq_days > 0:
                         days_since_watering = (now - last_watering_at).total_seconds() / (24 * 3600)
-                        threshold = recommended_water_threshold_pct if recommended_water_threshold_pct is not None else 40.0
+                        threshold = recommended_water_threshold_pct if recommended_water_threshold_pct is not None else default_threshold
                         # Linear decay towards threshold at freq_days
                         consumption = days_since_watering * (100.0 - threshold) / freq_days
                         projected_retained = 100.0 - consumption
