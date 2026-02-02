@@ -21,6 +21,18 @@ describe('pages/Settings', () => {
     window.localStorage.clear()
   })
 
+  test('validates default threshold input on change', async () => {
+    renderPage()
+
+    const threshold = screen.getByLabelText(/default watering threshold/i)
+
+    fireEvent.change(threshold, { target: { value: '' } })
+    expect(screen.getByText('Default threshold is required.')).toBeInTheDocument()
+
+    fireEvent.change(threshold, { target: { value: '120' } })
+    expect(screen.getByText('Default threshold must be between 0 and 100.')).toBeInTheDocument()
+  })
+
   test('uses defaults when localStorage is empty', () => {
     renderPage()
 
@@ -90,6 +102,20 @@ describe('pages/Settings', () => {
     fireEvent.change(operation, { target: { value: 'automatic' } })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(window.localStorage.getItem('operationMode')).toBe('automatic')
+  })
+
+  test('blocks save when default threshold is invalid', async () => {
+    window.localStorage.setItem('defaultThreshold', 'abc')
+    renderPage()
+
+    const threshold = screen.getByLabelText(/default watering threshold/i)
+    const saveButton = screen.getByRole('button', { name: /save/i })
+
+    fireEvent.click(saveButton)
+
+    expect(screen.getByText('Default threshold must be a number.')).toBeInTheDocument()
+    expect(screen.queryByText('Saved!')).not.toBeInTheDocument()
+    expect(window.localStorage.getItem('defaultThreshold')).toBe('abc')
   })
 
   test('clears success message after 1.5s via timeout callback', async () => {
