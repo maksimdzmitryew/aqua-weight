@@ -1,6 +1,5 @@
 from typing import Optional
 
-
 DEFAULT_THRESHOLD_FALLBACK = 40.0
 
 

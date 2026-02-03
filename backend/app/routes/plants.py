@@ -8,13 +8,13 @@ from starlette.concurrency import run_in_threadpool
 
 from ..db import HEX_RE, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
-from ..utils.settings_defaults import parse_default_threshold
 from ..schemas.plant import (
     PlantCreateRequest,
     PlantDetail,
     PlantListItem,
     PlantUpdateRequest,
 )
+from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
 

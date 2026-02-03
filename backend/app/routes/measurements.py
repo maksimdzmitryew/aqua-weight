@@ -12,7 +12,6 @@ from ..helpers.calibration import (
 )
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
-from ..utils.settings_defaults import parse_default_threshold
 from ..helpers.water_loss import WaterLossCalculation
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.water_weight import (
@@ -34,6 +33,7 @@ from ..services.measurements import (
     ensure_exclusive_water_vs_weight,
     parse_timestamp_local,
 )
+from ..utils.settings_defaults import parse_default_threshold
 
 # Ensure router is defined before any @app.* decorators are used
 app = APIRouter()
