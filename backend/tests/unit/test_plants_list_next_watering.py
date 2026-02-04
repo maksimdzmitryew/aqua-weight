@@ -245,7 +245,7 @@ def test_next_watering_vacation_mode_decay(monkeypatch):
     rows = [
         (
             pid, "Ivy", None, None, None, None, threshold, None, None, None,
-            now - timedelta(days=20), now - timedelta(days=5), None, None, 0.0
+            now - timedelta(days=20), now - timedelta(days=7), now - timedelta(days=5), None, None, 0.0
         )
     ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)

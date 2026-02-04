@@ -38,4 +38,37 @@ test.describe('Plants CRUD', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(page.getByRole('row', { name: /test fern/i })).toHaveCount(0);
   });
+
+  test('updated column uses most recent of plant update and measurement date', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('dtFormat', 'europe');
+    });
+
+    const saveMeasurement = async (plantName: string, weight: string, measuredAt: string) => {
+      await page.goto('/measurement/weight', { waitUntil: 'commit' });
+      const plantSelect = page.getByLabel(/plant/i);
+      await expect(plantSelect).toBeEnabled();
+      await plantSelect.selectOption({ label: plantName });
+      await page.getByLabel(/measured weight/i).fill(weight);
+      await page.getByLabel(/measured at/i).fill(measuredAt);
+      const saveButton = page.getByRole('button', { name: /save measurement/i });
+      await expect(saveButton).toBeEnabled();
+      await saveButton.click();
+      await page.waitForURL(/\/plants\/[a-f0-9-]{32,36}/);
+    };
+
+    await saveMeasurement('Seed Fern', '123', '2030-01-02T10:00');
+    await saveMeasurement('Seed Ivy', '120', '2024-01-02T10:00');
+
+    await page.goto('/plants', { waitUntil: 'commit' });
+    await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible();
+
+    const fernRow = page.getByRole('row', { name: /seed fern/i });
+    const fernUpdatedTitle = await fernRow.locator('td').nth(7).locator('span').getAttribute('title');
+    expect(fernUpdatedTitle || '').toContain('2030-01-02');
+
+    const ivyRow = page.getByRole('row', { name: /seed ivy/i });
+    const ivyUpdatedTitle = await ivyRow.locator('td').nth(7).locator('span').getAttribute('title');
+    expect(ivyUpdatedTitle || '').not.toContain('2024-01-02');
+  });
 });

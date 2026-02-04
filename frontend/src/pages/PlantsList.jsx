@@ -369,13 +369,7 @@ export default function PlantsList() {
                     </td>
                     <td className="td hide-column-phone" style={{ width: 100 }}>{p.location || '—'}</td>
                     <td className="td hide-column-tablet">
-                      {operationMode === 'vacation' ? (
-                        p.next_watering_at ? (
-                          <DateTimeText value={p.first_calculated_at || p.next_watering_at} />
-                        ) : '—'
-                      ) : (
-                        <DateTimeText value={p.latest_at} />
-                      )}
+                      <DateTimeText value={p.latest_at} />
                     </td>
                     <td className="td text-right nowrap">
                       <IconButton icon="view" label={`View plant ${p.name}`} onClick={() => handleView(p)} variant="ghost" />

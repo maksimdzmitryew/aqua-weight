@@ -38,6 +38,7 @@ class PlantsList:
                            p.location_id,
                            COALESCE(l.name, NULL) AS location_name,
                            p.created_at,
+                           p.updated_at,
                            latest_pm.measured_at,
                            latest_pm.measured_weight_g,
                            latest_pm.last_wet_weight_g,
@@ -73,14 +74,14 @@ class PlantsList:
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
                     # Support both the full DB row and a simplified 9-column test row.
-                    # Full shape (15 columns):
+                    # Full shape (16 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
                     #   7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-                    #   11 measured_at, 12 measured_weight_g, 13 last_wet_weight_g, 14 water_loss_total_pct
+                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct
                     # Simplified test shape (9 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 location_id, 5 location_name,
                     #   6 created_at, 7 measured_at, 8 water_loss_total_pct
-                    if len(row) >= 15:
+                    if len(row) >= 16:
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
@@ -92,10 +93,11 @@ class PlantsList:
                         location_id_bytes = row[8]
                         location_name = row[9]
                         created_at_db = row[10]
-                        measured_at_db = row[11]
-                        measured_weight_g = row[12]
-                        last_wet_weight_g = row[13]
-                        water_loss_total_pct = row[14]
+                        updated_at_db = row[11]
+                        measured_at_db = row[12]
+                        measured_weight_g = row[13]
+                        last_wet_weight_g = row[14]
+                        water_loss_total_pct = row[15]
                     else:
                         # Fallback mapping for simplified rows used in tests
                         pid = row[0]
@@ -111,12 +113,14 @@ class PlantsList:
                         location_name = row[5]
                         created_at_db = row[6]
                         measured_at_db = row[7]
+                        updated_at_db = row[6]
                         measured_weight_g = None
                         last_wet_weight_g = None
                         water_loss_total_pct = row[8]
 
-                    # Prefer measured_at over created_at, then now; expose as 'created_at' per tests
-                    created_at_pref = measured_at_db or created_at_db or now
+                    # Prefer the most recent of measured_at and plant updated_at; fallback to created_at then now
+                    candidates = [dt for dt in (measured_at_db, updated_at_db) if dt]
+                    latest_at_pref = max(candidates) if candidates else (created_at_db or now)
 
                     # Calculate water retained percentage using the helper
                     water_retained_calc = calculate_water_retained(
@@ -219,8 +223,8 @@ class PlantsList:
                             "location_id": location_id_hex,
                             # PlantListItem expects 'latest_at' for the list view, but
                             # unit tests also read legacy 'created_at' key. Keep both.
-                            "latest_at": created_at_pref,
-                            "created_at": created_at_pref,
+                            "latest_at": latest_at_pref,
+                            "created_at": latest_at_pref,
                             "measured_weight_g": measured_weight_g,
                             "water_loss_total_pct": water_loss_total_pct,
                             "water_retained_pct": (
