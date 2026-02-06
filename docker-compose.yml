@@ -13,6 +13,8 @@ services:
       - aw-net
     environment:
       - PYTHONUNBUFFERED=1
+      - APP_ENV=development
+      - MAX_BODY_BYTES=1048576
     volumes:
       - ./backend/app:/app/app
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
@@ -21,6 +23,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    security_opt:
+      - no-new-privileges:true
 
   frontend:
     build:
@@ -38,10 +42,12 @@ services:
       - ./frontend/node_modules:/app/node_modules
     # Always install deps on startup to avoid partial node_modules issues when bind-mounting from host.
     # This ensures @vitejs/plugin-react-swc and other dev deps are present for the Vite dev server.
-    command: ["bash", "-lc", "cd /app && npm install --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"]
+    command: ["bash", "-lc", "cd /app && npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0"]
+    security_opt:
+      - no-new-privileges:true
 
   db:
-    image: mariadb:10.11
+    image: mariadb:10.11.9
     container_name: aw-mariadb
     restart: unless-stopped
     environment:
@@ -49,8 +55,6 @@ services:
       - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb}
       - MARIADB_USER=${MARIADB_USER:-appuser}
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
-    ports:
-      - "3316:3306"
     volumes:
       - ./db/my.cnf:/etc/mysql/my.cnf
       - mariadb_data:/var/lib/mysql:consistent
@@ -85,6 +89,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    security_opt:
+      - no-new-privileges:true
     networks:
       aw-net:
         aliases:

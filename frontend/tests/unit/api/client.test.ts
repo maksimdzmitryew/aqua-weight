@@ -265,6 +265,23 @@ describe('headers and helpers', () => {
     expect((passedInit.headers as any)['X-Req']).toBe('1')
   })
 
+  it('adds X-API-Key header when env key is set and header is missing', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
+    const originalKey = process.env.VITE_API_KEY
+    process.env.VITE_API_KEY = 'test-key'
+    vi.resetModules()
+    const { ApiClient: FreshApiClient } = await import('../../../src/api/client')
+    const c = new FreshApiClient()
+    await c.get('/secure')
+    const passedInit = fetchSpy.mock.calls[0][1] as RequestInit
+    expect((passedInit.headers as any)['X-API-Key']).toBe('test-key')
+    if (originalKey === undefined) {
+      delete process.env.VITE_API_KEY
+    } else {
+      process.env.VITE_API_KEY = originalKey
+    }
+  })
+
   it('serializes object body and passes string body as-is', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
     const c = new ApiClient()

@@ -162,15 +162,16 @@ def make_row_full(
     location_id_bytes: bytes | None = None,
     location_name: str | None = None,
     created_at: datetime | None = None,
+    updated_at: datetime | None = None,
     measured_at: datetime | None = None,
     measured_weight_g: float | None = 150.0,
     last_wet_weight_g: float | None = 200.0,
     water_loss_total_pct: float | None = 50.0,
 ):
-    # Full shape (15 columns):
+    # Full shape (16 columns):
     # 0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
     # 7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-    # 11 measured_at, 12 measured_weight_g, 13 last_wet_weight_g, 14 water_loss_total_pct
+    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct
     return (
         pid_bytes,
         name,
@@ -183,6 +184,7 @@ def make_row_full(
         location_id_bytes,
         location_name,
         created_at,
+        updated_at,
         measured_at,
         measured_weight_g,
         last_wet_weight_g,

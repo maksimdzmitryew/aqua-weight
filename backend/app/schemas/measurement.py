@@ -12,19 +12,19 @@ else:
 # Generic measurement requests
 class MeasurementCreateRequest(BaseModel):
     plant_id: HexID
-    measured_at: str
+    measured_at: constr(strip_whitespace=True, max_length=32)
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     method_id: Optional[HexID] = None
     use_last_method: bool = False
     scale_id: Optional[HexID] = None
-    note: Optional[str] = None
+    note: Optional[constr(strip_whitespace=True, max_length=2000)] = None
     last_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
     water_added_g: Optional[int] = Field(default=None, ge=0)
 
 
 class MeasurementUpdateRequest(BaseModel):
-    measured_at: Optional[str] = None
+    measured_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
@@ -32,24 +32,24 @@ class MeasurementUpdateRequest(BaseModel):
     method_id: Optional[HexID] = None
     use_last_method: Optional[bool] = None
     scale_id: Optional[HexID] = None
-    note: Optional[str] = None
+    note: Optional[constr(strip_whitespace=True, max_length=2000)] = None
 
 
 # Repotting specific
 class RepottingCreateRequest(BaseModel):
     plant_id: HexID
-    measured_at: str
+    measured_at: constr(strip_whitespace=True, max_length=32)
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
-    note: Optional[str] = None
+    note: Optional[constr(strip_whitespace=True, max_length=2000)] = None
 
 
 class RepottingUpdateRequest(BaseModel):
     plant_id: Optional[HexID] = None
-    measured_at: Optional[str] = None
+    measured_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
-    note: Optional[str] = None
+    note: Optional[constr(strip_whitespace=True, max_length=2000)] = None
 
 
 class MeasurementItem(BaseModel):

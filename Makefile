@@ -47,6 +47,8 @@ help:
 	@echo ""
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
+	@echo "  make dep-audit         - Audit dependencies for vulnerable/drifting versions"
+
 
 # --- Runtime stack ---
 .PHONY: run-build
@@ -212,3 +214,8 @@ be-pre-commit:
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+
+# --- Security / dependency audit ---
+.PHONY: dep-audit
+dep-audit:
+	bash scripts/dependency-audit.sh

@@ -14,16 +14,21 @@ from ..schemas.plant import (
     PlantListItem,
     PlantUpdateRequest,
 )
+from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
 
 
 @app.get("/plants", response_model=list[PlantListItem])
-async def list_plants(operationMode: str | None = Cookie(None)) -> list[PlantListItem]:
+async def list_plants(
+    operationMode: str | None = Cookie(None),
+    defaultThreshold: str | None = Cookie(None)
+) -> list[PlantListItem]:
     mode = operationMode or "manual"
+    def_thr = parse_default_threshold(defaultThreshold)
 
     def fetch():
-        return PlantsList.fetch_all(mode=mode)
+        return PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
 
     return await run_in_threadpool(fetch)
 

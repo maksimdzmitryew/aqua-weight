@@ -22,6 +22,11 @@ This project is in active development. Security fixes will be applied to the def
 - Do not mount or bake real secrets into images. Use runtime secrets/variables (e.g., Docker secrets, CI/CD secret stores) for production.
 - The sample `docker-compose.yml` uses development-friendly defaults. Override via `.env` for any non-local environment, and never use the default credentials in production.
 
+## Dependency hygiene
+- Use lockfiles for deterministic frontend installs (`npm ci`).
+- Run `make dep-audit` locally to execute `pip-audit` and `npm audit`.
+- Pin base images to patch tags or digests and rebuild on a regular cadence.
+
 ## Hardening recommendations (optional)
 - Use a secrets scanner (e.g., `detect-secrets`, `git-secrets`) locally and in CI.
 - Enable Dependabot or similar tooling for dependency updates.

@@ -72,7 +72,7 @@ Services
   - Proxies /api/* to backend and everything else to frontend
 
 Notes
-- All app containers (backend, frontend, nginx) use Ubuntu base images. MariaDB uses the official mariadb:10.11 image (Debian-based).
+- All app containers (backend, frontend, nginx) use Ubuntu base images pinned by digest. MariaDB uses the official mariadb:10.11.9 image (Debian-based).
 - For local development with HTTPS, your browser may require trusting the locally signed CA/cert.
 - Frontend fetches the API via the same origin and path prefix /api to avoid CORS in the browser; backend CORS also allows https://aw.max explicitly.
 - To stop: docker compose down
@@ -156,12 +156,20 @@ This repository is intended to be public/open-source. To reduce risk:
 - Do not commit TLS materials. Place your local development certificates under `./ssl/` on your machine only. The `ssl/` directory is ignored by Git and excluded from Docker build contexts. The repository includes only `ssl/.gitkeep` as a placeholder.
 - Use `.env` locally (copied from `.env.example`) and keep it untracked. In CI/CD, use your platform’s secret store to inject environment variables.
 - Default credentials in `docker-compose.yml` and `.env.example` are for local development only. Override them via `.env` or CI/CD variables; never use them in production.
+- The runtime compose file no longer publishes the MariaDB port. If you need host access in local dev, add a `docker-compose.override.yml` with a `ports` mapping.
 - Docker build contexts are restricted via `.dockerignore` to avoid leaking local files into images.
 
 Recommended (optional):
 - Use a local/CI secret scanner (e.g. `detect-secrets` or `git-secrets`).
 - Enable dependency and container image scanning in CI (e.g. Dependabot, Trivy).
 - Follow the guidelines in `SECURITY.md`.
+- Run `make dep-audit` to execute `pip-audit` and `npm audit` locally.
+
+### API authentication (optional)
+The backend can require a static API key via the `X-API-Key` header when `API_KEY` is set.
+- Set `API_KEY` in `.env` (and in production secrets).
+- Frontend can pass it via `VITE_API_KEY` (Vite env) if needed.
+- Test mode (`TEST_MODE=1`) bypasses the API key for automated tests.
 
 ## DB healthcheck mariadb-admin vs mysqladmin.
 

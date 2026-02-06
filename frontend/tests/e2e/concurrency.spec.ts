@@ -33,11 +33,11 @@ test.describe('Concurrency and Error Handling', () => {
       }
     });
 
-    // Listen for alert
-    const dialogPromise = page.waitForEvent('dialog');
-    await page.getByRole('button', { name: /save/i }).click();
-
-    const dialog = await dialogPromise;
+    // Listen for alert without waiting on navigation from submit
+    const [dialog] = await Promise.all([
+      page.waitForEvent('dialog'),
+      page.getByRole('button', { name: /save/i }).click({ noWaitAfter: true }),
+    ]);
     expect(dialog.message()).toContain('A conflict occurred');
     await dialog.dismiss();
 
