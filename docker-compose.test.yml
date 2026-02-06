@@ -3,7 +3,7 @@ name: aw-tests
 
 services:
   db:
-    image: mariadb:10.11
+    image: mariadb:10.11.9
     container_name: aw_test_mariadb
     restart: unless-stopped
     environment:
@@ -40,6 +40,8 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - TEST_MODE=1
+      - APP_ENV=test
+      - MAX_BODY_BYTES=1048576
       - DB_NAME=appdb_test
       - DB_HOST=db
       - DB_USER=appuser
@@ -70,7 +72,7 @@ services:
     # Ensure dev server dependencies (vite) are present in the test node_modules directory.
     # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
     # Always install to ensure deps match current package.json for tests
-    command: ["bash", "-lc", "cd /app && npm install --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
+    command: ["bash", "-lc", "cd /app && npm ci --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
 
   nginx:
     build:
@@ -132,8 +134,8 @@ services:
       - ./frontend/node_modules_tests:/app/frontend/node_modules
     # Ensure dev dependencies are installed (including newly added ones)
     # If vitest binary is missing, run npm ci, then keep container running
-    # Use npm install (not ci) to avoid lockfile sync errors when dev-only deps are added
-    command: ["bash", "-lc", "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm install --no-audit --no-fund && tail -f /dev/null"]
+    # Use npm ci to enforce lockfile consistency for deterministic test deps
+    command: ["bash", "-lc", "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm ci --no-audit --no-fund && tail -f /dev/null"]
     networks:
       - aw-tests-net
 

@@ -2,6 +2,7 @@
 // unified errors, retry for idempotent GETs, and optional cancellation.
 
 const DEFAULT_BASE_URL = '/api'
+const API_KEY = (import.meta.env && import.meta.env.VITE_API_KEY) || ''
 
 export class ApiError extends Error {
   constructor(message, options = {}) {
@@ -47,6 +48,9 @@ export class ApiClient {
           'Accept': 'application/json, text/plain; q=0.8, */*; q=0.5',
           ...this.getHeaders(),
           ...headers,
+        }
+        if (API_KEY && !('X-API-Key' in mergedHeaders)) {
+          mergedHeaders['X-API-Key'] = API_KEY
         }
         if (body != null && !('Content-Type' in mergedHeaders)) {
           mergedHeaders['Content-Type'] = 'application/json'

@@ -52,27 +52,27 @@ class PlantDetail(BaseModel):
 class PlantCreateRequest(BaseModel):
     # Minimum fields; all but name are optional
     # General
-    name: str
-    plant_type: Optional[str] = None
-    identify_hint: Optional[str] = None
-    typical_action: Optional[str] = None
-    description: Optional[str] = None
-    notes: Optional[str] = None
+    name: constr(max_length=120)
+    plant_type: Optional[constr(strip_whitespace=True, max_length=80)] = None
+    identify_hint: Optional[constr(strip_whitespace=True, max_length=140)] = None
+    typical_action: Optional[constr(strip_whitespace=True, max_length=140)] = None
+    description: Optional[constr(strip_whitespace=True, max_length=2000)] = None
+    notes: Optional[constr(strip_whitespace=True, max_length=4000)] = None
     location_id: Optional[HexID] = None
-    photo_url: Optional[str] = None
+    photo_url: Optional[constr(strip_whitespace=True, max_length=2048)] = None
     # Service
     default_measurement_method_id: Optional[HexID] = None
     # Care
     recommended_water_threshold_pct: Optional[int] = None
     biomass_weight_g: Optional[int] = None
-    biomass_last_at: Optional[str] = None
+    biomass_last_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
     # Advanced
-    species_name: Optional[str] = None
-    botanical_name: Optional[str] = None
-    cultivar: Optional[str] = None
+    species_name: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    botanical_name: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    cultivar: Optional[constr(strip_whitespace=True, max_length=120)] = None
     substrate_type_id: Optional[HexID] = None
-    substrate_last_refresh_at: Optional[str] = None
-    fertilized_last_at: Optional[str] = None
+    substrate_last_refresh_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
+    fertilized_last_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     # Health
     light_level_id: Optional[HexID] = None
@@ -84,17 +84,17 @@ class PlantCreateRequest(BaseModel):
 
 
 class PlantUpdateRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    description: Optional[constr(strip_whitespace=True, max_length=2000)] = None
     location_id: Optional[HexID] = None
-    photo_url: Optional[str] = None
+    photo_url: Optional[constr(strip_whitespace=True, max_length=2048)] = None
     default_measurement_method_id: Optional[HexID] = None
-    species_name: Optional[str] = None
-    botanical_name: Optional[str] = None
-    cultivar: Optional[str] = None
+    species_name: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    botanical_name: Optional[constr(strip_whitespace=True, max_length=120)] = None
+    cultivar: Optional[constr(strip_whitespace=True, max_length=120)] = None
     substrate_type_id: Optional[HexID] = None
-    substrate_last_refresh_at: Optional[str] = None
-    fertilized_last_at: Optional[str] = None
+    substrate_last_refresh_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
+    fertilized_last_at: Optional[constr(strip_whitespace=True, max_length=32)] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     max_water_weight_g: Optional[int] = Field(default=None, ge=0)

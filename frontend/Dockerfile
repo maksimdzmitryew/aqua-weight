@@ -1,5 +1,5 @@
 # Frontend (React via Vite) - Ubuntu base
-FROM ubuntu:22.04
+FROM ubuntu@sha256:34577a83cd7a8f1e55f6eb173fd9bb70c16127a83d6bf06f56f6b1fff9e406b9
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -14,8 +14,8 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install deps
-COPY frontend/package.json /app/package.json
-RUN npm install --no-audit --no-fund
+COPY frontend/package.json frontend/package-lock.json /app/
+RUN npm ci --no-audit --no-fund
 
 # Copy source
 COPY frontend /app
