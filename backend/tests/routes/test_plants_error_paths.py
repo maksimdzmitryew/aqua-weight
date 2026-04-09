@@ -114,9 +114,9 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(async_client
     # First, create a plant normally (without patch)
     r = await async_client.post("/api/plants", json={"name": "ToUpdate"})
     assert r.status_code == 200
-    # Find its uuid
+    # Find its uuid (paginated response)
     lst = await async_client.get("/api/plants")
-    uid = next(it["uuid"] for it in lst.json() if it["name"] == "ToUpdate")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "ToUpdate")
 
     import backend.app.routes.plants as plants_mod
 
@@ -159,9 +159,9 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
     # Create a plant
     r = await async_client.post("/api/plants", json={"name": "Timey"})
     assert r.status_code == 200
-    # Get id
+    # Get id (paginated response)
     lst = await async_client.get("/api/plants")
-    uid = next(it["uuid"] for it in lst.json() if it["name"] == "Timey")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "Timey")
 
     # Send empty strings for datetime fields to trigger to_dt's early None path
     payload = {

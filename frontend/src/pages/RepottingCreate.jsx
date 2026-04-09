@@ -2,12 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
-import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import { useForm, required, minNumber } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
-import Select from '../components/form/fields/Select.jsx'
+import PlantSelect from '../components/PlantSelect.jsx'
 import NumberInput from '../components/form/fields/NumberInput.jsx'
 
 const RepottingCreate = () => {
@@ -19,7 +18,6 @@ const RepottingCreate = () => {
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
 
-  const [plants, setPlants] = useState([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const isEdit = !!editId
@@ -30,20 +28,6 @@ const RepottingCreate = () => {
     weight_before_repotting_g: '',
     last_wet_weight_g: '',
   })
-
-  useEffect(() => {
-    let cancelled = false
-    async function loadPlants() {
-      try {
-        const data = await plantsApi.list()
-        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
-      } catch (_) {
-        if (!cancelled) setError('Failed to load plants')
-      }
-    }
-    loadPlants()
-    return () => { cancelled = true }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -100,12 +84,7 @@ const RepottingCreate = () => {
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <Select form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit}>
-            <option value="">Select plant…</option>
-            {plants.map(p => (
-              <option key={p.uuid} value={p.uuid}>{p.name}</option>
-            ))}
-          </Select>
+          <PlantSelect form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit} />
           <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
           <NumberInput form={form} name="weight_before_repotting_g" label="Weight before repotting (g)" min={0} validators={[minNumber(0)]} />
           <NumberInput form={form} name="last_wet_weight_g" label="Weight after repotting (g)" min={0} validators={[minNumber(0)]} />

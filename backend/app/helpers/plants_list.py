@@ -21,6 +21,9 @@ class PlantsList:
         min_water_loss_total_pct: float = None,
         mode: str = None,
         default_threshold: float | None = None,
+        offset: int = 0,
+        limit: int | None = None,
+        search: str | None = None,
     ) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
@@ -58,7 +61,31 @@ class PlantsList:
                     query += " AND latest_pm.water_loss_total_pct > %s"
                     params.append(min_water_loss_total_pct)
 
+                # Server-side search filtering
+                if search is not None and search.strip():
+                    search_term = search.strip()
+                    # Check if search is a number (threshold filter)
+                    try:
+                        threshold_val = float(search_term)
+                        query += " AND p.recommended_water_threshold_pct <= %s"
+                        params.append(threshold_val)
+                    except ValueError:
+                        # Text search across name, notes, location, identify_hint
+                        search_pattern = f"%{search_term}%"
+                        query += """ AND (
+                            p.name LIKE %s
+                            OR p.notes LIKE %s
+                            OR l.name LIKE %s
+                            OR p.identify_hint LIKE %s
+                        )"""
+                        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
                 query += " ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC"
+
+                # Add pagination
+                if limit is not None:
+                    query += " LIMIT %s OFFSET %s"
+                    params.extend([limit, offset])
 
                 cur.execute(query, params)
                 # Capture main-query params to keep them visible for unit tests that inspect FakeCursor.last_params
@@ -256,6 +283,60 @@ class PlantsList:
                 except Exception:
                     pass
                 return results
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    @staticmethod
+    def count_all(
+        min_water_loss_total_pct: float = None,
+        search: str | None = None,
+    ) -> int:
+        """
+        Count total plants matching the same filters as fetch_all.
+        Used for pagination and drift detection.
+        """
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                query = """
+                    SELECT COUNT(*)
+                    FROM plants p
+                             LEFT JOIN locations l ON l.id = p.location_id
+                             LEFT JOIN (SELECT measured_at, plant_id,
+                                               measured_weight_g, last_wet_weight_g, water_loss_total_pct,
+                                               ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
+                                        FROM plants_measurements) latest_pm
+                                       ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
+                    WHERE p.archive = 0
+                """
+                params = []
+                if min_water_loss_total_pct is not None:
+                    query += " AND latest_pm.water_loss_total_pct > %s"
+                    params.append(min_water_loss_total_pct)
+
+                # Apply same search filtering as fetch_all
+                if search is not None and search.strip():
+                    search_term = search.strip()
+                    try:
+                        threshold_val = float(search_term)
+                        query += " AND p.recommended_water_threshold_pct <= %s"
+                        params.append(threshold_val)
+                    except ValueError:
+                        search_pattern = f"%{search_term}%"
+                        query += """ AND (
+                            p.name LIKE %s
+                            OR p.notes LIKE %s
+                            OR l.name LIKE %s
+                            OR p.identify_hint LIKE %s
+                        )"""
+                        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+
+                cur.execute(query, params)
+                row = cur.fetchone()
+                return row[0] if row else 0
         finally:
             try:
                 conn.close()

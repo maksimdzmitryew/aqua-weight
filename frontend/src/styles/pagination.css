@@ -1,0 +1,114 @@
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0;
+  padding: 12px 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: var(--muted-fg, #6b7280);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  background: var(--bg-color, white);
+  color: var(--text-color, #374151);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: var(--hover-bg, #f3f4f6);
+  border-color: var(--hover-border, #9ca3af);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-btn.active {
+  background: var(--primary-color, #3b82f6);
+  color: white;
+  border-color: var(--primary-color, #3b82f6);
+  font-weight: 600;
+}
+
+.pagination-ellipsis {
+  padding: 6px 12px;
+  color: var(--muted-fg, #6b7280);
+  font-size: 14px;
+}
+
+.pagination-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--border-color, #d1d5db);
+}
+
+.pagination-size-selector label {
+  font-size: 14px;
+  color: var(--muted-fg, #6b7280);
+}
+
+.pagination-select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 6px;
+  background: var(--bg-color, white);
+  color: var(--text-color, #374151);
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 70px;
+}
+
+.pagination-select:hover:not(:disabled) {
+  border-color: var(--hover-border, #9ca3af);
+}
+
+.pagination-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pagination-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .pagination-info {
+    text-align: center;
+  }
+
+  .pagination-size-selector {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    justify-content: center;
+  }
+}

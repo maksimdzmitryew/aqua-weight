@@ -17,8 +17,23 @@ const plants = [
 ]
 
 export const handlers = [
+  http.get('/api/plants/names', () => {
+    // Return minimal plant data for dropdowns
+    return HttpResponse.json(
+      plants.map(p => ({ uuid: p.uuid, name: p.name }))
+    )
+  }),
+
   http.get('/api/plants', () => {
-    return HttpResponse.json(plants)
+    // Return paginated response structure
+    return HttpResponse.json({
+      items: plants,
+      total: plants.length,
+      global_total: plants.length,
+      page: 1,
+      limit: 20,
+      total_pages: 1
+    })
   }),
 
   // Explicitly handle a noisy test route used for error-path testing

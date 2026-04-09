@@ -1,8 +1,15 @@
 import { apiClient, ApiError } from './client'
 
 export const plantsApi = {
-  list(signal) {
-    return apiClient.get('/plants', { signal })
+  list({ page = 1, limit = 20, search = '', signal } = {}) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (search && search.trim()) {
+      params.append('search', search.trim())
+    }
+    return apiClient.get(`/plants?${params}`, { signal })
+  },
+  listNames(signal) {
+    return apiClient.get('/plants/names', { signal })
   },
   getByUuid(uuid, signal) {
     if (!uuid) throw new ApiError('Missing plant id')

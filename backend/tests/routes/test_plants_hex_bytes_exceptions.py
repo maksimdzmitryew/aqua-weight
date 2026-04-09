@@ -45,9 +45,9 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(monkeypatch: pytest.M
     r = await async_client.post("/api/plants", json={"name": "Exc Update"})
     assert r.status_code == 200
 
-    # Find UUID via list
+    # Find UUID via list (paginated response)
     lr = await async_client.get("/api/plants")
-    uid = next(it["uuid"] for it in lr.json() if it["name"] == "Exc Update")
+    uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "Exc Update")
 
     # Monkeypatch bytes in plants module
     monkeypatch.setattr(plants_module, "bytes", BytesRaiser, raising=False)

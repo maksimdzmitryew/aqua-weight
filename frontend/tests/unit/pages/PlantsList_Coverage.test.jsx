@@ -26,6 +26,13 @@ test('covers approximation success branches (lines 44-45, 51-60)', async () => {
     { uuid: 'u1', name: 'Aloe', water_retained_pct: 20 },
     { uuid: 'u2', name: 'Monstera', water_retained_pct: 50 },
   ]
+  const paginatedResponse = {
+    items: plants,
+    total: 2,
+    page: 1,
+    limit: 20,
+    total_pages: 1
+  }
   const approximation = {
     items: [
       {
@@ -41,7 +48,7 @@ test('covers approximation success branches (lines 44-45, 51-60)', async () => {
   }
 
   server.use(
-    http.get('/api/plants', () => HttpResponse.json(plants)),
+    http.get('/api/plants', () => HttpResponse.json(paginatedResponse)),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json(approximation))
   )
 
@@ -72,9 +79,16 @@ test('covers approximation failure branch (lines 64-66)', async () => {
   const plants = [
     { uuid: 'u1', name: 'Aloe', water_retained_pct: 20 },
   ]
+  const paginatedResponse = {
+    items: plants,
+    total: 1,
+    page: 1,
+    limit: 20,
+    total_pages: 1
+  }
 
   server.use(
-    http.get('/api/plants', () => HttpResponse.json(plants)),
+    http.get('/api/plants', () => HttpResponse.json(paginatedResponse)),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 }))
   )
 
@@ -99,14 +113,21 @@ test('covers approximation failure branch (lines 64-66)', async () => {
 test('covers line 314 (vacation mode badge title) and line 375 (vacation mode missing next_watering_at)', async () => {
   localStorage.setItem('operationMode', 'vacation')
   const plants = [
-    { 
-        uuid: 'u1', 
-        name: 'Aloe', 
-        water_retained_pct: 10, 
+    {
+        uuid: 'u1',
+        name: 'Aloe',
+        water_retained_pct: 10,
         recommended_water_threshold_pct: 30,
         next_watering_at: null // This should trigger '—' on line 375 when in vacation mode
     },
   ]
+  const paginatedResponse = {
+    items: plants,
+    total: 1,
+    page: 1,
+    limit: 20,
+    total_pages: 1
+  }
   const approximation = {
     items: [
       {
@@ -118,7 +139,7 @@ test('covers line 314 (vacation mode badge title) and line 375 (vacation mode mi
   }
 
   server.use(
-    http.get('/api/plants', () => HttpResponse.json(plants)),
+    http.get('/api/plants', () => HttpResponse.json(paginatedResponse)),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json(approximation))
   )
 

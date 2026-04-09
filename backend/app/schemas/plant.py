@@ -121,3 +121,13 @@ class CalibrationData(BaseModel):
 
 class PlantCalibrationItem(PlantListItem):
     calibration: CalibrationData
+
+
+class PaginatedPlantsResponse(BaseModel):
+    """Response model for paginated plants list with drift detection support."""
+    items: List[PlantListItem]
+    total: int = Field(description="Total count of plants matching filters")
+    global_total: int = Field(description="Total count of ALL active plants (for drift detection)")
+    page: int = Field(ge=1, description="Current page number")
+    limit: int = Field(ge=1, le=100, description="Items per page")
+    total_pages: int = Field(ge=0, description="Total number of pages")

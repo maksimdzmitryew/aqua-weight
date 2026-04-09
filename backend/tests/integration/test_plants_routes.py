@@ -10,31 +10,38 @@ async def test_list_plants_initially_empty_and_after_create(async_client: AsyncC
     r = await async_client.post("/api/test/reset")
     assert r.status_code == 200
 
-    # Initially empty list
+    # Initially empty list (paginated response)
     r = await async_client.get("/api/plants")
     assert r.status_code == 200
-    assert isinstance(r.json(), list)
-    assert r.json() == []
+    data = r.json()
+    assert isinstance(data, dict)
+    assert "items" in data
+    assert "total" in data
+    assert "global_total" in data
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["global_total"] == 0
 
     # Create a plant
     r = await async_client.post("/api/plants", json={"name": "Alpha"})
     assert r.status_code == 200
-    data = r.json()
-    assert data.get("ok") is True
-    assert data.get("name") == "Alpha"
+    plant_data = r.json()
+    assert plant_data.get("ok") is True
+    assert plant_data.get("name") == "Alpha"
 
-    # List should contain Alpha
+    # List should contain Alpha (paginated response)
     r = await async_client.get("/api/plants")
-    items = r.json()
-    assert any(item["name"] == "Alpha" for item in items)
+    data = r.json()
+    assert any(item["name"] == "Alpha" for item in data["items"])
 
 
 async def _create_and_get_uuid(async_client: AsyncClient, name: str) -> str:
     resp = await async_client.post("/api/plants", json={"name": name})
     assert resp.status_code == 200
-    # Find it by name in list to get uuid
+    # Find it by name in list to get uuid (paginated response)
     r = await async_client.get("/api/plants")
-    items = r.json()
+    data = r.json()
+    items = data["items"]
     for it in items:
         if it["name"] == name:
             assert it["uuid"] and len(it["uuid"]) == 32
@@ -161,9 +168,10 @@ async def test_reorder_plants_endpoint_and_helper_errors(async_client: AsyncClie
     # Use helper to reorder: a before b
     _validate_and_update_order("plants", [a, b])
 
-    # Verify order a, b
+    # Verify order a, b (paginated response)
     r = await async_client.get("/api/plants")
-    names = [it["name"] for it in r.json()]
+    data = r.json()
+    names = [it["name"] for it in data["items"]]
     assert names[:2] == ["Delta", "Echo"]
 
     # Then via endpoint reorder: b before a
@@ -174,9 +182,10 @@ async def test_reorder_plants_endpoint_and_helper_errors(async_client: AsyncClie
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
-    # Verify list order is Echo, then Delta
+    # Verify list order is Echo, then Delta (paginated response)
     r = await async_client.get("/api/plants")
-    names = [it["name"] for it in r.json()]
+    data = r.json()
+    names = [it["name"] for it in data["items"]]
     assert names[:2] == ["Echo", "Delta"]
 
 
