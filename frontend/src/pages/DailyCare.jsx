@@ -10,6 +10,7 @@ import { checkNeedsWater } from '../utils/watering'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+import usePlants from '../hooks/usePlants.js'
 
 function hoursSinceLocal(tsString) {
   if (typeof window !== 'undefined' && window.__VITEST_STUB_HOURS_SINCE_LOCAL__) return window.__VITEST_STUB_HOURS_SINCE_LOCAL__(tsString);
@@ -24,26 +25,24 @@ export default function DailyCare() {
   const navigate = useNavigate()
   const operationMode = typeof localStorage !== 'undefined' ? (typeof window !== 'undefined' && window.__VITEST_STUB_OPERATION_MODE__ ? window.__VITEST_STUB_OPERATION_MODE__(hoursSinceLocal) : localStorage.getItem('operationMode')) : null
 
+  // Use shared usePlants hook for consistent data fetching
+  const { plants: allPlants, loading: plantsLoading, error: plantsError } = usePlants()
+
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [approximations, setApproximations] = useState([])
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      // 1. Get all plants
-      const plantsData = await plantsApi.list()
-      const allPlants = Array.isArray(plantsData) ? plantsData : (typeof window !== 'undefined' && window.__VITEST_STUB_PLANTS_DATA__ ? window.__VITEST_STUB_PLANTS_DATA__(plantsData) : [])
-
-      // 2. Get watering approximations
-      let approximations = []
+  // Load approximations when plants are loaded
+  useEffect(() => {
+    let cancelled = false
+    async function loadApproximations() {
       try {
         const approxData = await plantsApi.getApproximation()
         if (approxData?.items) {
-          approximations = approxData.items
+          if (!cancelled) setApproximations(approxData.items)
         } else if (typeof window !== 'undefined' && window.__VITEST_STUB_APPROX_ITEMS__) {
-          approximations = window.__VITEST_STUB_APPROX_ITEMS__(approxData)
+          if (!cancelled) setApproximations(window.__VITEST_STUB_APPROX_ITEMS__(approxData))
         }
       } catch (e) {
         console.error('Failed to load approximations', e)
@@ -51,46 +50,66 @@ export default function DailyCare() {
           window.__VITEST_STUB_LOAD_APPROX_ERROR__(e)
         }
       }
-
-      // Map approximations to plants
-      const approxMap = (typeof window !== 'undefined' && window.__VITEST_STUB_REDUCE__ ? window.__VITEST_STUB_REDUCE__(approximations) : approximations.reduce((acc, item) => {
-        acc[item.plant_uuid] = item
-        return acc
-      }, {}))
-
-      const plantsWithTasks = allPlants
-        .map(p => {
-          const approx = approxMap[p.uuid]
-          const needsWater = checkNeedsWater(p, operationMode, approx)
-
-          // Now we use the backend-provided needs_weighing property
-          const needsMeasure = p.needs_weighing ?? false
-
-          return {
-            ...p,
-            plantId: p.uuid,
-            needsWater: needsWater,
-            needsMeasure: needsMeasure,
-            checkedAt: (typeof window !== 'undefined' && window.__VITEST_STUB_DATE_NOW__ ? window.__VITEST_STUB_DATE_NOW__() : Date.now())
-          }
-        })
-        .filter(p => p.needsWater || p.needsMeasure)
-
-      setTasks(plantsWithTasks)
-    } catch (e) {
-      setError(e?.message || (typeof window !== 'undefined' && window.__VITEST_STUB_ERROR_FALLBACK__ ? window.__VITEST_STUB_ERROR_FALLBACK__('Failed to load today\'s tasks') : 'Failed to load today\'s tasks'))
-    } finally {
-      setLoading(false)
     }
-  }, [operationMode])
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      await load()
-    })()
+    if (allPlants.length) {
+      loadApproximations()
+    }
     return () => { cancelled = true }
-  }, [load])
+  }, [allPlants])
+
+  // Process plants into tasks when plants or approximations change
+  useEffect(() => {
+    if (plantsLoading) {
+      setLoading(true)
+      return
+    }
+
+    if (plantsError) {
+      setError(plantsError)
+      setLoading(false)
+      return
+    }
+
+    // Map approximations to plants
+    const approxMap = (typeof window !== 'undefined' && window.__VITEST_STUB_REDUCE__ ? window.__VITEST_STUB_REDUCE__(approximations) : approximations.reduce((acc, item) => {
+      acc[item.plant_uuid] = item
+      return acc
+    }, {}))
+
+    const plantsWithTasks = allPlants
+      .map(p => {
+        const approx = approxMap[p.uuid]
+        const needsWater = checkNeedsWater(p, operationMode, approx)
+
+        // Now we use the backend-provided needs_weighing property
+        const needsMeasure = p.needs_weighing ?? false
+
+        return {
+          ...p,
+          plantId: p.uuid,
+          needsWater: needsWater,
+          needsMeasure: needsMeasure,
+          checkedAt: (typeof window !== 'undefined' && window.__VITEST_STUB_DATE_NOW__ ? window.__VITEST_STUB_DATE_NOW__() : Date.now())
+        }
+      })
+      .filter(p => p.needsWater || p.needsMeasure)
+
+    setTasks(plantsWithTasks)
+    setLoading(false)
+  }, [allPlants, approximations, operationMode, plantsLoading, plantsError])
+
+  const load = useCallback(async () => {
+    // Reload is handled by usePlants hook, just reload approximations
+    try {
+      const approxData = await plantsApi.getApproximation()
+      if (approxData?.items) {
+        setApproximations(approxData.items)
+      }
+    } catch (e) {
+      console.error('Failed to reload approximations', e)
+    }
+  }, [])
 
   return (
     <DashboardLayout title="Daily care">

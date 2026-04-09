@@ -8,11 +8,12 @@ import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
 import { checkNeedsWater } from '../utils/watering'
+import usePlants from '../hooks/usePlants.js'
 
 export default function BulkWatering() {
-  const [plants, setPlants] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  // Use shared usePlants hook for consistent data fetching
+  const { plants, loading, error } = usePlants()
+
   const navigate = useNavigate()
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
@@ -24,42 +25,40 @@ export default function BulkWatering() {
   const [approximations, setApproximations] = useState({})
   const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
 
+  // Load approximations separately when plants are loaded
   useEffect(() => {
     let cancelled = false
-    async function load() {
+    async function loadApproximations() {
+      if (!plants.length || operationMode !== 'vacation') return
+
       try {
-        const plantsData = await plantsApi.list()
-        const allPlants = Array.isArray(plantsData) ? plantsData : []
-        
-        let approxMap = {}
-        if (operationMode === 'vacation') {
-          try {
-            const approxData = await plantsApi.getApproximation()
-            const approxItems = approxData?.items || []
-            approxMap = approxItems.reduce((acc, item) => {
-              acc[item.plant_uuid] = item
-              return acc
-            }, {})
-          } catch (e) {
-            console.error('Failed to load approximations', e)
-          }
-        }
+        const approxData = await plantsApi.getApproximation()
+        const approxItems = approxData?.items || []
+        const approxMap = approxItems.reduce((acc, item) => {
+          acc[item.plant_uuid] = item
+          return acc
+        }, {})
 
         if (!cancelled) {
-          setPlants(allPlants)
           setApproximations(approxMap)
           // Snapshot which plants needed watering at the moment of initial page load
-          setInitialNeedsWaterIds(allPlants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
+          setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
         }
       } catch (e) {
-        if (!cancelled) setError('Failed to load plants')
-      } finally {
-        if (!cancelled) setLoading(false)
+        console.error('Failed to load approximations', e)
       }
     }
-    load()
+
+    loadApproximations()
     return () => { cancelled = true }
-  }, [operationMode])
+  }, [plants, operationMode])
+
+  // For manual mode, set initial needs water IDs when plants load
+  useEffect(() => {
+    if (operationMode === 'manual' && plants.length && initialNeedsWaterIds.length === 0) {
+      setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, null)).map(p => p.uuid))
+    }
+  }, [plants, operationMode, initialNeedsWaterIds.length])
 
   // Helper: determine if a plant needs water based on per-plant threshold
   function plantNeedsWater(p) {

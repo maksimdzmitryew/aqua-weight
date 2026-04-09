@@ -3,19 +3,20 @@ import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, Link } from 'react-router-dom'
-import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
 import EmptyState from '../components/feedback/EmptyState.jsx'
+import usePlants from '../hooks/usePlants.js'
 import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
   const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
-  const [plants, setPlants] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
+  // Use shared usePlants hook for consistent data fetching
+  const { plants, loading, error } = usePlants()
+
   const navigate = useNavigate()
   // State to track the status of each input field
   const [inputStatus, setInputStatus] = useState({});
@@ -27,26 +28,12 @@ export default function BulkWeightMeasurement() {
   // Snapshot of plants that needed attention on initial load
   const [initialAttentionIds, setInitialAttentionIds] = useState([])
 
+  // Snapshot plants that need attention when plants load
   useEffect(() => {
-    let cancelled = false
-    async function load() {
-      try {
-        const data = await plantsApi.list()
-        if (!cancelled) {
-          const list = Array.isArray(data) ? data : []
-          setPlants(list)
-          // Snapshot plants that need attention (e.g. weighing) at initial load
-          setInitialAttentionIds(list.filter(plantNeedsAttention).map(p => p.uuid))
-        }
-      } catch (e) {
-        if (!cancelled) setError('Failed to load plants')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
+    if (plants.length && initialAttentionIds.length === 0) {
+      setInitialAttentionIds(plants.filter(plantNeedsAttention).map(p => p.uuid))
     }
-    load()
-    return () => { cancelled = true }
-  }, [])
+  }, [plants, initialAttentionIds.length])
 
   function handleView(p) {
     if (!p?.uuid) return

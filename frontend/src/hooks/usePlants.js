@@ -9,11 +9,11 @@ import { plantsApi } from '../api/plants'
  *
  * @param {Object} options - Fetch options
  * @param {number} options.page - Page number (default: 1)
- * @param {number} options.limit - Items per page (default: 1000 for "all")
+ * @param {number} options.limit - Items per page (default: 100, max allowed by backend)
  * @param {string} options.search - Search query
  * @returns {Object} { plants, loading, error, refetch, total, totalPages }
  */
-export default function usePlants({ page = 1, limit = 1000, search = '' } = {}) {
+export default function usePlants({ page = 1, limit = 100, search = '' } = {}) {
   const [plants, setPlants] = useState([])
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)

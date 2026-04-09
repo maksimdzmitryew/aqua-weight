@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
-import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import Sparkline from '../components/Sparkline.jsx'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../ThemeContext.jsx'
+import usePlants from '../hooks/usePlants.js'
 
 export function getInitialShowSuggestedInterval(getItem) {
   try {
@@ -64,9 +64,8 @@ export function safeSetItem(key, value) {
 }
 
 export default function Dashboard() {
-  const [plants, setPlants] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  // Use shared usePlants hook for consistent data fetching
+  const { plants, loading, error } = usePlants()
 
   // Map from plant uuid -> array of measurements (already filtered since last repotting)
   const [series, setSeries] = useState({})
@@ -85,23 +84,6 @@ export default function Dashboard() {
   })
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
-
-  useEffect(() => {
-    const controller = new AbortController()
-    async function loadPlants() {
-      try {
-        const data = await plantsApi.list(controller.signal)
-        setPlants(arrayOrEmpty(data))
-      } catch (e) {
-        const msg = e?.message || ''
-        if (!isAbortError(e)) setError(msg || 'Failed to load plants')
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadPlants()
-    return () => controller.abort()
-  }, [])
 
   useEffect(() => {
     async function loadMeasurements() {
