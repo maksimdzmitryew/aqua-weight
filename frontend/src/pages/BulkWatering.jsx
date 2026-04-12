@@ -12,9 +12,11 @@ import usePlants from '../hooks/usePlants.js'
 
 export default function BulkWatering() {
   // Use shared usePlants hook for consistent data fetching
-  const { plants, loading, error } = usePlants()
+  const { plants: plantsFromHook, loading, error } = usePlants()
 
   const navigate = useNavigate()
+  // Local plants state that can be updated when watering events are created
+  const [plants, setPlants] = useState([])
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
   const [originalWaterLoss, setOriginalWaterLoss] = useState({})
@@ -24,6 +26,13 @@ export default function BulkWatering() {
   const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
   const [approximations, setApproximations] = useState({})
   const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
+
+  // Initialize local plants state from hook
+  useEffect(() => {
+    if (plantsFromHook.length > 0) {
+      setPlants(plantsFromHook)
+    }
+  }, [plantsFromHook])
 
   // Load approximations separately when plants are loaded
   useEffect(() => {
@@ -42,7 +51,10 @@ export default function BulkWatering() {
         if (!cancelled) {
           setApproximations(approxMap)
           // Snapshot which plants needed watering at the moment of initial page load
-          setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
+          // Only set the snapshot once to keep watered plants visible for undo
+          if (initialNeedsWaterIds.length === 0) {
+            setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
+          }
         }
       } catch (e) {
         console.error('Failed to load approximations', e)
@@ -51,7 +63,7 @@ export default function BulkWatering() {
 
     loadApproximations()
     return () => { cancelled = true }
-  }, [plants, operationMode])
+  }, [plants, operationMode, initialNeedsWaterIds.length])
 
   // For manual mode, set initial needs water IDs when plants load
   useEffect(() => {
@@ -129,6 +141,44 @@ export default function BulkWatering() {
     }
   }
 
+  async function handleWateringDelete(plantId, measurementId) {
+    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      await measurementsApi.delete(measurementId)
+      setMeasurementIds(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      setInputStatus(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
+      // Revert plant data in list to previous state (approximate)
+      setPlants(prev => prev.map(p => {
+        if (p.uuid === plantId) {
+          return {
+            ...p,
+            water_loss_total_pct: originalWaterLoss[plantId] !== undefined ? originalWaterLoss[plantId] : p.water_loss_total_pct,
+            water_retained_pct: null,
+            latest_at: p.latest_at,
+          }
+        }
+        return p
+      }))
+      setOriginalWaterLoss(prev => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+    } catch (err) {
+      console.error('Error deleting watering:', err)
+      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
   async function handleVacationWateringCommit(plantId) {
     const plant = plants.find(p => p.uuid === plantId)
     if (plant) {
@@ -141,7 +191,7 @@ export default function BulkWatering() {
       if (measurement?.id) {
         setMeasurementIds(prev => ({ ...prev, [plantId]: measurement.id }))
         setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
-        
+
         // Update plant data in list
         setPlants(prev => prev.map(p => {
           if (p.uuid === plantId) {
@@ -282,6 +332,7 @@ export default function BulkWatering() {
           plants={displayedPlants}
           inputStatus={inputStatus}
           onCommitValue={handleWateringCommit}
+          onDeleteWatering={handleWateringDelete}
           onCommitVacationWatering={handleVacationWateringCommit}
           onDeleteVacationWatering={handleVacationWateringDelete}
           measurementIds={measurementIds}

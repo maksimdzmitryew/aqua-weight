@@ -11,6 +11,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import usePlants from '../hooks/usePlants.js'
+import PlantsTableBase, { TableHeader } from '../components/PlantsTableBase.jsx'
 
 function hoursSinceLocal(tsString) {
   if (typeof window !== 'undefined' && window.__VITEST_STUB_HOURS_SINCE_LOCAL__) return window.__VITEST_STUB_HOURS_SINCE_LOCAL__(tsString);
@@ -141,38 +142,36 @@ export default function DailyCare() {
         tasks.length === 0 ? (
           <EmptyState title="No tasks for today" description="All caught up. Check back later for new suggestions." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table" role="table">
-              <thead>
-                <tr>
-                    <th className="th" scope="col">Water</th>
-                    {operationMode !== 'vacation' && <th className="th" scope="col">Weight</th>}
-                    <th className="th" scope="col">Plant</th>
-                    <th className="th">Notes</th>
-                    <th className="th" scope="col">Location</th>
-                    <th className="th" scope="col">Last updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t, i) => (
-                  <tr key={t.id}>
-                      <td className="td" aria-label={t.needsWater ? 'Needs watering' : 'No watering needed'}>
-                        <StatusIcon type="water" active={!!t.needsWater} />
-                      </td>
-                      {operationMode !== 'vacation' && (
-                        <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
-                          <StatusIcon type="measure" active={!!t.needsMeasure} />
-                        </td>
-                      )}
-                      <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || (typeof window !== 'undefined' && window.__VITEST_STUB_FALLBACK__ ? window.__VITEST_STUB_FALLBACK__('—') : '—')}</td>
-                      <td className="td">{t.notes || t.reason || (typeof window !== 'undefined' && window.__VITEST_STUB_NOTES__ ? window.__VITEST_STUB_NOTES__('—') : '—')}</td>
-                      <td className="td">{t.location || (typeof window !== 'undefined' && window.__VITEST_STUB_LOCATION__ ? window.__VITEST_STUB_LOCATION__('—') : '—')}</td>
-                      <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <PlantsTableBase
+            plants={tasks}
+            className="table"
+            renderHeaders={() => (
+              <>
+                <th className="th" scope="col">Water</th>
+                {operationMode !== 'vacation' && <th className="th" scope="col">Weight</th>}
+                <th className="th" scope="col">Plant</th>
+                <th className="th">Notes</th>
+                <th className="th" scope="col">Location</th>
+                <th className="th" scope="col">Last updated</th>
+              </>
+            )}
+            renderRow={(t) => (
+              <>
+                <td className="td" aria-label={t.needsWater ? 'Needs watering' : 'No watering needed'}>
+                  <StatusIcon type="water" active={!!t.needsWater} />
+                </td>
+                {operationMode !== 'vacation' && (
+                  <td className="td" aria-label={t.needsMeasure ? 'Needs measurement' : 'No measurement needed'}>
+                    <StatusIcon type="measure" active={!!t.needsMeasure} />
+                  </td>
+                )}
+                <td className="td">{t.identify_hint ? `${t.identify_hint} ` : ''}{t.name || t.plant || (typeof window !== 'undefined' && window.__VITEST_STUB_FALLBACK__ ? window.__VITEST_STUB_FALLBACK__('—') : '—')}</td>
+                <td className="td">{t.notes || t.reason || (typeof window !== 'undefined' && window.__VITEST_STUB_NOTES__ ? window.__VITEST_STUB_NOTES__('—') : '—')}</td>
+                <td className="td">{t.location || (typeof window !== 'undefined' && window.__VITEST_STUB_LOCATION__ ? window.__VITEST_STUB_LOCATION__('—') : '—')}</td>
+                <td className="td"><DateTimeText value={t.scheduled_for || t.latest_at} /></td>
+              </>
+            )}
+          />
         )
       )}
 

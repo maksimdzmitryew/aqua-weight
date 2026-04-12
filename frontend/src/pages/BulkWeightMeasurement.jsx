@@ -15,9 +15,11 @@ export default function BulkWeightMeasurement() {
   const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
 
   // Use shared usePlants hook for consistent data fetching
-  const { plants, loading, error } = usePlants()
+  const { plants: plantsFromHook, loading, error } = usePlants()
 
   const navigate = useNavigate()
+  // Local plants state that can be updated when weight measurements are created
+  const [plants, setPlants] = useState([])
   // State to track the status of each input field
   const [inputStatus, setInputStatus] = useState({});
   // State to track measurement IDs for each plant
@@ -27,6 +29,13 @@ export default function BulkWeightMeasurement() {
   const [showAll, setShowAll] = useState(false)
   // Snapshot of plants that needed attention on initial load
   const [initialAttentionIds, setInitialAttentionIds] = useState([])
+
+  // Initialize local plants state from hook
+  useEffect(() => {
+    if (plantsFromHook.length > 0) {
+      setPlants(plantsFromHook)
+    }
+  }, [plantsFromHook])
 
   // Snapshot plants that need attention when plants load
   useEffect(() => {

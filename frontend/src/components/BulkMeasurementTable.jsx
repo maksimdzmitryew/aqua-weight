@@ -4,6 +4,7 @@ import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
 import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering'
 import WaterDropIcon from './icons/WaterDropIcon.jsx'
+import PlantsTableBase, { TableHeader } from './PlantsTableBase.jsx'
 
 export default function BulkMeasurementTable({
   plants,
@@ -11,6 +12,7 @@ export default function BulkMeasurementTable({
   onCommitValue,
   onCommitVacationWatering,
   onDeleteVacationWatering,
+  onDeleteWatering,
   measurementIds = {},
   onViewPlant,
   firstColumnLabel = 'New value',
@@ -26,82 +28,93 @@ export default function BulkMeasurementTable({
   noPlantsMessage = 'No plants found',
 }) {
   const computeWaterLossStyle = waterLossCellStyle || defaultWaterLossCellStyle
-  return (
-    <div className="overflow-x-auto">
-      <table className="table plants-table">
-        <thead>
-          <tr>
-            <th className="th" scope="col" title={firstColumnTooltip}>
-              <span style={{ pointerEvents: 'none' }}>{firstColumnLabel}</span>
-              {firstColumnTooltip && (
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-              )}
-            </th>
-            <th className="th" scope="col" title="Watering threshold — water when retained ≤ value">
-              <span style={{ pointerEvents: 'none' }}>Thresh</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-            </th>
-            <th className="th" scope="col" title="Plant name">
-              <span style={{ pointerEvents: 'none' }}>Name</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-            </th>
-            <th className="th" scope="col" title="Notes">
-              <span style={{ pointerEvents: 'none' }}>Notes</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-            </th>
-            <th className="th hide-column-phone" scope="col" title="Location">
-              <span style={{ pointerEvents: 'none' }}>Location</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-            </th>
-            <th className="th" scope="col" title={operationMode === 'vacation' ? "Projected water loss based on frequency (100 - retained %)" : "Water loss since last watering based on weight"}>
-              <span style={{ pointerEvents: 'none' }}>Water loss</span>
-              <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-            </th>
-            {showUpdatedColumn && (
-              <th className="th hide-column-tablet" scope="col" title="Last update time">
-                <span style={{ pointerEvents: 'none' }}>Updated</span>
-                <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>ⓘ</span>
-              </th>
-            )}
-          </tr>
-        </thead>
-        <tbody>
-          {plants.map((p, idx) => {
-            const rowKey = p.uuid || p.id || `row-${idx}`
-            const approx = approximations[p.uuid]
-            const needsWater = checkNeedsWater(p, operationMode, approx)
-            const needsMeasure = p.needs_weighing
-            const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
-            
-            const retained = getWaterRetainedPct(p, operationMode, approx)
-            const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
-            
-            const displayWaterLoss = operationMode === 'vacation' && typeof retained === 'number'
-              ? 100 - retained
-              : (p.water_loss_total_pct !== undefined && p.water_loss_total_pct !== null ? Math.round(p.water_loss_total_pct) : p.water_loss_total_pct)
 
-            const status = inputStatus[p.uuid]
-            const mId = measurementIds[p.uuid]
-            const isSaving = status === 'saving'
+  const renderHeaders = () => (
+    <>
+      <TableHeader title={firstColumnTooltip}>
+        {firstColumnLabel}
+      </TableHeader>
+      <TableHeader title="Watering threshold — water when retained ≤ value">
+        Thresh
+      </TableHeader>
+      <TableHeader title="Plant name">
+        Name
+      </TableHeader>
+      <TableHeader title="Notes">
+        Notes
+      </TableHeader>
+      <TableHeader title="Location" className="th hide-column-phone">
+        Location
+      </TableHeader>
+      <TableHeader title={operationMode === 'vacation' ? "Projected water loss based on frequency (100 - retained %)" : "Water loss since last watering based on weight"}>
+        Water loss
+      </TableHeader>
+      {showUpdatedColumn && (
+        <TableHeader title="Last update time" className="th hide-column-tablet">
+          Updated
+        </TableHeader>
+      )}
+    </>
+  )
 
-            let dropColor = '#3b82f6' // blue-500
-            if (status === 'success' || mId) dropColor = '#10b981' // green-500
-            if (status === 'error') dropColor = '#ef4444' // red-500
+  const renderRow = (p, idx) => {
+    const approx = approximations[p.uuid]
+    const needsWater = checkNeedsWater(p, operationMode, approx)
+    const needsMeasure = p.needs_weighing
 
-            return (
-            <tr key={rowKey} style={deemphasize ? { opacity: 0.55 } : undefined}>
+    const retained = getWaterRetainedPct(p, operationMode, approx)
+    const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
+
+    const displayWaterLoss = operationMode === 'vacation' && typeof retained === 'number'
+      ? 100 - retained
+      : (p.water_loss_total_pct !== undefined && p.water_loss_total_pct !== null ? Math.round(p.water_loss_total_pct) : p.water_loss_total_pct)
+
+    const status = inputStatus[p.uuid]
+    const mId = measurementIds[p.uuid]
+    const isSaving = status === 'saving'
+
+    let dropColor = '#3b82f6' // blue-500
+    if (status === 'success' || mId) dropColor = '#10b981' // green-500
+    if (status === 'error') dropColor = '#ef4444' // red-500
+
+    return (
+      <>
                 <td className="td" style={{ width: 200, whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
                     {operationMode !== 'vacation' ? (
-                      <input
-                        type="number"
-                        style={{ width: 60 }}
-                        className={`input ${status === 'success' ? 'bg-success' : ''} ${status === 'error' ? 'bg-error' : ''}`}
-                        defaultValue={p.current_weight || ''}
-                        onBlur={(e) => {
-                          if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
-                        }}
-                      />
+                      <>
+                        <input
+                          type="number"
+                          style={{ width: 60 }}
+                          className={`input ${status === 'success' ? 'bg-success' : ''} ${status === 'error' ? 'bg-error' : ''}`}
+                          defaultValue={p.current_weight || ''}
+                          onBlur={(e) => {
+                            if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                          }}
+                        />
+                        {mId && onDeleteWatering && (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => onDeleteWatering(p.uuid, mId)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: isSaving ? 'wait' : 'pointer',
+                              padding: '2px 4px',
+                              fontSize: 16,
+                              color: '#ef4444',
+                              fontWeight: 'bold',
+                              borderRadius: 4,
+                            }}
+                            className="hover-bg-muted"
+                            title="Delete this watering entry"
+                            aria-label="Delete watering"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <button
                         type="button"
@@ -218,15 +231,23 @@ export default function BulkMeasurementTable({
                   )}
                 </td>
               )}
-            </tr>
-          )})}
-          {plants.length === 0 && (
-            <tr>
-              <td className="td" colSpan={showUpdatedColumn ? 7 : 6}>{noPlantsMessage}</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+      </>
+    )
+  }
+
+  const rowProps = (p) => {
+    const deemphasize = typeof deemphasizePredicate === 'function' ? deemphasizePredicate(p) : false
+    return deemphasize ? { style: { opacity: 0.55 } } : {}
+  }
+
+  return (
+    <PlantsTableBase
+      plants={plants}
+      renderHeaders={renderHeaders}
+      renderRow={renderRow}
+      rowProps={rowProps}
+      emptyMessage={noPlantsMessage}
+      className="table plants-table"
+    />
   )
 }
