@@ -7,8 +7,9 @@ from backend.app.helpers.plants_list import PlantsList
 
 
 class FakeCursor:
-    def __init__(self, rows=None):
+    def __init__(self, rows=None, count_result=None):
         self._rows = rows or []
+        self._count_result = count_result
         self.last_query = None
         self.last_params = None
         self.closed = False
@@ -30,13 +31,18 @@ class FakeCursor:
     def fetchall(self):
         return list(self._rows)
 
+    def fetchone(self):
+        if self._count_result is not None:
+            return (self._count_result,)
+        return (0,)
+
     def close(self):
         self.closed = True
 
 
 class FakeConnection:
-    def __init__(self, rows=None):
-        self._cursor = FakeCursor(rows=rows)
+    def __init__(self, rows=None, count_result=None):
+        self._cursor = FakeCursor(rows=rows, count_result=count_result)
         self.closed = False
 
     def cursor(self):
@@ -375,3 +381,188 @@ def test_fetch_all_restore_params_branch_coverage(monkeypatch):
 
     items = PlantsList.fetch_all(min_water_loss_total_pct=5.0)
     assert len(items) == 1
+
+
+# --- Tests for search filtering in fetch_all (lines 66-81) ---
+
+
+def test_fetch_all_search_numeric_threshold(monkeypatch):
+    """Test search with numeric value triggers threshold filter (lines 66-71)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("cc" * 16)
+    row = make_row_full(pid_bytes=pid, name="Fern", recommended_water_threshold_pct=0.3)
+    fake_conn = FakeConnection(rows=[row])
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(search="0.5")
+
+    assert len(items) == 1
+    assert 0.5 in fake_conn._cursor.last_params
+    assert "AND p.recommended_water_threshold_pct <= %s" in fake_conn._cursor.last_query
+
+
+def test_fetch_all_search_text_pattern(monkeypatch):
+    """Test search with text value triggers LIKE search (lines 72-81)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("dd" * 16)
+    row = make_row_full(pid_bytes=pid, name="Monstera", notes="tropical plant")
+    fake_conn = FakeConnection(rows=[row])
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(search="tropical")
+
+    assert len(items) == 1
+    assert "%tropical%" in fake_conn._cursor.last_params
+    assert "p.name LIKE %s" in fake_conn._cursor.last_query
+    assert "p.notes LIKE %s" in fake_conn._cursor.last_query
+    assert "l.name LIKE %s" in fake_conn._cursor.last_query
+    assert "p.identify_hint LIKE %s" in fake_conn._cursor.last_query
+
+
+def test_fetch_all_search_empty_string(monkeypatch):
+    """Test search with empty/whitespace string is ignored."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("ee" * 16)
+    row = make_row_full(pid_bytes=pid, name="Cactus")
+    fake_conn = FakeConnection(rows=[row])
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(search="   ")
+
+    assert len(items) == 1
+    # No search params should be added
+    assert fake_conn._cursor.last_params == []
+
+
+def test_fetch_all_with_pagination(monkeypatch):
+    """Test fetch_all with limit and offset for pagination (lines 87-88)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("ff" * 16)
+    row = make_row_full(pid_bytes=pid, name="Paginated Plant")
+    fake_conn = FakeConnection(rows=[row])
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(limit=10, offset=5)
+
+    assert len(items) == 1
+    assert "LIMIT %s OFFSET %s" in fake_conn._cursor.last_query
+    assert 10 in fake_conn._cursor.last_params
+    assert 5 in fake_conn._cursor.last_params
+
+
+# --- Tests for count_all method (lines 292-344) ---
+
+
+def test_count_all_basic(monkeypatch):
+    """Test count_all returns correct count (lines 301-315, 337-339)."""
+    fake_conn = FakeConnection(count_result=5)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all()
+
+    assert count == 5
+    assert fake_conn.closed is True
+    assert "SELECT COUNT(*)" in fake_conn._cursor.last_query
+
+
+def test_count_all_with_min_water_loss_filter(monkeypatch):
+    """Test count_all with min_water_loss_total_pct filter (lines 316-318)."""
+    fake_conn = FakeConnection(count_result=3)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all(min_water_loss_total_pct=15.0)
+
+    assert count == 3
+    assert 15.0 in fake_conn._cursor.last_params
+    assert "AND latest_pm.water_loss_total_pct > %s" in fake_conn._cursor.last_query
+
+
+def test_count_all_search_numeric_threshold(monkeypatch):
+    """Test count_all search with numeric value (lines 321-326)."""
+    fake_conn = FakeConnection(count_result=2)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all(search="0.4")
+
+    assert count == 2
+    assert 0.4 in fake_conn._cursor.last_params
+    assert "AND p.recommended_water_threshold_pct <= %s" in fake_conn._cursor.last_query
+
+
+def test_count_all_search_text_pattern(monkeypatch):
+    """Test count_all search with text value (lines 327-335)."""
+    fake_conn = FakeConnection(count_result=4)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all(search="kitchen")
+
+    assert count == 4
+    assert "%kitchen%" in fake_conn._cursor.last_params
+    assert "p.name LIKE %s" in fake_conn._cursor.last_query
+
+
+def test_count_all_search_empty_string(monkeypatch):
+    """Test count_all with empty search string is ignored."""
+    fake_conn = FakeConnection(count_result=10)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all(search="  ")
+
+    assert count == 10
+    assert fake_conn._cursor.last_params == []
+
+
+def test_count_all_close_exception(monkeypatch):
+    """Test count_all handles close() exception gracefully (lines 341-344)."""
+
+    class BadCloseConnection(FakeConnection):
+        def close(self):
+            raise RuntimeError("close failed")
+
+    fake_conn = BadCloseConnection(count_result=7)
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Should not raise, exception is caught
+    count = PlantsList.count_all()
+    assert count == 7
+
+
+def test_count_all_fetchone_none(monkeypatch):
+    """Test count_all returns 0 when fetchone returns None (line 339)."""
+
+    class NullCursor(FakeCursor):
+        def fetchone(self):
+            return None
+
+    class NullConnection(FakeConnection):
+        def __init__(self):
+            self._cursor = NullCursor()
+            self.closed = False
+
+    fake_conn = NullConnection()
+
+    from backend.app.helpers import plants_list as pl_mod
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all()
+    assert count == 0
