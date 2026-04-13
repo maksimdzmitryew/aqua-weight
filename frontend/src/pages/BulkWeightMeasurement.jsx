@@ -12,7 +12,7 @@ import usePlants from '../hooks/usePlants.js'
 import '../styles/plants-list.css'
 
 export default function BulkWeightMeasurement() {
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
+  const operationMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
 
   // Use shared usePlants hook for consistent data fetching
   const { plants: plantsFromHook, loading, error } = usePlants()

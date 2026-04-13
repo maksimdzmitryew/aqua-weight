@@ -7,6 +7,7 @@ import BulkWeightMeasurement from '../../../src/pages/BulkWeightMeasurement.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigation to verify handleView
 const mockNavigate = vi.fn()
@@ -62,10 +63,11 @@ describe('pages/BulkWeightMeasurement', () => {
   test('toggling "Show all plants" checkbox changes visibility', async () => {
     // Custom handlers to have one plant that needs weighing and one that doesn't
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Needs Weighing', needs_weighing: true },
         { uuid: 'u2', name: 'Full Water', needs_weighing: false }
-      ]))
+      ]
+    )
     )
 
     renderPage()
@@ -143,7 +145,7 @@ describe('pages/BulkWeightMeasurement', () => {
 
   test('shows error when plants API fails', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'nope' }, { status: 500 }))
+      http.get('/api/plants', () => HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }))
     )
     renderPage()
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()

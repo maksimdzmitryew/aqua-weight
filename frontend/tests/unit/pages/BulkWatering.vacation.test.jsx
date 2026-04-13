@@ -6,6 +6,7 @@ import BulkWatering from '../../../src/pages/BulkWatering.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   beforeEach(() => {
@@ -31,9 +32,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
 
   test('committing vacation watering succeeds and updates plant state', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30, water_loss_total_pct: 90 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }]
       })),
@@ -60,9 +62,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   test('committing vacation watering handles API error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }]
       })),
@@ -80,9 +83,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
 
   test('committing vacation watering handles empty response data (falsy branch)', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
       http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ status: 'success', data: null }))
     )
@@ -98,9 +102,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
 
   test('deleting vacation watering succeeds and reverts plant state', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30, water_loss_total_pct: 90 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }]
       })),
@@ -126,9 +131,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   test('deleting vacation watering handles API error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30, water_loss_total_pct: 90 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }]
       })),
@@ -155,9 +161,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   test('vacation mode: approximation refresh failure after commit/delete is logged', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }]
       })),
@@ -189,10 +196,11 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   test('map handlers ignore non-matching plantId (coverage for early returns)', async () => {
     // This exercises line 157 and 206
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe' },
         { uuid: 'u2', name: 'Other' }
-      ])),
+      ]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
       http.post('/api/measurements/vacation/watering', () => HttpResponse.json({
         data: { id: 5001 }
@@ -232,7 +240,8 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   test('toggle label switches based on mode and showAll', async () => {
     // Already in vacation mode from beforeEach
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([]))
+      ...paginatedPlantsHandler([]
+    )
     )
     render(
       <ThemeProvider>

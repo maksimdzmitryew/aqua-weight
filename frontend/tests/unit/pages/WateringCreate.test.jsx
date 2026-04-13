@@ -6,6 +6,7 @@ import WateringCreate from '../../../src/pages/WateringCreate.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate
 const mockNavigate = vi.fn()
@@ -119,10 +120,11 @@ describe('pages/WateringCreate', () => {
     mockNavigate.mockReset()
     // default plants list
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe' },
         { uuid: 'u2', name: 'Monstera' },
-      ]))
+      ]
+    )
     )
   })
 
@@ -228,14 +230,15 @@ describe('pages/WateringCreate', () => {
 
   test('shows error on plants load failure and on save failure', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+      http.get('/api/plants/names', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
     )
     renderWithRouter(['/'])
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
 
     server.use(
-      // Provide list containing the preselected plant so the form can be valid
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }])),
+      ...// Provide list containing the preselected plant so the form can be valid
+      paginatedPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]
+    ),
       http.post('/api/measurements/watering', () => HttpResponse.json({ message: 'nope' }, { status: 500 }))
     )
     const { container } = renderWithRouter(['/new?plant=u1'])
@@ -344,7 +347,8 @@ describe('pages/WateringCreate', () => {
   test('edit flow: fetched data without measured_at uses existing form value', async () => {
     // Ensure plants list exists so form is valid enough
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
+      ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]
+    ),
       http.get('/api/measurements/:id', () => HttpResponse.json({ id: 777, plant_id: 'u2' }))
     )
 
@@ -386,7 +390,8 @@ describe('pages/WateringCreate', () => {
     // Return a measured_at that exists (truthy) but toLocalISOMinutes returns '' (falsy)
     // To trigger: toLocalISOMinutes(data.measured_at) || form.values.measured_at
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
+      ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]
+    ),
       http.get('/api/measurements/:id', () => HttpResponse.json({ id: 611, plant_id: 'u2', measured_at: 'not-a-date' }))
     )
     renderWithRouter(['/edit?id=611'])
@@ -401,7 +406,8 @@ describe('pages/WateringCreate', () => {
     const dt = await import('../../../src/utils/datetime.js')
     const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('2000-01-01T00:00')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
+      ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]
+    ),
       http.get('/api/measurements/:id', () => HttpResponse.json({ id: 612, plant_id: 'u2', measured_at: '2025-01-10T12:34:00Z' }))
     )
     renderWithRouter(['/edit?id=612'])
@@ -416,7 +422,8 @@ describe('pages/WateringCreate', () => {
     const dt = await import('../../../src/utils/datetime.js')
     const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u2', name: 'Monstera' }])),
+      ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]
+    ),
       http.get('/api/measurements/:id', () => HttpResponse.json({ id: 613, plant_id: 'u2', measured_at: 'some-truthy-date' }))
     )
     renderWithRouter(['/edit?id=613'])
@@ -452,7 +459,8 @@ describe('pages/WateringCreate', () => {
     const mod = await import('../../../src/api/measurements')
     const spy = vi.spyOn(mod.measurementsApi.watering, 'create').mockRejectedValueOnce({})
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }]))
+      ...paginatedPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]
+    )
     )
     const { container } = renderWithRouter(['/new?plant=u1'])
     // Submit the form to trigger error path; generic fallback should be displayed

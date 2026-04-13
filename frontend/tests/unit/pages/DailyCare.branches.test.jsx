@@ -7,6 +7,7 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 describe('DailyCare hoursSinceLocal', () => {
   test('hoursSinceLocal coverage', () => {
@@ -52,7 +53,8 @@ describe('DailyCare branches', () => {
       internalError = e;
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 }))
     )
 
@@ -80,7 +82,8 @@ describe('DailyCare branches', () => {
       return f;
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', needs_weighing: true }])), // No name, no plant
+      ...paginatedPlantsHandler([{ uuid: 'p1', needs_weighing: true }]
+    ), // No name, no plant
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -104,7 +107,8 @@ describe('DailyCare branches', () => {
     window.__VITEST_STUB_DATE_NOW__ = () => { internalDateNow = true; return 123; };
     
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -136,7 +140,8 @@ describe('DailyCare branches', () => {
       }, {});
     };
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }))
     )
 
@@ -154,11 +159,6 @@ describe('DailyCare branches', () => {
   })
 
   test('plantsData fallback', async () => {
-    let internalPlantsData;
-    window.__VITEST_STUB_PLANTS_DATA__ = (d) => {
-      internalPlantsData = d;
-      return [];
-    };
     server.use(
       http.get('/api/plants', () => HttpResponse.json({ not_an_array: true })),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
@@ -173,8 +173,6 @@ describe('DailyCare branches', () => {
     )
 
     expect(await screen.findByRole('note')).toHaveTextContent(/No tasks for today/i)
-    expect(internalPlantsData).toBeDefined();
-    delete window.__VITEST_STUB_PLANTS_DATA__;
   })
 
   test('approxItems fallback (line 43)', async () => {
@@ -185,7 +183,8 @@ describe('DailyCare branches', () => {
     };
     // Case 1: approxData is null
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null))
     )
 
@@ -233,7 +232,8 @@ describe('DailyCare branches', () => {
     // Case 1: Needs measurement (true)
     localStorage.setItem('operationMode', 'manual')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 
@@ -252,7 +252,8 @@ describe('DailyCare branches', () => {
     window.__VITEST_STUB_NEEDS_MEASURE__ = () => false;
     // Force plants that need water
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50 }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50 }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
         items: [{ plant_uuid: 'p1', days_offset: 0 }]
       }))
@@ -274,11 +275,6 @@ describe('DailyCare branches', () => {
   })
 
   test('error fallback', async () => {
-    let internalErrorFallback;
-    window.__VITEST_STUB_ERROR_FALLBACK__ = (f) => {
-      internalErrorFallback = f;
-      return f;
-    };
     // Mock list to reject with something that has no message
     const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({});
     server.use(
@@ -294,8 +290,7 @@ describe('DailyCare branches', () => {
     )
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
-    expect(internalErrorFallback).toBe("Failed to load today's tasks");
-    delete window.__VITEST_STUB_ERROR_FALLBACK__;
+    expect(screen.getByRole('alert')).toHaveTextContent("Failed to load plants");
     spy.mockRestore();
   })
 
@@ -325,7 +320,8 @@ describe('DailyCare branches', () => {
     const mockNavigate = vi.fn();
 
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]
+    ),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
     )
 

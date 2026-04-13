@@ -25,7 +25,7 @@ export default function BulkWatering() {
   // Snapshot of plants that needed watering on initial load
   const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
   const [approximations, setApproximations] = useState({})
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
+  const operationMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
 
   // Initialize local plants state from hook
   useEffect(() => {

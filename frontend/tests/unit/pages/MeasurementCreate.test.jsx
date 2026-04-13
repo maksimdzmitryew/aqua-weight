@@ -7,6 +7,7 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { measurementsApi } from '../../../src/api/measurements'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate to observe navigations
 const mockNavigate = vi.fn()
@@ -139,10 +140,11 @@ describe('pages/MeasurementCreate', () => {
     mockNavigate.mockReset()
     // default handlers for plants list
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe' },
         { uuid: 'u2', name: 'Monstera' },
-      ]))
+      ]
+    )
     )
   })
 
@@ -284,7 +286,7 @@ describe('pages/MeasurementCreate', () => {
   test('plants API returns non-array; select shows only placeholder', async () => {
     // Return a non-array to exercise Array.isArray false branch in loadPlants
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ any: 'shape' }))
+      http.get('/api/plants/names', () => HttpResponse.json({ any: 'shape' }))
     )
 
     renderWithRouter(['/new'])
@@ -392,7 +394,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('shows error when plants API fails to load', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+      http.get('/api/plants/names', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
     )
     renderWithRouter(['/'])
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()

@@ -300,14 +300,14 @@ describe('BulkMeasurementTable', () => {
     )
     const cell = screen.getByText(/No plants found/i)
     expect(cell).toBeInTheDocument()
-    expect(cell).toHaveAttribute('colspan', '6')
+    expect(cell).toHaveAttribute('colspan', '100')
 
-    // With Updated column enabled, colspan increases to 7
+    // With Updated column enabled, colspan stays at 100 (spans all columns)
     rerender(
       <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} showUpdatedColumn />
     )
     const cell2 = screen.getByText(/No plants found/i)
-    expect(cell2).toHaveAttribute('colspan', '7')
+    expect(cell2).toHaveAttribute('colspan', '100')
   })
 
   test('location cell shows provided location and falls back to dash when missing', () => {

@@ -6,6 +6,7 @@ import RepottingCreate from '../../../src/pages/RepottingCreate.jsx'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate to observe navigations
 const mockNavigate = vi.fn()
@@ -119,10 +120,11 @@ describe('pages/RepottingCreate', () => {
     mockNavigate.mockReset()
     try { localStorage.removeItem('theme') } catch {}
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'p1', name: 'Aloe' },
         { uuid: 'p2', name: 'Monstera' },
-      ]))
+      ]
+    )
     )
   })
 
@@ -275,7 +277,7 @@ describe('pages/RepottingCreate', () => {
   test('shows error when plants load fails', async () => {
     // Fail plants load
     server.use(
-      http.get('/api/plants', () => HttpResponse.text('no', { status: 500 }))
+      http.get('/api/plants/names', () => HttpResponse.text('no', { status: 500 }))
     )
 
     renderWithRouter(['/repotting/new'])
@@ -299,7 +301,7 @@ describe('pages/RepottingCreate', () => {
   test('plants list: non-array response results in empty options (branch coverage)', async () => {
     // Respond with an object instead of an array
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ ok: true }))
+      http.get('/api/plants/names', () => HttpResponse.json({ ok: true }))
     )
 
     renderWithRouter(['/repotting/new'])
@@ -473,9 +475,10 @@ describe('pages/RepottingCreate', () => {
     
     let captured = null
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'p1', name: 'Aloe' }
-      ])),
+      ]
+    ),
       http.post('/api/measurements/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 2 }, { status: 201 })

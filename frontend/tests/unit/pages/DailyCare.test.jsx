@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import DailyCare from '../../../src/pages/DailyCare.jsx'
@@ -8,6 +8,7 @@ import { http, HttpResponse } from 'msw'
 import { plantsApi } from '../../../src/api/plants'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate to assert button navigations
 const mockNavigate = vi.fn()
@@ -97,11 +98,12 @@ function renderPage(mode = 'manual') {
 test('shows tasks table with water indicators', async () => {
   // provide one plant that needs both water and measurement
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       {
         uuid: 'u1', id: 1, name: 'Aloe', latest_at: '2020-01-01T00:00:00',
       }
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'u1', days_offset: 0 }
@@ -125,11 +127,12 @@ test('shows tasks table with water indicators', async () => {
 test('renders empty state when no tasks are due', async () => {
   // All plants above water threshold and recently updated (future time) → no tasks
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       {
         uuid: 'x1', id: 1, name: 'Fern', latest_at: '2999-01-01T00:00:00',
       },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'x1', days_offset: 5 }
@@ -171,21 +174,22 @@ test("shows default error message when API rejects without message", async () =>
   )
   renderPage()
   const alert = await screen.findByRole('alert')
-  expect(alert).toHaveTextContent("Failed to load today's tasks")
+  expect(alert).toHaveTextContent("Failed to load plants")
   spy.mockRestore()
 })
 
 test('header actions: refresh reloads data; buttons navigate and show counts', async () => {
   // First response: two plants, one needs water
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       {
         uuid: 'a', id: 1, name: 'Aloe', latest_at: '2025-01-01T00:00:00',
       },
       {
         uuid: 'b', id: 2, name: 'Cactus', latest_at: '2025-01-01T00:00:00',
       },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'a', days_offset: 0 },
@@ -211,9 +215,10 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
 
   // Now change server response and click refresh to re-load
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'c', id: 3, name: 'New', latest_at: '2999-01-01T00:00:00' },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'c', days_offset: 10 }
@@ -226,11 +231,33 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
   expect(await screen.findByRole('note')).toHaveTextContent(/No tasks for today/i)
 })
 
+test('handle reload error (line 111) and refetch usage', async () => {
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  
+  // To trigger refetch, we can call the handleRefresh on PageHeader
+  server.use(
+    ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }])
+  )
+  renderPage()
+  await screen.findByRole('table')
+
+  // Now make reload fail
+  server.use(
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Fail' }, { status: 500 }))
+  )
+  const refreshBtn = screen.getByRole('button', { name: /refresh/i })
+  fireEvent.click(refreshBtn)
+  
+  await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith('Failed to reload approximations', expect.any(Error)))
+  consoleSpy.mockRestore()
+})
+
 test('missing approximation data results in no tasks', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'x', id: 10, name: 'Ivy', latest_at: '2020-01-01T00:00:00' },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
   )
   renderPage('vacation')
@@ -240,9 +267,10 @@ test('missing approximation data results in no tasks', async () => {
 
 test('missing latest_at results in no measurement icon and potentially needs water from approximation', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'm1', id: 20, name: 'Monstera' },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'm1', days_offset: 0 }
@@ -260,10 +288,11 @@ test('missing latest_at results in no measurement icon and potentially needs wat
 test('fallback rendering: water task from approximation and name/notes/location fallbacks', async () => {
   // One plant: has identify_hint and only measurement due; another: no names to force em-dash and reason fallback
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'p1', id: 11, identify_hint: 'Hint:', plant: 'LegacyName', location: 'Shelf' },
       { uuid: 'p2', id: 12, reason: 'Auto', scheduled_for: '2024-12-12T12:00:00' },
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'p1', days_offset: 0 },
@@ -337,9 +366,10 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
 
 test('bulk watering button does not show count when not in vacation mode', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'a', days_offset: 0 }
@@ -357,9 +387,10 @@ test('bulk watering button does not show count when not in vacation mode', async
 
 test('shows weight column and enables bulk measurement in manual mode', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
       { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
-    ])),
+    ]
+    ),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         { plant_uuid: 'a', days_offset: 10 } // Not needing water

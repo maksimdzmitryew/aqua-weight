@@ -1,5 +1,6 @@
 import React from 'react'
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import PlantsList from '../../../src/pages/PlantsList.jsx'
@@ -41,10 +42,45 @@ vi.mock('../../../src/components/IconButton.jsx', () => ({
   )
 }))
 
-function renderPage() {
+/** Helper: creates an MSW handler that simulates server-side pagination & filtering */
+function mockPlantsHandler(allPlants) {
+  return http.get('/api/plants', ({ request }) => {
+    const url = new URL(request.url)
+    const search = (url.searchParams.get('search') || '').trim().toLowerCase()
+    const limit = parseInt(url.searchParams.get('limit') || '20', 10)
+    const page = parseInt(url.searchParams.get('page') || '1', 10)
+    let filtered = allPlants
+    if (search) {
+      const num = Number(search)
+      if (!isNaN(num) && search !== '') {
+        filtered = allPlants.filter(p => {
+          const t = Number(p.recommended_water_threshold_pct)
+          return !isNaN(t) && t <= num
+        })
+      } else {
+        filtered = allPlants.filter(p =>
+          [p.name, p.notes, p.location, p.identify_hint].some(
+            v => typeof v === 'string' && v.toLowerCase().includes(search)
+          )
+        )
+      }
+    }
+    const start = (page - 1) * limit
+    const paged = filtered.slice(start, start + limit)
+    return HttpResponse.json({
+      items: paged,
+      total: filtered.length,
+      total_pages: Math.ceil(filtered.length / limit) || 0,
+      page, limit,
+      global_total: allPlants.length,
+    })
+  })
+}
+
+function renderPage(initialEntries = ['/']) {
   return render(
     <ThemeProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <PlantsList />
       </MemoryRouter>
     </ThemeProvider>
@@ -62,12 +98,12 @@ test('integrated: renders plants with various states and handles header actions'
   // u1 (Aloe) has approx freq 5, confidence 10, offset 1, virtual_water_retained_pct 75
   const opMode = localStorage.getItem('operationMode') || 'manual'
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'u1', name: 'Aloe', identify_hint: 'Spiky', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00', notes: 'N', location: 'Loc' },
       { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 40, frequency_days: 7 },
       { uuid: 'nf1', name: 'NoFreq', water_retained_pct: 20, recommended_water_threshold_pct: 30, frequency_days: undefined },
       { name: 'Plain', notes: 'No link', location: 'Somewhere', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
-    ])),
+    ]),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [
         {
@@ -134,7 +170,7 @@ test('integrated: renders plants with various states and handles header actions'
 test('navigation: handleView and handleEdit navigate with state', async () => {
   const plant = { uuid: 'nav1', name: 'Navigator', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([plant]))
+    mockPlantsHandler([plant])
   )
   renderPage()
   
@@ -163,7 +199,7 @@ test('ErrorNotice retry calls window.location.reload', async () => {
 
 test('EmptyState new plant button navigates to /plants/new', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([]))
+    mockPlantsHandler([])
   )
   renderPage()
   const emptyState = await screen.findByRole('note')
@@ -172,9 +208,75 @@ test('EmptyState new plant button navigates to /plants/new', async () => {
   expect(mockNavigate).toHaveBeenCalledWith('/plants/new')
 })
 
+test('clearing search query resets page and URL', async () => {
+  renderPage(['/plants?search=Aloe&page=2'])
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
+  const clearBtn = await screen.findByTitle(/clear filter/i)
+  await userEvent.click(clearBtn)
+  // First, the controlled input should clear immediately (setQuery path)
+  await waitFor(() => expect(screen.getByLabelText(/search plants/i)).toHaveValue(''), { timeout: 5000 })
+  // Then, the chip depending on URL param should disappear after setSearchParams
+  await waitFor(() => expect(screen.queryByTitle(/clear filter/i)).not.toBeInTheDocument(), { timeout: 5000 })
+  // Also wait for the new load to complete
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(), { timeout: 5000 })
+})
+
+test('drift notification handles refresh and dismiss', async () => {
+  const reloadSpy = vi.fn()
+  vi.stubGlobal('location', { ...window.location, reload: reloadSpy })
+  
+  try {
+    // 1. Initial load
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 2, total_pages: 0 }))
+    )
+    renderPage()
+    await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
+
+    // 2. Trigger drift via search
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 3, total_pages: 0 }))
+    )
+    const searchInput = screen.getByLabelText(/search plants/i)
+    fireEvent.change(searchInput, { target: { value: 'drift' } })
+
+    const notification = await screen.findByText(/plants list updated/i)
+    expect(notification).toBeInTheDocument()
+
+    // 3. Dismiss
+    const dismissBtn = screen.getByRole('button', { name: /dismiss/i })
+    fireEvent.click(dismissBtn)
+    await waitFor(() => expect(screen.queryByText(/plants list updated/i)).not.toBeInTheDocument())
+
+    // 4. Refresh (trigger again)
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 4, total_pages: 0 }))
+    )
+    const searchInput4 = await screen.findByLabelText(/search plants/i)
+    fireEvent.change(searchInput4, { target: { value: 'drift2' } })
+    // Ensure the new search query was applied and load finished
+    await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(), { timeout: 5000 })
+    const refreshBtn = await screen.findByRole('button', { name: /refresh/i }, { timeout: 5000 })
+    fireEvent.click(refreshBtn)
+    expect(reloadSpy).toHaveBeenCalled()
+
+  } finally {
+    vi.unstubAllGlobals()
+  }
+})
+
+test('EmptyState for search result with zero items (lines 349-357)', async () => {
+  server.use(
+    http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, total_pages: 0, global_total: 10 }))
+  )
+  renderPage(['/plants?search=Unknown'])
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
+  expect(await screen.findByText(/No plants found for "Unknown"/i)).toBeInTheDocument()
+})
+
 test('vacation mode styling without localstorage', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'v1', name: 'Vacation' }])),
+    mockPlantsHandler([{ uuid: 'v1', name: 'Vacation' }]),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }]
     }))
@@ -189,18 +291,42 @@ test('vacation mode styling without localstorage', async () => {
   expect(cell).not.toHaveStyle('background: #fecaca')
 })
 
+test('Pagination page change updates URL', async () => {
+  server.use(
+    mockPlantsHandler(Array(100).fill(0).map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })))
+  )
+  renderPage(['/plants?page=1&limit=20'])
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
+  
+  const nextBtn = screen.getAllByRole('button', { name: /next page/i })[0]
+  fireEvent.click(nextBtn)
+  
+  await waitFor(() => expect(screen.getAllByText(/Showing 21–40 of 100/i).length).toBeGreaterThan(0))
+})
+
+test('Pagination page size change resets to page 1', async () => {
+  server.use(
+    mockPlantsHandler(Array(100).fill(0).map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })))
+  )
+  renderPage(['/plants?page=3&limit=10'])
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
+  
+  const pageSizeSelect = await screen.findByLabelText(/per page/i)
+  fireEvent.change(pageSizeSelect, { target: { value: '20' } })
+  
+  // Should reset to page 1 and show 20 items
+  await waitFor(() => expect(screen.getAllByText(/Showing 1–20 of 100/i).length).toBeGreaterThan(0))
+})
 test('numeric search filters by threshold (<= query)', async () => {
   // Provide custom plants including thresholds to exercise numeric filter branch
   server.use(
-    http.get('/api/plants', () => {
-      return HttpResponse.json([
-        { uuid: 'a', name: 'Low', recommended_water_threshold_pct: 20 },
-        { uuid: 'b', name: 'Edge', recommended_water_threshold_pct: 30 },
-        { uuid: 'c', name: 'High', recommended_water_threshold_pct: 45 },
-        // Non-numeric threshold should be ignored for numeric filtering (NaN path)
-        { uuid: 'd', name: 'NonNum', recommended_water_threshold_pct: 'N/A' },
-      ])
-    })
+    mockPlantsHandler([
+      { uuid: 'a', name: 'Low', recommended_water_threshold_pct: 20 },
+      { uuid: 'b', name: 'Edge', recommended_water_threshold_pct: 30 },
+      { uuid: 'c', name: 'High', recommended_water_threshold_pct: 45 },
+      // Non-numeric threshold should be ignored for numeric filtering (NaN path)
+      { uuid: 'd', name: 'NonNum', recommended_water_threshold_pct: 'N/A' },
+    ])
   )
   renderPage()
 
@@ -213,15 +339,15 @@ test('numeric search filters by threshold (<= query)', async () => {
   fireEvent.change(search, { target: { value: '30' } })
 
   // Now only items with threshold <= 30 should be visible in the limited list
-  expect(screen.getByText('Low')).toBeInTheDocument()
+  await screen.findByText('Low')
   expect(screen.getByText('Edge')).toBeInTheDocument()
   // The one above threshold should be filtered out
-  expect(screen.queryByText('High')).not.toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByText('High')).not.toBeInTheDocument())
   // Non-numeric threshold should also not be included for numeric query
   expect(screen.queryByText('NonNum')).not.toBeInTheDocument()
 
-  // Meta text reflects filtered count out of total (now 4 with NonNum present)
-  expect(screen.getByText(/Showing 2 of 4/)).toBeInTheDocument()
+  // Meta text reflects filtered count (server-side pagination) — shown in top and bottom pagination
+  expect(screen.getAllByText(/1–2 of 2/).length).toBeGreaterThanOrEqual(1)
 })
 
 test('applies updatedPlant from router state without crashing (effect path exercised)', async () => {
@@ -241,11 +367,11 @@ test('applies updatedPlant from router state without crashing (effect path exerc
 
 test('reordering integration: handles drag-and-drop and move buttons', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
       { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
-    ])),
+    ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true }))
   )
 
@@ -279,9 +405,9 @@ test('reordering integration: handles drag-and-drop and move buttons', async () 
 test('delete flow: missing uuid shows saveError; API error shows error; success removes row', async () => {
   // 1) Missing uuid case
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
 
   render(
@@ -301,9 +427,9 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
 
   // 2) API error case
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'x1', name: 'X', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ])),
+    ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 }))
   )
 
@@ -324,9 +450,9 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
 
   // 3) Success removes row
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'y1', name: 'Y', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ])),
+    ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true }))
   )
   render(
@@ -349,7 +475,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
   
   const many = Array.from({ length: 25 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
   server.use(
-    http.get('/api/plants', () => HttpResponse.json(many))
+    mockPlantsHandler(many)
   )
 
   const { unmount } = renderPage()
@@ -358,7 +484,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
   // We expect 20 rows in the body
   const bodyRows = screen.getAllByRole('row').slice(1)
   expect(bodyRows.length).toBe(20)
-  expect(screen.getByText(/Showing 20 of 25/)).toBeInTheDocument()
+  expect(screen.getAllByText(/1–20 of 25/).length).toBeGreaterThanOrEqual(1)
   unmount()
 })
 
@@ -366,11 +492,11 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
 
 test('text search filters by name/notes/location and disables drag & move buttons', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'n1', identify_hint: 'Hint', name: 'Alpha', notes: 'Sunny spot', location: 'Kitchen', water_retained_pct: 35, recommended_water_threshold_pct: 30 },
       { uuid: 'n2', identify_hint: '', name: 'Beta', notes: 'Shady', location: 'Balcony', water_retained_pct: 50, recommended_water_threshold_pct: 30 },
       { uuid: 'n3', name: 'Gamma', notes: 'Dry area', location: 'Living room', water_retained_pct: 45, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
 
   render(
@@ -417,9 +543,9 @@ test('treats non-array response as empty and shows EmptyState', async () => {
 
 test('delete failure with null/empty error shows generic message branch', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'd1', name: 'Del', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
 
   render(
@@ -441,13 +567,13 @@ test('delete failure with null/empty error shows generic message branch', async 
   spy.mockRestore()
 })
 
-test('filter handles non-numeric thresholds and persistOrder early-return when missing uuid', async () => {
+test('persistOrder early-return when row has missing uuid', async () => {
   // Include an item without uuid to trigger persistOrder early return
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'f1', name: 'Num', notes: 'note', location: 'loc', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { name: 'NonNum', notes: 'abc', location: 'xyz', water_retained_pct: 15, recommended_water_threshold_pct: 'N/A' },
-    ])),
+    ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true }))
   )
 
@@ -459,20 +585,12 @@ test('filter handles non-numeric thresholds and persistOrder early-return when m
     </ThemeProvider>
   )
 
-  // Use text search branch (non-numeric) to include both by notes text
-  const search = await screen.findByRole('searchbox', { name: /search plants/i })
-  fireEvent.change(search, { target: { value: 'abc' } })
-  
-  // Only NonNum should match by notes
-  await screen.findByText('NonNum')
-  expect(screen.queryByText('Num')).not.toBeInTheDocument()
+  // Wait for both items to load
+  await screen.findByText('Num')
+  expect(screen.getByText('NonNum')).toBeInTheDocument()
 
-  // Clear query to enable reordering controls
-  fireEvent.change(search, { target: { value: '' } })
-
-  // Attempt to move item with missing uuid (NonNum) down or up and end drag to trigger persistOrder early return path
+  // Drag the second row (missing uuid) over the first to trigger persistOrder early return path
   const rows = () => screen.getAllByRole('row').slice(1)
-  // Drag the second row (missing uuid) over the first
   const second = rows()[1]
   const first = rows()[0]
   const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
@@ -487,11 +605,11 @@ test('filter handles non-numeric thresholds and persistOrder early-return when m
 test('onDragOver early-return branches and onDragEnd with null dragIndex do not persist or reorder', async () => {
   // Arrange three predictable items
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
       { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
-    ])),
+    ]),
     http.put('/api/plants/order', async ({ request }) => {
       const body = await request.json()
       if (Array.isArray(body?.ordered_ids)) {
@@ -543,9 +661,9 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
   const styleSpy = vi.spyOn(mod, 'getWaterRetainCellStyle').mockReturnValueOnce(undefined)
   // Re-require PlantsList after mocking? Not necessary because component imports function at render call time
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 's1', name: 'Styled', water_retained_pct: 12, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
   render(
     <ThemeProvider>
@@ -564,9 +682,9 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
 
 test('Cancel in delete dialog triggers closeDialog without deleting', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'c1', name: 'Cancelable', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
   render(
     <ThemeProvider>
@@ -585,10 +703,10 @@ test('Cancel in delete dialog triggers closeDialog without deleting', async () =
 
 test('persistOrder generic error branch when reorder rejects with empty error object', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-    ]))
+    ])
   )
 
   const spy = vi.spyOn(plantsApi, 'reorder').mockRejectedValueOnce({})
@@ -674,9 +792,9 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
 test('logs error and continues when approximations fail to load', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    mockPlantsHandler([
       { uuid: 'u1', name: 'Aloe' }
-    ])),
+    ]),
     http.get('/api/measurements/approximation/watering', () => 
       HttpResponse.json({ message: 'Approximation error' }, { status: 500 })
     )
@@ -693,7 +811,7 @@ test('logs error and continues when approximations fail to load', async () => {
 
 test('handles null/missing approximation items gracefully', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }])),
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null }))
   )
   renderPage()
@@ -703,7 +821,7 @@ test('handles null/missing approximation items gracefully', async () => {
 test('applies vacation mode warning style for negative days_offset', async () => {
   localStorage.setItem('operationMode', 'vacation')
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([{ uuid: 'u1', name: 'Aloe' }])),
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
       items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }]
     }))

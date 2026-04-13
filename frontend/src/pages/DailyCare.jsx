@@ -24,7 +24,7 @@ function hoursSinceLocal(tsString) {
 
 export default function DailyCare() {
   const navigate = useNavigate()
-  const operationMode = typeof localStorage !== 'undefined' ? (typeof window !== 'undefined' && window.__VITEST_STUB_OPERATION_MODE__ ? window.__VITEST_STUB_OPERATION_MODE__(hoursSinceLocal) : localStorage.getItem('operationMode')) : null
+  const operationMode = (typeof localStorage !== 'undefined' ? (typeof window !== 'undefined' && window.__VITEST_STUB_OPERATION_MODE__ ? window.__VITEST_STUB_OPERATION_MODE__(hoursSinceLocal) : localStorage.getItem('operationMode')) : null) || 'manual'
 
   // Use shared usePlants hook for consistent data fetching
   const { plants: allPlants, loading: plantsLoading, error: plantsError } = usePlants()

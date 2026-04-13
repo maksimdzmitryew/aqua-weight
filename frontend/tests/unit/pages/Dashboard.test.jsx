@@ -56,7 +56,7 @@ describe('pages/Dashboard', () => {
 
   test('renders dashboard layout and welcome text', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
     render(
       <ThemeProvider>
@@ -76,7 +76,7 @@ describe('pages/Dashboard', () => {
   test('shows loader then empty state when no plants (covers early return in measurements loader)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
     const listByPlantSpy = vi.spyOn(measurementsApi, 'listByPlant')
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
 
@@ -124,7 +124,7 @@ describe('pages/Dashboard', () => {
       recommended_water_threshold_pct: 40,
     }
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [plant], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
 
     // Measurements contain a repotting marker that should be excluded and daily collapse
     const meas = [
@@ -191,7 +191,7 @@ describe('pages/Dashboard', () => {
 
   test('shows "Not enough data" when <= 1 point', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-2', name: 'Monstera' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-2', name: 'Monstera' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     // Return single valid point only -> sparkline not shown
     const { measurementsApi } = await import('../../../src/api/measurements')
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
@@ -220,7 +220,7 @@ describe('pages/Dashboard', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // One plant returned
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-err', name: 'Cactus' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-err', name: 'Cactus' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     // Measurements endpoint fails for that plant -> inner catch should return [uid, []]
     vi.spyOn(measurementsApi, 'listByPlant').mockRejectedValueOnce(new Error('fetch failed'))
 
@@ -247,7 +247,7 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
 
     // Provide at least one plant so the measurements loader runs
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-x', name: 'Fern' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-x', name: 'Fern' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
 
     // Force Promise.all to throw to hit the outer catch block
     const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => {
@@ -285,7 +285,7 @@ describe('pages/Dashboard', () => {
       recommended_water_threshold_pct: 50,
     }
     // Include a plant without uuid to exercise the early return [null, []]
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ name: 'NoId' }, plantOk])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ name: 'NoId' }, plantOk], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
 
     // Measurements for the valid plant: include one invalid date record to be filtered out
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
@@ -322,7 +322,7 @@ describe('pages/Dashboard', () => {
 
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-4', name: 'Basil', min_dry_weight_g: 10, max_water_weight_g: 10, recommended_water_threshold_pct: 20 }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-4', name: 'Basil', min_dry_weight_g: 10, max_water_weight_g: 10, recommended_water_threshold_pct: 20 }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-05-02 10:00:00', measured_weight_g: 30 },
       { measured_at: '2024-05-01 10:00:00', measured_weight_g: 25 },
@@ -381,7 +381,7 @@ describe('pages/Dashboard', () => {
     // Start with persisted off state
     localStorage.setItem('chart.showSuggestedInterval', '0')
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
     render(
       <ThemeProvider>
@@ -404,9 +404,9 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [
       { uuid: 'p-w', name: 'Weighty', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    ], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     // Include an entry with invalid weight but valid date to hit the !isFinite(w) branch
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-06-02 10:00:00', measured_weight_g: 10 },
@@ -436,9 +436,9 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [
       { uuid: 'p-day', name: 'DayKey', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    ], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     // Include one entry with measured_at missing; it should be ignored in per-day pass
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-09-02 10:00:00', measured_weight_g: 10 },
@@ -462,7 +462,7 @@ describe('pages/Dashboard', () => {
 
   test('outer measurements catch without message uses default text (covers 143 default branch)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-outer', name: 'Outer' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-outer', name: 'Outer' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
 
     const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => { throw {} })
 
@@ -487,7 +487,7 @@ describe('pages/Dashboard', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // One plant with two valid points to render chart and controls
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-ls', name: 'Persist' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-ls', name: 'Persist' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-07-02 10:00:00', measured_weight_g: 2 },
       { measured_at: '2024-07-01 10:00:00', measured_weight_g: 1 },
@@ -531,7 +531,7 @@ describe('pages/Dashboard', () => {
     })
 
     const plant = { uuid: 'p-key', name: 'KeyNav' }
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [plant], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-01-02 10:00:00', measured_weight_g: 20 },
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: 10 },
@@ -600,9 +600,9 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [
       { uuid: 'p-dark', name: 'Darkly' },
-    ])
+    ], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-03-02 10:00:00', measured_weight_g: 10 },
       { measured_at: '2024-03-01 10:00:00', measured_weight_g: 9 },
@@ -635,9 +635,9 @@ describe('pages/Dashboard – additional coverage', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // Return one plant with valid series so the controls are visible and chart renders
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [
       { uuid: 'p-grid', name: 'Grid', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    ], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-01-02 10:00:00', measured_weight_g: 2 },
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: 1 },
@@ -673,7 +673,7 @@ describe('pages/Dashboard – additional coverage', () => {
 
   test('plants loader returns non-array and defaults to [] (covers branch at line 50)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce(null)
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [], total: 0, total_pages: 0, page: 1, limit: 100, global_total: 0 })
 
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
 
@@ -694,9 +694,9 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [
       { uuid: 'p-ls', name: 'LS', min_dry_weight_g: 5, max_water_weight_g: 5, recommended_water_threshold_pct: 20 },
-    ])
+    ], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-07-02 10:00:00', measured_weight_g: 10 },
       { measured_at: '2024-07-01 10:00:00', measured_weight_g: 9 },
@@ -735,7 +735,7 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-empty', name: 'Empty' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [{ uuid: 'p-empty', name: 'Empty' }], total: 1, total_pages: 1, page: 1, limit: 100, global_total: 1 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: 'bad-date', measured_weight_g: 10 }, // invalid time
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: NaN }, // invalid weight
@@ -854,7 +854,7 @@ describe('pages/Dashboard – refLines toggle branches', () => {
       max_water_weight_g: 10,
       recommended_water_threshold_pct: 50,
     }
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({ items: [plant], total: 0, total_pages: 1, page: 1, limit: 100, global_total: 0 })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-06-02 10:00:00', measured_weight_g: 22 },
       { measured_at: '2024-06-01 10:00:00', measured_weight_g: 20 },

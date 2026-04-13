@@ -115,8 +115,8 @@ export default function PlantsList() {
           setPlants(plantsData)
         }
 
-        setTotal(response.total)
-        setTotalPages(response.total_pages)
+        setTotal(response.total ?? 0)
+        setTotalPages(response.total_pages ?? 0)
       } catch (e) {
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
@@ -266,6 +266,7 @@ export default function PlantsList() {
       }
       await plantsApi.remove(uuid)
       setPlants((prev) => prev.filter((it) => it.uuid !== toDelete.uuid))
+      setTotal((prev) => Math.max(0, (prev ?? 0) - 1))
     } catch (e) {
       setSaveError(e?.message || 'Failed to delete plant')
     } finally {

@@ -68,6 +68,10 @@ export const handlers = [
     return HttpResponse.json([])
   }),
 
+  http.delete('/api/measurements/:id', () => {
+    return HttpResponse.json({ ok: true })
+  }),
+
   // Measurements: watering
   http.post('/api/measurements/watering', async ({ request }) => {
     const payload = await request.json()
