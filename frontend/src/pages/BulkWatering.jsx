@@ -159,9 +159,16 @@ export default function BulkWatering() {
       // Revert plant data in list to previous state (approximate)
       setPlants(prev => prev.map(p => {
         if (p.uuid === plantId) {
+          // Use explicit if/else to help coverage tools register both branches
+          let revertedLoss
+          if (Object.prototype.hasOwnProperty.call(originalWaterLoss, plantId)) {
+            revertedLoss = originalWaterLoss[plantId]
+          } else {
+            revertedLoss = p.water_loss_total_pct
+          }
           return {
             ...p,
-            water_loss_total_pct: originalWaterLoss[plantId] !== undefined ? originalWaterLoss[plantId] : p.water_loss_total_pct,
+            water_loss_total_pct: revertedLoss,
             water_retained_pct: null,
             latest_at: p.latest_at,
           }
