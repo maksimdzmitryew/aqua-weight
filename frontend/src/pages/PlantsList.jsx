@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
+import { flushSync } from 'react-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
 import IconButton from '../components/IconButton.jsx'
@@ -160,7 +161,9 @@ export default function PlantsList() {
   }
 
   const handleSearchChange = (newQuery) => {
-    setQuery(newQuery)
+    // Ensure the controlled input clears immediately before URL updates
+    // This avoids rare races in tests/environments where router updates are delayed
+    flushSync(() => setQuery(newQuery))
     const newParams = new URLSearchParams(searchParams)
     if (newQuery.trim()) {
       newParams.set('search', newQuery.trim())

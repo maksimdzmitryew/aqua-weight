@@ -1,0 +1,41 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]: Plants
+    - navigation [ref=e6]:
+      - link "Overview" [ref=e7] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Daily Care" [ref=e8] [cursor=pointer]:
+        - /url: /daily
+      - link "Plants" [ref=e9] [cursor=pointer]:
+        - /url: /plants
+      - link "Calibration" [ref=e10] [cursor=pointer]:
+        - /url: /calibration
+      - link "Locations" [ref=e11] [cursor=pointer]:
+        - /url: /locations
+      - link "Settings" [ref=e12] [cursor=pointer]:
+        - /url: /settings
+    - link "← Back to Home" [ref=e14] [cursor=pointer]:
+      - /url: /
+  - main [ref=e15]:
+    - generic [ref=e16]:
+      - heading "Plants" [level=1] [ref=e17]
+      - generic [ref=e18]:
+        - button "← Dashboard" [ref=e19] [cursor=pointer]
+        - button "+ Create" [ref=e20] [cursor=pointer]
+    - paragraph [ref=e21]: List of all available plants.
+    - generic [ref=e23]:
+      - searchbox "Search plants" [ref=e24]: NonExistentPlantNameThatWillNotBeFound
+      - button "Clear search" [ref=e25] [cursor=pointer]: ×
+    - generic [ref=e26]:
+      - generic [ref=e27]:
+        - text: "Filtered by:"
+        - strong [ref=e28]: "\"NonExistentPlantNameThatWillNotBeFound\""
+      - button "Clear filter" [ref=e29] [cursor=pointer]: ×
+    - note [ref=e30]:
+      - generic [ref=e31]: No plants found for "NonExistentPlantNameThatWillNotBeFound"
+      - generic [ref=e32]: Try a different search term or clear the filter to see all plants.
+      - button "Clear search" [ref=e33] [cursor=pointer]
+```
