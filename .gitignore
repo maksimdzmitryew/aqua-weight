@@ -43,7 +43,7 @@ verbose_report.txt
 *coverage*
 *report*
 lcov.info
-frontend/test-results/
+
 # Log files
 npm-debug.log*
 yarn-debug.log*
