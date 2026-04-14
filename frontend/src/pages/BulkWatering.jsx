@@ -331,7 +331,7 @@ export default function BulkWatering() {
         </span>
       </div>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div className="text-danger">{error}</div>}
 
       {!loading && !error && (

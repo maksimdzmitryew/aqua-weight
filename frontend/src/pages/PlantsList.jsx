@@ -291,23 +291,25 @@ export default function PlantsList() {
 
       <p>List of all available plants.</p>
 
-      {loading && <Loader label="Loading plants…" />}
+      {loading && <Loader label="Loading plants..." />}
       {error && !loading && <ErrorNotice message={error} onRetry={() => window.location.reload()} />}
       {saveError && !loading && <ErrorNotice message={saveError} />}
 
-      {!loading && !error && (
-        <>
-          {/* Search field - always visible regardless of results */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-            <SearchField
-              value={query}
-              onChange={handleSearchChange}
-              placeholder="Search name, notes, location… or type a number to filter by threshold"
-              ariaLabel="Search plants"
-              autoFocus={false}
-            />
-          </div>
+      {/* Search field - always visible regardless of results or loading state */}
+      {!error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+          <SearchField
+            value={query}
+            onChange={handleSearchChange}
+            placeholder="Search name, notes, location... or type a number to filter by threshold"
+            ariaLabel="Search plants"
+            autoFocus={false}
+          />
+        </div>
+      )}
 
+      {!error && (
+        <div style={loading ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
           {/* Active filter indicator */}
           {searchQuery && (
             <div style={{
@@ -360,9 +362,11 @@ export default function PlantsList() {
               </EmptyState>
             ) : (
               // Truly empty database - no plants exist at all
-              <EmptyState title="No plants" description="Get started by creating your first plant.">
-                <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>New plant</button>
-              </EmptyState>
+              !loading && (
+                <EmptyState title="No plants" description="Get started by creating your first plant.">
+                  <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>New plant</button>
+                </EmptyState>
+              )
             )
           ) : (
             <div className="overflow-x-auto">
@@ -535,7 +539,7 @@ export default function PlantsList() {
             />
           </div>
           )}
-        </>
+        </div>
       )}
       <ConfirmDialog
         open={confirmOpen}

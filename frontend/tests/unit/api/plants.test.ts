@@ -7,7 +7,7 @@ describe('plantsApi', () => {
     vi.restoreAllMocks()
   })
 
-  it('list calls apiClient.get with /plants?page=…&limit=… and forwards signal, returning data', async () => {
+  it('list calls apiClient.get with /plants?page=...&limit=... and forwards signal, returning data', async () => {
     const payload = { items: [{ uuid: 'p1' }], total: 1, total_pages: 1 }
     const spy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce(payload as any)
 

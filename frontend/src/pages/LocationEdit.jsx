@@ -120,7 +120,7 @@ export default function LocationEdit() {
         <Link to="/locations">← Back to Locations</Link>
       </p>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
 
       {!loading && !error && loc && (

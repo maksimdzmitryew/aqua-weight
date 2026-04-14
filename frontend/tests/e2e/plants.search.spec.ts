@@ -31,18 +31,21 @@ test.describe('Plants search & filter', () => {
     await expect(rows).toHaveCount(0);
 
     // Clear
-    const clear = page.getByRole('button', { name: /clear search/i });
+    const clear = page.getByLabel('Clear search');
     await clear.click();
     await expect(rows).toHaveCount(initialRows);
 
     // Numeric input: ensure it applies a filter without assuming specific seed data
     await search.fill('30');
+    // Wait for the loader to disappear to ensure the table content is updated and stable
+    await expect(page.getByRole('status', { name: /loading/i })).not.toBeVisible();
+    
     // Wait for the table to settle and then ensure count is between 0 and initialRows
     const rowsAfterNumeric = await rows.count();
     expect(rowsAfterNumeric).toBeGreaterThanOrEqual(0);
     expect(rowsAfterNumeric).toBeLessThanOrEqual(initialRows);
     // Cross-check the "Showing X of Y" meta reflects the same filtered count
-    const meta = page.getByText(/Showing .* of .* plants?/i);
+    const meta = page.getByText(/Showing .* of .* plants?/i).first();
     await expect(meta).toBeVisible();
     const metaText = await meta.innerText();
     const match = metaText.match(/Showing\s+(\d+)\s+of\s+(\d+)/i);

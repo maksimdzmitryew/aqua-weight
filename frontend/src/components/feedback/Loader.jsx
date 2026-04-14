@@ -4,10 +4,10 @@ import React from 'react'
  * Loader
  * Small, reusable loading indicator with accessible semantics.
  * Props:
- * - label?: string (default: "Loading…")
+ * - label?: string (default: "Loading...")
  * - inline?: boolean (default: false) — if true, renders inline-flex; else block with spacing
  */
-export default function Loader({ label = 'Loading…', inline = false }) {
+export default function Loader({ label = 'Loading...', inline = false }) {
   const style = {
     display: inline ? 'inline-flex' : 'flex',
     alignItems: 'center',

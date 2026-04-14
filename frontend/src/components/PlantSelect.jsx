@@ -57,7 +57,7 @@ export default function PlantSelect({ form, name, label, required, disabled, val
         {...rest}
       >
         <option value="">
-          {loading ? 'Loading plants...' : error ? 'Error loading plants' : 'Select plant…'}
+          {loading ? 'Loading plants...' : error ? 'Error loading plants' : 'Select plant...'}
         </option>
         {plants.map(p => (
           <option key={p.uuid} value={p.uuid}>

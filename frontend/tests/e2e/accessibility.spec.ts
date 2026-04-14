@@ -156,8 +156,8 @@ test.describe('Keyboard Accessibility', () => {
     expect(found, 'Should find search input via keyboard').toBe(true);
     
     await page.keyboard.type('NonExistentPlantNameThatWillNotBeFound');
-    // The list should update to show no data rows
-    await expect(page.locator('table tbody tr')).toHaveCount(0);
+    // The list should update to show empty state instead of table
+    await expect(page.getByRole('note')).toContainText(/No plants found/i);
     
     // Clear search using keyboard
     // Some systems use Command+A, some Control+A

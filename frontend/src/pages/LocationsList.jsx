@@ -133,7 +133,7 @@ export default function LocationsList() {
 
       <p>List of all available locations fetched from the API.</p>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div className="text-danger">{error}</div>}
       {saveError && !loading && <div className="text-danger">{saveError}</div>}
 

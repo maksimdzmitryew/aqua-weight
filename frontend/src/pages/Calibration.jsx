@@ -91,7 +91,7 @@ export default function Calibration() {
       <h1 style={{ marginTop: 0 }}>Calibration</h1>
       <p>Use this section to review watering events that did not reach 100% (min dry + max water retained) after repotting.</p>
 
-      {loading && <Loader message="Loading plants…" />}
+      {loading && <Loader message="Loading plants..." />}
       {!loading && error && <ErrorNotice message={error} />}
       {!loading && !error && items.length === 0 && (
         <EmptyState title="No plants found" subtitle="Create a plant to start calibrating." />
@@ -224,7 +224,7 @@ export default function Calibration() {
                           disabled={!canCorrect || busyPlant === plantId}
                           onClick={() => handleCorrectOverfill(p)}
                         >
-                          {busyPlant === plantId ? 'Correcting…' : 'Correct overfill (since repotting)'}
+                          {busyPlant === plantId ? 'Correcting...' : 'Correct overfill (since repotting)'}
                         </button>
                       </div>
                     )

@@ -120,7 +120,7 @@ export default function PlantDetails() {
         </div>
       </div>
 
-      {loading && <Loader label="Loading plant…" />}
+      {loading && <Loader label="Loading plant..." />}
       {error && !loading && <ErrorNotice message={error} />}
 
       {plant && !loading && !error && (
@@ -142,7 +142,7 @@ export default function PlantDetails() {
 
           <div className="mt-4">
             <h3 className="mt-0">Measurements</h3>
-            {measLoading && <Loader label="Loading measurements…" />}
+            {measLoading && <Loader label="Loading measurements..." />}
             {measError && !measLoading && <ErrorNotice message={measError} onRetry={fetchMeasurements} />}
             {!measLoading && !measError && (
               measurements.length === 0 ? (

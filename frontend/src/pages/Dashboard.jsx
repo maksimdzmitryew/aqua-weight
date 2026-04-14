@@ -206,7 +206,7 @@ export default function Dashboard() {
         </label>
       </div>
 
-      {loading && <Loader text="Loading plants..." />}
+      {loading && <Loader label="Loading dashboard..." />}
       {error && <ErrorNotice message={error} />}
 
       {!loading && !error && !hasPlants && (
@@ -255,7 +255,7 @@ export default function Dashboard() {
               >
                 <div style={{ fontWeight: 600, marginBottom: 8 }}>{p.name}</div>
                 {seriesLoading && !pts.length ? (
-                  <Loader text="Loading..." />
+                  <Loader label="Loading..." />
                 ) : pts.length > 1 ? (
                   <Sparkline
                     key={`spark-${p.uuid}-${chartsPerRow}`}

@@ -182,7 +182,7 @@ export default function PlantEdit() {
         <Link to="/plants">← Back to Plants</Link>
       </p>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
 
       {!loading && !error && plant && (

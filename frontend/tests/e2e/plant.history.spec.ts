@@ -49,7 +49,7 @@ test.describe('Plant History Management', () => {
     await page.getByText('Seed Fern').click();
     
     // Click "Watering" quick action
-    await page.getByRole('button', { name: /watering/i }).click();
+    await page.getByRole('button', { name: 'Watering for Seed Fern' }).click();
     
     // Should navigate to watering form with plant preselected
     await expect(page).toHaveURL(/\/measurement\/watering\?plant=/);
@@ -59,7 +59,7 @@ test.describe('Plant History Management', () => {
     await page.goBack();
     
     // Click "Repotting" quick action
-    await page.getByRole('button', { name: /repotting/i }).click();
+    await page.getByRole('button', { name: 'Repotting for Seed Fern' }).click();
     await expect(page).toHaveURL(/\/measurement\/repotting\?plant=/);
   });
 });

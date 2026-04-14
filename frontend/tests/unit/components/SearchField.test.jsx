@@ -11,7 +11,7 @@ describe('SearchField', () => {
     const input = screen.getByRole('searchbox', { name: 'Search' })
     expect(input).toBeInTheDocument()
     // Default placeholder
-    expect(input).toHaveAttribute('placeholder', 'Search…')
+    expect(input).toHaveAttribute('placeholder', 'Search...')
 
     // Clear button exists but is disabled when value is empty
     const clearBtn = screen.getByRole('button', { name: 'Clear search' })

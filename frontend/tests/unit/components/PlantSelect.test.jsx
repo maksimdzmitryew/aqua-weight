@@ -110,7 +110,7 @@ describe('components/PlantSelect', () => {
     // No options should be rendered besides the default one
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(1)
-    expect(options[0].textContent).toBe('Select plant…')
+    expect(options[0].textContent).toBe('Select plant...')
   })
 
   test('error with empty message uses fallback branch on line 34', async () => {

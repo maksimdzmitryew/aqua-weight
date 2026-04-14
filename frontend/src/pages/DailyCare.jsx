@@ -135,7 +135,7 @@ export default function DailyCare() {
       </div>
       <p>Today's suggested care actions for your plants. We highlight those that need watering according to the approximation schedule.</p>
 
-      {loading && <Loader label="Loading tasks…" />}
+      {loading && <Loader label="Loading tasks..." />}
       {error && !loading && <ErrorNotice message={error} onRetry={load} />}
 
       {!loading && !error && (

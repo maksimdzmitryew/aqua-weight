@@ -16,13 +16,19 @@ test.describe('Navigation & Error Resilience', () => {
 
   test('API failure states: 500 error visibility', async ({ page }) => {
     // Mock API to return 500
-    await page.route('**/api/plants', route => route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      body: JSON.stringify({ detail: 'Internal Server Error' }),
-    }));
+    await page.route('**', route => {
+      if (route.request().url().includes('/api/plants')) {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Internal Server Error' }),
+        });
+      }
+      return route.continue();
+    });
 
-    await page.goto('/dashboard', { waitUntil: 'commit' });
+    await page.goto('/dashboard');
+    await expect(page.locator('[role="alert"]')).toBeVisible();
     await expect(page.getByText(/internal server error/i)).toBeVisible();
   });
 });
