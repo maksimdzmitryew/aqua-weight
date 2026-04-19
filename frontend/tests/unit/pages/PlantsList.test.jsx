@@ -1,7 +1,7 @@
 import React from 'react'
-import { render, screen, fireEvent, within, waitFor, waitForElementToBeRemoved } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor, waitForElementToBeRemoved, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Link } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import PlantsList from '../../../src/pages/PlantsList.jsx'
 import { server } from '../msw/server'
@@ -89,6 +89,7 @@ function renderPage(initialEntries = ['/']) {
 
 // Ensure MSW handlers and sessionStorage are reset after each test in this file to avoid leaking state
 afterEach(() => {
+  cleanup()
   server.resetHandlers()
   sessionStorage.clear()
   mockNavigate.mockClear()
@@ -272,6 +273,12 @@ test('EmptyState for search result with zero items (lines 349-357)', async () =>
   renderPage(['/plants?search=Unknown'])
   await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
   expect(await screen.findByText(/No plants found for "Unknown"/i)).toBeInTheDocument()
+
+  // Click "Clear search" button to cover the function on line 359
+  const clearBtn = screen.getByText('Clear search')
+  fireEvent.click(clearBtn)
+  // The URL search query should clear, which eventually triggers a reload without the query
+  await waitFor(() => expect(screen.queryByText(/No plants found for "Unknown"/i)).not.toBeInTheDocument())
 })
 
 test('vacation mode styling without localstorage', async () => {
@@ -833,6 +840,111 @@ test('applies vacation mode warning style for negative days_offset', async () =>
     // Next watering cell is the 4th cell (index 3)
     const nextWateringCell = within(row).getAllByRole('cell')[3]
     expect(nextWateringCell).toHaveStyle('background: #fecaca')
+  } finally {
+    localStorage.removeItem('operationMode')
+  }
+})
+
+
+test('applies updatedPlant from router state - FULL coverage', async () => {
+  server.use(
+    mockPlantsHandler([
+      { uuid: 'u1', name: 'Original Name', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 },
+      { uuid: 'u2', name: 'Other Plant', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }
+    ])
+  )
+  
+  render(
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/plants']}>
+        <Link to="/plants" state={{ updatedPlant: { uuid: 'u1', name: 'Updated Name', water_retained_pct: 50, recommended_water_threshold_pct: 30 } }}>Trigger Update</Link>
+        <PlantsList />
+      </MemoryRouter>
+    </ThemeProvider>
+  )
+  
+  await screen.findByText('Original Name')
+  await screen.findByText('Other Plant')
+  
+  // Click the link to trigger the updatedPlant effect when plants are already in state
+  fireEvent.click(screen.getByText('Trigger Update'))
+  
+  await screen.findByText('Updated Name')
+  // u2 should still be Other Plant (covers the else branch of the ternary in map)
+  await screen.findByText('Other Plant')
+})
+
+test('integrated: line 272 coverage - handles total update and Math.max', async () => {
+  server.use(
+    mockPlantsHandler([{ uuid: 'p1', name: 'P1', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }]),
+    http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true }))
+  )
+
+  renderPage()
+  
+  await screen.findByText('P1')
+  const deleteBtn = await screen.findByRole('button', { name: /delete plant p1/i })
+  fireEvent.click(deleteBtn)
+  
+  const dlg = await screen.findByRole('dialog')
+  const confirmBtn = within(dlg).getByRole('button', { name: /^Delete$/ })
+  fireEvent.click(confirmBtn)
+
+  await waitForElementToBeRemoved(() => screen.queryByText('P1'))
+})
+
+test('integrated: line 274 coverage - handles delete error without message', async () => {
+  server.use(
+    mockPlantsHandler([{ uuid: 'err1', name: 'ErrPlant', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }])
+  )
+  // Force plantsApi.remove to throw an error with empty message
+  const spy = vi.spyOn(plantsApi, 'remove').mockRejectedValueOnce({ message: '' })
+
+  renderPage()
+  await screen.findByText('ErrPlant')
+  const deleteBtn = await screen.findByRole('button', { name: /delete plant errplant/i })
+  fireEvent.click(deleteBtn)
+  const dlg = await screen.findByRole('dialog')
+  const confirmBtn = within(dlg).getByRole('button', { name: /^Delete$/ })
+  fireEvent.click(confirmBtn)
+
+  // Should show generic error message
+  expect(await screen.findByRole('alert')).toHaveTextContent(/failed to delete plant/i)
+  spy.mockRestore()
+})
+
+test('integrated: line 437 coverage - badge titles', async () => {
+  try {
+    // 1) Manual Mode
+    localStorage.setItem('operationMode', 'manual')
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({
+        items: [{ uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30 }],
+        total: 1, global_total: 1, total_pages: 1, page: 1, limit: 20
+      })),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+    )
+
+    const { unmount } = renderPage()
+    const badge1 = await screen.findByTitle('Needs water based on threshold')
+    expect(badge1).toHaveTextContent(/needs water/i)
+    unmount()
+
+    // 2) Vacation Mode
+    localStorage.setItem('operationMode', 'vacation')
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({
+        items: [{ uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30 }],
+        total: 1, global_total: 1, total_pages: 1, page: 1, limit: 20
+      })),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
+        items: [{ plant_uuid: 'p2', virtual_water_retained_pct: 5 }]
+      }))
+    )
+
+    renderPage()
+    const badge2 = await screen.findByTitle('Needs water based on approximation')
+    expect(badge2).toHaveTextContent(/needs water/i)
   } finally {
     localStorage.removeItem('operationMode')
   }
