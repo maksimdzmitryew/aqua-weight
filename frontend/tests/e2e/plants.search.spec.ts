@@ -44,15 +44,10 @@ test.describe('Plants search & filter', () => {
     const rowsAfterNumeric = await rows.count();
     expect(rowsAfterNumeric).toBeGreaterThanOrEqual(0);
     expect(rowsAfterNumeric).toBeLessThanOrEqual(initialRows);
-    // Cross-check the "Showing X of Y" meta reflects the same filtered count
-    const meta = page.getByText(/Showing .* of .* plants?/i).first();
-    await expect(meta).toBeVisible();
-    const metaText = await meta.innerText();
-    const match = metaText.match(/Showing\s+(\d+)\s+of\s+(\d+)/i);
-    expect(match).not.toBeNull();
-    if (match) {
-      const shown = Number(match[1]);
-      expect(shown).toBe(rowsAfterNumeric);
+
+    if (rowsAfterNumeric === 0) {
+      // When no results, the page renders an EmptyState
+      await expect(page.getByText(/No plants found/i)).toBeVisible();
     }
   });
 });

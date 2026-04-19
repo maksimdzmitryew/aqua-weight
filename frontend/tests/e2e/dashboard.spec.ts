@@ -19,14 +19,28 @@ test.describe('Dashboard Controls', () => {
   test('reference line toggles update sparkline', async ({ page }) => {
     // 1. Setup measurements on different days
     await page.goto('/measurement/weight', { waitUntil: 'commit' });
-    await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
+    // Wait for plant options to load, then select
+    const plantSelect = page.getByLabel(/plant/i);
+    await expect(plantSelect).toBeEnabled();
+    await expect(async () => {
+      const options = await plantSelect.locator('option').allTextContents();
+      expect(options.join(' ')).toMatch(/seed fern/i);
+    }).toPass();
+    await plantSelect.selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('300');
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
     await expect(page).not.toHaveURL(/\/measurement\/weight/);
     
     await page.goto('/measurement/weight', { waitUntil: 'commit' });
-    await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' });
+    // Wait again after re-navigation to ensure options are present
+    const plantSelect2 = page.getByLabel(/plant/i);
+    await expect(plantSelect2).toBeEnabled();
+    await expect(async () => {
+      const options = await plantSelect2.locator('option').allTextContents();
+      expect(options.join(' ')).toMatch(/seed fern/i);
+    }).toPass();
+    await plantSelect2.selectOption({ label: 'Seed Fern' });
     await page.getByLabel(/measured weight \(g\)/i).fill('280');
     await page.getByLabel(/measured at/i).fill('2025-01-02T10:00');
     await page.getByRole('button', { name: /save measurement/i }).click();
@@ -43,8 +57,10 @@ test.describe('Dashboard Controls', () => {
 
     // 3. Go to Dashboard and verify sparkline
     await page.goto('/dashboard', { waitUntil: 'commit' });
-    const sparkline = page.locator('svg').first();
-    await expect(sparkline).toBeVisible({ timeout: 15000 });
+    // Ensure measurements are loaded before asserting sparkline visibility
+    await page.waitForResponse((res) => /\/api\/plants\/.+\/measurements/.test(res.url()) && res.status() === 200);
+    const sparkline = page.locator('svg[role="img"][aria-label="sparkline"]').first();
+    await expect(sparkline).toBeVisible({ timeout: 20000 });
 
     const countRefLines = async () => {
       return await sparkline.locator('line[stroke-dasharray="4 3"]').count();

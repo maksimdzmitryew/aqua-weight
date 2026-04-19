@@ -19,8 +19,21 @@ test.describe('Plants CRUD', () => {
     // Create Plant
     await page.getByRole('button', { name: /\+\s*Create/i }).click();
     await page.getByLabel(/name/i).fill('Test Fern');
-    // Wait for locations to load and the "Living Room" option to appear
-    await page.getByLabel(/location/i).selectOption('11111111111111111111111111111111');
+    // Wait for locations to load and then select by label to avoid hard-coded UUIDs
+    const locationSelect = page.getByLabel(/location/i);
+    await expect(locationSelect).toBeEnabled();
+    // Poll the DOM until a non-placeholder option is available
+    await expect(async () => {
+      const values = await locationSelect.locator('option').evaluateAll((opts) => opts.map(o => (o as HTMLOptionElement).value));
+      // Expect at least one non-empty option besides the placeholder
+      expect(values.filter(v => v).length).toBeGreaterThan(0);
+    }).toPass();
+    // Once options are loaded, assert and select by label
+    await expect(async () => {
+      const options = await locationSelect.locator('option').allTextContents();
+      expect(options.join(' ')).toMatch(/living room/i);
+    }).toPass();
+    await locationSelect.selectOption({ label: 'Living Room' });
     await page.getByRole('button', { name: /save/i }).click();
 
     // List shows new plant
@@ -48,6 +61,10 @@ test.describe('Plants CRUD', () => {
       await page.goto('/measurement/weight', { waitUntil: 'commit' });
       const plantSelect = page.getByLabel(/plant/i);
       await expect(plantSelect).toBeEnabled();
+      await expect(async () => {
+        const options = await plantSelect.locator('option').allTextContents();
+        expect(options.join(' ')).toMatch(new RegExp(plantName, 'i'));
+      }).toPass();
       await plantSelect.selectOption({ label: plantName });
       await page.getByLabel(/measured weight/i).fill(weight);
       await page.getByLabel(/measured at/i).fill(measuredAt);

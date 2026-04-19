@@ -13,9 +13,10 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
   });
 
   test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
-    // Intercept any API call and return 401
+    // Intercept all API calls and return 401 to simulate expired session
     await page.route('**', async route => {
-      if (route.request().url().includes('/api/plants')) {
+      const url = new URL(route.request().url());
+      if (url.pathname.startsWith('/api/')) {
         await route.fulfill({
           status: 401,
           contentType: 'application/json',
@@ -27,6 +28,9 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     });
 
     await page.goto('/dashboard');
+    // Wait for at least one API request to respond with 401 and for any loading indicator to finish
+    await page.waitForResponse((res) => res.url().includes('/api/') && res.status() === 401);
+    await expect(page.getByRole('status', { name: /loading/i })).not.toBeVisible();
 
     // Verification: Ensure the UI shows a "Session Expired" notification or equivalent error message
     // Based on Dashboard.jsx code: {error && <ErrorNotice message={error} />}

@@ -15,9 +15,10 @@ test.describe('Navigation & Error Resilience', () => {
   });
 
   test('API failure states: 500 error visibility', async ({ page }) => {
-    // Mock API to return 500
+    // Mock all API calls to return 500
     await page.route('**', route => {
-      if (route.request().url().includes('/api/plants')) {
+      const url = new URL(route.request().url());
+      if (url.pathname.startsWith('/api/')) {
         return route.fulfill({
           status: 500,
           contentType: 'application/json',
@@ -28,6 +29,9 @@ test.describe('Navigation & Error Resilience', () => {
     });
 
     await page.goto('/dashboard');
+    // Wait for at least one API request to respond with 500 and for loading to finish
+    await page.waitForResponse((res) => res.url().includes('/api/') && res.status() === 500);
+    await expect(page.getByRole('status', { name: /loading/i })).not.toBeVisible();
     await expect(page.locator('[role="alert"]')).toBeVisible();
     await expect(page.getByText(/internal server error/i)).toBeVisible();
   });
