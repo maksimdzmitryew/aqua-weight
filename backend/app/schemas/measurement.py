@@ -24,7 +24,9 @@ class MeasurementCreateRequest(BaseModel):
 
 
 class MeasurementUpdateRequest(BaseModel):
-    measured_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
+    measured_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
@@ -46,7 +48,9 @@ class RepottingCreateRequest(BaseModel):
 
 class RepottingUpdateRequest(BaseModel):
     plant_id: Optional[HexID] = None
-    measured_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
+    measured_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
     note: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None

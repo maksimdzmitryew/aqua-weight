@@ -53,26 +53,50 @@ class PlantCreateRequest(BaseModel):
     # Minimum fields; all but name are optional
     # General
     name: Annotated[str, StringConstraints(max_length=120)]
-    plant_type: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]] = None
-    identify_hint: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]] = None
-    typical_action: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]] = None
-    description: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None
-    notes: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]] = None
+    plant_type: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
+    ] = None
+    identify_hint: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]
+    ] = None
+    typical_action: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]
+    ] = None
+    description: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+    ] = None
+    notes: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]] = (
+        None
+    )
     location_id: Optional[HexID] = None
-    photo_url: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]] = None
+    photo_url: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]
+    ] = None
     # Service
     default_measurement_method_id: Optional[HexID] = None
     # Care
     recommended_water_threshold_pct: Optional[int] = None
     biomass_weight_g: Optional[int] = None
-    biomass_last_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
+    biomass_last_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
     # Advanced
-    species_name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
-    botanical_name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
-    cultivar: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
+    species_name: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
+    ] = None
+    botanical_name: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
+    ] = None
+    cultivar: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = (
+        None
+    )
     substrate_type_id: Optional[HexID] = None
-    substrate_last_refresh_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
-    fertilized_last_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
+    substrate_last_refresh_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
+    fertilized_last_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     # Health
     light_level_id: Optional[HexID] = None
@@ -85,16 +109,30 @@ class PlantCreateRequest(BaseModel):
 
 class PlantUpdateRequest(BaseModel):
     name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
-    description: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None
+    description: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
+    ] = None
     location_id: Optional[HexID] = None
-    photo_url: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]] = None
+    photo_url: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]
+    ] = None
     default_measurement_method_id: Optional[HexID] = None
-    species_name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
-    botanical_name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
-    cultivar: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
+    species_name: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
+    ] = None
+    botanical_name: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
+    ] = None
+    cultivar: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = (
+        None
+    )
     substrate_type_id: Optional[HexID] = None
-    substrate_last_refresh_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
-    fertilized_last_at: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]] = None
+    substrate_last_refresh_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
+    fertilized_last_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
     min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
     max_water_weight_g: Optional[int] = Field(default=None, ge=0)
