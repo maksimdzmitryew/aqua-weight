@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { useTheme } from '../ThemeContext.jsx'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes } from '../utils/datetime.js'
 import { useForm, required, minNumber } from '../components/form/useForm.js'
@@ -15,8 +14,6 @@ const RepottingCreate = () => {
   const editId = search.get('id')
   const location = useLocation()
   const navigate = useNavigate()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
 
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)

@@ -1,6 +1,5 @@
 import React from 'react'
 import {
-  valueStyle,
   getWaterRetainCellStyle,
   getWaterLossCellStyle as defaultWaterLossCellStyle,
 } from '../utils/water_retained_colors.js'
@@ -59,7 +58,7 @@ export default function BulkMeasurementTable({
     </>
   )
 
-  const renderRow = (p, idx) => {
+  const renderRow = (p) => {
     const approx = approximations[p.uuid]
     const needsWater = checkNeedsWater(p, operationMode, approx)
     const needsMeasure = p.needs_weighing

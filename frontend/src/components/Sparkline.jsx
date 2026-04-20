@@ -77,7 +77,6 @@ export function computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref) {
       : null
   if (threshAbs == null || !Array.isArray(points) || points.length <= 2) return result
   const pad2 = (n) => String(n).padStart(2, '0')
-  let lastPeakTs = null
   for (let i = 1; i < points.length - 1; i++) {
     const prev = points[i - 1]
     const cur = points[i]
@@ -94,7 +93,6 @@ export function computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref) {
       const labelFull = dtPref === 'usa' ? `${mm}/${dd}/${yyyy}` : `${dd}/${mm}/${yyyy}`
       // daysSince is computed by caller to keep pure here; set 0 placeholder
       result.push({ x: cur.x, y: cur.y, prevY: prev.y, label, labelFull, daysSince: 0 })
-      lastPeakTs = cur.x
     }
   }
   return result
@@ -122,7 +120,9 @@ export function buildDefaultHoverLines(points, idx, getDtPref = () => 'europe') 
   let dtPref = 'europe'
   try {
     dtPref = getDtPref() || 'europe'
-  } catch {}
+  } catch {
+    // ignore
+  }
   const pad2 = (n) => String(n).padStart(2, '0')
   let dateStr
   if (!isFinite(date.getTime())) {
@@ -329,7 +329,9 @@ export default function Sparkline({
     try {
       const stored = localStorage.getItem('dtFormat')
       if (stored === 'usa' || stored === 'europe') dtPref = stored
-    } catch {}
+    } catch {
+      // ignore
+    }
     const rawPeaks = computePeakVLines(points, maxWaterG, peakDeltaPct, dtPref)
     // Fill daysSince using same algorithm as before
     let lastPeakTs = null
@@ -384,7 +386,9 @@ export default function Sparkline({
       try {
         const stored = localStorage.getItem('dtFormat')
         if (stored === 'usa' || stored === 'europe') pref = stored
-      } catch {}
+      } catch {
+        // ignore
+      }
       return pref
     }
     return buildDefaultHoverLines(points, idx, getDtPref)

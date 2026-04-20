@@ -21,7 +21,7 @@ export default function PlantStats() {
   const [mLoading, setMLoading] = useState(false)
   const [mError, setMError] = useState('')
   // Respect Dashboard preference for showing suggested watering interval (blue marker)
-  const [showSuggestedInterval, setShowSuggestedInterval] = useState(() => {
+  const [showSuggestedInterval] = useState(() => {
     try {
       const v = localStorage.getItem('chart.showSuggestedInterval')
       if (v === '0') return false

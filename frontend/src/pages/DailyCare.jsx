@@ -10,7 +10,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import usePlants from '../hooks/usePlants.js'
-import PlantsTableBase, { TableHeader } from '../components/PlantsTableBase.jsx'
+import PlantsTableBase from '../components/PlantsTableBase.jsx'
 
 function hoursSinceLocal(tsString) {
   if (typeof window !== 'undefined' && window.__VITEST_STUB_HOURS_SINCE_LOCAL__)
@@ -157,7 +157,7 @@ export default function DailyCare() {
         </button>
       </div>
       <p>
-        Today's suggested care actions for your plants. We highlight those that need watering
+        Today&apos;s suggested care actions for your plants. We highlight those that need watering
         according to the approximation schedule.
       </p>
 

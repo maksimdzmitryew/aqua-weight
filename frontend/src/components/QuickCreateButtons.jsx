@@ -7,7 +7,7 @@ export default function QuickCreateButtons({ plantUuid, plantName, compact = fal
   const navigate = useNavigate()
   const spacing = compact ? 2 : 6
 
-  const openPlant = (actionName, plantId) => {
+  const openPlant = (actionName) => {
     navigate(`/measurement/${actionName}${plantUuid ? `?plant=${plantUuid}` : ''}`, {
       state: { from: location.pathname + location.search },
     })
@@ -18,19 +18,19 @@ export default function QuickCreateButtons({ plantUuid, plantName, compact = fal
       <IconButton
         icon="beaker"
         label={`Measurement for ${plantName || 'plant'}`}
-        onClick={() => openPlant('weight', plantUuid)}
+        onClick={() => openPlant('weight')}
         variant="primary"
       />
       <IconButton
         icon="droplet"
         label={`Watering for ${plantName || 'plant'}`}
-        onClick={() => openPlant('watering', plantUuid)}
+        onClick={() => openPlant('watering')}
         variant="primary"
       />
       <IconButton
         icon="box"
         label={`Repotting for ${plantName || 'plant'}`}
-        onClick={() => openPlant('repotting', plantUuid)}
+        onClick={() => openPlant('repotting')}
         variant="primary"
       />
     </span>

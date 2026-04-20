@@ -46,7 +46,9 @@ export default function LocationsList() {
       setLocations((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
       try {
         window.history.replaceState({}, document.title, routerLocation.pathname)
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
   }, [routerLocation.state, routerLocation.pathname])
 

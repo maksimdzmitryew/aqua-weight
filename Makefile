@@ -37,6 +37,7 @@ help:
 	@echo "  make test-fe           - Run frontend unit tests (in Docker)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
 	@echo "  make be-lint           - Run ruff"
@@ -164,6 +165,11 @@ fe-sb:
 .PHONY: fe-sb-build
 fe-sb-build:
 	npm run build-storybook --prefix frontend
+
+.PHONY: fe-cicd
+fe-cicd:
+	docker compose -f $(TEST_COMPOSE) up -d e2e
+	docker compose -f $(TEST_COMPOSE) exec -T e2e npm run test:unit:coverage
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh

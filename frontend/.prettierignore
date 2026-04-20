@@ -1,3 +1,16 @@
 dist
 node_modules
+node_modules_tests
+coverage
+coverage_output.json
+coverage_wc.json
+coverage_json_out.json
+coverage-json
+coverage.json
+playwright.config.ts
+vitest.config.ts
+vite.config.ts
+vite.config.js
+playwright-report
+test-results
 build

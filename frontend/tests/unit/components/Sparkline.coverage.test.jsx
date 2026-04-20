@@ -50,7 +50,7 @@ describe('Sparkline Coverage Tests', () => {
 
   test('covers line 469: height is not finite', () => {
     // line 469: height: Number.isFinite(height) ? height : '100%'
-    renderWithTheme(<Sparkline data={[{x:1, y:10}]} width={200} height="100%" />)
+    renderWithTheme(<Sparkline data={[{ x: 1, y: 10 }]} width={200} height="100%" />)
     const svg = screen.getByLabelText('sparkline')
     expect(svg).toBeInTheDocument()
   })
@@ -98,10 +98,17 @@ describe('Sparkline Coverage Tests', () => {
   })
 
   test('covers line 238: maxY === minY', () => {
-    renderWithTheme(<Sparkline data={[{x: 1, y: 10}, {x: 2, y: 10}]} />)
+    renderWithTheme(
+      <Sparkline
+        data={[
+          { x: 1, y: 10 },
+          { x: 2, y: 10 },
+        ]}
+      />,
+    )
   })
 
   test('covers line 239: spanX fallback', () => {
-    renderWithTheme(<Sparkline data={[{x: 1, y: 10}]} />)
+    renderWithTheme(<Sparkline data={[{ x: 1, y: 10 }]} />)
   })
 })

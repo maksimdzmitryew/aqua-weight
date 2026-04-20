@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 const ThemeContext = createContext({
   theme: 'light',
   effectiveTheme: 'light',
-  setTheme: (t) => {},
+  setTheme: () => {},
 })
 
 function getSystemTheme() {
@@ -20,7 +20,9 @@ export function ThemeProvider({ children }) {
     // Persist theme choice
     try {
       localStorage.setItem('theme', theme)
-    } catch {}
+    } catch {
+      // ignore
+    }
   }, [theme])
 
   useEffect(() => {

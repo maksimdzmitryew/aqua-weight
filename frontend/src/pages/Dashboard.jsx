@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { measurementsApi } from '../api/measurements'
 import Sparkline from '../components/Sparkline.jsx'
@@ -62,7 +62,9 @@ export function safeSetItem(key, value) {
   try {
     // eslint-disable-next-line no-undef
     if (typeof localStorage !== 'undefined') localStorage.setItem(key, value)
-  } catch {}
+  } catch {
+    // ignore
+  }
 }
 
 export default function Dashboard() {

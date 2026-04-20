@@ -138,7 +138,7 @@ export default function PlantEdit() {
     e.preventDefault()
     try {
       const built = buildUpdatePayload(plant)
-      const resData = await plantsApi.update(built.idHex, built.payload)
+      await plantsApi.update(built.idHex, built.payload)
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {

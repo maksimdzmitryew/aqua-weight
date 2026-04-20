@@ -36,7 +36,9 @@ export default function ConfirmDialog({
     if (open && firstBtnRef.current) {
       try {
         firstBtnRef.current.focus()
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
   }, [open])
 

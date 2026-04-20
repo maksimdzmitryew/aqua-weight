@@ -12,7 +12,7 @@ import { plantsApi } from '../api/plants'
 import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
-import { getWaterRetainCellStyle, getWaterLossCellStyle } from '../utils/water_retained_colors.js'
+import { getWaterRetainCellStyle } from '../utils/water_retained_colors.js'
 import { getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
@@ -144,7 +144,9 @@ export default function PlantsList() {
       try {
         // Replace current entry and clear transient state the React Router way
         navigate(routerLocation.pathname, { replace: true, state: null })
-      } catch {}
+      } catch {
+        // ignore
+      }
       /* c8 ignore stop */
     }
   }, [routerLocation.state, routerLocation.pathname])
@@ -334,7 +336,7 @@ export default function PlantsList() {
               }}
             >
               <span>
-                Filtered by: <strong>"{searchQuery}"</strong>
+                Filtered by: <strong>&quot;{searchQuery}&quot;</strong>
               </span>
               <button
                 onClick={() => handleSearchChange('')}
