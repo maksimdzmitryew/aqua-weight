@@ -24,10 +24,11 @@ export default function Calibration() {
       try {
         const data = await calibrationApi.list(controller.signal)
         setItems(Array.isArray(data) ? data : [])
+        setLoading(false)
       } catch (e) {
         const isAbort = e?.name === 'AbortError'
-        if (!isAbort) setError(e?.message || 'Failed to load calibration data')
-      } finally {
+        if (isAbort) return
+        setError(e?.message || 'Failed to load calibration data')
         setLoading(false)
       }
     }

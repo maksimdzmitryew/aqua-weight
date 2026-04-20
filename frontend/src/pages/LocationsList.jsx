@@ -25,12 +25,13 @@ export default function LocationsList() {
       try {
         const data = await locationsApi.list(controller.signal)
         setLocations(Array.isArray(data) ? data : [])
+        setLoading(false)
       } catch (e) {
         // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) setError(msg || 'Failed to load locations')
-      } finally {
+        if (isAbort) return
+        setError(msg || 'Failed to load locations')
         setLoading(false)
       }
     }

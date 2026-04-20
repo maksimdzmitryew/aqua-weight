@@ -156,7 +156,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     await waitFor(() => {
       const currentWl = screen.queryByLabelText('water-loss')
       expect(currentWl).toHaveTextContent('42')
-    })
+    }, { timeout: 3000 })
 
     expect(delSpy).toHaveBeenCalled()
 
@@ -164,7 +164,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     delSpy.mockRestore()
   })
 
-  test.skip('delete with originalWaterLoss present reverts to saved value (covers true branch at line 164)', async () => {
+  test('delete with originalWaterLoss present reverts to saved value (covers true branch at line 164)', async () => {
     // Arrange: a plant that already has a defined water_loss_total_pct so originalWaterLoss can be captured on commit
     const plant = {
       uuid: 'p-2',
@@ -190,15 +190,15 @@ describe.sequential('pages/BulkWatering (branches)', () => {
       </ThemeProvider>,
     )
 
-    // Ensure commit changes it to a different value
+    // Ensure commit changes it to a different value and delete is eventually called
     await waitFor(
       () => {
         const currentWl = screen.queryByLabelText('water-loss')
         expect(currentWl?.textContent?.trim()).not.toBe('11')
+        expect(delSpy).toHaveBeenCalled()
       },
       { timeout: 3000 },
     )
-    expect(delSpy).toHaveBeenCalled()
 
     // Reset flag and cleanup mocks
     __commitThenDelete = false

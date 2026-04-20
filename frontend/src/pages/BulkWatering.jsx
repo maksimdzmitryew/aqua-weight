@@ -30,9 +30,7 @@ export default function BulkWatering() {
 
   // Initialize local plants state from hook
   useEffect(() => {
-    if (plantsFromHook.length > 0) {
-      setPlants(plantsFromHook)
-    }
+    setPlants(plantsFromHook)
   }, [plantsFromHook])
 
   // Load approximations separately when plants are loaded

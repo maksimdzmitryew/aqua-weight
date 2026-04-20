@@ -38,13 +38,12 @@ export default function PlantSelect({
         setError('')
         const data = await plantsApi.listNames(controller.signal)
         setPlants(Array.isArray(data) ? data : [])
+        setLoading(false)
       } catch (e) {
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) {
-          setError('Failed to load plants')
-        }
-      } finally {
+        if (isAbort) return
+        setError('Failed to load plants')
         setLoading(false)
       }
     }

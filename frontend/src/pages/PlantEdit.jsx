@@ -96,12 +96,13 @@ export default function PlantEdit() {
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(normalize(data))
+        setLoading(false)
       } catch (e) {
         /* c8 ignore next */
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) setError('Failed to load plant')
-      } finally {
+        if (isAbort) return
+        setError('Failed to load plant')
         setLoading(false)
       }
     }
