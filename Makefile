@@ -168,8 +168,9 @@ fe-sb-build:
 
 .PHONY: fe-cicd
 fe-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e npm run test:unit:coverage
+	docker compose -f $(TEST_COMPOSE) exec -T e2e npm run lint
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "pip install pre-commit && pre-commit run --all-files"
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
