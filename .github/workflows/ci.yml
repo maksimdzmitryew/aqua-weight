@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, master, develop, '**' ]
+    branches: [main, master, develop, "**"]
   pull_request:
-    branches: [ '**' ]
+    branches: ["**"]
 
 jobs:
   backend:
@@ -15,12 +15,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install backend deps
         run: |
@@ -31,14 +31,13 @@ jobs:
           pip install pytest pytest-cov ruff black mypy
 
       - name: Ruff (lint)
-        run: ruff check .
+        run: ruff check backend/app
 
       - name: Black (format check)
-        run: |
-          echo "Skipping Black check in CI (temporary to unblock)."
+        run: black --check backend/app
 
-      # - name: Mypy (type check)
-      #   run: mypy backend/app
+      - name: Mypy (type check)
+        run: mypy backend/app --config-file=pyproject.toml
 
       - name: Start test stack (db + runner)
         run: docker compose -f docker-compose.test.yml up -d db runner
@@ -56,7 +55,7 @@ jobs:
             "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
 
       - name: Upload backend coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: backend-coverage-xml
           path: backend-coverage.xml
@@ -73,17 +72,14 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "24"
+          cache: "npm"
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Use npm 11.6.2
-        run: npm i -g npm@11.6.2
 
       - name: Disable npm update notifier in CI
         run: echo "NPM_CONFIG_UPDATE_NOTIFIER=false" >> $GITHUB_ENV
@@ -92,43 +88,18 @@ jobs:
         working-directory: frontend
         run: |
           if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          # Ensure ESLint v9 stack is present (plugin required by temp config)
-          npm i -D eslint@9 eslint-plugin-react@7
-          # Ensure Prettier available
-          npm i -D prettier
-          # Jest stack for React + Vite
-          npm i -D jest @testing-library/react @testing-library/jest-dom @testing-library/user-event babel-jest @babel/preset-env @babel/preset-react identity-obj-proxy
-
-      - name: Create temporary Babel config for jest
-        if: ${{ always() }}
-        working-directory: frontend
-        run: |
-          # Only create if not present in repo; use printf to avoid YAML heredoc pitfalls
-          if [ ! \
-            -f babel.config.cjs ] && [ ! -f babel.config.js ] && [ ! -f .babelrc ]; then \
-            printf "%s\n" \
-              "module.exports = {" \
-              "  presets: [" \
-              "    [require.resolve('@babel/preset-env'), { targets: { node: 'current' } }]," \
-              "    require.resolve('@babel/preset-react')," \
-              "  ]," \
-              "};" > babel.config.cjs; \
-          fi
 
       - name: ESLint
         working-directory: frontend
-        run: |
-          echo "Skipping ESLint in CI (temporary to unblock)."
+        run: npm run lint
 
       - name: Prettier (check)
         working-directory: frontend
-        run: |
-          echo "Skipping Prettier in CI (temporary to unblock)."
+        run: npx prettier --check .
 
       - name: Run unit tests (Jest) with coverage
         working-directory: frontend
-        run: |
-          echo "Skipping Jest in CI (temporary to unblock)."
+        run: npm test -- --coverage --watchAll=false
 
       - name: Enforce frontend coverage >= 60%
         if: ${{ always() }}
@@ -148,7 +119,7 @@ jobs:
 
       - name: Upload frontend coverage artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: frontend-coverage
           path: frontend/coverage
@@ -162,12 +133,12 @@ jobs:
         shell: bash
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: "24"
 
       - name: Install Playwright binaries
         working-directory: frontend
@@ -206,13 +177,13 @@ jobs:
           for i in {1..30}; do
             if curl -sSf http://127.0.0.1:5080/ >/dev/null; then
               echo "Frontend is up"; break; fi; echo "Waiting for frontend..."; sleep 5; done
-          
+
           # Debug info before tests
           echo "Service status:"
           docker compose -f docker-compose.test.yml ps
           echo "Network status:"
           sudo netstat -tunlp | grep 5080 || true
-          
+
           if ! curl -sSf http://127.0.0.1:5080/api/health >/dev/null; then
             echo "Stack not reachable after wait; dumping container logs..."
             docker compose -f docker-compose.test.yml ps
@@ -241,35 +212,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: "3.11"
       - name: Install pre-commit
         run: |
           python -m pip install --upgrade pip
           pip install pre-commit
-      - name: Run pre-commit (if configured)
+      - name: Run pre-commit
         run: |
           if [ -f .pre-commit-config.yaml ]; then
-            # Use a CI-only trimmed config to avoid initializing JS mirrors (eslint/prettier)
-            printf "%s\n" \
-              "repos:" \
-              "  - repo: https://github.com/pre-commit/pre-commit-hooks" \
-              "    rev: v4.6.0" \
-              "    hooks:" \
-              "      - id: check-merge-conflict" \
-              "" \
-              "  - repo: https://github.com/astral-sh/ruff-pre-commit" \
-              "    rev: v0.6.9" \
-              "    hooks:" \
-              "      - id: ruff" \
-              "        args: ['--no-fix']" \
-              "        types_or: [python]" \
-              "        files: ^backend/|" \
-              > .pre-commit-config.ci.yaml
-            pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml
+            pre-commit run --all-files --show-diff-on-failure --color always
           else
             echo "No .pre-commit-config.yaml; skipping."
           fi

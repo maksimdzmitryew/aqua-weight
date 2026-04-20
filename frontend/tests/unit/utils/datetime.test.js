@@ -1,6 +1,11 @@
-import { describe, expect, test, vi, beforeEach, afterEach } from 'vitest'
-import * as dt from '../../../src/utils/datetime.js'
-import { parseAPIDate, formatDateTime, nowLocalISOMinutes, toLocalISOMinutes, formatDayMonth } from '../../../src/utils/datetime.js'
+import { describe, expect, test, vi, afterEach } from 'vitest'
+import {
+  parseAPIDate,
+  formatDateTime,
+  nowLocalISOMinutes,
+  toLocalISOMinutes,
+  formatDayMonth,
+} from '../../../src/utils/datetime.js'
 
 describe('utils/datetime', () => {
   afterEach(() => {
@@ -99,13 +104,19 @@ describe('utils/datetime', () => {
       window.localStorage.setItem('dtFormat', 'europe')
       const s1 = formatDateTime('2024-01-02 03:04')
       expect(s1).toBe('en-GB-24h')
-      expect(calls.at(-1)).toMatchObject({ locale: 'en-GB', opts: expect.objectContaining({ hour12: false }) })
+      expect(calls.at(-1)).toMatchObject({
+        locale: 'en-GB',
+        opts: expect.objectContaining({ hour12: false }),
+      })
 
       // US preference
       window.localStorage.setItem('dtFormat', 'us')
       const s2 = formatDateTime('2024-01-02 03:04')
       expect(s2).toBe('en-US-12h')
-      expect(calls.at(-1)).toMatchObject({ locale: 'en-US', opts: expect.objectContaining({ hour12: true }) })
+      expect(calls.at(-1)).toMatchObject({
+        locale: 'en-US',
+        opts: expect.objectContaining({ hour12: true }),
+      })
 
       // Bad input falls back to stringification
       expect(formatDateTime({ a: 1 })).toBe('[object Object]')
@@ -140,7 +151,9 @@ describe('utils/datetime', () => {
     const original = Date.prototype.toLocaleString
     // Force toLocaleString to throw to exercise the catch block (lines 50–51)
     // @ts-ignore
-    Date.prototype.toLocaleString = function () { throw new Error('boom') }
+    Date.prototype.toLocaleString = function () {
+      throw new Error('boom')
+    }
     try {
       // Provide a value that parseAPIDate will parse into a Date so that the throw happens inside try {}
       const out = formatDateTime('2024-01-02 03:04')
@@ -153,7 +166,9 @@ describe('utils/datetime', () => {
   test('formatDateTime catch path also triggers when reading preferences throws', () => {
     // Use vitest to stub global localStorage with a throwing getItem
     vi.stubGlobal('localStorage', {
-      getItem: () => { throw new Error('ls-err') },
+      getItem: () => {
+        throw new Error('ls-err')
+      },
     })
     try {
       const out = formatDateTime('2024-01-02 03:04')
@@ -166,7 +181,11 @@ describe('utils/datetime', () => {
 
   test('formatDayMonth falls back to String(v) when an unexpected error occurs (lines 70–71)', () => {
     // Trigger an error while reading preference to ensure execution enters catch {}
-    vi.stubGlobal('localStorage', { getItem: () => { throw new Error('ls-err') } })
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('ls-err')
+      },
+    })
     try {
       const input = '2024-01-02 03:04' // parseable so we don’t return early
       const out = formatDayMonth(input)

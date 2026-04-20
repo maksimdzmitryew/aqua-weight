@@ -12,7 +12,6 @@ from ..schemas.plant import (
     PaginatedPlantsResponse,
     PlantCreateRequest,
     PlantDetail,
-    PlantListItem,
     PlantUpdateRequest,
 )
 from ..utils.settings_defaults import parse_default_threshold
@@ -22,6 +21,7 @@ app = APIRouter()
 
 class PlantNameItem(BaseModel):
     """Minimal plant data for dropdowns - only uuid and name."""
+
     uuid: str
     name: str
 
@@ -33,6 +33,7 @@ async def list_plant_names() -> list[PlantNameItem]:
     Used for dropdowns to minimize data transfer and prevent DDoS via large payloads.
     Returns all active plants without pagination.
     """
+
     def fetch():
         conn = get_conn()
         try:
@@ -70,7 +71,7 @@ async def list_plants(
     limit: int = 20,
     search: str | None = None,
     operationMode: str | None = Cookie(None),
-    defaultThreshold: str | None = Cookie(None)
+    defaultThreshold: str | None = Cookie(None),
 ) -> PaginatedPlantsResponse:
     # Validate and sanitize pagination parameters
     if page < 1:
@@ -94,11 +95,7 @@ async def list_plants(
 
         # Fetch paginated items
         items = PlantsList.fetch_all(
-            mode=mode,
-            default_threshold=def_thr,
-            offset=offset,
-            limit=limit,
-            search=search
+            mode=mode, default_threshold=def_thr, offset=offset, limit=limit, search=search
         )
 
         return PaginatedPlantsResponse(
@@ -107,7 +104,7 @@ async def list_plants(
             global_total=global_total,
             page=page,
             limit=limit,
-            total_pages=total_pages
+            total_pages=total_pages,
         )
 
     return await run_in_threadpool(fetch)
