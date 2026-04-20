@@ -32,11 +32,12 @@ export default function usePlants({ page = 1, limit = 100, search = '' } = {}) {
       setTotalPages(response.total_pages || 0)
       setLoading(false)
     } catch (e) {
+      if (signal?.aborted) return
+      setLoading(false)
       const msg = e?.message || ''
       const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
       if (isAbort) return
       setError(msg || 'Failed to load plants')
-      setLoading(false)
     }
   }
 

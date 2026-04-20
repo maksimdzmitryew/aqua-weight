@@ -153,10 +153,13 @@ describe.sequential('pages/BulkWatering (branches)', () => {
 
     // Assert: after the mocked table triggers onDeleteWatering, the parent should
     // keep the same water_loss_total_pct (false branch of ternary)
-    await waitFor(() => {
-      const currentWl = screen.queryByLabelText('water-loss')
-      expect(currentWl).toHaveTextContent('42')
-    }, { timeout: 3000 })
+    await waitFor(
+      () => {
+        const currentWl = screen.queryByLabelText('water-loss')
+        expect(currentWl).toHaveTextContent('42')
+      },
+      { timeout: 3000 },
+    )
 
     expect(delSpy).toHaveBeenCalled()
 

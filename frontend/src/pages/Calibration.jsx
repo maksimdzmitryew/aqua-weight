@@ -26,10 +26,11 @@ export default function Calibration() {
         setItems(Array.isArray(data) ? data : [])
         setLoading(false)
       } catch (e) {
+        if (controller.signal.aborted) return
+        setLoading(false)
         const isAbort = e?.name === 'AbortError'
         if (isAbort) return
         setError(e?.message || 'Failed to load calibration data')
-        setLoading(false)
       }
     }
     load()

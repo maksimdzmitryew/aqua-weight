@@ -39,12 +39,12 @@ export default function PlantDetails() {
         setPlant(data)
         setLoading(false)
       } catch (e) {
-        // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
+        if (controller.signal.aborted) return
+        setLoading(false)
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
         if (isAbort) return
         setError(msg || 'Failed to load plant')
-        setLoading(false)
       }
     }
     if (!plant) load()
