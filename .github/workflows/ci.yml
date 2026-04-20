@@ -227,7 +227,7 @@ jobs:
       - name: Run pre-commit
         run: |
           if [ -f .pre-commit-config.yaml ]; then
-            pre-commit run --all-files --show-diff-on-failure --color always
+            SKIP=eslint,prettier pre-commit run --all-files --show-diff-on-failure --color always
           else
             echo "No .pre-commit-config.yaml; skipping."
           fi

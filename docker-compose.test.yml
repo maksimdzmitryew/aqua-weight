@@ -83,7 +83,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
-      - ./frontend/node_modules_tests:/app/node_modules
+      - fe_node_modules_test:/app/node_modules
     # Ensure dev server dependencies (vite) are present in the test node_modules directory.
     # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
     # Always install to ensure deps match current package.json for tests
@@ -91,7 +91,7 @@ services:
       [
         "bash",
         "-lc",
-        "cd /app && npm ci --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0",
+        "cd /app && while [ ! -x node_modules/.bin/vite ]; do echo 'Waiting for node_modules...'; sleep 2; done; exec npm run dev -- --host 0.0.0.0",
       ]
 
   nginx:
@@ -148,28 +148,24 @@ services:
   e2e:
     image: mcr.microsoft.com/playwright:v1.56.1-jammy
     container_name: aw_test_e2e
-    working_dir: /app/frontend
+    working_dir: /app
     depends_on:
       - nginx
     environment:
       - E2E_BASE_URL=https://aw.max
     volumes:
-      - ./:/app
-      - ./frontend/node_modules_tests:/app/frontend/node_modules
+      - ./frontend:/app
+      - fe_node_modules_test:/app/node_modules
     # Ensure dev dependencies are installed (including newly added ones)
     # If vitest binary is missing, run npm ci, then keep container running
     # Use npm ci to enforce lockfile consistency for deterministic test deps
-    command:
-      [
-        "bash",
-        "-lc",
-        "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm ci --no-audit --no-fund && tail -f /dev/null",
-      ]
+    command: ["tail", "-f", "/dev/null"]
     networks:
       - aw-tests-net
 
 volumes:
   mariadb_data_test_appdbtest:
+  fe_node_modules_test:
 
 networks:
   aw-tests-net:

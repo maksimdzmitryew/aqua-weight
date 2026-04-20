@@ -122,28 +122,31 @@ test-ps:
 .PHONY: test-be
 test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
+	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
 
 .PHONY: test-full
 test-full:
-	docker compose -f $(TEST_COMPOSE) exec runner pytest
+	docker compose -f $(TEST_COMPOSE) exec -T runner pytest
 
 .PHONY: test-cov
 test-cov:
-	docker compose -f $(TEST_COMPOSE) exec runner pytest -q --cov=app --cov-report=term-missing
+	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q --cov=app --cov-report=term-missing
 
 # --- E2E ---
 .PHONY: e2e-deps
 e2e-deps:
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npm install && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) up -d e2e
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
 
 .PHONY: test-e2e
 test-e2e:
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) up -d e2e
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
 
 .PHONY: e2e-headed
 e2e-headed:
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app/frontend && npx playwright test --config playwright.config.ts --headed"
+	docker compose -f $(TEST_COMPOSE) up -d e2e
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
 
 .PHONY: e2e-report
 e2e-report:
@@ -156,7 +159,17 @@ fe-dev:
 
 .PHONY: test-fe
 test-fe:
-	docker compose -f $(TEST_COMPOSE) exec e2e npm run test:unit:coverage
+	docker compose -f $(TEST_COMPOSE) up -d e2e
+	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
+		mkdir -p /tmp/fe && \
+		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
+		cd /tmp/fe && \
+		rm -rf node_modules && \
+		ln -s /app/node_modules node_modules && \
+		npm install --no-audit --no-fund && \
+		npm run test:unit:coverage && \
+		cp -r coverage /app/"
 
 .PHONY: fe-sb
 fe-sb:
@@ -168,9 +181,21 @@ fe-sb-build:
 
 .PHONY: fe-cicd
 fe-cicd:
-	docker compose -f $(TEST_COMPOSE) exec -T e2e npm run lint
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "pip install pre-commit && pre-commit run --all-files"
+	docker compose -f $(TEST_COMPOSE) up -d e2e runner
+	@# Run everything in a temporary directory to avoid Bus error on macOS bind mounts (e.g. Dropbox)
+	@# We copy source but symlink the named volume's node_modules for speed and stability.
+	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
+		mkdir -p /tmp/fe && \
+		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
+		cd /tmp/fe && \
+		rm -rf node_modules && \
+		ln -s /app/node_modules node_modules && \
+		npm install --no-audit --no-fund && \
+		npm run lint && \
+		npm run format:check && \
+		npm run test:unit:coverage && \
+		cp -r coverage /app/"
+	docker compose -f $(TEST_COMPOSE) exec -T -e SKIP=eslint,prettier runner pre-commit run --all-files
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
@@ -182,32 +207,32 @@ certs:
 .PHONY: be-lint
 be-lint:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check backend/app"
 
 .PHONY: be-lint-fix
 be-lint-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend/app"
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check --fix backend/app"
 
 .PHONY: be-fmt
 be-fmt:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black --check backend/app"
 
 .PHONY: be-fmt-fix
 be-fmt-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend/app"
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black backend/app"
 
 .PHONY: be-mypy
 be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend/app"
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "mypy backend/app"
 
 .PHONY: be-pre-commit
 be-pre-commit:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "printf '%s\\n' \
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "printf '%s\\n' \
 	  'repos:' \
 	  '  - repo: https://github.com/pre-commit/pre-commit-hooks' \
 	  '    rev: v4.6.0' \
@@ -222,11 +247,11 @@ be-pre-commit:
 	  '        types_or: [python]' \
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
 
 .PHONY: be-cicd
 be-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d db runner
+	docker compose -f $(TEST_COMPOSE) up -d --build db runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
 
 # --- Security / dependency audit ---
