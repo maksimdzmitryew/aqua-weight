@@ -30,10 +30,11 @@ help:
 	@echo "  make e2e-deps          - Run Playwright E2E tests with reinstalling deps"
 	@echo "  make e2e-headed        - Run Playwright E2E tests in headed mode"
 	@echo "  make e2e-report        - Open Playwright report"
+	@echo "  make e2e-cicd          - Run CI/CD pipeline for E2E"
 	@echo ""
 	@echo "Frontend targets (local/Docker):"
 	@echo "  make fe-dev            - Start Vite dev server (local)"
-	@echo "  make test-fe      - Run frontend unit tests (in Docker)"
+	@echo "  make test-fe           - Run frontend unit tests (in Docker)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
 	@echo ""
@@ -44,6 +45,7 @@ help:
 	@echo "  make be-fmt-fix        - Run black fix"
 	@echo "  make be-mypy           - Run mypy"
 	@echo "  make be-pre-commit     - Run pre-commit (CI config)"
+	@echo "  make be-cicd           - Run CI/CD pipeline for BE"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
@@ -214,6 +216,11 @@ be-pre-commit:
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+
+.PHONY: be-cicd
+be-cicd:
+	docker compose -f $(TEST_COMPOSE) up -d db runner
+	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
 
 # --- Security / dependency audit ---
 .PHONY: dep-audit
