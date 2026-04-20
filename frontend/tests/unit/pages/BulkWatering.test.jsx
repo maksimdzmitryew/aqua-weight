@@ -26,7 +26,7 @@ function renderPage() {
       <MemoryRouter>
         <BulkWatering />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -35,9 +35,7 @@ describe('pages/BulkWatering', () => {
     mockNavigate.mockClear()
   })
   test('handles non-array plants response gracefully and shows empty state', async () => {
-    server.use(
-      http.get('/api/plants', () => HttpResponse.json({ foo: 'bar' }))
-    )
+    server.use(http.get('/api/plants', () => HttpResponse.json({ foo: 'bar' })))
 
     renderPage()
     // Should not crash; table renders empty state row
@@ -63,7 +61,7 @@ describe('pages/BulkWatering', () => {
 
     // The row for Monstera (above threshold) should be deemphasized (opacity applied to <tr>)
     const rows = screen.getAllByRole('row').slice(1)
-    const monRow = rows.find(r => within(r).queryByText('Monstera'))
+    const monRow = rows.find((r) => within(r).queryByText('Monstera'))
     expect(monRow).toBeTruthy()
     expect(monRow.style.opacity).toBe('0.55')
   })
@@ -73,9 +71,13 @@ describe('pages/BulkWatering', () => {
     server.use(
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-        { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 30 }
-      ]
-    )
+        {
+          uuid: 'u2',
+          name: 'Monstera',
+          water_retained_pct: 50,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
     )
 
     renderPage()
@@ -103,17 +105,23 @@ describe('pages/BulkWatering', () => {
     try {
       // Mock plants and approximations
       server.use(
-      ...paginatedPlantsHandler([
+        ...paginatedPlantsHandler([
           { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-          { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 30 }
-        ]
-    ),
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-          items: [
-            { plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }, // Needs water
-            { plant_uuid: 'u2', days_offset: 2, next_watering_at: '2026-01-14 10:00' }  // Does not need water
-          ]
-        }))
+          {
+            uuid: 'u2',
+            name: 'Monstera',
+            water_retained_pct: 50,
+            recommended_water_threshold_pct: 30,
+          },
+        ]),
+        http.get('/api/measurements/approximation/watering', () =>
+          HttpResponse.json({
+            items: [
+              { plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }, // Needs water
+              { plant_uuid: 'u2', days_offset: 2, next_watering_at: '2026-01-14 10:00' }, // Does not need water
+            ],
+          }),
+        ),
       )
 
       renderPage()
@@ -142,11 +150,13 @@ describe('pages/BulkWatering', () => {
 
       // Add a test case for overdue plant
       server.use(
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-          items: [
-            { plant_uuid: 'u1', days_offset: -1, next_watering_at: '2026-01-11 10:00' }, // Overdue
-          ]
-        }))
+        http.get('/api/measurements/approximation/watering', () =>
+          HttpResponse.json({
+            items: [
+              { plant_uuid: 'u1', days_offset: -1, next_watering_at: '2026-01-11 10:00' }, // Overdue
+            ],
+          }),
+        ),
       )
       // Re-render to pick up new mock
       renderPage()
@@ -163,11 +173,10 @@ describe('pages/BulkWatering', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       server.use(
-      ...paginatedPlantsHandler([
-          { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-        ]
-    ),
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)) // Line 37: approxData?.items || []
+        ...paginatedPlantsHandler([
+          { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+        ]),
+        http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)), // Line 37: approxData?.items || []
       )
 
       renderPage()
@@ -181,7 +190,9 @@ describe('pages/BulkWatering', () => {
 
       // Now test the actual catch block
       server.use(
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 }))
+        http.get('/api/measurements/approximation/watering', () =>
+          HttpResponse.json({ message: 'Error' }, { status: 500 }),
+        ),
       )
       renderPage()
       aloe = await screen.queryByText('Aloe')
@@ -218,7 +229,7 @@ describe('pages/BulkWatering', () => {
     fireEvent.blur(input)
     // Success styling applied
     await waitFor(() => expect(input.className).toMatch(/bg-success/))
-    
+
     // Find and click delete button to trigger handleWateringDelete
     const deleteBtn = await within(row).findByTitle(/delete this watering entry/i)
     fireEvent.click(deleteBtn)
@@ -228,14 +239,18 @@ describe('pages/BulkWatering', () => {
     // Coverage for handleWateringDelete catch block (Line 177)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.delete('/api/measurements/:id', () => HttpResponse.json({ message: 'Delete fail' }, { status: 500 }))
+      http.delete('/api/measurements/:id', () =>
+        HttpResponse.json({ message: 'Delete fail' }, { status: 500 }),
+      ),
     )
     // To re-show delete button, must commit again
     fireEvent.change(input, { target: { value: '125' } })
     fireEvent.blur(input)
     const newDeleteBtn = await within(row).findByTitle(/delete this watering entry/i)
     fireEvent.click(newDeleteBtn)
-    await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith('Error deleting watering:', expect.any(Error)))
+    await waitFor(() =>
+      expect(consoleSpy).toHaveBeenCalledWith('Error deleting watering:', expect.any(Error)),
+    )
     consoleSpy.mockRestore()
   })
 
@@ -245,9 +260,11 @@ describe('pages/BulkWatering', () => {
     try {
       server.use(
         ...paginatedPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+        http.get('/api/measurements/approximation/watering', () =>
+          HttpResponse.json({ items: [] }),
+        ),
         http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ id: 123 })),
-        http.delete('/api/measurements/:id', () => HttpResponse.json({ ok: true }))
+        http.delete('/api/measurements/:id', () => HttpResponse.json({ ok: true })),
       )
 
       renderPage()
@@ -263,23 +280,44 @@ describe('pages/BulkWatering', () => {
 
       // Now Delete
       fireEvent.click(deleteBtn)
-      await waitFor(() => expect(within(row).queryByTitle(/delete vacation watering/i)).not.toBeInTheDocument())
+      await waitFor(() =>
+        expect(within(row).queryByTitle(/delete vacation watering/i)).not.toBeInTheDocument(),
+      )
       expect(within(row).getByTitle(/record vacation watering/i)).toBeInTheDocument()
 
       // Error in vacation commit (Line 222-226)
-      server.use(http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 })))
+      server.use(
+        http.post('/api/measurements/vacation/watering', () =>
+          HttpResponse.json({ message: 'Error' }, { status: 500 }),
+        ),
+      )
       fireEvent.click(within(row).getByTitle(/record vacation watering/i))
-      await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith('Error saving vacation watering:', expect.any(Error)))
+      await waitFor(() =>
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Error saving vacation watering:',
+          expect.any(Error),
+        ),
+      )
 
       // Error in vacation delete (Line 274)
-      server.use(http.delete('/api/measurements/:id', () => HttpResponse.json({ message: 'Error' }, { status: 500 })))
+      server.use(
+        http.delete('/api/measurements/:id', () =>
+          HttpResponse.json({ message: 'Error' }, { status: 500 }),
+        ),
+      )
       // To re-enable delete, first have a successful commit
-      server.use(http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ id: 999 })))
+      server.use(
+        http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ id: 999 })),
+      )
       fireEvent.click(within(row).getByTitle(/record vacation watering/i))
       const nextDeleteBtn = await within(row).findByTitle(/delete vacation watering/i)
       fireEvent.click(nextDeleteBtn)
-      await waitFor(() => expect(consoleSpy).toHaveBeenCalledWith('Error deleting vacation watering:', expect.any(Error)))
-
+      await waitFor(() =>
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Error deleting vacation watering:',
+          expect.any(Error),
+        ),
+      )
     } finally {
       consoleSpy.mockRestore()
       localStorage.removeItem('operationMode')
@@ -295,27 +333,32 @@ describe('pages/BulkWatering', () => {
 
       // 1. Successful commit
       server.use(
-        http.post('/api/measurements/watering', () => HttpResponse.json({ 
-          id: 100, 
-          water_retained_pct: 42, 
-          water_loss_total_pct: 58 
-        }, { status: 201 }))
+        http.post('/api/measurements/watering', () =>
+          HttpResponse.json(
+            {
+              id: 100,
+              water_retained_pct: 42,
+              water_loss_total_pct: 58,
+            },
+            { status: 201 },
+          ),
+        ),
       )
       fireEvent.change(input, { target: { value: '100' } })
       fireEvent.blur(input)
-      
+
       // Re-query the row after the commit re-render
       await waitFor(() => expect(screen.queryByText(/42%/)).toBeInTheDocument(), { timeout: 3000 })
-      
+
       // 2. Delete it
-      server.use(
-        http.delete('/api/measurements/:id', () => HttpResponse.json({ success: true }))
-      )
+      server.use(http.delete('/api/measurements/:id', () => HttpResponse.json({ success: true })))
       const deleteBtn = await screen.findByLabelText(/Delete watering/i, { timeout: 5000 })
       fireEvent.click(deleteBtn)
 
       // Should revert to null and original water loss (which was handled in 164)
-      await waitFor(() => expect(screen.queryByText(/42%/)).not.toBeInTheDocument(), { timeout: 3000 })
+      await waitFor(() => expect(screen.queryByText(/42%/)).not.toBeInTheDocument(), {
+        timeout: 3000,
+      })
     } finally {
       localStorage.removeItem('operationMode')
     }
@@ -323,22 +366,22 @@ describe('pages/BulkWatering', () => {
 
   test('operationMode defaults to manual if localStorage is undefined', async () => {
     const originalLocalStorage = global.localStorage
-    // We want to test line 24 of BulkWatering.jsx: 
+    // We want to test line 24 of BulkWatering.jsx:
     // const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
     // ThemeProvider also uses localStorage.
-    
+
     // Use a proxy or just mock getItem to return null/value, but the goal is to trigger the `typeof localStorage === 'undefined'` branch.
     // Since we are in JSDOM, localStorage is usually defined.
-    
+
     // Let's try to just delete it from global
     delete global.localStorage
-    
+
     try {
       // We can't use ThemeProvider if it's not guarded
       render(
         <MemoryRouter>
           <BulkWatering />
-        </MemoryRouter>
+        </MemoryRouter>,
       )
       // Should see manual mode instructions (default)
       expect(await screen.findAllByText(/retained ≤ threshold/i)).not.toHaveLength(0)
@@ -349,7 +392,9 @@ describe('pages/BulkWatering', () => {
 
   test('shows error when plants API fails to load', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }),
+      ),
     )
 
     renderPage()
@@ -361,16 +406,16 @@ describe('pages/BulkWatering', () => {
     renderPage()
     const aloe = await screen.findByText('Aloe')
     fireEvent.click(aloe)
-    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/plants/u1',
+      expect.objectContaining({ state: expect.any(Object) }),
+    )
 
     // Coverage for handleView edge case: no uuid
     // We can't easily click a plant without uuid since it won't be in the table if it's from valid plants list
     // but we can call handleView if it was exported, which it isn't.
     // However, we can mock plantsApi.list to return a plant without uuid and see if clicking it does nothing.
-    server.use(
-      ...paginatedPlantsHandler([{ uuid: '', name: 'NoUuid' }]
-    )
-    )
+    server.use(...paginatedPlantsHandler([{ uuid: '', name: 'NoUuid' }]))
     renderPage()
     const toggleCheck = (await screen.findAllByRole('checkbox', { name: /show all plants/i }))[1]
     fireEvent.click(toggleCheck)
@@ -385,18 +430,21 @@ describe('pages/BulkWatering', () => {
     server.use(
       http.post('/api/measurements/watering', async ({ request }) => {
         const payload = await request.json()
-        return HttpResponse.json({
-          status: 'success',
-          data: {
-            id: 2001,
-            plant_id: payload?.plant_id,
-            measured_at: payload?.measured_at || '2025-01-05T00:00:00',
-            latest_at: payload?.measured_at || '2025-01-05T00:00:00',
-            water_retained_pct: 55,
-            water_loss_total_pct: 45,
+        return HttpResponse.json(
+          {
+            status: 'success',
+            data: {
+              id: 2001,
+              plant_id: payload?.plant_id,
+              measured_at: payload?.measured_at || '2025-01-05T00:00:00',
+              latest_at: payload?.measured_at || '2025-01-05T00:00:00',
+              water_retained_pct: 55,
+              water_loss_total_pct: 45,
+            },
           },
-        }, { status: 201 })
-      })
+          { status: 201 },
+        )
+      }),
     )
 
     renderPage()
@@ -412,7 +460,9 @@ describe('pages/BulkWatering', () => {
     // Now make PUT fail to exercise catch path
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.put('/api/measurements/watering/:id', () => HttpResponse.json({ message: 'boom' }, { status: 500 }))
+      http.put('/api/measurements/watering/:id', () =>
+        HttpResponse.json({ message: 'boom' }, { status: 500 }),
+      ),
     )
 
     fireEvent.click(input)
@@ -427,20 +477,28 @@ describe('pages/BulkWatering', () => {
     // Return a single plant that needs water and has no timestamps
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'u3', id: 3, name: 'Cactus', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-      ]
-    ),
+        {
+          uuid: 'u3',
+          id: 3,
+          name: 'Cactus',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
       // POST without timestamps to exercise fallback in component
       http.post('/api/measurements/watering', async ({ request }) => {
         const payload = await request.json()
-        return HttpResponse.json({
-          id: 3001,
-          plant_id: payload?.plant_id,
-          // intentionally omit measured_at and latest_at
-          water_retained_pct: 25,
-          water_loss_total_pct: 75,
-        }, { status: 201 })
-      })
+        return HttpResponse.json(
+          {
+            id: 3001,
+            plant_id: payload?.plant_id,
+            // intentionally omit measured_at and latest_at
+            water_retained_pct: 25,
+            water_loss_total_pct: 75,
+          },
+          { status: 201 },
+        )
+      }),
     )
 
     renderPage()
@@ -464,10 +522,18 @@ describe('pages/BulkWatering', () => {
     // Line 111: latest_at: data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes()
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'u4', id: 4, name: 'Jade', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T12:00' }
-      ]
-    ),
-      http.post('/api/measurements/watering', () => HttpResponse.json({ id: 4001, plant_id: 'u4' }, { status: 201 }))
+        {
+          uuid: 'u4',
+          id: 4,
+          name: 'Jade',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 30,
+          latest_at: '2025-01-01T12:00',
+        },
+      ]),
+      http.post('/api/measurements/watering', () =>
+        HttpResponse.json({ id: 4001, plant_id: 'u4' }, { status: 201 }),
+      ),
     )
     renderPage()
     const jade = await screen.findByText('Jade')
@@ -490,7 +556,7 @@ describe('pages/BulkWatering', () => {
           measured_at: payload?.measured_at,
           // omit metrics to force fallback to previous plant values
         })
-      })
+      }),
     )
 
     renderPage()

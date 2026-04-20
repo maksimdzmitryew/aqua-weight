@@ -36,14 +36,14 @@ describe('Sparkline Coverage Tests', () => {
   test('covers lines 244 and 248: sx and sy with non-finite values', () => {
     // sx(x) = margin.left + ((x - minX) / spanX) * w
     // sy(y) = margin.top + (1 - (y - minY) / spanY) * h
-    
+
     // To trigger the else branch (Number.isFinite(val) is false), we can pass
     // non-finite values in margins, which will propagate to val.
     const data = [{ x: 1, y: 10 }]
     const margin = { top: NaN, left: NaN, right: 0, bottom: 0 }
-    
+
     renderWithTheme(<Sparkline data={data} margin={margin} />)
-    
+
     const svg = screen.getByLabelText('sparkline')
     expect(svg).toBeInTheDocument()
   })
@@ -64,10 +64,10 @@ describe('Sparkline Coverage Tests', () => {
     // If maxY - minY is 0, it takes || 1.
     // But line 238 says if maxY === minY, maxY = minY + 1.
     // So maxY - minY is 1.
-    
+
     // Let's try to pass values that might cause floating point issues?
     // Not likely to help with "exactly 0".
-    
+
     // Wait! What if we have NO data and NO refLines?
     // minYData = Infinity, maxYData = -Infinity
     // minYRef = Infinity, maxYRef = -Infinity
@@ -75,14 +75,14 @@ describe('Sparkline Coverage Tests', () => {
     // 237: minY = 0
     // 238: !isFinite(maxY) is true (it is -Infinity), so maxY = 0 + 1 = 1.
     // spanY = 1 - 0 = 1.
-    
+
     // If I want to hit EVERY branch, I should ensure I have tests for:
     // 1. minY is not finite (line 237)
     // 2. maxY is not finite (line 238)
     // 3. maxY === minY (line 238)
     // 4. spanX is 0 (line 239)
     // 5. spanY is 0 (line 240) - if possible
-    
+
     const { container } = renderWithTheme(<Sparkline data={[]} refLines={[]} />)
     expect(container).toBeInTheDocument()
   })

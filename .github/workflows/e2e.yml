@@ -2,7 +2,7 @@ name: E2E
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main, master]
   pull_request:
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install Playwright deps and browsers
         working-directory: frontend
@@ -51,13 +51,13 @@ jobs:
           echo "Waiting for frontend root..."
           for i in {1..30}; do
             if curl -sSf http://127.0.0.1:5080/ >/dev/null; then echo OK; break; fi; sleep 5; done
-          
+
           # Debug info before tests
           echo "Service status:"
           docker compose -f docker-compose.test.yml ps
           echo "Network status:"
           sudo netstat -tunlp | grep 5080 || true
-          
+
           if ! curl -sSf http://127.0.0.1:5080/api/health >/dev/null; then
             echo "Stack not reachable after wait; dumping container logs..."
             docker compose -f docker-compose.test.yml ps

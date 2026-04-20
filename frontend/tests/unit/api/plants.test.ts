@@ -67,7 +67,9 @@ describe('plantsApi', () => {
   })
 
   it('update throws ApiError when uuid missing', () => {
-    expect(() => plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any),
+    ).toThrow(ApiError)
     try {
       plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any)
     } catch (e: any) {
@@ -84,10 +86,14 @@ describe('plantsApi', () => {
     const res = await plantsApi.update('abc', { name: 'New' }, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/abc', { name: 'New' }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/abc',
+      { name: 'New' },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(updated)
   })
 
@@ -100,10 +106,14 @@ describe('plantsApi', () => {
     const res = await plantsApi.reorder(ids, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/order', { ordered_ids: ids }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/order',
+      { ordered_ids: ids },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(ok)
   })
 

@@ -344,8 +344,7 @@ def _to_dt_string(s: str | None):
 
 @app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
 async def get_watering_approximation(
-    operationMode: str | None = Cookie(None),
-    defaultThreshold: str | None = Cookie(None)
+    operationMode: str | None = Cookie(None), defaultThreshold: str | None = Cookie(None)
 ):
     """
     Calculate virtual water retained, frequency, and next watering date for all active plants.
@@ -369,14 +368,18 @@ async def get_watering_approximation(
                     virtual_water_retained_pct=p.get("water_retained_pct"),
                     frequency_days=p.get("frequency_days"),
                     frequency_confidence=p.get("frequency_confidence"),
-                    next_watering_at=next_at.isoformat()
-                    if next_at and hasattr(next_at, "isoformat")
-                    else (str(next_at) if next_at else None),
-                    first_calculated_at=first_at.isoformat()
-                    if first_at and hasattr(first_at, "isoformat")
-                    else (str(first_at) if first_at else None),
+                    next_watering_at=(
+                        next_at.isoformat()
+                        if next_at and hasattr(next_at, "isoformat")
+                        else (str(next_at) if next_at else None)
+                    ),
+                    first_calculated_at=(
+                        first_at.isoformat()
+                        if first_at and hasattr(first_at, "isoformat")
+                        else (str(first_at) if first_at else None)
+                    ),
                     days_offset=p.get("days_offset"),
-                    needs_weighing=p.get("needs_weighing", False)
+                    needs_weighing=p.get("needs_weighing", False),
                 )
             )
         return WateringApproximationResponse(items=items)
@@ -910,15 +913,15 @@ async def update_measurement(
                 # Skip re-derivation if this is a Vacation/Reported watering event (weights are NULL)
                 # to preserve the technical signature.
                 is_vacation_event = current_mw is None and current_ld is None and current_lw is None
-                
+
                 if is_vacation_event and mw is None and ld is None and lw is None:
                     # Maintain the Vacation signature
                     derived = DerivedWeights(
                         last_dry_weight_g=None,
                         last_wet_weight_g=None,
                         water_added_g=wa_eff_payload or current_wa or 0,
-                        prev_measured_weight=None, # Not used for Vacation events
-                        last_watering_water_added=current_wa or 0
+                        prev_measured_weight=None,  # Not used for Vacation events
+                        last_watering_water_added=current_wa or 0,
                     )
                     loss_calc = WaterLossCalculation()
                     loss_calc.water_loss_total_pct = 0.0

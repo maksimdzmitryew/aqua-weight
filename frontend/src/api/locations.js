@@ -23,9 +23,13 @@ export const locationsApi = {
     return apiClient.delete(`/locations/${uuid}`, { signal })
   },
   reorder(orderedIds, signal) {
-    return apiClient.put('/locations/order', { ordered_ids: orderedIds }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-    })
+    return apiClient.put(
+      '/locations/order',
+      { ordered_ids: orderedIds },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+      },
+    )
   },
 }

@@ -4,7 +4,8 @@ import useDocumentTitle from '../hooks/useDocumentTitle.js'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
+  const operationMode =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
 
   // Keep browser tab title in sync for all dashboard pages
   useDocumentTitle(title)
@@ -27,11 +28,7 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
           {menuItems.map((item) => {
             const active = location.pathname === item.to
             return (
-              <Link
-                key={item.key}
-                to={item.to}
-                className={`nav-link${active ? ' active' : ''}`}
-              >
+              <Link key={item.key} to={item.to} className={`nav-link${active ? ' active' : ''}`}>
                 {item.label}
               </Link>
             )
@@ -69,5 +66,5 @@ const noticeStyle = {
   background: '#e0f2fe',
   color: '#0369a1',
   border: '1px solid #bae6fd',
-  fontWeight: 500
+  fontWeight: 500,
 }

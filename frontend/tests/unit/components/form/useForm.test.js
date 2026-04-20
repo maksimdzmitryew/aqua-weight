@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useForm, required, minNumber, maxNumber, optionalHexLen } from '../../../../src/components/form/useForm.js'
+import {
+  useForm,
+  required,
+  minNumber,
+  maxNumber,
+  optionalHexLen,
+} from '../../../../src/components/form/useForm.js'
 
 describe('src/components/form/useForm.js', () => {
   it('required validator returns true for non-empty and message for empty/null', () => {

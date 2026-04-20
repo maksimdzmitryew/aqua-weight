@@ -45,6 +45,6 @@ export default function useDocumentTitle(title, options = {}) {
         doc.title = prevTitleRef.current
       }
     }
-  // Re-assert on route changes even if `title` string stays the same
+    // Re-assert on route changes even if `title` string stays the same
   }, [title, location.key, restoreOnUnmount])
 }

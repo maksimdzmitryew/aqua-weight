@@ -26,21 +26,21 @@ describe('hooks/useDocumentTitle', () => {
     document.title = 'Start'
 
     const { rerender } = render(
-      <MemoryRouter initialEntries={[{ pathname: '/' }]}> 
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
         <Routes>
           <Route path="/" element={<UseTitle title="" />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     expect(document.title).toBe('AW Frontend')
 
     rerender(
-      <MemoryRouter initialEntries={[{ pathname: '/' }]}> 
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
         <Routes>
           <Route path="/" element={<UseTitle title="Plants" />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     expect(document.title).toBe('Plants – AW Frontend')
   })
@@ -49,12 +49,12 @@ describe('hooks/useDocumentTitle', () => {
     const user = userEvent.setup()
 
     render(
-      <MemoryRouter initialEntries={[{ pathname: '/one' }]}> 
+      <MemoryRouter initialEntries={[{ pathname: '/one' }]}>
         <Routes>
           <Route path="/one" element={<Page title="Same" />} />
           <Route path="/two" element={<UseTitle title="Same" />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     // Initially applied
@@ -75,11 +75,11 @@ describe('hooks/useDocumentTitle', () => {
     document.title = 'Original'
 
     const { unmount } = render(
-      <MemoryRouter initialEntries={[{ pathname: '/' }]}> 
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
         <Routes>
           <Route path="/" element={<UseTitle title="Page" restore />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     // While mounted
@@ -95,11 +95,11 @@ describe('hooks/useDocumentTitle', () => {
     document.title = 'AW Frontend'
 
     render(
-      <MemoryRouter initialEntries={[{ pathname: '/' }]}> 
+      <MemoryRouter initialEntries={[{ pathname: '/' }]}>
         <Routes>
           <Route path="/" element={<UseTitle title="" />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     // Remains unchanged since it's already the desired value
@@ -119,7 +119,7 @@ describe('hooks/useDocumentTitle', () => {
         <Routes>
           <Route path="/" element={<UseTitleInjected title="Page" restore doc={undefined} />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
     // Since injected doc is undefined, hook should not touch the real document
@@ -131,7 +131,7 @@ describe('hooks/useDocumentTitle', () => {
         <Routes>
           <Route path="/" element={<UseTitleInjected title="Another" restore doc={undefined} />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
     expect(document.title).toBe('Keep')
 

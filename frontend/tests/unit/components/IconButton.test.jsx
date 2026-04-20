@@ -13,7 +13,7 @@ describe('IconButton', () => {
     const user = userEvent.setup()
     const onClick = vi.fn()
     renderWithTheme(
-      <IconButton icon="edit" label="Edit plant" onClick={onClick} variant="ghost" size={32} />
+      <IconButton icon="edit" label="Edit plant" onClick={onClick} variant="ghost" size={32} />,
     )
 
     const btn = screen.getByRole('button', { name: 'Edit plant' })
@@ -45,7 +45,7 @@ describe('IconButton', () => {
     const user = userEvent.setup()
     const onClick = vi.fn()
     renderWithTheme(
-      <IconButton icon="delete" label="Delete" onClick={onClick} disabled variant="danger" />
+      <IconButton icon="delete" label="Delete" onClick={onClick} disabled variant="danger" />,
     )
     const btn = screen.getByRole('button', { name: 'Delete' })
     // Disabled path: opacity applied, cursor not-allowed
@@ -60,9 +60,7 @@ describe('IconButton', () => {
 
   test('variant styles differ in light and dark themes (covers isDark branches)', () => {
     // Light theme (default)
-    renderWithTheme(
-      <IconButton icon="beaker" label="Measure" variant="primary" />
-    )
+    renderWithTheme(<IconButton icon="beaker" label="Measure" variant="primary" />)
     let btn = screen.getByRole('button', { name: 'Measure' })
     expect(btn.style.background).toBe('rgb(238, 242, 255)') // #eef2ff
     expect(btn.style.borderColor).toBe('rgb(199, 210, 254)') // #c7d2fe
@@ -70,9 +68,7 @@ describe('IconButton', () => {
 
     // Dark theme
     localStorage.setItem('theme', 'dark')
-    renderWithTheme(
-      <IconButton icon="beaker" label="Measure dark" variant="primary" />
-    )
+    renderWithTheme(<IconButton icon="beaker" label="Measure dark" variant="primary" />)
     btn = screen.getByRole('button', { name: 'Measure dark' })
     expect(btn.style.background).toBe('rgb(11, 19, 36)') // #0b1324
     expect(btn.style.borderColor).toBe('rgb(29, 78, 216)') // #1d4ed8
@@ -80,9 +76,7 @@ describe('IconButton', () => {
   })
 
   test('unknown icon and unknown variant fall back to null icon and base styles', () => {
-    renderWithTheme(
-      <IconButton icon="__unknown__" label="Unknown" variant="__nope__" />
-    )
+    renderWithTheme(<IconButton icon="__unknown__" label="Unknown" variant="__nope__" />)
     const btn = screen.getByRole('button', { name: 'Unknown' })
     // No svg rendered
     expect(btn.querySelector('svg')).toBeNull()

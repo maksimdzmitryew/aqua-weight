@@ -8,7 +8,7 @@ const getBadgeEl = () => screen.getByRole('status')
 
 describe('Badge.jsx', () => {
   test('renders children, role, and aria-live with default (neutral) tone', () => {
-    render(<Badge title="Neutral" >Hello</Badge>)
+    render(<Badge title="Neutral">Hello</Badge>)
 
     const el = getBadgeEl()
     expect(el).toHaveTextContent('Hello')
@@ -54,7 +54,7 @@ describe('Badge.jsx', () => {
   })
 
   test('falls back to neutral when tone is unknown', () => {
-    render(<Badge tone={"unknown"}>Fallback</Badge>)
+    render(<Badge tone={'unknown'}>Fallback</Badge>)
     expect(getBadgeEl()).toHaveStyle({
       background: '#f3f4f6',
       color: '#374151',

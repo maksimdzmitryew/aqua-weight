@@ -78,7 +78,9 @@ class PlantsList:
                             OR l.name LIKE %s
                             OR p.identify_hint LIKE %s
                         )"""
-                        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+                        params.extend(
+                            [search_pattern, search_pattern, search_pattern, search_pattern]
+                        )
 
                 query += " ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC"
 
@@ -177,7 +179,7 @@ class PlantsList:
                         freq_days, freq_count = None, 0
 
                     # Find last watering event for fallback/projection
-                    # Note: We include both Manual/Automatic (weights > 0) 
+                    # Note: We include both Manual/Automatic (weights > 0)
                     # and Vacation (weights are NULL) watering events for the projection base date.
                     last_watering_at = None
                     try:
@@ -219,9 +221,7 @@ class PlantsList:
                     if freq_days is not None and freq_days > 0 and last_watering_at:
                         try:
                             # Initial projection: last watering + frequency
-                            first_calculated_at = last_watering_at + timedelta(
-                                days=int(freq_days)
-                            )
+                            first_calculated_at = last_watering_at + timedelta(days=int(freq_days))
                             next_watering_at = first_calculated_at
 
                             # Calculate days offset from today for the first_calculated_at
@@ -332,7 +332,9 @@ class PlantsList:
                             OR l.name LIKE %s
                             OR p.identify_hint LIKE %s
                         )"""
-                        params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+                        params.extend(
+                            [search_pattern, search_pattern, search_pattern, search_pattern]
+                        )
 
                 cur.execute(query, params)
                 row = cur.fetchone()

@@ -20,7 +20,7 @@ def test_regular_measurement_with_last_wet_caps_effective_capacity_and_clamps():
         min_dry_weight_g=80,
         max_water_weight_g=50,  # overstated historical maximum
         measured_weight_g=85,
-        last_wet_weight_g=90,   # effective saturated = 90 (min of 130, 90)
+        last_wet_weight_g=90,  # effective saturated = 90 (min of 130, 90)
         water_loss_total_pct=None,
     )
     # available = 90-80=10; remain = 85-80=5 -> 5/10 = 0.5 = 50%
@@ -121,9 +121,9 @@ def test_last_wet_below_min_dry_uses_saturated_capacity_branch():
     # so effective_saturated_weight remains saturated_weight (no min() adjustment)
     res = calculate_water_retained(
         min_dry_weight_g=80,
-        max_water_weight_g=20,   # saturated = 100
+        max_water_weight_g=20,  # saturated = 100
         measured_weight_g=85,
-        last_wet_weight_g=70,    # below min_dry -> condition false
+        last_wet_weight_g=70,  # below min_dry -> condition false
         water_loss_total_pct=None,
     )
     # available = 100-80 = 20; remain = 85-80 = 5 -> 5/20 = 0.25 => 25%

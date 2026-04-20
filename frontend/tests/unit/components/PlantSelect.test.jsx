@@ -9,11 +9,7 @@ import { useForm } from '../../../src/components/form/useForm.js'
 
 const TestWrapper = ({ children }) => {
   const form = useForm({ initialValues: { plant_id: '' } })
-  return (
-    <ThemeProvider>
-      {React.cloneElement(children, { form })}
-    </ThemeProvider>
-  )
+  return <ThemeProvider>{React.cloneElement(children, { form })}</ThemeProvider>
 }
 
 describe('components/PlantSelect', () => {
@@ -22,9 +18,9 @@ describe('components/PlantSelect', () => {
       http.get('/api/plants/names', () => {
         return HttpResponse.json([
           { uuid: 'p1', name: 'Plant 1' },
-          { uuid: 'p2', name: 'Plant 2' }
+          { uuid: 'p2', name: 'Plant 2' },
         ])
-      })
+      }),
     )
   })
 
@@ -32,7 +28,7 @@ describe('components/PlantSelect', () => {
     render(
       <TestWrapper>
         <PlantSelect name="plant_id" label="Plant" />
-      </TestWrapper>
+      </TestWrapper>,
     )
 
     // Initial loading state in option
@@ -48,13 +44,13 @@ describe('components/PlantSelect', () => {
     server.use(
       http.get('/api/plants/names', () => {
         return new HttpResponse(null, { status: 500 })
-      })
+      }),
     )
 
     render(
       <TestWrapper>
         <PlantSelect name="plant_id" label="Plant" />
-      </TestWrapper>
+      </TestWrapper>,
     )
 
     await waitFor(() => expect(screen.getByText(/failed to load plants/i)).toBeInTheDocument())
@@ -66,14 +62,14 @@ describe('components/PlantSelect', () => {
     server.use(
       http.get('/api/plants/names', () => {
         return HttpResponse.error() // Or a way to simulate abort
-      })
+      }),
     )
 
     // We can't easily trigger AbortError from MSW that reaches the catch without being an actual error
     // but we can mock the plantsApi.listNames to throw an AbortError
     const { plantsApi } = await import('../../../src/api/plants')
     const originalListNames = plantsApi.listNames
-    
+
     const abortError = new Error('Abort')
     abortError.name = 'AbortError'
     plantsApi.listNames = vi.fn().mockRejectedValueOnce(abortError)
@@ -82,7 +78,7 @@ describe('components/PlantSelect', () => {
       render(
         <TestWrapper>
           <PlantSelect name="plant_id" label="Plant" />
-        </TestWrapper>
+        </TestWrapper>,
       )
 
       // It should NOT set error state
@@ -92,18 +88,18 @@ describe('components/PlantSelect', () => {
       plantsApi.listNames = originalListNames
     }
   })
-  
+
   test('handles non-array response gracefully (Line 32)', async () => {
     server.use(
       http.get('/api/plants/names', () => {
         return HttpResponse.json({ not_an_array: true })
-      })
+      }),
     )
 
     render(
       <TestWrapper>
         <PlantSelect name="plant_id" label="Plant" />
-      </TestWrapper>
+      </TestWrapper>,
     )
 
     await waitFor(() => expect(screen.queryByText(/loading plants/i)).not.toBeInTheDocument())
@@ -124,7 +120,7 @@ describe('components/PlantSelect', () => {
       render(
         <TestWrapper>
           <PlantSelect name="plant_id" label="Plant" />
-        </TestWrapper>
+        </TestWrapper>,
       )
 
       await waitFor(() => expect(screen.getByText(/failed to load plants/i)).toBeInTheDocument())

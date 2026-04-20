@@ -25,7 +25,7 @@ function renderWithRouter(ui, { initialEntries = ['/'] } = {}) {
       <Routes>
         <Route path="*" element={ui} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
@@ -38,7 +38,7 @@ describe('QuickCreateButtons', () => {
     const user = userEvent.setup()
     const { container } = renderWithRouter(
       <QuickCreateButtons plantUuid="abc-123" plantName="Ficus" />,
-      { initialEntries: ['/plants?tab=1'] }
+      { initialEntries: ['/plants?tab=1'] },
     )
 
     // Wrapper gap uses default (compact=false) => 6px
@@ -52,23 +52,28 @@ describe('QuickCreateButtons', () => {
     const repotBtn = screen.getByRole('button', { name: 'Repotting for Ficus' })
 
     await user.click(weightBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight?plant=abc-123', { state: { from: '/plants?tab=1' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight?plant=abc-123', {
+      state: { from: '/plants?tab=1' },
+    })
     mockNavigate.mockClear()
 
     await user.click(waterBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering?plant=abc-123', { state: { from: '/plants?tab=1' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering?plant=abc-123', {
+      state: { from: '/plants?tab=1' },
+    })
     mockNavigate.mockClear()
 
     await user.click(repotBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/repotting?plant=abc-123', { state: { from: '/plants?tab=1' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/repotting?plant=abc-123', {
+      state: { from: '/plants?tab=1' },
+    })
   })
 
   it('omits plant query when plantUuid is not provided; uses fallback labels and compact gap', async () => {
     const user = userEvent.setup()
-    const { container } = renderWithRouter(
-      <QuickCreateButtons compact={true} />,
-      { initialEntries: ['/details'] }
-    )
+    const { container } = renderWithRouter(<QuickCreateButtons compact={true} />, {
+      initialEntries: ['/details'],
+    })
 
     // Wrapper gap for compact=true => 2px
     const wrapper = container.querySelector('span')
@@ -81,14 +86,20 @@ describe('QuickCreateButtons', () => {
     const repotBtn = screen.getByRole('button', { name: 'Repotting for plant' })
 
     await user.click(weightBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight', { state: { from: '/details' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight', {
+      state: { from: '/details' },
+    })
     mockNavigate.mockClear()
 
     await user.click(waterBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering', { state: { from: '/details' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering', {
+      state: { from: '/details' },
+    })
     mockNavigate.mockClear()
 
     await user.click(repotBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/repotting', { state: { from: '/details' } })
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/repotting', {
+      state: { from: '/details' },
+    })
   })
 })

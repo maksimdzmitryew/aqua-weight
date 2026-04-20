@@ -47,6 +47,7 @@ async def enforce_body_size(request: Request, call_next):
             return JSONResponse(status_code=413, content={"detail": "Request too large"})
     return await call_next(request)
 
+
 # Mount all routers under /api
 api_router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 api_router.include_router(repotting_app)

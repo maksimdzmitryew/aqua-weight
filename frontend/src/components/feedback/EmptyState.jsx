@@ -15,11 +15,15 @@ export default function EmptyState({ title, description, children }) {
     border: '1px dashed var(--border)',
     borderRadius: 8,
     background: 'transparent',
-    color: 'var(--muted)'
+    color: 'var(--muted)',
   }
   return (
     <div role="note" style={style}>
-      {title && <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: description ? 4 : 0 }}>{title}</div>}
+      {title && (
+        <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: description ? 4 : 0 }}>
+          {title}
+        </div>
+      )}
       {description && <div style={{ marginBottom: children ? 8 : 0 }}>{description}</div>}
       {children}
     </div>

@@ -1,6 +1,6 @@
 .plants-table th,
 .plants-table td {
-    display: table-cell !important;
+  display: table-cell !important;
 }
 
 @media (max-width: 1340px) {

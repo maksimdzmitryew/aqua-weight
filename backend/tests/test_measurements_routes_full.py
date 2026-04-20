@@ -28,7 +28,16 @@ class _DerivedObj:
 
 
 class _FakeCursor:
-    def __init__(self, *, rows_one=None, rows_all=None, delete_ok=True, not_found=False, raise_on_insert=False, raise_on_update=False):
+    def __init__(
+        self,
+        *,
+        rows_one=None,
+        rows_all=None,
+        delete_ok=True,
+        not_found=False,
+        raise_on_insert=False,
+        raise_on_update=False,
+    ):
         # rows for SELECT ... LIMIT 1
         self.rows_one = rows_one
         # rows for SELECT multiple
@@ -135,7 +144,9 @@ async def test_get_last_measurement_invalid_plant(app: FastAPI, async_client: As
 
 
 @pytest.mark.asyncio
-async def test_get_last_measurement_none_and_row(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_get_last_measurement_none_and_row(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # First case: no rows -> None
     fake_cur = _FakeCursor(rows_one=None)
     fake_conn = _FakeConn(fake_cur)
@@ -148,11 +159,13 @@ async def test_get_last_measurement_none_and_row(app: FastAPI, async_client: Asy
 
     # Second case: one row returned
     row = [
-        types.SimpleNamespace(isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 12:00:00"),  # measured_at
+        types.SimpleNamespace(
+            isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 12:00:00"
+        ),  # measured_at
         100,  # measured_weight_g
-        90,   # last_dry_weight_g
+        90,  # last_dry_weight_g
         120,  # last_wet_weight_g
-        30,   # water_added_g
+        30,  # water_added_g
         bytes.fromhex("11" * 16),  # method_id
         bytes.fromhex("22" * 16),  # scale_id
         "note here",
@@ -170,9 +183,13 @@ async def test_get_last_measurement_none_and_row(app: FastAPI, async_client: Asy
 
 
 @pytest.mark.asyncio
-async def test_create_reported_watering_invalid_and_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_reported_watering_invalid_and_success(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # invalid plant id
-    r_bad = await async_client.post("/api/measurements/reported-watering", json={"plant_id": "nothex"})
+    r_bad = await async_client.post(
+        "/api/measurements/reported-watering", json={"plant_id": "nothex"}
+    )
     assert r_bad.status_code == 400
     assert r_bad.json()["detail"] == "Invalid plant_id"
 
@@ -188,6 +205,7 @@ async def test_create_reported_watering_invalid_and_success(app: FastAPI, async_
     class _UUID:
         def __init__(self, b):
             self.bytes = b
+
     fixed_bytes = bytes.fromhex("77" * 16)
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
 
@@ -219,15 +237,24 @@ async def test_create_reported_watering_invalid_and_success(app: FastAPI, async_
 
 
 @pytest.mark.asyncio
-async def test_create_measurement_non_watering_branch_and_water_retained(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_measurement_non_watering_branch_and_water_retained(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Non-watering event: measured_weight present, compute returns is_watering=False
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=0))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=False))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=0)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=False),
+    )
 
     # deterministic id
     class _UUID:
         def __init__(self, b):
             self.bytes = b
+
     fixed_bytes = bytes.fromhex("66" * 16)
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
 
@@ -267,7 +294,9 @@ async def test_create_measurement_non_watering_branch_and_water_retained(app: Fa
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_watering_branch_and_retained(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_watering_branch_and_retained(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Base row exists
     base_row = [bytes.fromhex("aa" * 16), datetime(2025, 1, 1, 0, 0, 0), None, 90, 120, 30]
     cur = _FakeCursor(rows_one=base_row)
@@ -277,8 +306,14 @@ async def test_update_measurement_watering_branch_and_retained(app: FastAPI, asy
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     # Stubs: watering event
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=25))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=True))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=25)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=True),
+    )
     calls = []
     monkeypatch.setattr(
         measurements_routes,
@@ -297,7 +332,9 @@ async def test_update_measurement_watering_branch_and_retained(app: FastAPI, asy
 
 
 @pytest.mark.asyncio
-async def test_delete_measurement_delete_rowcount_zero_and_rollback_except(app: FastAPI, async_client: AsyncClient):
+async def test_delete_measurement_delete_rowcount_zero_and_rollback_except(
+    app: FastAPI, async_client: AsyncClient
+):
     # Case 1: pre-select ok, but delete affects 0 rows -> triggers 404 inside do_delete then 5xx response
     cur = _FakeCursor(delete_ok=False)
     # pre-select returns a row
@@ -312,25 +349,37 @@ async def test_delete_measurement_delete_rowcount_zero_and_rollback_except(app: 
 
 
 @pytest.mark.asyncio
-async def test_create_measurement_retained_block_executes_without_spy(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_measurement_retained_block_executes_without_spy(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers create_measurement post-insert retained calculation (524-529) without monkeypatching
     calculate_water_retained so the call site line is executed under coverage.
     """
+
     # Execute route internals synchronously to ensure coverage captures threadpool work
     async def _inline(fn):
         return fn()
+
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # Non-watering event path
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=0))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=False))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=0)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=False),
+    )
 
     class _UUID:
         def __init__(self, b):
             self.bytes = b
             self._hex = b.hex()
+
         def hex(self):
             return self._hex
+
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(bytes.fromhex("aa" * 16)))
 
     # Provide plant min/max for retained calc
@@ -355,13 +404,17 @@ async def test_create_measurement_retained_block_executes_without_spy(app: FastA
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_retained_block_executes_without_spy(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_retained_block_executes_without_spy(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers update_measurement post-commit retained calculation (675-680) without monkeypatching
     calculate_water_retained so the call site line is executed under coverage.
     """
+
     # Execute route internals synchronously to ensure coverage captures threadpool work
     async def _inline(fn):
         return fn()
+
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # Base row exists
@@ -373,8 +426,14 @@ async def test_update_measurement_retained_block_executes_without_spy(app: FastA
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     # Stubs: treat as non-watering update so measured_weight_g is used
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=False))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=False),
+    )
 
     mid = "66" * 16
     r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 150})
@@ -385,17 +444,25 @@ async def test_update_measurement_retained_block_executes_without_spy(app: FastA
 
 
 @pytest.mark.asyncio
-async def test_delete_measurement_success_updates_min_dry_inline_pool(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_delete_measurement_success_updates_min_dry_inline_pool(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers delete_measurement post-delete recalculation and commit (795-798) with inline threadpool
     to ensure coverage traces the lines.
     """
+
     async def _inline(fn):
         return fn()
+
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # Spy on update_min_dry_weight_and_max_watering_added_g
     calls = []
-    monkeypatch.setattr(measurements_routes, "update_min_dry_weight_and_max_watering_added_g", lambda *a, **k: calls.append((a, k)))
+    monkeypatch.setattr(
+        measurements_routes,
+        "update_min_dry_weight_and_max_watering_added_g",
+        lambda *a, **k: calls.append((a, k)),
+    )
 
     cur = _FakeCursor(delete_ok=True)
     # pre-select returns a row with measured_weight_g set
@@ -414,10 +481,12 @@ async def test_delete_measurement_success_updates_min_dry_inline_pool(app: FastA
 @pytest.mark.asyncio
 async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
     """Covers lines 54-55 where no plant row is found, ensuring None min/max are handled."""
+
     # Stub calculate_water_retained to control the returned pct
     class _Calc:
         def __init__(self, pct):
             self.water_retained_pct = pct
+
     monkeypatch.setattr(
         measurements_routes,
         "calculate_water_retained",
@@ -439,9 +508,11 @@ async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
 @pytest.mark.asyncio
 async def test__compute_water_retained_for_plant_pct_none(monkeypatch):
     """Covers line 74: returns 0.0 when water_retained_pct is None."""
+
     class _Calc:
         def __init__(self, pct):
             self.water_retained_pct = pct
+
     monkeypatch.setattr(
         measurements_routes,
         "calculate_water_retained",
@@ -470,9 +541,11 @@ async def test__post_delete_recalculate_and_commit_branch(monkeypatch):
         lambda *a, **k: calls.append(("update", a, k)),
     )
     conn = _FakeConn(_FakeCursor())
+
     # Spy commit
     def _commit():
         calls.append(("commit",))
+
     monkeypatch.setattr(conn, "commit", _commit, raising=False)
 
     measurements_routes._post_delete_recalculate_and_commit(conn, "aa" * 16, 123)
@@ -482,7 +555,9 @@ async def test__post_delete_recalculate_and_commit_branch(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_delete_measurement_rollback_raises_covers_inner_except(app: FastAPI, async_client: AsyncClient):
+async def test_delete_measurement_rollback_raises_covers_inner_except(
+    app: FastAPI, async_client: AsyncClient
+):
     """Force rollback to raise so inner except (818-819) executes, returning 500."""
     cur = _FakeCursor(delete_ok=False)
     # Pre-select returns a valid row so code proceeds to DELETE and then 0 rowcount triggers error
@@ -497,9 +572,12 @@ async def test_delete_measurement_rollback_raises_covers_inner_except(app: FastA
 
 
 @pytest.mark.asyncio
-async def test_get_watering_approximation_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_get_watering_approximation_success(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers lines 192-215: fetch function in get_watering_approximation."""
     from datetime import datetime, timedelta
+
     now = datetime.now()
 
     mock_plants = [
@@ -510,20 +588,22 @@ async def test_get_watering_approximation_success(app: FastAPI, async_client: As
             "water_retained_pct": 75.0,
             "frequency_days": 7,
             "frequency_confidence": 1,
-            "days_offset": 0
+            "days_offset": 0,
         },
         {
             "uuid": "bb" * 16,
-            "next_watering_at": "Not a datetime", # Test the string fallback
+            "next_watering_at": "Not a datetime",  # Test the string fallback
             "first_calculated_at": None,
             "water_retained_pct": None,
             "frequency_days": None,
             "frequency_confidence": None,
-            "days_offset": None
-        }
+            "days_offset": None,
+        },
     ]
 
-    monkeypatch.setattr("backend.app.routes.measurements.PlantsList.fetch_all", lambda **k: mock_plants)
+    monkeypatch.setattr(
+        "backend.app.routes.measurements.PlantsList.fetch_all", lambda **k: mock_plants
+    )
 
     resp = await async_client.get("/api/measurements/approximation/watering")
     assert resp.status_code == 200
@@ -545,8 +625,10 @@ async def test__post_delete_recalculate_and_commit_none_weight_no_update(monkeyp
         lambda *a, **k: calls.append(("update",)),
     )
     conn = _FakeConn(_FakeCursor())
+
     def _commit():
         calls.append(("commit",))
+
     monkeypatch.setattr(conn, "commit", _commit, raising=False)
 
     measurements_routes._post_delete_recalculate_and_commit(conn, "aa" * 16, None)
@@ -557,10 +639,16 @@ async def test__post_delete_recalculate_and_commit_none_weight_no_update(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_delete_measurement_success_updates_min_dry(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_delete_measurement_success_updates_min_dry(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Spy on update_min_dry_weight_and_max_watering_added_g
     calls = []
-    monkeypatch.setattr(measurements_routes, "update_min_dry_weight_and_max_watering_added_g", lambda *a, **k: calls.append((a, k)))
+    monkeypatch.setattr(
+        measurements_routes,
+        "update_min_dry_weight_and_max_watering_added_g",
+        lambda *a, **k: calls.append((a, k)),
+    )
 
     cur = _FakeCursor(delete_ok=True)
     # pre-select returns a row with measured_weight_g set
@@ -578,15 +666,19 @@ async def test_delete_measurement_success_updates_min_dry(app: FastAPI, async_cl
 
 
 @pytest.mark.asyncio
-async def test_create_reported_watering_rollback_and_close_excepts(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_reported_watering_rollback_and_close_excepts(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     class _UUID:
         def __init__(self, b):
             self.bytes = b
+
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(bytes.fromhex("77" * 16)))
 
     class _Conn(_FakeConn):
         def __init__(self, cur):
             super().__init__(cur, raise_on_rollback=True)
+
         def close(self):
             raise RuntimeError("close failed")
 
@@ -608,7 +700,9 @@ async def test_list_measurements_for_plant_invalid_id(app: FastAPI, async_client
 
 
 @pytest.mark.asyncio
-async def test_create_measurement_validation_and_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_measurement_validation_and_success(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Validation: invalid plant id -> 400
     bad_payload = {
         "plant_id": "xyz",
@@ -636,14 +730,23 @@ async def test_create_measurement_validation_and_success(app: FastAPI, async_cli
 
     # Success watering event path
     # Stub compute and derive, and deterministic uuid
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=25))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=True))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=25)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=True),
+    )
+
     class _UUID:
         def __init__(self, b):
             self.bytes = b
             self._hex = b.hex()
+
         def hex(self):
             return self._hex
+
     fixed_bytes = bytes.fromhex("99" * 16)
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
 
@@ -680,16 +783,27 @@ async def test_create_measurement_validation_and_success(app: FastAPI, async_cli
 
 
 @pytest.mark.asyncio
-async def test_create_measurement_rollback_inner_except(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_measurement_rollback_inner_except(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Arrange deterministic stubs again
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=25))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=True))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=25)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=True),
+    )
+
     class _UUID:
         def __init__(self, b):
             self.bytes = b
             self._hex = b.hex()
+
         def hex(self):
             return self._hex
+
     fixed_bytes = bytes.fromhex("98" * 16)
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
 
@@ -714,19 +828,30 @@ async def test_create_measurement_rollback_inner_except(app: FastAPI, async_clie
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_rollback_inner_except(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_rollback_inner_except(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     base_row = [
         bytes.fromhex("aa" * 16),  # plant_id bytes
-        datetime(2025, 1, 1, 0, 0, 0),    # measured_at current as datetime
-        100, 90, 120, 0,
+        datetime(2025, 1, 1, 0, 0, 0),  # measured_at current as datetime
+        100,
+        90,
+        120,
+        0,
     ]
     cur = _FakeCursor(rows_one=base_row, raise_on_update=True)
     conn = _FakeConn(cur, raise_on_rollback=True)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     # Stubs
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=False))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=False),
+    )
 
     mid = "33" * 16
     r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 111})
@@ -736,7 +861,9 @@ async def test_update_measurement_rollback_inner_except(app: FastAPI, async_clie
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_invalid_and_not_found(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_invalid_and_not_found(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # invalid id
     resp = await async_client.put("/api/measurements/weight/nothex", json={})
     assert resp.status_code == 400
@@ -754,25 +881,38 @@ async def test_update_measurement_invalid_and_not_found(app: FastAPI, async_clie
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_success_and_validation_and_rollback(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_success_and_validation_and_rollback(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Base row exists
     base_row = [
         bytes.fromhex("aa" * 16),  # plant_id bytes
-        datetime(2025, 1, 1, 0, 0, 0),    # measured_at current as datetime
-        100, 90, 120, 0,            # curr mw, ld, lw, wa
+        datetime(2025, 1, 1, 0, 0, 0),  # measured_at current as datetime
+        100,
+        90,
+        120,
+        0,  # curr mw, ld, lw, wa
     ]
     cur = _FakeCursor(rows_one=base_row)
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     # Stubs
-    monkeypatch.setattr(measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0))
-    monkeypatch.setattr(measurements_routes, "compute_water_losses", lambda **kwargs: _WaterLossObj(is_watering=False))
+    monkeypatch.setattr(
+        measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=95, lw=130, wa=0)
+    )
+    monkeypatch.setattr(
+        measurements_routes,
+        "compute_water_losses",
+        lambda **kwargs: _WaterLossObj(is_watering=False),
+    )
 
     pid = "ab" * 16
 
     # Validation: both measured_weight_g and water_added_g provided -> 400 (covers 254-255)
-    r_val = await async_client.put(f"/api/measurements/weight/{pid}", json={"measured_weight_g": 110, "water_added_g": 5})
+    r_val = await async_client.put(
+        f"/api/measurements/weight/{pid}", json={"measured_weight_g": 110, "water_added_g": 5}
+    )
     assert r_val.status_code == 400
 
     # Success update path
@@ -786,14 +926,18 @@ async def test_update_measurement_success_and_validation_and_rollback(app: FastA
 
     # Rollback path: raise on update to trigger 500 and inner rollback except (338-339)
     cur.raise_on_update = True
-    r_err = await async_client.put(f"/api/measurements/weight/{pid}", json={"measured_weight_g": 120})
+    r_err = await async_client.put(
+        f"/api/measurements/weight/{pid}", json={"measured_weight_g": 120}
+    )
     assert r_err.status_code >= 500
 
     app.dependency_overrides.pop(get_conn_factory, None)
 
 
 @pytest.mark.asyncio
-async def test_get_measurement_invalid_not_found_and_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_get_measurement_invalid_not_found_and_success(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # invalid
     resp = await async_client.get("/api/measurements/nothex")
     assert resp.status_code == 400
@@ -812,9 +956,16 @@ async def test_get_measurement_invalid_not_found_and_success(app: FastAPI, async
         bytes.fromhex("11" * 16),  # id
         bytes.fromhex("aa" * 16),  # plant_id
         types.SimpleNamespace(isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 00:00:00"),
-        100, 90, 120, 25, 10.5, 20, 1.2, 3,
+        100,
+        90,
+        120,
+        25,
+        10.5,
+        20,
+        1.2,
+        3,
         bytes.fromhex("bb" * 16),  # method_id
-        1,                          # use_last_method
+        1,  # use_last_method
         bytes.fromhex("cc" * 16),  # scale_id
         "note",
     ]
@@ -831,7 +982,9 @@ async def test_get_measurement_invalid_not_found_and_success(app: FastAPI, async
 
 
 @pytest.mark.asyncio
-async def test_delete_measurement_invalid_not_found_and_success(app: FastAPI, async_client: AsyncClient):
+async def test_delete_measurement_invalid_not_found_and_success(
+    app: FastAPI, async_client: AsyncClient
+):
     # invalid
     resp = await async_client.delete("/api/measurements/nothex")
     assert resp.status_code == 400
@@ -859,43 +1012,50 @@ async def test_delete_measurement_invalid_not_found_and_success(app: FastAPI, as
 
 
 @pytest.mark.asyncio
-async def test_create_vacation_watering_success(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_vacation_watering_success(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers create_vacation_watering (118-218)."""
+
     # Execute route internals synchronously
     async def _inline(fn):
         return fn()
+
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # deterministic id
     class _UUID:
         def __init__(self, b):
             self.bytes = b
+
     fixed_bytes = bytes.fromhex("55" * 16)
     monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
 
     cur = _FakeCursor()
     # Mocking rows for water_added_g and (method_id, scale_id)
-    cur.rows_one = [30, bytes.fromhex("bb" * 16), bytes.fromhex("cc" * 16)] 
-    
+    cur.rows_one = [30, bytes.fromhex("bb" * 16), bytes.fromhex("cc" * 16)]
+
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    payload = {
-        "plant_id": "aa" * 16,
-        "measured_at": "2025-01-01T12:00:00"
-    }
+    payload = {"plant_id": "aa" * 16, "measured_at": "2025-01-01T12:00:00"}
     r = await async_client.post("/api/measurements/vacation/watering", json=payload)
     assert r.status_code == 200
     data = r.json()
     assert data["id"] == ("55" * 16)
     assert data["note"] == "[vacation] watering"
-    
+
     # Test invalid plant_id
-    r_bad = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "invalid"})
+    r_bad = await async_client.post(
+        "/api/measurements/vacation/watering", json={"plant_id": "invalid"}
+    )
     assert r_bad.status_code == 400
-    
+
     # Test invalid measured_at
-    r_bad_ts = await async_client.post("/api/measurements/vacation/watering", json={"plant_id": "aa" * 16, "measured_at": "invalid"})
+    r_bad_ts = await async_client.post(
+        "/api/measurements/vacation/watering",
+        json={"plant_id": "aa" * 16, "measured_at": "invalid"},
+    )
     assert r_bad_ts.status_code == 400
 
     # Test failure path
@@ -913,17 +1073,24 @@ async def test_create_vacation_watering_success(app: FastAPI, async_client: Asyn
 
 
 @pytest.mark.asyncio
-async def test_update_measurement_vacation_event_signature(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_update_measurement_vacation_event_signature(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Covers update_measurement lines 911-920."""
+
     async def _inline(fn):
         return fn()
+
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # Base row is a vacation event (mw, ld, lw are None)
     base_row = [
         bytes.fromhex("aa" * 16),  # plant_id bytes
-        datetime(2025, 1, 1, 0, 0, 0),    # measured_at
-        None, None, None, 30,            # mw, ld, lw, wa
+        datetime(2025, 1, 1, 0, 0, 0),  # measured_at
+        None,
+        None,
+        None,
+        30,  # mw, ld, lw, wa
     ]
     cur = _FakeCursor(rows_one=base_row)
     # Plant params for retained calc

@@ -34,7 +34,9 @@ export default function ConfirmDialog({
 
   useEffect(() => {
     if (open && firstBtnRef.current) {
-      try { firstBtnRef.current.focus() } catch {}
+      try {
+        firstBtnRef.current.focus()
+      } catch {}
     }
   }, [open])
 
@@ -77,46 +79,106 @@ export default function ConfirmDialog({
   const ICONS = {
     // Warning / danger
     danger: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
     ),
     warning: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-        <line x1="12" y1="9" x2="12" y2="13"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
     ),
     // Info
     info: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="16" x2="12" y2="12"/>
-        <line x1="12" y1="8" x2="12.01" y2="8"/>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
       </svg>
     ),
     // Success
     success: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+        <polyline points="22 4 12 14.01 9 11.01" />
       </svg>
     ),
     // Question
     question: (
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4"/>
-        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      <svg
+        width="28"
+        height="28"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
     ),
   }
 
   const headerTone = toneStyles[toneKind] || toneStyles.default
-  const resolvedIconKey = icon || (toneKind === 'danger' ? 'danger' : (toneKind === 'warning' ? 'warning' : (toneKind === 'success' ? 'success' : (toneKind === 'info' ? 'info' : 'info'))))
+  const resolvedIconKey =
+    icon ||
+    (toneKind === 'danger'
+      ? 'danger'
+      : toneKind === 'warning'
+        ? 'warning'
+        : toneKind === 'success'
+          ? 'success'
+          : toneKind === 'info'
+            ? 'info'
+            : 'info')
   const iconEl = ICONS[resolvedIconKey] || ICONS['warning']
 
   const headerIcon = (
@@ -165,7 +227,12 @@ export default function ConfirmDialog({
     // Cancel is first to allow quick safe action
     { key: 'cancel', text: cancelText, style: btnBase, onClick: onCancel, ref: firstBtnRef },
     // Confirm uses danger or primary styles depending on tone
-    { key: 'confirm', text: confirmText, style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary }, onClick: onConfirm },
+    {
+      key: 'confirm',
+      text: confirmText,
+      style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary },
+      onClick: onConfirm,
+    },
   ]
 
   const shownButtons = Array.isArray(buttons) && buttons.length > 0 ? buttons : defaultButtons
@@ -205,19 +272,26 @@ export default function ConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         {headerIcon}
-        <div id="confirm-title" style={{ fontSize: 18, fontWeight: 700, color: colors.title, marginBottom: 8, textAlign: 'center' }}>{title}</div>
+        <div
+          id="confirm-title"
+          style={{
+            fontSize: 18,
+            fontWeight: 700,
+            color: colors.title,
+            marginBottom: 8,
+            textAlign: 'center',
+          }}
+        >
+          {title}
+        </div>
         {message && (
-          <div id="confirm-desc" style={{ marginBottom: 16, lineHeight: 1.4, textAlign: 'center' }}>{message}</div>
+          <div id="confirm-desc" style={{ marginBottom: 16, lineHeight: 1.4, textAlign: 'center' }}>
+            {message}
+          </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           {shownButtons.map((b) => (
-            <button
-              key={b.key}
-              type="button"
-              ref={b.ref}
-              onClick={b.onClick}
-              style={b.style}
-            >
+            <button key={b.key} type="button" ref={b.ref} onClick={b.onClick} style={b.style}>
               {b.text}
             </button>
           ))}

@@ -121,7 +121,6 @@ def test_compute_water_losses_wraps_and_passes_args(monkeypatch):
     assert captured["exclude_measurement_id"] == "c" * 32
 
 
-
 def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
     # Watering flow: measured_weight_g is None
     # Force branch 145 to be False by providing last_wet_weight_g == 0 (non-None but not > 0)
@@ -140,6 +139,7 @@ def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
     class _Cur:
         def execute(self, sql, params=None):
             pass
+
         def fetchone(self):
             return None
 
@@ -149,10 +149,10 @@ def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
         cursor=cur,
         plant_id_hex="0" * 32,
         measured_at_db="2025-01-01 00:00:00",
-        measured_weight_g=None,            # watering flow
-        last_dry_weight_g=100,             # ld_local > 0
-        last_wet_weight_g=0,               # non-None but not > 0 to skip line 145 branch
-        payload_water_added_g=30,          # positive payload triggers inner assignment
+        measured_weight_g=None,  # watering flow
+        last_dry_weight_g=100,  # ld_local > 0
+        last_wet_weight_g=0,  # non-None but not > 0 to skip line 145 branch
+        payload_water_added_g=30,  # positive payload triggers inner assignment
         exclude_measurement_id=None,
     )
 
@@ -180,6 +180,7 @@ def test_derive_weights_recompute_lw_when_missing_line_168(monkeypatch):
     class _Cur:
         def execute(self, sql, params=None):
             pass
+
         def fetchone(self):
             return None
 
@@ -189,10 +190,10 @@ def test_derive_weights_recompute_lw_when_missing_line_168(monkeypatch):
         cursor=cur,
         plant_id_hex="0" * 32,
         measured_at_db="2025-01-01 00:00:00",
-        measured_weight_g=None,            # watering flow
-        last_dry_weight_g=100,             # ld_local > 0
-        last_wet_weight_g=None,            # triggers recompute at 168
-        payload_water_added_g=30,          # positive payload
+        measured_weight_g=None,  # watering flow
+        last_dry_weight_g=100,  # ld_local > 0
+        last_wet_weight_g=None,  # triggers recompute at 168
+        payload_water_added_g=30,  # positive payload
         exclude_measurement_id=None,
     )
 

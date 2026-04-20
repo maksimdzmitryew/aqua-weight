@@ -118,6 +118,7 @@ def test_calibrate_by_max_water_retained_edge_values_none_and_invalid_water_adde
     plants_rows = [(plant_id, 10, 5)]
 
     dt = datetime(2024, 2, 2, 2, 2, 2)
+
     class Weird:
         """Object that raises on first int() and succeeds on second call.
 

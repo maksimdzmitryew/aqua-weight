@@ -25,7 +25,12 @@ export default function ErrorNotice({ message, onRetry, inline = false }) {
       <span style={{ color: 'var(--danger)', fontWeight: 600 }}>Error: </span>
       <span>{message}</span>
       {onRetry && (
-        <button type="button" className="btn btn-secondary" onClick={onRetry} style={{ marginLeft: 'auto' }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={onRetry}
+          style={{ marginLeft: 'auto' }}
+        >
           Retry
         </button>
       )}

@@ -29,10 +29,14 @@ export const plantsApi = {
     })
   },
   reorder(orderedIds, signal) {
-    return apiClient.put('/plants/order', { ordered_ids: orderedIds }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal,
-    })
+    return apiClient.put(
+      '/plants/order',
+      { ordered_ids: orderedIds },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal,
+      },
+    )
   },
   remove(uuid, signal) {
     if (!uuid) throw new ApiError('Missing plant id')

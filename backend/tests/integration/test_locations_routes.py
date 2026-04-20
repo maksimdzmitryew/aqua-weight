@@ -24,7 +24,12 @@ def _clean_db() -> None:
         conn.close()
 
 
-def insert_location(name: str, description: str | None = None, sort_order: int = 0, created_at: datetime | None = None) -> str:
+def insert_location(
+    name: str,
+    description: str | None = None,
+    sort_order: int = 0,
+    created_at: datetime | None = None,
+) -> str:
     """Insert a location and return its hex id string."""
     hex_id = uuid.uuid4().hex
     conn = get_conn()
@@ -99,7 +104,9 @@ async def test_create_location_success_and_normalization(async_client):
 
 @pytest.mark.anyio
 async def test_create_location_empty_name_400(async_client):
-    resp = await async_client.post(API_BASE, json={"name": "   ", "description": None, "sort_order": 0})
+    resp = await async_client.post(
+        API_BASE, json={"name": "   ", "description": None, "sort_order": 0}
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Name cannot be empty"
 
@@ -122,7 +129,9 @@ async def test_update_location_by_name_empty_new_name_400(async_client):
 @pytest.mark.anyio
 async def test_update_location_by_name_update_existing(async_client):
     insert_location("Alpha")
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "Alpha", "name": "Beta"})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name", json={"original_name": "Alpha", "name": "Beta"}
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True
@@ -145,7 +154,9 @@ async def test_update_location_by_name_update_existing(async_client):
 @pytest.mark.anyio
 async def test_update_location_by_name_noop_same_normalized(async_client):
     insert_location("Gamma")
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "Gamma", "name": "   Gamma  "})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name", json={"original_name": "Gamma", "name": "   Gamma  "}
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["rows_affected"] == 0
@@ -154,7 +165,9 @@ async def test_update_location_by_name_noop_same_normalized(async_client):
 
 @pytest.mark.anyio
 async def test_update_location_by_name_create_when_missing(async_client):
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "Does Not Exist", "name": "Created Name"})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name", json={"original_name": "Does Not Exist", "name": "Created Name"}
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["created"] is True
@@ -174,7 +187,9 @@ async def test_update_location_by_name_create_when_missing(async_client):
 async def test_update_location_by_name_conflict_409(async_client):
     insert_location("One")
     insert_location("Two")
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "Three", "name": "Two"})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name", json={"original_name": "Three", "name": "Two"}
+    )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Location name already exists"
 
@@ -258,7 +273,9 @@ async def test_reorder_locations_success_and_list_reflects(async_client):
 async def test_update_location_by_name_conflict_when_both_exist(async_client):
     insert_location("Orig")
     insert_location("Used")
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "Orig", "name": "Used"})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name", json={"original_name": "Orig", "name": "Used"}
+    )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Location name already exists"
 
@@ -266,25 +283,34 @@ async def test_update_location_by_name_conflict_when_both_exist(async_client):
 class _BoomCursor:
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc, tb):
         return False
+
     def execute(self, *args, **kwargs):
         raise RuntimeError("boom execute")
+
     def fetchone(self):
         return None
+
 
 class _BoomConn:
     def __init__(self):
         self._closed = False
+
     def autocommit(self, value):
         pass
+
     def cursor(self):
         return _BoomCursor()
+
     def commit(self):
         raise RuntimeError("boom commit")
+
     def rollback(self):
         # Raising here should exercise the inner except around rollback
         raise RuntimeError("boom rollback")
+
     def close(self):
         self._closed = True
 
@@ -293,6 +319,7 @@ class _BoomConn:
 async def test_create_location_rollback_inner_except(monkeypatch, app):
     from backend.app.routes import locations as loc_mod
     from httpx import AsyncClient, ASGITransport
+
     monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -305,6 +332,7 @@ async def test_create_location_rollback_inner_except(monkeypatch, app):
 async def test_update_location_rollback_inner_except(monkeypatch, app):
     from backend.app.routes import locations as loc_mod
     from httpx import AsyncClient, ASGITransport
+
     monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
@@ -316,6 +344,7 @@ async def test_update_location_rollback_inner_except(monkeypatch, app):
 async def test_delete_location_rollback_inner_except(monkeypatch, app):
     from backend.app.routes import locations as loc_mod
     from httpx import AsyncClient, ASGITransport
+
     monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
     some_hex = uuid.uuid4().hex
     transport = ASGITransport(app=app, raise_app_exceptions=False)
@@ -328,6 +357,7 @@ async def test_delete_location_rollback_inner_except(monkeypatch, app):
 async def test_reorder_locations_rollback_inner_except(monkeypatch, app):
     from backend.app.routes import locations as loc_mod
     from httpx import AsyncClient, ASGITransport
+
     monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
     # Needs non-empty list to reach DB block
     ids = [uuid.uuid4().hex]

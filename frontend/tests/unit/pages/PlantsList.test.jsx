@@ -1,5 +1,13 @@
 import React from 'react'
-import { render, screen, fireEvent, within, waitFor, waitForElementToBeRemoved, cleanup } from '@testing-library/react'
+import {
+  render,
+  screen,
+  fireEvent,
+  within,
+  waitFor,
+  waitForElementToBeRemoved,
+  cleanup,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Link } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
@@ -20,7 +28,7 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -31,7 +39,7 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onCreate}>Create</button>
       {actions}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/IconButton.jsx', () => ({
@@ -39,7 +47,7 @@ vi.mock('../../../src/components/IconButton.jsx', () => ({
     <button onClick={onClick} aria-label={label} data-icon={icon}>
       {label}
     </button>
-  )
+  ),
 }))
 
 /** Helper: creates an MSW handler that simulates server-side pagination & filtering */
@@ -53,15 +61,15 @@ function mockPlantsHandler(allPlants) {
     if (search) {
       const num = Number(search)
       if (!isNaN(num) && search !== '') {
-        filtered = allPlants.filter(p => {
+        filtered = allPlants.filter((p) => {
           const t = Number(p.recommended_water_threshold_pct)
           return !isNaN(t) && t <= num
         })
       } else {
-        filtered = allPlants.filter(p =>
+        filtered = allPlants.filter((p) =>
           [p.name, p.notes, p.location, p.identify_hint].some(
-            v => typeof v === 'string' && v.toLowerCase().includes(search)
-          )
+            (v) => typeof v === 'string' && v.toLowerCase().includes(search),
+          ),
         )
       }
     }
@@ -71,7 +79,8 @@ function mockPlantsHandler(allPlants) {
       items: paged,
       total: filtered.length,
       total_pages: Math.ceil(filtered.length / limit) || 0,
-      page, limit,
+      page,
+      limit,
       global_total: allPlants.length,
     })
   })
@@ -83,7 +92,7 @@ function renderPage(initialEntries = ['/']) {
       <MemoryRouter initialEntries={initialEntries}>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -100,24 +109,54 @@ test('integrated: renders plants with various states and handles header actions'
   const opMode = localStorage.getItem('operationMode') || 'manual'
   server.use(
     mockPlantsHandler([
-      { uuid: 'u1', name: 'Aloe', identify_hint: 'Spiky', water_retained_pct: 20, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00', notes: 'N', location: 'Loc' },
-      { uuid: 'u2', name: 'Monstera', water_retained_pct: 50, recommended_water_threshold_pct: 40, frequency_days: 7 },
-      { uuid: 'nf1', name: 'NoFreq', water_retained_pct: 20, recommended_water_threshold_pct: 30, frequency_days: undefined },
-      { name: 'Plain', notes: 'No link', location: 'Somewhere', water_retained_pct: 10, recommended_water_threshold_pct: 30, latest_at: '2025-01-01T00:00:00' },
+      {
+        uuid: 'u1',
+        name: 'Aloe',
+        identify_hint: 'Spiky',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        latest_at: '2025-01-01T00:00:00',
+        notes: 'N',
+        location: 'Loc',
+      },
+      {
+        uuid: 'u2',
+        name: 'Monstera',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 40,
+        frequency_days: 7,
+      },
+      {
+        uuid: 'nf1',
+        name: 'NoFreq',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        frequency_days: undefined,
+      },
+      {
+        name: 'Plain',
+        notes: 'No link',
+        location: 'Somewhere',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        latest_at: '2025-01-01T00:00:00',
+      },
     ]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        {
-          plant_uuid: 'u1',
-          virtual_water_retained_pct: 75,
-          frequency_days: 5,
-          frequency_confidence: 10,
-          next_watering_at: '2025-01-10T12:00:00Z',
-          first_calculated_at: '2025-01-09T12:00:00Z',
-          days_offset: 1
-        }
-      ]
-    }))
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [
+          {
+            plant_uuid: 'u1',
+            virtual_water_retained_pct: 75,
+            frequency_days: 5,
+            frequency_confidence: 10,
+            next_watering_at: '2025-01-10T12:00:00Z',
+            first_calculated_at: '2025-01-09T12:00:00Z',
+            days_offset: 1,
+          },
+        ],
+      }),
+    ),
   )
 
   renderPage()
@@ -128,16 +167,20 @@ test('integrated: renders plants with various states and handles header actions'
 
   // 2. Frequency column (approximation for u1, explicit for u2, missing for nf1)
   const rows = screen.getAllByRole('row')
-  const bodyRows = rows.filter(r => within(r).queryAllByRole('columnheader').length === 0)
-  
+  const bodyRows = rows.filter((r) => within(r).queryAllByRole('columnheader').length === 0)
+
   // u1 (Aloe) has approx freq 5, confidence 10, offset 1
   expect(within(bodyRows[0]).getByText('5 d')).toBeInTheDocument()
   expect(within(bodyRows[0]).getByText('(10)')).toBeInTheDocument()
   expect(within(bodyRows[0]).getByText('(1d)')).toBeInTheDocument()
   // u2 has freq 7
-  expect(within(bodyRows[ bodyRows.findIndex(r => r.textContent.includes('Monstera')) ]).getByText('7 d')).toBeInTheDocument()
+  expect(
+    within(bodyRows[bodyRows.findIndex((r) => r.textContent.includes('Monstera'))]).getByText(
+      '7 d',
+    ),
+  ).toBeInTheDocument()
   // nf1 has no freq
-  const noFreqRow = bodyRows[ bodyRows.findIndex(r => r.textContent.includes('NoFreq')) ]
+  const noFreqRow = bodyRows[bodyRows.findIndex((r) => r.textContent.includes('NoFreq'))]
   expect(within(noFreqRow).getAllByText(/^—$/).length).toBeGreaterThan(0)
 
   // 3. row branches: link vs plain text, needsWater badge
@@ -146,7 +189,11 @@ test('integrated: renders plants with various states and handles header actions'
   // Plain row should not have a link for notes; text should be present
   expect(screen.getByText('No link')).toBeInTheDocument()
   // Needs water badge visible for nf1 (20 <= 30)
-  expect(within(bodyRows[ bodyRows.findIndex(r => r.textContent.includes('NoFreq')) ]).getByText(/Needs water/i)).toBeInTheDocument()
+  expect(
+    within(bodyRows[bodyRows.findIndex((r) => r.textContent.includes('NoFreq'))]).getByText(
+      /Needs water/i,
+    ),
+  ).toBeInTheDocument()
 
   // 4. View/Edit guards without uuid
   fireEvent.click(screen.getByRole('button', { name: /view plant plain/i }))
@@ -156,9 +203,9 @@ test('integrated: renders plants with various states and handles header actions'
   // 5. name cell gradient (Aloe water_retained_pct is 75 from approx if vacation mode, else 20)
   const nameCell = linkForName.closest('td')
   if (opMode === 'vacation') {
-      expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 75%/)
+    expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 75%/)
   } else {
-      expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 20%/)
+    expect(nameCell.getAttribute('style')).toMatch(/linear-gradient\(90deg, .* 20%/)
   }
 
   // 6. Header actions
@@ -169,28 +216,29 @@ test('integrated: renders plants with various states and handles header actions'
 })
 
 test('navigation: handleView and handleEdit navigate with state', async () => {
-  const plant = { uuid: 'nav1', name: 'Navigator', water_retained_pct: 10, recommended_water_threshold_pct: 30 }
-  server.use(
-    mockPlantsHandler([plant])
-  )
+  const plant = {
+    uuid: 'nav1',
+    name: 'Navigator',
+    water_retained_pct: 10,
+    recommended_water_threshold_pct: 30,
+  }
+  server.use(mockPlantsHandler([plant]))
   renderPage()
-  
+
   const viewBtn = await screen.findByRole('button', { name: /view plant navigator/i })
   fireEvent.click(viewBtn)
   expect(mockNavigate).toHaveBeenCalledWith('/plants/nav1', { state: { plant } })
-  
+
   const editBtn = screen.getByRole('button', { name: /edit plant navigator/i })
   fireEvent.click(editBtn)
   expect(mockNavigate).toHaveBeenCalledWith('/plants/nav1/edit', { state: { plant } })
 })
 
 test('ErrorNotice retry calls window.location.reload', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
-  )
+  server.use(http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 })))
   const reloadSpy = vi.fn()
   vi.stubGlobal('location', { ...window.location, reload: reloadSpy })
-  
+
   renderPage()
   const retryBtn = await screen.findByRole('button', { name: /retry/i })
   fireEvent.click(retryBtn)
@@ -199,9 +247,7 @@ test('ErrorNotice retry calls window.location.reload', async () => {
 })
 
 test('EmptyState new plant button navigates to /plants/new', async () => {
-  server.use(
-    mockPlantsHandler([])
-  )
+  server.use(mockPlantsHandler([]))
   renderPage()
   const emptyState = await screen.findByRole('note')
   const newPlantBtn = within(emptyState).getByRole('button', { name: /new plant/i })
@@ -215,28 +261,38 @@ test('clearing search query resets page and URL', async () => {
   const clearBtn = await screen.findByTitle(/clear filter/i)
   await userEvent.click(clearBtn)
   // First, the controlled input should clear immediately (setQuery path)
-  await waitFor(() => expect(screen.getByLabelText(/search plants/i)).toHaveValue(''), { timeout: 5000 })
+  await waitFor(() => expect(screen.getByLabelText(/search plants/i)).toHaveValue(''), {
+    timeout: 5000,
+  })
   // Then, the chip depending on URL param should disappear after setSearchParams
-  await waitFor(() => expect(screen.queryByTitle(/clear filter/i)).not.toBeInTheDocument(), { timeout: 5000 })
+  await waitFor(() => expect(screen.queryByTitle(/clear filter/i)).not.toBeInTheDocument(), {
+    timeout: 5000,
+  })
   // Also wait for the new load to complete
-  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(), { timeout: 5000 })
+  await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(), {
+    timeout: 5000,
+  })
 })
 
 test('drift notification handles refresh and dismiss', async () => {
   const reloadSpy = vi.fn()
   vi.stubGlobal('location', { ...window.location, reload: reloadSpy })
-  
+
   try {
     // 1. Initial load
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 2, total_pages: 0 }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({ items: [], total: 0, global_total: 2, total_pages: 0 }),
+      ),
     )
     renderPage()
     await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
 
     // 2. Trigger drift via search
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 3, total_pages: 0 }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({ items: [], total: 0, global_total: 3, total_pages: 0 }),
+      ),
     )
     const searchInput = screen.getByLabelText(/search plants/i)
     fireEvent.change(searchInput, { target: { value: 'drift' } })
@@ -251,16 +307,20 @@ test('drift notification handles refresh and dismiss', async () => {
 
     // 4. Refresh (trigger again)
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, global_total: 4, total_pages: 0 }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({ items: [], total: 0, global_total: 4, total_pages: 0 }),
+      ),
     )
     const searchInput4 = await screen.findByLabelText(/search plants/i)
     fireEvent.change(searchInput4, { target: { value: 'drift2' } })
     // Ensure the new search query was applied and load finished
-    await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(), { timeout: 5000 })
+    await waitFor(
+      () => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument(),
+      { timeout: 5000 },
+    )
     const refreshBtn = await screen.findByRole('button', { name: /refresh/i }, { timeout: 5000 })
     fireEvent.click(refreshBtn)
     expect(reloadSpy).toHaveBeenCalled()
-
   } finally {
     vi.unstubAllGlobals()
   }
@@ -268,7 +328,9 @@ test('drift notification handles refresh and dismiss', async () => {
 
 test('EmptyState for search result with zero items (lines 349-357)', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json({ items: [], total: 0, total_pages: 0, global_total: 10 }))
+    http.get('/api/plants', () =>
+      HttpResponse.json({ items: [], total: 0, total_pages: 0, global_total: 10 }),
+    ),
   )
   renderPage(['/plants?search=Unknown'])
   await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
@@ -278,15 +340,19 @@ test('EmptyState for search result with zero items (lines 349-357)', async () =>
   const clearBtn = screen.getByText('Clear search')
   fireEvent.click(clearBtn)
   // The URL search query should clear, which eventually triggers a reload without the query
-  await waitFor(() => expect(screen.queryByText(/No plants found for "Unknown"/i)).not.toBeInTheDocument())
+  await waitFor(() =>
+    expect(screen.queryByText(/No plants found for "Unknown"/i)).not.toBeInTheDocument(),
+  )
 })
 
 test('vacation mode styling without localstorage', async () => {
   server.use(
     mockPlantsHandler([{ uuid: 'v1', name: 'Vacation' }]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }]
-    }))
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }],
+      }),
+    ),
   )
   // Ensure vacation mode is OFF
   localStorage.removeItem('operationMode')
@@ -300,27 +366,37 @@ test('vacation mode styling without localstorage', async () => {
 
 test('Pagination page change updates URL', async () => {
   server.use(
-    mockPlantsHandler(Array(100).fill(0).map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })))
+    mockPlantsHandler(
+      Array(100)
+        .fill(0)
+        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })),
+    ),
   )
   renderPage(['/plants?page=1&limit=20'])
   await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
-  
+
   const nextBtn = screen.getAllByRole('button', { name: /next page/i })[0]
   fireEvent.click(nextBtn)
-  
-  await waitFor(() => expect(screen.getAllByText(/Showing 21–40 of 100/i).length).toBeGreaterThan(0))
+
+  await waitFor(() =>
+    expect(screen.getAllByText(/Showing 21–40 of 100/i).length).toBeGreaterThan(0),
+  )
 })
 
 test('Pagination page size change resets to page 1', async () => {
   server.use(
-    mockPlantsHandler(Array(100).fill(0).map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })))
+    mockPlantsHandler(
+      Array(100)
+        .fill(0)
+        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })),
+    ),
   )
   renderPage(['/plants?page=3&limit=10'])
   await waitFor(() => expect(screen.queryByText(/Loading plants\.\.\./i)).not.toBeInTheDocument())
-  
+
   const pageSizeSelect = await screen.findByLabelText(/per page/i)
   fireEvent.change(pageSizeSelect, { target: { value: '20' } })
-  
+
   // Should reset to page 1 and show 20 items
   await waitFor(() => expect(screen.getAllByText(/Showing 1–20 of 100/i).length).toBeGreaterThan(0))
 })
@@ -333,7 +409,7 @@ test('numeric search filters by threshold (<= query)', async () => {
       { uuid: 'c', name: 'High', recommended_water_threshold_pct: 45 },
       // Non-numeric threshold should be ignored for numeric filtering (NaN path)
       { uuid: 'd', name: 'NonNum', recommended_water_threshold_pct: 'N/A' },
-    ])
+    ]),
   )
   renderPage()
 
@@ -361,10 +437,14 @@ test('applies updatedPlant from router state without crashing (effect path exerc
   // Use default handler returning two plants; pass router state to update first
   render(
     <ThemeProvider>
-      <MemoryRouter initialEntries={[{ pathname: '/plants', state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED' } } }]}>
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/plants', state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED' } } },
+        ]}
+      >
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Wait initial load; effect runs early but may clear state before data
@@ -379,7 +459,7 @@ test('reordering integration: handles drag-and-drop and move buttons', async () 
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
       { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
     ]),
-    http.put('/api/plants/order', () => HttpResponse.json({ ok: true }))
+    http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
   )
 
   renderPage()
@@ -393,7 +473,15 @@ test('reordering integration: handles drag-and-drop and move buttons', async () 
   expect(rows[1]).toHaveTextContent('A')
 
   // 2. Drag and drop (A over B) -> A, B, C
-  const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
+  const dt = {
+    data: {},
+    setData(k, v) {
+      this.data[k] = v
+    },
+    getData(k) {
+      return this.data[k]
+    },
+  }
   fireEvent.dragStart(rows[1], { dataTransfer: dt }) // A
   fireEvent.dragOver(rows[0], { dataTransfer: dt }) // B
   fireEvent.dragEnd(rows[0], { dataTransfer: dt })
@@ -414,7 +502,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   server.use(
     mockPlantsHandler([
       { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ])
+    ]),
   )
 
   render(
@@ -422,7 +510,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   expect(await screen.findByText('NoId')).toBeInTheDocument()
@@ -430,14 +518,16 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // confirm in dialog (scope to dialog)
   const dlg1 = await screen.findByRole('dialog')
   fireEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
-  expect(await screen.findByRole('alert')).toHaveTextContent(/cannot delete this plant: missing identifier/i)
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    /cannot delete this plant: missing identifier/i,
+  )
 
   // 2) API error case
   server.use(
     mockPlantsHandler([
       { uuid: 'x1', name: 'X', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
     ]),
-    http.delete('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 }))
+    http.delete('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
   )
 
   // Re-render new scenario
@@ -446,7 +536,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   expect(await screen.findByText('X')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /delete plant x/i }))
@@ -460,14 +550,14 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
     mockPlantsHandler([
       { uuid: 'y1', name: 'Y', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
     ]),
-    http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true }))
+    http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true })),
   )
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   expect(await screen.findByText('Y')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /delete plant y/i }))
@@ -479,11 +569,14 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
 
 test('limits list to PAGE_LIMIT and shows meta count', async () => {
   // Use a smaller number than PAGE_LIMIT (20) but still enough to see the logic.
-  
-  const many = Array.from({ length: 25 }, (_, i) => ({ uuid: String(i + 1), name: `P${i + 1}`, water_retained_pct: 10, recommended_water_threshold_pct: 30 }))
-  server.use(
-    mockPlantsHandler(many)
-  )
+
+  const many = Array.from({ length: 25 }, (_, i) => ({
+    uuid: String(i + 1),
+    name: `P${i + 1}`,
+    water_retained_pct: 10,
+    recommended_water_threshold_pct: 30,
+  }))
+  server.use(mockPlantsHandler(many))
 
   const { unmount } = renderPage()
 
@@ -495,15 +588,36 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
   unmount()
 })
 
-
-
 test('text search filters by name/notes/location and disables drag & move buttons', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'n1', identify_hint: 'Hint', name: 'Alpha', notes: 'Sunny spot', location: 'Kitchen', water_retained_pct: 35, recommended_water_threshold_pct: 30 },
-      { uuid: 'n2', identify_hint: '', name: 'Beta', notes: 'Shady', location: 'Balcony', water_retained_pct: 50, recommended_water_threshold_pct: 30 },
-      { uuid: 'n3', name: 'Gamma', notes: 'Dry area', location: 'Living room', water_retained_pct: 45, recommended_water_threshold_pct: 30 },
-    ])
+      {
+        uuid: 'n1',
+        identify_hint: 'Hint',
+        name: 'Alpha',
+        notes: 'Sunny spot',
+        location: 'Kitchen',
+        water_retained_pct: 35,
+        recommended_water_threshold_pct: 30,
+      },
+      {
+        uuid: 'n2',
+        identify_hint: '',
+        name: 'Beta',
+        notes: 'Shady',
+        location: 'Balcony',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 30,
+      },
+      {
+        uuid: 'n3',
+        name: 'Gamma',
+        notes: 'Dry area',
+        location: 'Living room',
+        water_retained_pct: 45,
+        recommended_water_threshold_pct: 30,
+      },
+    ]),
   )
 
   render(
@@ -511,7 +625,7 @@ test('text search filters by name/notes/location and disables drag & move button
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   const search = await screen.findByRole('searchbox', { name: /search plants/i })
@@ -532,16 +646,14 @@ test('text search filters by name/notes/location and disables drag & move button
 })
 
 test('treats non-array response as empty and shows EmptyState', async () => {
-  server.use(
-    http.get('/api/plants', () => HttpResponse.json({ bad: 'shape' }))
-  )
+  server.use(http.get('/api/plants', () => HttpResponse.json({ bad: 'shape' })))
 
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Empty state note should be shown
@@ -552,7 +664,7 @@ test('delete failure with null/empty error shows generic message branch', async 
   server.use(
     mockPlantsHandler([
       { uuid: 'd1', name: 'Del', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ])
+    ]),
   )
 
   render(
@@ -560,7 +672,7 @@ test('delete failure with null/empty error shows generic message branch', async 
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   expect(await screen.findByText('Del')).toBeInTheDocument()
@@ -578,10 +690,23 @@ test('persistOrder early-return when row has missing uuid', async () => {
   // Include an item without uuid to trigger persistOrder early return
   server.use(
     mockPlantsHandler([
-      { uuid: 'f1', name: 'Num', notes: 'note', location: 'loc', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { name: 'NonNum', notes: 'abc', location: 'xyz', water_retained_pct: 15, recommended_water_threshold_pct: 'N/A' },
+      {
+        uuid: 'f1',
+        name: 'Num',
+        notes: 'note',
+        location: 'loc',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+      },
+      {
+        name: 'NonNum',
+        notes: 'abc',
+        location: 'xyz',
+        water_retained_pct: 15,
+        recommended_water_threshold_pct: 'N/A',
+      },
     ]),
-    http.put('/api/plants/order', () => HttpResponse.json({ ok: true }))
+    http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
   )
 
   render(
@@ -589,7 +714,7 @@ test('persistOrder early-return when row has missing uuid', async () => {
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Wait for both items to load
@@ -600,7 +725,15 @@ test('persistOrder early-return when row has missing uuid', async () => {
   const rows = () => screen.getAllByRole('row').slice(1)
   const second = rows()[1]
   const first = rows()[0]
-  const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
+  const dt = {
+    data: {},
+    setData(k, v) {
+      this.data[k] = v
+    },
+    getData(k) {
+      return this.data[k]
+    },
+  }
   fireEvent.dragStart(second, { dataTransfer: dt })
   fireEvent.dragOver(first, { dataTransfer: dt })
   fireEvent.dragEnd(first, { dataTransfer: dt })
@@ -623,7 +756,7 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
         return HttpResponse.json({ ok: true })
       }
       return HttpResponse.json({ message: 'bad' }, { status: 500 })
-    })
+    }),
   )
 
   render(
@@ -631,26 +764,47 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Wait initial
   expect(await screen.findByText('A')).toBeInTheDocument()
-  const initialOrder = screen.getAllByRole('row').slice(1).map(r => r.textContent)
+  const initialOrder = screen
+    .getAllByRole('row')
+    .slice(1)
+    .map((r) => r.textContent)
 
   // 1) Call dragOver without any dragStart -> early return path (dragIndex === null)
   const rows1 = screen.getAllByRole('row').slice(1)
-  const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
+  const dt = {
+    data: {},
+    setData(k, v) {
+      this.data[k] = v
+    },
+    getData(k) {
+      return this.data[k]
+    },
+  }
   fireEvent.dragOver(rows1[0], { dataTransfer: dt })
   // order unchanged
-  expect(screen.getAllByRole('row').slice(1).map(r => r.textContent)).toEqual(initialOrder)
+  expect(
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(initialOrder)
 
   // 2) Start dragging first row then dragOver the SAME index -> early return when index === dragIndex
   const rows2 = screen.getAllByRole('row').slice(1)
   fireEvent.dragStart(rows2[0], { dataTransfer: dt })
   fireEvent.dragOver(rows2[0], { dataTransfer: dt })
   // still unchanged
-  expect(screen.getAllByRole('row').slice(1).map(r => r.textContent)).toEqual(initialOrder)
+  expect(
+    screen
+      .getAllByRole('row')
+      .slice(1)
+      .map((r) => r.textContent),
+  ).toEqual(initialOrder)
 
   // 3) DragEnd on an arbitrary row without a current drag (dragIndex null) should not persist
   // Reset state by ending the previous drag, then trigger a dragEnd without dragStart
@@ -661,7 +815,6 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
   spyReorder.mockRestore()
 })
 
-
 test('falls back to empty style object when getWaterRetainCellStyle returns falsy (OR branch)', async () => {
   // Mock the module to return undefined for style
   const mod = await vi.importActual('../../../src/utils/water_retained_colors.js')
@@ -670,14 +823,14 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
   server.use(
     mockPlantsHandler([
       { uuid: 's1', name: 'Styled', water_retained_pct: 12, recommended_water_threshold_pct: 30 },
-    ])
+    ]),
   )
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   const link = await screen.findByRole('link', { name: /styled/i })
   const nameCell = link.closest('td')
@@ -690,15 +843,20 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
 test('Cancel in delete dialog triggers closeDialog without deleting', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'c1', name: 'Cancelable', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-    ])
+      {
+        uuid: 'c1',
+        name: 'Cancelable',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+      },
+    ]),
   )
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   await screen.findByText('Cancelable')
   fireEvent.click(screen.getByRole('button', { name: /delete plant cancelable/i }))
@@ -713,7 +871,7 @@ test('persistOrder generic error branch when reorder rejects with empty error ob
     mockPlantsHandler([
       { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-    ])
+    ]),
   )
 
   const spy = vi.spyOn(plantsApi, 'reorder').mockRejectedValueOnce({})
@@ -722,12 +880,20 @@ test('persistOrder generic error branch when reorder rejects with empty error ob
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   // wait
   const rows = () => screen.getAllByRole('row').slice(1)
   await screen.findByText('A')
-  const dt = { data: {}, setData(k,v){this.data[k]=v}, getData(k){return this.data[k]} }
+  const dt = {
+    data: {},
+    setData(k, v) {
+      this.data[k] = v
+    },
+    getData(k) {
+      return this.data[k]
+    },
+  }
   // Drag B over A to reorder
   fireEvent.dragStart(rows()[1], { dataTransfer: dt })
   fireEvent.dragOver(rows()[0], { dataTransfer: dt })
@@ -737,21 +903,20 @@ test('persistOrder generic error branch when reorder rejects with empty error ob
   spy.mockRestore()
 })
 
-
 test('ignores AbortError during initial load and shows EmptyState without alert', async () => {
   server.use(
     http.get('/api/plants', () => {
       const err = new Error('aborted')
       err.name = 'AbortError'
       throw err
-    })
+    }),
   )
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   // No error alert should appear; empty state should be shown after loading finishes
   const note = await screen.findByRole('note')
@@ -766,14 +931,14 @@ test('ignores non-AbortError when message includes "abort" (case-insensitive)', 
       // name is not AbortError to exercise message-based branch
       err.name = 'SomeOther'
       throw err
-    })
+    }),
   )
   render(
     <ThemeProvider>
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   // Should not render an error alert; renders empty state after loading
   const note = await screen.findByRole('note')
@@ -788,30 +953,27 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
       <MemoryRouter>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent(/failed to load plants/i)
   spy.mockRestore()
 })
 
-
 test('logs error and continues when approximations fail to load', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   server.use(
-    mockPlantsHandler([
-      { uuid: 'u1', name: 'Aloe' }
-    ]),
-    http.get('/api/measurements/approximation/watering', () => 
-      HttpResponse.json({ message: 'Approximation error' }, { status: 500 })
-    )
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({ message: 'Approximation error' }, { status: 500 }),
+    ),
   )
 
   renderPage()
 
   // Should still render the plant list even if approximations fail
   expect(await screen.findByText('Aloe')).toBeInTheDocument()
-  
+
   expect(consoleSpy).toHaveBeenCalledWith('Failed to load approximations', expect.anything())
   consoleSpy.mockRestore()
 })
@@ -819,7 +981,7 @@ test('logs error and continues when approximations fail to load', async () => {
 test('handles null/missing approximation items gracefully', async () => {
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null }))
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null })),
   )
   renderPage()
   expect(await screen.findByText('Aloe')).toBeInTheDocument()
@@ -829,9 +991,11 @@ test('applies vacation mode warning style for negative days_offset', async () =>
   localStorage.setItem('operationMode', 'vacation')
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }]
-    }))
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }],
+      }),
+    ),
   )
   try {
     renderPage()
@@ -845,30 +1009,53 @@ test('applies vacation mode warning style for negative days_offset', async () =>
   }
 })
 
-
 test('applies updatedPlant from router state - FULL coverage', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'u1', name: 'Original Name', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 },
-      { uuid: 'u2', name: 'Other Plant', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }
-    ])
+      {
+        uuid: 'u1',
+        name: 'Original Name',
+        identify_hint: '',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 30,
+      },
+      {
+        uuid: 'u2',
+        name: 'Other Plant',
+        identify_hint: '',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 30,
+      },
+    ]),
   )
-  
+
   render(
     <ThemeProvider>
       <MemoryRouter initialEntries={['/plants']}>
-        <Link to="/plants" state={{ updatedPlant: { uuid: 'u1', name: 'Updated Name', water_retained_pct: 50, recommended_water_threshold_pct: 30 } }}>Trigger Update</Link>
+        <Link
+          to="/plants"
+          state={{
+            updatedPlant: {
+              uuid: 'u1',
+              name: 'Updated Name',
+              water_retained_pct: 50,
+              recommended_water_threshold_pct: 30,
+            },
+          }}
+        >
+          Trigger Update
+        </Link>
         <PlantsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
-  
+
   await screen.findByText('Original Name')
   await screen.findByText('Other Plant')
-  
+
   // Click the link to trigger the updatedPlant effect when plants are already in state
   fireEvent.click(screen.getByText('Trigger Update'))
-  
+
   await screen.findByText('Updated Name')
   // u2 should still be Other Plant (covers the else branch of the ternary in map)
   await screen.findByText('Other Plant')
@@ -876,16 +1063,24 @@ test('applies updatedPlant from router state - FULL coverage', async () => {
 
 test('integrated: line 272 coverage - handles total update and Math.max', async () => {
   server.use(
-    mockPlantsHandler([{ uuid: 'p1', name: 'P1', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }]),
-    http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true }))
+    mockPlantsHandler([
+      {
+        uuid: 'p1',
+        name: 'P1',
+        identify_hint: '',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 30,
+      },
+    ]),
+    http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true })),
   )
 
   renderPage()
-  
+
   await screen.findByText('P1')
   const deleteBtn = await screen.findByRole('button', { name: /delete plant p1/i })
   fireEvent.click(deleteBtn)
-  
+
   const dlg = await screen.findByRole('dialog')
   const confirmBtn = within(dlg).getByRole('button', { name: /^Delete$/ })
   fireEvent.click(confirmBtn)
@@ -895,7 +1090,15 @@ test('integrated: line 272 coverage - handles total update and Math.max', async 
 
 test('integrated: line 274 coverage - handles delete error without message', async () => {
   server.use(
-    mockPlantsHandler([{ uuid: 'err1', name: 'ErrPlant', identify_hint: '', water_retained_pct: 50, recommended_water_threshold_pct: 30 }])
+    mockPlantsHandler([
+      {
+        uuid: 'err1',
+        name: 'ErrPlant',
+        identify_hint: '',
+        water_retained_pct: 50,
+        recommended_water_threshold_pct: 30,
+      },
+    ]),
   )
   // Force plantsApi.remove to throw an error with empty message
   const spy = vi.spyOn(plantsApi, 'remove').mockRejectedValueOnce({ message: '' })
@@ -918,11 +1121,19 @@ test('integrated: line 437 coverage - badge titles', async () => {
     // 1) Manual Mode
     localStorage.setItem('operationMode', 'manual')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({
-        items: [{ uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30 }],
-        total: 1, global_total: 1, total_pages: 1, page: 1, limit: 20
-      })),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({
+          items: [
+            { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+          ],
+          total: 1,
+          global_total: 1,
+          total_pages: 1,
+          page: 1,
+          limit: 20,
+        }),
+      ),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     const { unmount } = renderPage()
@@ -933,13 +1144,23 @@ test('integrated: line 437 coverage - badge titles', async () => {
     // 2) Vacation Mode
     localStorage.setItem('operationMode', 'vacation')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({
-        items: [{ uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30 }],
-        total: 1, global_total: 1, total_pages: 1, page: 1, limit: 20
-      })),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-        items: [{ plant_uuid: 'p2', virtual_water_retained_pct: 5 }]
-      }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({
+          items: [
+            { uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+          ],
+          total: 1,
+          global_total: 1,
+          total_pages: 1,
+          page: 1,
+          limit: 20,
+        }),
+      ),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [{ plant_uuid: 'p2', virtual_water_retained_pct: 5 }],
+        }),
+      ),
     )
 
     renderPage()

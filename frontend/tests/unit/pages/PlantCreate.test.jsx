@@ -17,15 +17,19 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => <div data-testid="loader">{message || 'Loading...'}</div>,
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -35,78 +39,54 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onBack}>Back</button>
       {actions}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
   default: ({ label, form, name, required }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="datetime-local"
-        {...form.register(name)}
-        required={required}
-      />
+      <input id={name} type="datetime-local" {...form.register(name)} required={required} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
   default: ({ label, form, name, children, required, disabled }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <select
-        id={name}
-        {...form.register(name)}
-        required={required}
-        disabled={disabled}
-      >
+      <select id={name} {...form.register(name)} required={required} disabled={disabled}>
         {children}
       </select>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
   default: ({ label, form, name, min }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="number"
-        min={min}
-        {...form.register(name)}
-      />
+      <input id={name} type="number" min={min} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Checkbox.jsx', () => ({
   default: ({ label, form, name }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="checkbox"
-        {...form.register(name)}
-      />
+      <input id={name} type="checkbox" {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
   default: ({ label, form, name, placeholder }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="text"
-        placeholder={placeholder}
-        {...form.register(name)}
-      />
+      <input id={name} type="text" placeholder={placeholder} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 function renderPage(initialEntries = ['/plants/new']) {
@@ -117,7 +97,7 @@ function renderPage(initialEntries = ['/plants/new']) {
           <Route path="*" element={<PlantCreate />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -126,10 +106,12 @@ describe('pages/PlantCreate', () => {
     mockNavigate.mockReset()
     // Default: provide locations list for select
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { uuid: 'l1', name: 'Hall' },
-        { uuid: 'l2', name: 'Kitchen' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { uuid: 'l1', name: 'Hall' },
+          { uuid: 'l2', name: 'Kitchen' },
+        ]),
+      ),
     )
   })
 
@@ -140,7 +122,7 @@ describe('pages/PlantCreate', () => {
       http.post('/api/plants', async ({ request }) => {
         capturedBody = await request.json()
         return HttpResponse.json({ uuid: 'pX' }, { status: 201 })
-      })
+      }),
     )
 
     renderPage()
@@ -149,14 +131,20 @@ describe('pages/PlantCreate', () => {
     fireEvent.change(screen.getByLabelText(/plant type/i), { target: { value: '  Type  ' } })
     fireEvent.change(screen.getByLabelText(/identify hint/i), { target: { value: '  Hint  ' } })
     fireEvent.change(screen.getByLabelText(/typical action/i), { target: { value: '  Action  ' } })
-    fireEvent.change(screen.getByLabelText(/description/i), { target: { value: '  Some description  ' } })
+    fireEvent.change(screen.getByLabelText(/description/i), {
+      target: { value: '  Some description  ' },
+    })
     fireEvent.change(screen.getByLabelText(/^notes$/i), { target: { value: '  Note  ' } })
     fireEvent.change(screen.getByLabelText(/location/i), { target: { value: 'l2' } })
-    fireEvent.change(screen.getByLabelText(/photo url/i), { target: { value: '  https://example.com/p.jpg  ' } })
+    fireEvent.change(screen.getByLabelText(/photo url/i), {
+      target: { value: '  https://example.com/p.jpg  ' },
+    })
 
     // Service tab
     fireEvent.click(screen.getByRole('tab', { name: /service/i }))
-    fireEvent.change(screen.getByLabelText(/default measurement method id/i), { target: { value: '  mm1  ' } })
+    fireEvent.change(screen.getByLabelText(/default measurement method id/i), {
+      target: { value: '  mm1  ' },
+    })
     fireEvent.change(screen.getByLabelText(/scale id/i), { target: { value: '  sc1  ' } })
     // Toggle checkboxes to exercise checkbox branch and mapping
     const repotted = screen.getByLabelText(/repotted/i)
@@ -168,18 +156,28 @@ describe('pages/PlantCreate', () => {
 
     // Care tab
     fireEvent.click(screen.getByRole('tab', { name: /care/i }))
-    fireEvent.change(screen.getByLabelText(/recommended water threshold/i), { target: { value: '35' } })
+    fireEvent.change(screen.getByLabelText(/recommended water threshold/i), {
+      target: { value: '35' },
+    })
     fireEvent.change(screen.getByLabelText(/biomass weight/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByLabelText(/biomass last at/i), { target: { value: '2024-02-20T10:30' } })
+    fireEvent.change(screen.getByLabelText(/biomass last at/i), {
+      target: { value: '2024-02-20T10:30' },
+    })
 
     // Advanced tab
     fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     fireEvent.change(screen.getByLabelText(/species name/i), { target: { value: '  Species  ' } })
-    fireEvent.change(screen.getByLabelText(/botanical name/i), { target: { value: '  Botanical  ' } })
+    fireEvent.change(screen.getByLabelText(/botanical name/i), {
+      target: { value: '  Botanical  ' },
+    })
     fireEvent.change(screen.getByLabelText(/cultivar/i), { target: { value: '  Cult  ' } })
     fireEvent.change(screen.getByLabelText(/substrate type id/i), { target: { value: '  sub1  ' } })
-    fireEvent.change(screen.getByLabelText(/substrate last refresh at/i), { target: { value: '2024-01-15T00:00' } })
-    fireEvent.change(screen.getByLabelText(/fertilized last at/i), { target: { value: '2024-03-01T00:00' } })
+    fireEvent.change(screen.getByLabelText(/substrate last refresh at/i), {
+      target: { value: '2024-01-15T00:00' },
+    })
+    fireEvent.change(screen.getByLabelText(/fertilized last at/i), {
+      target: { value: '2024-03-01T00:00' },
+    })
     fireEvent.change(screen.getByLabelText(/fertilizer ec/i), { target: { value: '2.5' } })
 
     // Health tab
@@ -199,46 +197,48 @@ describe('pages/PlantCreate', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/plants')
     })
     // Assert normalized payload afterwards to avoid throwing inside the handler
-    expect(capturedBody).toEqual(expect.objectContaining({
-      // General
-      name: 'My Plant',
-      plant_type: 'Type',
-      identify_hint: 'Hint',
-      typical_action: 'Action',
-      description: 'Some description',
-      notes: 'Note',
-      location_id: 'l2',
-      photo_url: 'https://example.com/p.jpg',
-      // Service
-      default_measurement_method_id: 'mm1',
-      scale_id: 'sc1',
-      repotted: 1,
-      archive: 1,
-      // Care
-      recommended_water_threshold_pct: 35,
-      biomass_weight_g: 123,
-      biomass_last_at: '2024-02-20T10:30',
-      // Advanced
-      species_name: 'Species',
-      botanical_name: 'Botanical',
-      cultivar: 'Cult',
-      substrate_type_id: 'sub1',
-      substrate_last_refresh_at: '2024-01-15T00:00',
-      fertilized_last_at: '2024-03-01T00:00',
-      fertilizer_ec_ms: 2.5,
-      // Health
-      light_level_id: 'light1',
-      pest_status_id: 'pest1',
-      health_status_id: 'ok',
-      // Calculated
-      min_dry_weight_g: 10,
-      max_water_weight_g: 20,
-    }))
+    expect(capturedBody).toEqual(
+      expect.objectContaining({
+        // General
+        name: 'My Plant',
+        plant_type: 'Type',
+        identify_hint: 'Hint',
+        typical_action: 'Action',
+        description: 'Some description',
+        notes: 'Note',
+        location_id: 'l2',
+        photo_url: 'https://example.com/p.jpg',
+        // Service
+        default_measurement_method_id: 'mm1',
+        scale_id: 'sc1',
+        repotted: 1,
+        archive: 1,
+        // Care
+        recommended_water_threshold_pct: 35,
+        biomass_weight_g: 123,
+        biomass_last_at: '2024-02-20T10:30',
+        // Advanced
+        species_name: 'Species',
+        botanical_name: 'Botanical',
+        cultivar: 'Cult',
+        substrate_type_id: 'sub1',
+        substrate_last_refresh_at: '2024-01-15T00:00',
+        fertilized_last_at: '2024-03-01T00:00',
+        fertilizer_ec_ms: 2.5,
+        // Health
+        light_level_id: 'light1',
+        pest_status_id: 'pest1',
+        health_status_id: 'ok',
+        // Calculated
+        min_dry_weight_g: 10,
+        max_water_weight_g: 20,
+      }),
+    )
   }, 15000)
 
   test('backend error with string detail clears field errors without general message; all tabs handlers exercised', async () => {
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      response: { data: { detail: 'something went wrong' } }
+      response: { data: { detail: 'something went wrong' } },
     })
 
     renderPage()
@@ -297,17 +297,21 @@ describe('pages/PlantCreate', () => {
       http.post('/api/plants', async ({ request }) => {
         const body = await request.json()
         // Check key fields are trimmed/converted
-        expect(body).toEqual(expect.objectContaining({
-          name: 'Ficus',
-          location_id: 'l1',
-          recommended_water_threshold_pct: null, // left empty -> null
-        }))
+        expect(body).toEqual(
+          expect.objectContaining({
+            name: 'Ficus',
+            location_id: 'l1',
+            recommended_water_threshold_pct: null, // left empty -> null
+          }),
+        )
         return HttpResponse.json({ uuid: 'p1', id: 1 }, { status: 201 })
-      })
+      }),
     )
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: '  Ficus  ' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: '  Ficus  ' },
+    })
     fireEvent.change(screen.getByLabelText(/location/i), { target: { value: 'l1' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => {
@@ -320,15 +324,15 @@ describe('pages/PlantCreate', () => {
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
       response: {
         data: {
-          detail: [
-            { loc: ['body', 'name'], msg: 'too short' }
-          ]
-        }
-      }
+          detail: [{ loc: ['body', 'name'], msg: 'too short' }],
+        },
+      },
     })
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'x' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'x' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/too short/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -337,11 +341,11 @@ describe('pages/PlantCreate', () => {
   test('general error path shown when API fails without detail; locations load error rendered near select', async () => {
     // Locations error
     server.use(
-      http.get('/api/locations', () => HttpResponse.json({ message: 'loc fail' }, { status: 500 }))
+      http.get('/api/locations', () => HttpResponse.json({ message: 'loc fail' }, { status: 500 })),
     )
     // plants create returns 500 without axios-like shape (ApiClient -> ApiError)
     server.use(
-      http.post('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 }))
+      http.post('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
     )
 
     renderPage()
@@ -355,7 +359,9 @@ describe('pages/PlantCreate', () => {
   })
 
   test('dark theme renders inputs with dark styles and tabs switch content', async () => {
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
     renderPage()
     const name = await screen.findByRole('textbox', { name: /name/i })
     // Dark border color
@@ -369,11 +375,13 @@ describe('pages/PlantCreate', () => {
   test('save error with axios-like response but without detail shows generic message', async () => {
     // Mock create to reject with {response:{data:{}}} so branch without detail is hit
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      response: { data: {} }
+      response: { data: {} },
     })
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'Ok' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'Ok' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/failed to save plant/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -383,10 +391,14 @@ describe('pages/PlantCreate', () => {
     // Successful create
     const spy = vi.spyOn(plantsApi, 'create').mockResolvedValue({ uuid: 'p1' })
     // Make navigate throw to reach outer catch (err.message branch)
-    mockNavigate.mockImplementationOnce(() => { throw new Error('nav fail') })
+    mockNavigate.mockImplementationOnce(() => {
+      throw new Error('nav fail')
+    })
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'Ok' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'Ok' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/nav fail/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -404,12 +416,14 @@ describe('pages/PlantCreate', () => {
       http.post('/api/plants', async ({ request }) => {
         payload = await request.json()
         return HttpResponse.json({ uuid: 'p-new' }, { status: 201 })
-      })
+      }),
     )
 
     renderPage()
     // Only required field
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'Only Name' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'Only Name' },
+    })
 
     // Do not touch optional fields, including checkboxes and number inputs
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
@@ -418,29 +432,33 @@ describe('pages/PlantCreate', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants'))
 
     // Ensure defaults were applied as expected
-    expect(payload).toEqual(expect.objectContaining({
-      // Strings trimmed or null when empty
-      plant_type: null,
-      identify_hint: null,
-      typical_action: null,
-      description: null,
-      notes: null,
-      location_id: null,
-      photo_url: null,
-      // Service flags default to 0 when unchecked/undefined
-      repotted: 0,
-      archive: 0,
-      // Numeric optionals become null when left empty strings
-      recommended_water_threshold_pct: null,
-      biomass_weight_g: null,
-      fertilizer_ec_ms: null,
-      min_dry_weight_g: null,
-      max_water_weight_g: null,
-    }))
+    expect(payload).toEqual(
+      expect.objectContaining({
+        // Strings trimmed or null when empty
+        plant_type: null,
+        identify_hint: null,
+        typical_action: null,
+        description: null,
+        notes: null,
+        location_id: null,
+        photo_url: null,
+        // Service flags default to 0 when unchecked/undefined
+        repotted: 0,
+        archive: 0,
+        // Numeric optionals become null when left empty strings
+        recommended_water_threshold_pct: null,
+        biomass_weight_g: null,
+        fertilizer_ec_ms: null,
+        min_dry_weight_g: null,
+        max_water_weight_g: null,
+      }),
+    )
   })
 
   test('dark theme: visit all tabs to exercise isDark style branches across sections', async () => {
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
     renderPage()
     // Click through all tabs under dark theme so each section renders with dark styles
     const tabs = ['service', 'care', 'advanced', 'health', 'calculated', 'general']
@@ -455,9 +473,7 @@ describe('pages/PlantCreate', () => {
 
   test('locations load: non-array response maps to empty list without error', async () => {
     // Return an object instead of array to trigger Array.isArray false branch
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json({ foo: 'bar' }))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json({ foo: 'bar' })))
 
     renderPage()
     // No error message
@@ -475,13 +491,15 @@ describe('pages/PlantCreate', () => {
       response: {
         data: {
           // Use 'name' so the error is rendered in the UI next to the name field
-          detail: [ { loc: ['body', 'name'] } ]
-        }
-      }
+          detail: [{ loc: ['body', 'name'] }],
+        },
+      },
     })
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'Ok' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'Ok' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/invalid value/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -491,10 +509,14 @@ describe('pages/PlantCreate', () => {
     // Successful create
     const spy = vi.spyOn(plantsApi, 'create').mockResolvedValue({ uuid: 'p1' })
     // Throw an empty object so err.message is falsy
-    mockNavigate.mockImplementationOnce(() => { throw {} })
+    mockNavigate.mockImplementationOnce(() => {
+      throw {}
+    })
 
     renderPage()
-    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), { target: { value: 'Ok' } })
+    fireEvent.change(await screen.findByRole('textbox', { name: /name/i }), {
+      target: { value: 'Ok' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     expect(await screen.findByText(/failed to save plant/i)).toBeInTheDocument()
     spy.mockRestore()
@@ -504,7 +526,9 @@ describe('pages/PlantCreate', () => {
     // Spy on locationsApi to return a deferred promise so we can unmount before it resolves
     const listSpy = vi.spyOn(locationsApi, 'list')
     let resolveFn
-    const deferred = new Promise((res) => { resolveFn = res })
+    const deferred = new Promise((res) => {
+      resolveFn = res
+    })
     listSpy.mockReturnValueOnce(deferred)
 
     const utils = renderPage()

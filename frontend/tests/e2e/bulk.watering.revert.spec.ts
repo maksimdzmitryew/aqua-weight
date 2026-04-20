@@ -56,7 +56,10 @@ test.describe('Bulk Watering – delete reverts water loss (covers revert logic)
     await expect(weightInput).not.toHaveClass(/bg-success/)
 
     // And the percentage should change from the just-created value (e.g., '0%')
-    const afterDeletePct = await percentLink.first().textContent().catch(() => null)
+    const afterDeletePct = await percentLink
+      .first()
+      .textContent()
+      .catch(() => null)
     if (afterCreatePct && afterDeletePct) {
       expect(afterDeletePct.trim()).not.toBe(afterCreatePct.trim())
     }

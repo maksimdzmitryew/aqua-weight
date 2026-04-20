@@ -39,7 +39,8 @@ const RepottingCreate = () => {
         form.setValues({
           plant_id: data.plant_id,
           measured_at: data.measured_at,
-          weight_before_repotting_g: data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
+          weight_before_repotting_g:
+            data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
           last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
         })
       } catch (_) {
@@ -47,7 +48,9 @@ const RepottingCreate = () => {
       }
     }
     loadRepottingEvent()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [isEdit, editId])
 
   useEffect(() => {
@@ -61,7 +64,8 @@ const RepottingCreate = () => {
       const payload = {
         plant_id: vals.plant_id,
         measured_at: vals.measured_at,
-        measured_weight_g: vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
+        measured_weight_g:
+          vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
         last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
       }
       if (isEdit) {
@@ -84,14 +88,48 @@ const RepottingCreate = () => {
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <PlantSelect form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit} />
-          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
-          <NumberInput form={form} name="weight_before_repotting_g" label="Weight before repotting (g)" min={0} validators={[minNumber(0)]} />
-          <NumberInput form={form} name="last_wet_weight_g" label="Weight after repotting (g)" min={0} validators={[minNumber(0)]} />
+          <PlantSelect
+            form={form}
+            name="plant_id"
+            label="Plant"
+            required
+            validators={[required()]}
+            disabled={isEdit}
+          />
+          <DateTimeLocal
+            form={form}
+            name="measured_at"
+            label="Measured at"
+            required
+            validators={[required()]}
+          />
+          <NumberInput
+            form={form}
+            name="weight_before_repotting_g"
+            label="Weight before repotting (g)"
+            min={0}
+            validators={[minNumber(0)]}
+          />
+          <NumberInput
+            form={form}
+            name="last_wet_weight_g"
+            label="Weight after repotting (g)"
+            min={0}
+            validators={[minNumber(0)]}
+          />
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update repotting' : 'Save repotting'}</button>
-          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">
+            {isEdit ? 'Update repotting' : 'Save repotting'}
+          </button>
+          <button
+            type="button"
+            onClick={() => (location.state?.from ? navigate(location.state.from) : navigate(-1))}
+            className="btn btn-secondary"
+            style={{ marginLeft: 8 }}
+          >
+            Cancel
+          </button>
         </div>
       </form>
     </DashboardLayout>

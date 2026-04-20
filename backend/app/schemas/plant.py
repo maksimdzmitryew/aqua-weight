@@ -125,6 +125,7 @@ class PlantCalibrationItem(PlantListItem):
 
 class PaginatedPlantsResponse(BaseModel):
     """Response model for paginated plants list with drift detection support."""
+
     items: List[PlantListItem]
     total: int = Field(description="Total count of plants matching filters")
     global_total: int = Field(description="Total count of ALL active plants (for drift detection)")

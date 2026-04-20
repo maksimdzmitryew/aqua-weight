@@ -1,17 +1,33 @@
 import { describe, expect, test } from 'vitest'
-import { getWaterRetainCellStyle, getWaterLossCellStyle, valueStyle } from '../../../src/utils/water_retained_colors.js'
+import {
+  getWaterRetainCellStyle,
+  getWaterLossCellStyle,
+  valueStyle,
+} from '../../../src/utils/water_retained_colors.js'
 
 describe('utils/water_retained_colors', () => {
   test('valueStyle contains numeric font settings', () => {
-    expect(valueStyle).toMatchObject({ position: 'relative', textAlign: 'right', fontVariantNumeric: 'tabular-nums' })
+    expect(valueStyle).toMatchObject({
+      position: 'relative',
+      textAlign: 'right',
+      fontVariantNumeric: 'tabular-nums',
+    })
   })
 
   test('getWaterRetainCellStyle returns gradient background clamped between 0 and 100 percent', () => {
     expect(getWaterRetainCellStyle(-10).background).toContain('0%')
-    expect(getWaterRetainCellStyle(0).background).toBe('linear-gradient(90deg, rgba(79, 173, 255, 0.28) 0%, transparent 0%)')
-    expect(getWaterRetainCellStyle(50).background).toBe('linear-gradient(90deg, rgba(79, 173, 255, 0.28) 50%, transparent 50%)')
-    expect(getWaterRetainCellStyle(100).background).toBe('linear-gradient(90deg, rgba(79, 173, 255, 0.28) 100%, transparent 100%)')
-    expect(getWaterRetainCellStyle(150).background).toBe('linear-gradient(90deg, rgba(79, 173, 255, 0.28) 100%, transparent 100%)')
+    expect(getWaterRetainCellStyle(0).background).toBe(
+      'linear-gradient(90deg, rgba(79, 173, 255, 0.28) 0%, transparent 0%)',
+    )
+    expect(getWaterRetainCellStyle(50).background).toBe(
+      'linear-gradient(90deg, rgba(79, 173, 255, 0.28) 50%, transparent 50%)',
+    )
+    expect(getWaterRetainCellStyle(100).background).toBe(
+      'linear-gradient(90deg, rgba(79, 173, 255, 0.28) 100%, transparent 100%)',
+    )
+    expect(getWaterRetainCellStyle(150).background).toBe(
+      'linear-gradient(90deg, rgba(79, 173, 255, 0.28) 100%, transparent 100%)',
+    )
   })
 
   test('getWaterLossCellStyle mirrors thresholds for loss percentage', () => {

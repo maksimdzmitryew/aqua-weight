@@ -33,7 +33,7 @@ describe('DateTimeLocal field', () => {
     const { rerender } = render(
       <Wrapper>
         <FormWithDate requiredProp />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByLabelText(/date & time/i)
@@ -48,7 +48,7 @@ describe('DateTimeLocal field', () => {
     rerender(
       <Wrapper>
         <FormWithDate disabled />
-      </Wrapper>
+      </Wrapper>,
     )
     const disabledInput = screen.getByLabelText(/date & time/i)
     expect(disabledInput).toBeDisabled()
@@ -60,7 +60,7 @@ describe('DateTimeLocal field', () => {
     render(
       <Wrapper>
         <FormWithDate validators={[required('Please provide date/time')]} />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByLabelText(/date & time/i)
@@ -87,7 +87,7 @@ describe('DateTimeLocal field', () => {
     render(
       <Wrapper>
         <FormWithDate validators={[required()]} />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByLabelText(/date & time/i)

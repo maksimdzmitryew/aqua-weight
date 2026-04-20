@@ -1,6 +1,7 @@
 ### Calibration: "Correct overfill" button — how it works
 
 Quick answer: When you click "Correct overfill", the UI finds the event with the most negative "Diff to max Weight (g)" since the last repotting and sends three values to the backend:
+
 - from_ts = that event’s measured_at
 - start_measurement_id = that event’s ID
 - start_diff_to_max_g = that event’s (negative) diff value in grams
@@ -12,6 +13,7 @@ This document explains exactly what the "Correct overfill (since repotting)" act
 ---
 
 #### Purpose
+
 Some past watering events were recorded with a wet weight above the intended cap (either full capacity or the plant’s recommended retained ratio). These overfilled events inflate later calculations. The "Correct overfill" button rewrites those historical rows deterministically so your stored facts reflect the intended cap.
 
 No schema changes are required. The correction updates only existing measurement rows.
@@ -19,6 +21,7 @@ No schema changes are required. The correction updates only existing measurement
 ---
 
 #### Where you trigger it
+
 - Frontend page: `Calibration.jsx`
 - Per‑plant action button: "Correct overfill (since repotting)"
 - The button is enabled only when the plant has both `min_dry_weight_g` and `max_water_weight_g` defined.
@@ -40,6 +43,7 @@ Content-Type: application/json
 ```
 
 Notes:
+
 - The button chooses the correction starting point since last repotting by scanning the plant’s calibration entries and picking the entry with the most negative `Diff to max Weight (g)` (i.e., the minimum value of `last_wet_weight_g - target_weight_g`). It passes that entry’s identifiers: `from_ts`, `start_measurement_id`, and `start_diff_to_max_g`.
 - If no entry has both `last_wet_weight_g` and `target_weight_g`, the button omits `from_ts`/`start_measurement_id`/`start_diff_to_max_g`, and the backend falls back to the default window "since last repotting" (exclusive of the repot timestamp).
 - `cap` is set to `capacity` by this button (see Cap modes below).
@@ -50,9 +54,11 @@ After the request completes, the page refreshes the calibration list for all pla
 ---
 
 #### Backend endpoint
+
 Route: `POST /measurements/corrections`
 
 Request model fields:
+
 - `plant_id` (required): 32‑char hex UUID of the plant.
 - `from_ts` (optional, ISO local string): start of correction window.
 - `to_ts` (optional, ISO local string): end of correction window.
@@ -62,6 +68,7 @@ Request model fields:
 - `start_diff_to_max_g` (optional): numeric value of the selected event’s diff (informational).
 
 Behavior (algorithm):
+
 1. Validate `plant_id` and load plant parameters: `min_dry_weight_g`, `max_water_weight_g`, and `recommended_water_threshold_pct` (defaults to 100% when null).
 2. Determine the time window:
    - If `from_ts`/`to_ts` are provided, use them.
@@ -81,11 +88,13 @@ Behavior (algorithm):
 7. Commit the transaction and return a summary.
 
 Safeguards:
+
 - If plant `min_dry_weight_g` or `max_water_weight_g` is missing or invalid (<= 0), the endpoint returns early without changes.
 - `water_added_g` is never reduced below zero.
 - The whole set of updates is executed within a transaction; on error, the transaction is rolled back.
 
 Response shape:
+
 ```json
 {
   "updated": 3,
@@ -105,6 +114,7 @@ Response shape:
 ---
 
 #### Cap modes (for context)
+
 - `capacity` (used by the button): caps wet weight to the plant’s full capacity = `min_dry_weight_g + max_water_weight_g`.
 - `retained_ratio`: caps to the plant’s recommended retained water ratio, if `recommended_water_threshold_pct` is set on the plant.
 
@@ -113,6 +123,7 @@ You can invoke the endpoint with `cap: "retained_ratio"` from custom tooling or 
 ---
 
 #### Example: cURL invocation (what the button sends)
+
 ```bash
 curl -X POST \
   http://localhost:8000/measurements/corrections \
@@ -129,6 +140,7 @@ Because no `from_ts`/`to_ts` are provided, the backend automatically limits the 
 ---
 
 #### What you will see in the UI
+
 - While the request runs, the button displays "Correcting…" for that plant.
 - On success, the list refreshes and the per‑event numbers reflect the updated facts from the database.
 - On error, a message is shown in the page’s error notice area.
@@ -136,6 +148,7 @@ Because no `from_ts`/`to_ts` are provided, the backend automatically limits the 
 ---
 
 #### Limitations and notes
+
 - Only watering entries (`measured_weight_g IS NULL`) are considered.
 - Historical raw wet weights are capped when `edit_last_wet=true`. If you prefer to preserve raw wet weights, you can call the endpoint with `edit_last_wet=false` (not used by the current button).
 - If no candidate rows exceed the cap within the window, the endpoint returns `updated: 0`.
@@ -143,6 +156,7 @@ Because no `from_ts`/`to_ts` are provided, the backend automatically limits the 
 ---
 
 #### Implementation pointers
+
 - Frontend caller: `frontend/src/api/calibration.js` → `calibrationApi.correct(payload)`.
 - UI action: `frontend/src/pages/Calibration.jsx` → `handleCorrectOverfill`.
 - Backend endpoint: `backend/app/routes/measurements.py` → `apply_measurements_corrections`.

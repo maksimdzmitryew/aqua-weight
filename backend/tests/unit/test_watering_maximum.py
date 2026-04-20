@@ -31,6 +31,7 @@ class FakeConn:
 
 def test_get_added_waterings_without_repotting_branch():
     from app.helpers.watering_maximum import get_added_waterings_since_repotting
+
     rows = [(10,), (None,), (20,)]
     conn = FakeConn(rows)
     vals = get_added_waterings_since_repotting(conn, "deadbeef" * 4, last_repotting=None)

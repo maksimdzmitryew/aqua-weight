@@ -14,7 +14,7 @@ export default function WateringCreate() {
   const preselect = search.get('plant')
   const editId = search.get('id')
   const isEdit = !!editId
-  const location = useLocation();
+  const location = useLocation()
   const navigate = useNavigate()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
@@ -23,7 +23,8 @@ export default function WateringCreate() {
   const [saving, setSaving] = useState(false)
   const [isVacationSignature, setIsVacationSignature] = useState(false)
 
-  const operationMode = typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
+  const operationMode =
+    typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : 'manual'
 
   const form = useForm({
     plant_id: preselect || '',
@@ -45,8 +46,10 @@ export default function WateringCreate() {
       try {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
-        const measured_at = data?.measured_at ? toLocalISOMinutes(data.measured_at) || form.values.measured_at : form.values.measured_at
-        
+        const measured_at = data?.measured_at
+          ? toLocalISOMinutes(data.measured_at) || form.values.measured_at
+          : form.values.measured_at
+
         // Detection: if both weights are NULL, it's a Vacation/Reported signature
         const isVac = data?.last_dry_weight_g === null && data?.last_wet_weight_g === null
         setIsVacationSignature(isVac)
@@ -64,7 +67,9 @@ export default function WateringCreate() {
       }
     }
     loadExisting()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [isEdit, editId])
 
   const onSubmit = form.handleSubmit(async (vals) => {
@@ -75,9 +80,21 @@ export default function WateringCreate() {
         // When editing, if it's a Vacation signature, we must send nulls for weights
         const payload = {
           measured_at: vals.measured_at,
-          last_dry_weight_g: isVacationSignature ? null : (vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null),
-          last_wet_weight_g: isVacationSignature ? null : (vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null),
-          water_added_g: isVacationSignature ? null : (vals.water_added_g !== '' ? Number(vals.water_added_g) : null),
+          last_dry_weight_g: isVacationSignature
+            ? null
+            : vals.last_dry_weight_g !== ''
+              ? Number(vals.last_dry_weight_g)
+              : null,
+          last_wet_weight_g: isVacationSignature
+            ? null
+            : vals.last_wet_weight_g !== ''
+              ? Number(vals.last_wet_weight_g)
+              : null,
+          water_added_g: isVacationSignature
+            ? null
+            : vals.water_added_g !== ''
+              ? Number(vals.water_added_g)
+              : null,
         }
         await measurementsApi.watering.update(editId, payload)
       } else {
@@ -91,8 +108,10 @@ export default function WateringCreate() {
           const payload = {
             plant_id: vals.plant_id,
             measured_at: vals.measured_at,
-            last_dry_weight_g: vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
-            last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+            last_dry_weight_g:
+              vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
+            last_wet_weight_g:
+              vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
             water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
           }
           await measurementsApi.watering.create(payload)
@@ -116,20 +135,60 @@ export default function WateringCreate() {
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
-          <PlantSelect form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit} />
+          <DateTimeLocal
+            form={form}
+            name="measured_at"
+            label="Measured at"
+            required
+            validators={[required()]}
+          />
+          <PlantSelect
+            form={form}
+            name="plant_id"
+            label="Plant"
+            required
+            validators={[required()]}
+            disabled={isEdit}
+          />
           {showWeightFields && (
             <>
-              <NumberInput form={form} name="last_wet_weight_g" label="Current weight (g)" min={0} validators={[minNumber(0)]} />
-              <NumberInput form={form} name="last_dry_weight_g" label="[optional] Weight before watering (g)" min={0} validators={[minNumber(0)]} />
+              <NumberInput
+                form={form}
+                name="last_wet_weight_g"
+                label="Current weight (g)"
+                min={0}
+                validators={[minNumber(0)]}
+              />
+              <NumberInput
+                form={form}
+                name="last_dry_weight_g"
+                label="[optional] Weight before watering (g)"
+                min={0}
+                validators={[minNumber(0)]}
+              />
               <div />
-              <NumberInput form={form} name="water_added_g" label="[optional] Water added (g)" min={0} validators={[minNumber(0)]} />
+              <NumberInput
+                form={form}
+                name="water_added_g"
+                label="[optional] Water added (g)"
+                min={0}
+                validators={[minNumber(0)]}
+              />
             </>
           )}
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update watering' : 'Save watering'}</button>
-          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">
+            {isEdit ? 'Update watering' : 'Save watering'}
+          </button>
+          <button
+            type="button"
+            onClick={() => (location.state?.from ? navigate(location.state.from) : navigate(-1))}
+            className="btn btn-secondary"
+            style={{ marginLeft: 8 }}
+          >
+            Cancel
+          </button>
         </div>
       </form>
     </DashboardLayout>

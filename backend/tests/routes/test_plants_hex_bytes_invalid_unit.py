@@ -22,7 +22,7 @@ class DummyCreate:
         self.pest_status_id = "-" * 32
         self.health_status_id = "123"
         self.photo_url = None
-        self.default_measurement_method_id = " "+"1"*31
+        self.default_measurement_method_id = " " + "1" * 31
         self.substrate_last_refresh_at = None
         self.fertilized_last_at = None
         self.fertilizer_ec_ms = None

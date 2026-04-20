@@ -40,7 +40,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // The mock invoked onViewPlant with no uuid; ensure navigate was not called
     expect(mockNavigate).not.toHaveBeenCalled()
@@ -51,9 +51,13 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     // Return plants
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'p1', name: 'ZZ Plant', water_retained_pct: 80, recommended_water_threshold_pct: 30 },
-      ]
-    )
+        {
+          uuid: 'p1',
+          name: 'ZZ Plant',
+          water_retained_pct: 80,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
     )
 
     vi.resetModules()
@@ -64,7 +68,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Initially should show ZZ Plant because default plantNeedsAttention=true
@@ -73,9 +77,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   })
 
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
-    server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'not-an-array' }))
-    )
+    server.use(http.get('/api/plants', () => HttpResponse.json({ message: 'not-an-array' })))
 
     vi.resetModules()
     vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
@@ -85,7 +87,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Falls back to [] and renders empty state
@@ -96,14 +98,19 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     // Plant without latest_at/measured_at to force deepest fallback path to nowLocalISOMinutes()
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'w1', name: 'Cactus', water_retained_pct: 22, water_loss_total_pct: 78, recommended_water_threshold_pct: 30 },
-      ]
-    ),
+        {
+          uuid: 'w1',
+          name: 'Cactus',
+          water_retained_pct: 22,
+          water_loss_total_pct: 78,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
       // Weight POST returns without timestamps and without metrics -> component should keep previous percentages
       http.post('/api/measurements/weight', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json({ id: 501, plant_id: payload?.plant_id })
-      })
+      }),
     )
 
     vi.resetModules()
@@ -114,7 +121,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const cell = await screen.findByText('Cactus')
@@ -141,7 +148,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
       render(
         <MemoryRouter>
           <Page />
-        </MemoryRouter>
+        </MemoryRouter>,
       )
 
       // If operationMode is null (not 'vacation'), it should show the "Show all plants" checkbox

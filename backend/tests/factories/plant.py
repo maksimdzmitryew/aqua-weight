@@ -9,7 +9,7 @@ class PlantFactory(factory.Factory):
         model = dict
 
     id = factory.Sequence(lambda n: n + 1)
-    uuid = factory.LazyFunction(lambda: fake.hexify(text='^' + '^[0-9a-f]{32}$'.strip('^$')))
+    uuid = factory.LazyFunction(lambda: fake.hexify(text="^" + "^[0-9a-f]{32}$".strip("^$")))
     name = factory.Faker("word")
     description = factory.Maybe(
         factory.Faker("pybool"),
@@ -26,7 +26,7 @@ class PlantFactory(factory.Factory):
         yes_declaration=factory.Faker("city"),
         no_declaration=None,
     )
-    location_id = factory.LazyFunction(lambda: fake.hexify(text='^' + '^[0-9a-f]{32}$'.strip('^$')))
+    location_id = factory.LazyFunction(lambda: fake.hexify(text="^" + "^[0-9a-f]{32}$".strip("^$")))
     created_at = factory.Faker("date_time_this_year")
     water_loss_total_pct = factory.Maybe(
         factory.Faker("pybool"),

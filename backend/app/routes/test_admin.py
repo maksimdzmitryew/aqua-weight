@@ -81,7 +81,12 @@ def seed_minimal():
                 (plant_id_2_hex, "Seed Ivy", location_id_hex),
             )
 
-    return {"status": "ok", "location_id": location_id_hex, "plant_id": plant_id_hex, "plant_id_2": plant_id_2_hex}
+    return {
+        "status": "ok",
+        "location_id": location_id_hex,
+        "plant_id": plant_id_hex,
+        "plant_id_2": plant_id_2_hex,
+    }
 
 
 # Compatibility endpoints expected by Playwright e2e tests

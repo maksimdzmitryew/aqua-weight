@@ -6,7 +6,9 @@ from backend.app.helpers.plants_list import PlantsList
 
 
 class FakeCursor:
-    def __init__(self, rows=None, last_watering_at: datetime | None = None, execute_raises: bool = False):
+    def __init__(
+        self, rows=None, last_watering_at: datetime | None = None, execute_raises: bool = False
+    ):
         self._rows = list(rows or [])
         self._last_watering_at = last_watering_at
         self._execute_raises = execute_raises
@@ -47,7 +49,14 @@ class FakeConn:
         self.closed = True
 
 
-def _row(pid_bytes: bytes, name: str, location_id_bytes: bytes | None, created_at: datetime, measured_at: datetime, water_loss_total_pct: float | None = None):
+def _row(
+    pid_bytes: bytes,
+    name: str,
+    location_id_bytes: bytes | None,
+    created_at: datetime,
+    measured_at: datetime,
+    water_loss_total_pct: float | None = None,
+):
     # Minimal 9-column row shape supported by PlantsList.fetch_all (see file comments)
     return (
         pid_bytes,  # id
@@ -69,7 +78,16 @@ def test_next_watering_projection_and_roll_forward(monkeypatch):
     last_watering_at = now - timedelta(days=10)  # long ago
     freq_days = 3  # so multiple steps should be added
 
-    rows = [_row(pid, "Fern", None, created_at=now - timedelta(days=20), measured_at=now - timedelta(days=1), water_loss_total_pct=5.0)]
+    rows = [
+        _row(
+            pid,
+            "Fern",
+            None,
+            created_at=now - timedelta(days=20),
+            measured_at=now - timedelta(days=1),
+            water_loss_total_pct=5.0,
+        )
+    ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
@@ -96,7 +114,16 @@ def test_next_watering_math_exception_yields_none(monkeypatch):
     last_watering_at = now - timedelta(days=10)
     freq_days = 3
 
-    rows = [_row(pid, "Palm", None, created_at=now - timedelta(days=30), measured_at=now - timedelta(days=1), water_loss_total_pct=7.0)]
+    rows = [
+        _row(
+            pid,
+            "Palm",
+            None,
+            created_at=now - timedelta(days=30),
+            measured_at=now - timedelta(days=1),
+            water_loss_total_pct=7.0,
+        )
+    ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
@@ -126,7 +153,16 @@ def test_next_watering_projection_future_no_roll_forward(monkeypatch):
     last_watering_at = now - timedelta(days=1)
     freq_days = 10  # projection is in 9 days (future)
 
-    rows = [_row(pid, "ZZ Plant", None, created_at=now - timedelta(days=3), measured_at=now - timedelta(days=1), water_loss_total_pct=3.0)]
+    rows = [
+        _row(
+            pid,
+            "ZZ Plant",
+            None,
+            created_at=now - timedelta(days=3),
+            measured_at=now - timedelta(days=1),
+            water_loss_total_pct=3.0,
+        )
+    ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
@@ -143,7 +179,16 @@ def test_next_watering_db_exception_yields_none(monkeypatch):
     # If the inner DB block fails, next_watering_at should remain None
     now = datetime.utcnow()
     pid = bytes.fromhex("ef" * 16)
-    rows = [_row(pid, "Monstera", None, created_at=now - timedelta(days=5), measured_at=now - timedelta(days=2), water_loss_total_pct=9.0)]
+    rows = [
+        _row(
+            pid,
+            "Monstera",
+            None,
+            created_at=now - timedelta(days=5),
+            measured_at=now - timedelta(days=2),
+            water_loss_total_pct=9.0,
+        )
+    ]
     # Main cursor should work; inner cursor should raise on execute
     main_cursor = FakeCursor(rows=rows, last_watering_at=None, execute_raises=False)
     inner_cursor = FakeCursor(rows=[], last_watering_at=None, execute_raises=True)
@@ -177,12 +222,14 @@ def test_next_watering_fallback_last_watering_exception(monkeypatch):
     now = datetime.utcnow()
     pid = bytes.fromhex("bb" * 16)
     rows = [_row(pid, "Palm", None, created_at=now, measured_at=now)]
-    
+
     main_cursor = FakeCursor(rows=rows)
     # This cursor will be used for the last watering event query
     inner_cursor = FakeCursor(rows=[])
+
     def _boom(*args, **kwargs):
         raise RuntimeError("last watering query failed")
+
     inner_cursor.execute = _boom
 
     class MultiCursorConn(FakeConn):
@@ -191,12 +238,14 @@ def test_next_watering_fallback_last_watering_exception(monkeypatch):
             self._inner = inner
             self._count = 0
             self.closed = False
+
         def cursor(self):
             self._count += 1
             return self._main if self._count == 1 else self._inner
 
     fake_conn = MultiCursorConn(main_cursor, inner_cursor)
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: (5, 1))
 
@@ -211,11 +260,21 @@ def test_next_watering_calculation_exception_resets_values(monkeypatch):
     last_watering_at = now - timedelta(days=1)
     freq_days = 5
 
-    rows = [_row(pid, "Ivy", None, created_at=now - timedelta(days=10), measured_at=now - timedelta(days=2), water_loss_total_pct=2.0)]
+    rows = [
+        _row(
+            pid,
+            "Ivy",
+            None,
+            created_at=now - timedelta(days=10),
+            measured_at=now - timedelta(days=2),
+            water_loss_total_pct=2.0,
+        )
+    ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 2))
 
@@ -231,6 +290,7 @@ def test_next_watering_calculation_exception_resets_values(monkeypatch):
     assert items[0]["first_calculated_at"] is None
     assert items[0]["days_offset"] is None
 
+
 def test_next_watering_vacation_mode_decay(monkeypatch):
     # Verify linear decay in vacation mode
     now = datetime.utcnow()
@@ -244,14 +304,29 @@ def test_next_watering_vacation_mode_decay(monkeypatch):
     # Retained should be 100 - 35 = 65%
     rows = [
         (
-            pid, "Ivy", None, None, None, None, threshold, None, None, None,
-            now - timedelta(days=20), now - timedelta(days=7), now - timedelta(days=5), None, None, 0.0
+            pid,
+            "Ivy",
+            None,
+            None,
+            None,
+            None,
+            threshold,
+            None,
+            None,
+            None,
+            now - timedelta(days=20),
+            now - timedelta(days=7),
+            now - timedelta(days=5),
+            None,
+            None,
+            0.0,
         )
     ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)
     fake_conn = FakeConn(cursor)
 
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uuid_hex: (freq_days, 5))
 

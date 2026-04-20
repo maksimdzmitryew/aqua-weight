@@ -11,7 +11,7 @@ import { measurementsApi } from '../../../src/api/measurements'
 import { plantsApi } from '../../../src/api/plants'
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -21,7 +21,7 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onBack}>Back</button>
       {actions}
     </div>
-  )
+  ),
 }))
 
 // Mock navigate to observe navigations while keeping other router utilities
@@ -39,7 +39,7 @@ function renderWithRoute(initialEntries) {
           <Route path="/plants/:uuid" element={<PlantDetails />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -47,22 +47,31 @@ describe('pages/PlantDetails', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     // Default measurements handler to avoid unhandled requests; individual tests may override
-    server.use(
-      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([])))
   })
 
   test('loads from router state and shows actions (Edit and QuickCreate)', async () => {
     const init = {
       pathname: '/plants/u1',
-      state: { plant: { uuid: 'u1', id: 1, name: 'Aloe', description: 'desc', created_at: '2025-01-01T00:00:00' } },
+      state: {
+        plant: {
+          uuid: 'u1',
+          id: 1,
+          name: 'Aloe',
+          description: 'desc',
+          created_at: '2025-01-01T00:00:00',
+        },
+      },
     }
     renderWithRoute([init])
 
     // Wait for Edit action and click it
     const editBtn = await screen.findByRole('button', { name: /edit/i })
     fireEvent.click(editBtn)
-    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1/edit', expect.objectContaining({ state: expect.any(Object) }))
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/plants/u1/edit',
+      expect.objectContaining({ state: expect.any(Object) }),
+    )
   })
 
   test('loads plant by uuid via API when no state and handles error', async () => {
@@ -70,8 +79,13 @@ describe('pages/PlantDetails', () => {
     server.use(
       http.get('/api/plants/:uuid', ({ params }) => {
         expect(params.uuid).toBe('px')
-        return HttpResponse.json({ uuid: 'px', id: 10, name: 'Loaded', created_at: '2025-01-02T00:00:00' })
-      })
+        return HttpResponse.json({
+          uuid: 'px',
+          id: 10,
+          name: 'Loaded',
+          created_at: '2025-01-02T00:00:00',
+        })
+      }),
     )
     renderWithRoute(['/plants/px'])
     // After successful load, the Edit button should be visible (plant present)
@@ -79,7 +93,9 @@ describe('pages/PlantDetails', () => {
 
     // Error path
     server.use(
-      http.get('/api/plants/:uuid', () => HttpResponse.json({ message: 'not found' }, { status: 404 }))
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({ message: 'not found' }, { status: 404 }),
+      ),
     )
     renderWithRoute(['/plants/err'])
     expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load plant|not found/i)
@@ -90,12 +106,12 @@ describe('pages/PlantDetails', () => {
     const spy = vi.spyOn(measurementsApi, 'listByPlant')
     const view = render(
       <ThemeProvider>
-        <MemoryRouter initialEntries={[{ pathname: '/' }] }>
+        <MemoryRouter initialEntries={[{ pathname: '/' }]}>
           <Routes>
             <Route path="/" element={<PlantDetails />} />
           </Routes>
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(await screen.findByRole('alert')).toHaveTextContent(/missing uuid/i)
     expect(spy).not.toHaveBeenCalled()
@@ -116,10 +132,23 @@ describe('pages/PlantDetails', () => {
       http.get('/api/plants/:uuid/measurements', ({ params }) => {
         expect(params.uuid).toBe('u9')
         return HttpResponse.json([
-          { id: 501, measured_at: '2025-01-05T12:00:00', measured_weight_g: 100, water_added_g: 0, water_loss_total_pct: 10 },
-          { id: 502, measured_at: '2025-01-06T12:00:00', measured_weight_g: null, last_wet_weight_g: 200, water_added_g: 50, water_loss_day_pct: 3.5 },
+          {
+            id: 501,
+            measured_at: '2025-01-05T12:00:00',
+            measured_weight_g: 100,
+            water_added_g: 0,
+            water_loss_total_pct: 10,
+          },
+          {
+            id: 502,
+            measured_at: '2025-01-06T12:00:00',
+            measured_weight_g: null,
+            last_wet_weight_g: 200,
+            water_added_g: 50,
+            water_loss_day_pct: 3.5,
+          },
         ])
-      })
+      }),
     )
 
     renderWithRoute([init])
@@ -144,7 +173,7 @@ describe('pages/PlantDetails', () => {
       http.delete('/api/measurements/:id', ({ params }) => {
         deleted = Number(params.id)
         return HttpResponse.json({ ok: true })
-      })
+      }),
     )
     fireEvent.click(delBtn)
     const dlg = await screen.findByRole('dialog')
@@ -163,7 +192,7 @@ describe('pages/PlantDetails', () => {
         called++
         if (called === 1) return HttpResponse.json({ message: 'boom' }, { status: 500 })
         return HttpResponse.json([])
-      })
+      }),
     )
 
     renderWithRoute([init])
@@ -196,14 +225,16 @@ describe('pages/PlantDetails', () => {
     }
     // List with one row lacking id triggers missing-id branch upon delete
     server.use(
-      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([{ measured_at: '2025-01-07T00:00:00' }]))
+      http.get('/api/plants/:uuid/measurements', () =>
+        HttpResponse.json([{ measured_at: '2025-01-07T00:00:00' }]),
+      ),
     )
     const delSpy = vi.fn()
     server.use(
       http.delete('/api/measurements/:id', () => {
         delSpy()
         return HttpResponse.json({ ok: true })
-      })
+      }),
     )
     renderWithRoute([init])
     const row = (await screen.findAllByRole('row')).slice(1)[0]
@@ -222,28 +253,30 @@ describe('pages/PlantDetails', () => {
     // Set handler that delays; unmount before it resolves so AbortController path is hit
     server.use(
       http.get('/api/plants/:uuid', async () => {
-        await new Promise(r => setTimeout(r, 50))
+        await new Promise((r) => setTimeout(r, 50))
         return HttpResponse.json({ uuid: 'ab', id: 1, name: 'Later' })
-      })
+      }),
     )
     const view = render(
       <ThemeProvider>
-        <MemoryRouter initialEntries={[{ pathname: '/plants/ab' }] }>
+        <MemoryRouter initialEntries={[{ pathname: '/plants/ab' }]}>
           <Routes>
             <Route path="/plants/:uuid" element={<PlantDetails />} />
           </Routes>
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // Immediately unmount to trigger abort
     view.unmount()
     // Allow microtasks to flush so abort catch branch executes
-    await new Promise(r => setTimeout(r, 10))
+    await new Promise((r) => setTimeout(r, 10))
     // Nothing to assert; the absence of unhandled errors and test completion covers abort branch
   })
 
   test('plant load error with message containing "abort" is ignored (no error shown)', async () => {
-    const spy = vi.spyOn(plantsApi, 'getByUuid').mockRejectedValueOnce({ message: 'Abort in flight' })
+    const spy = vi
+      .spyOn(plantsApi, 'getByUuid')
+      .mockRejectedValueOnce({ message: 'Abort in flight' })
     renderWithRoute(['/plants/ab2'])
     // Wait for the async effect to finish by checking for the absence of the loader
     // PlantDetails renders an empty div when plant is null and not loading
@@ -278,9 +311,13 @@ describe('pages/PlantDetails', () => {
     server.use(
       http.get('/api/plants/:uuid/measurements', ({ params }) => {
         if (params.uuid === 'uErr') listCalls++
-        return HttpResponse.json([{ id: 1, measured_at: '2025-01-07T00:00:00', measured_weight_g: 1 }])
+        return HttpResponse.json([
+          { id: 1, measured_at: '2025-01-07T00:00:00', measured_weight_g: 1 },
+        ])
       }),
-      http.delete('/api/measurements/:id', () => HttpResponse.json({ oops: true }, { status: 500 }))
+      http.delete('/api/measurements/:id', () =>
+        HttpResponse.json({ oops: true }, { status: 500 }),
+      ),
     )
 
     renderWithRoute([init])
@@ -298,16 +335,39 @@ describe('pages/PlantDetails', () => {
   test('details fields and percent formatting branches: weights show units; pct string uses raw; null day pct shows —', async () => {
     const init = {
       pathname: '/plants/uFmt',
-      state: { plant: { uuid: 'uFmt', id: 7, name: 'Format', description: '', location: '', min_dry_weight_g: 123, max_water_weight_g: 456, created_at: '2025-01-01T00:00:00' } },
+      state: {
+        plant: {
+          uuid: 'uFmt',
+          id: 7,
+          name: 'Format',
+          description: '',
+          location: '',
+          min_dry_weight_g: 123,
+          max_water_weight_g: 456,
+          created_at: '2025-01-01T00:00:00',
+        },
+      },
     }
     // Return two measurements: first where total/day pct are strings (no toFixed); second where day pct is null
     server.use(
       http.get('/api/plants/:uuid/measurements', () =>
         HttpResponse.json([
-          { id: 77, measured_at: '2025-01-08T00:00:00', measured_weight_g: 50, water_loss_total_pct: '7', water_loss_day_pct: '2' },
-          { id: 78, measured_at: '2025-01-09T00:00:00', measured_weight_g: 60, water_loss_total_pct: 1, water_loss_day_pct: null },
-        ])
-      )
+          {
+            id: 77,
+            measured_at: '2025-01-08T00:00:00',
+            measured_weight_g: 50,
+            water_loss_total_pct: '7',
+            water_loss_day_pct: '2',
+          },
+          {
+            id: 78,
+            measured_at: '2025-01-09T00:00:00',
+            measured_weight_g: 60,
+            water_loss_total_pct: 1,
+            water_loss_day_pct: null,
+          },
+        ]),
+      ),
     )
 
     renderWithRoute([init])
@@ -333,11 +393,18 @@ describe('pages/PlantDetails', () => {
     // Also verify falsy branch for min/max weight renders em dash
     const init2 = {
       pathname: '/plants/uFmt2',
-      state: { plant: { uuid: 'uFmt2', id: 8, name: 'Format2', min_dry_weight_g: 0, max_water_weight_g: 0, created_at: '2025-01-02T00:00:00' } },
+      state: {
+        plant: {
+          uuid: 'uFmt2',
+          id: 8,
+          name: 'Format2',
+          min_dry_weight_g: 0,
+          max_water_weight_g: 0,
+          created_at: '2025-01-02T00:00:00',
+        },
+      },
     }
-    server.use(
-      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/plants/:uuid/measurements', () => HttpResponse.json([])))
     renderWithRoute([init2])
     // Empty state visible
     expect(await screen.findByRole('note')).toBeInTheDocument()
@@ -364,7 +431,9 @@ describe('pages/PlantDetails', () => {
       state: { plant: { uuid: 'uNonArr', id: 5, name: 'NA' } },
     }
     server.use(
-      http.get('/api/plants/:uuid/measurements', () => HttpResponse.json({ status: 'ok', data: { foo: 'bar' } }))
+      http.get('/api/plants/:uuid/measurements', () =>
+        HttpResponse.json({ status: 'ok', data: { foo: 'bar' } }),
+      ),
     )
     renderWithRoute([init])
     // Empty state appears (no table)

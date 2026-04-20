@@ -58,7 +58,9 @@ def test_normalize_measured_at_fill_modes_and_clamp():
         normalize_measured_at(base, fill_with="fixed", fixed_seconds=10, fixed_milliseconds=None)
     # For local variant: providing seconds but omitting milliseconds should raise (covers line 154)
     with pytest.raises(ValueError):
-        normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=10, fixed_milliseconds=None)
+        normalize_measured_at_local(
+            base, fill_with="fixed", fixed_seconds=10, fixed_milliseconds=None
+        )
 
 
 def test_normalize_measured_at_local_modes_and_tz():
@@ -68,10 +70,14 @@ def test_normalize_measured_at_local_modes_and_tz():
     assert out0.tzinfo is None and out0.second == 0 and out0.microsecond == 0
     assert (out0.year, out0.month, out0.day, out0.hour, out0.minute) == (2025, 10, 21, 19, 33)
     # server with fixed overrides
-    out1 = normalize_measured_at_local(base, fill_with="server", fixed_seconds=7, fixed_milliseconds=321)
+    out1 = normalize_measured_at_local(
+        base, fill_with="server", fixed_seconds=7, fixed_milliseconds=321
+    )
     assert out1.tzinfo is None and out1.second == 7 and out1.microsecond == 321000
     # fixed clamps ms
-    out2 = normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=5, fixed_milliseconds=2000)
+    out2 = normalize_measured_at_local(
+        base, fill_with="fixed", fixed_seconds=5, fixed_milliseconds=2000
+    )
     assert out2.second == 5 and out2.microsecond == 999000 and out2.tzinfo is None
     # input with Z should convert to local time then drop tzinfo; to make this deterministic, compare offset difference
     out3 = normalize_measured_at_local("2025-10-21T19:33:00Z", fill_with="zeros")
@@ -98,7 +104,9 @@ def test_normalize_measured_at_clamp_negative():
 def test_normalize_measured_at_local_clamp_negative():
     # Covers line 142: if ms < 0
     base = "2025-10-21T19:33"
-    out = normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=0, fixed_milliseconds=-5)
+    out = normalize_measured_at_local(
+        base, fill_with="fixed", fixed_seconds=0, fixed_milliseconds=-5
+    )
     assert out.microsecond == 0
 
 
@@ -106,11 +114,14 @@ def test_normalize_measured_at_local_fixed_missing_seconds():
     # Covers line 164: if fixed_seconds is None (for local variant)
     base = "2025-10-21T19:33"
     with pytest.raises(ValueError, match="fixed_seconds must be provided"):
-        normalize_measured_at_local(base, fill_with="fixed", fixed_seconds=None, fixed_milliseconds=0)
+        normalize_measured_at_local(
+            base, fill_with="fixed", fixed_seconds=None, fixed_milliseconds=0
+        )
 
 
 def test_now_local_iso():
     from backend.app.utils.date_time import now_local_iso
+
     iso_str = now_local_iso()
     # Format: YYYY-MM-DDTHH:MM
     assert len(iso_str) == 16

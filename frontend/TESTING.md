@@ -5,9 +5,11 @@ This guide describes how we test the frontend and how to run Storybook for compo
 ## Commands
 
 - Dev server:
+
   - `npm run dev` (from `frontend/`)
 
 - End-to-End tests (Playwright):
+
   - Install browsers: `npm run e2e:install`
   - Run headless: `npm run e2e`
   - Run headed: `npm run e2e:headed`

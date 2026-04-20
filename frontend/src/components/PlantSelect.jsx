@@ -16,7 +16,15 @@ import { plantsApi } from '../api/plants'
  * @param {boolean} props.disabled - Is field disabled
  * @param {Array} props.validators - Field validators
  */
-export default function PlantSelect({ form, name, label, required, disabled, validators, ...rest }) {
+export default function PlantSelect({
+  form,
+  name,
+  label,
+  required,
+  disabled,
+  validators,
+  ...rest
+}) {
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -59,16 +67,14 @@ export default function PlantSelect({ form, name, label, required, disabled, val
         <option value="">
           {loading ? 'Loading plants...' : error ? 'Error loading plants' : 'Select plant...'}
         </option>
-        {plants.map(p => (
+        {plants.map((p) => (
           <option key={p.uuid} value={p.uuid}>
             {p.name}
           </option>
         ))}
       </Select>
       {error && !loading && (
-        <div style={{ color: 'crimson', marginTop: 4, fontSize: 12 }}>
-          {error}
-        </div>
+        <div style={{ color: 'crimson', marginTop: 4, fontSize: 12 }}>{error}</div>
       )}
     </div>
   )

@@ -29,7 +29,11 @@ export default function PlantDetails() {
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
-      if (!uuid) { setError('Missing uuid'); setLoading(false); return }
+      if (!uuid) {
+        setError('Missing uuid')
+        setLoading(false)
+        return
+      }
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(data)
@@ -43,7 +47,9 @@ export default function PlantDetails() {
       }
     }
     if (!plant) load()
-    return () => { controller.abort() }
+    return () => {
+      controller.abort()
+    }
   }, [uuid])
 
   const fetchMeasurements = useCallback(async () => {
@@ -66,11 +72,10 @@ export default function PlantDetails() {
     fetchMeasurements()
   }, [fetchMeasurements])
 
-
   function handleEditMeasurement(m) {
     if (!m?.id) return
     if ((m?.measured_weight_g || 0) > 0) {
-       navigate(`/measurement/weight?id=${m.id}`)
+      navigate(`/measurement/weight?id=${m.id}`)
     } else {
       navigate(`/measurement/watering?id=${m.id}`)
     }
@@ -87,7 +92,10 @@ export default function PlantDetails() {
   }
 
   async function confirmDeleteMeasurement() {
-    if (!toDeleteMeas?.id) { closeMeasDialog(); return }
+    if (!toDeleteMeas?.id) {
+      closeMeasDialog()
+      return
+    }
     try {
       await measurementsApi.delete(toDeleteMeas.id)
     } catch (e) {
@@ -110,8 +118,11 @@ export default function PlantDetails() {
         <div className="flex items-center gap-2 flex-wrap">
           {plant?.uuid && (
             <>
-              <button type="button" onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
-                      className="btn btn-primary">
+              <button
+                type="button"
+                onClick={() => navigate(`/plants/${plant.uuid}/edit`, { state: { plant } })}
+                className="btn btn-primary"
+              >
                 Edit
               </button>
               <QuickCreateButtons plantUuid={plant.uuid} plantName={plant.name} />
@@ -143,10 +154,16 @@ export default function PlantDetails() {
           <div className="mt-4">
             <h3 className="mt-0">Measurements</h3>
             {measLoading && <Loader label="Loading measurements..." />}
-            {measError && !measLoading && <ErrorNotice message={measError} onRetry={fetchMeasurements} />}
-            {!measLoading && !measError && (
-              measurements.length === 0 ? (
-                <EmptyState title="No measurements yet" description="Record a measurement to see history here." />
+            {measError && !measLoading && (
+              <ErrorNotice message={measError} onRetry={fetchMeasurements} />
+            )}
+            {!measLoading &&
+              !measError &&
+              (measurements.length === 0 ? (
+                <EmptyState
+                  title="No measurements yet"
+                  description="Record a measurement to see history here."
+                />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="table">
@@ -168,25 +185,44 @@ export default function PlantDetails() {
                       {measurements.map((m, i) => (
                         <tr key={m.id || i}>
                           <td className="td text-right nowrap">
-                            <IconButton icon="edit" label="Edit measurement" onClick={() => handleEditMeasurement(m)} variant="subtle" />
-                            <IconButton icon="delete" label="Delete measurement" onClick={() => handleDeleteMeasurement(m)} variant="danger" />
+                            <IconButton
+                              icon="edit"
+                              label="Edit measurement"
+                              onClick={() => handleEditMeasurement(m)}
+                              variant="subtle"
+                            />
+                            <IconButton
+                              icon="delete"
+                              label="Delete measurement"
+                              onClick={() => handleDeleteMeasurement(m)}
+                              variant="danger"
+                            />
                           </td>
-                          <td className="td"><DateTimeText value={m.measured_at} /></td>
+                          <td className="td">
+                            <DateTimeText value={m.measured_at} />
+                          </td>
                           <td className="td">{m.measured_weight_g ?? '—'}</td>
                           <td className="td">{m.last_dry_weight_g ?? '—'}</td>
                           <td className="td">{m.last_wet_weight_g ?? '—'}</td>
                           <td className="td">{m.water_added_g ?? 0}</td>
-                          <td className="td">{m.water_loss_total_pct != null ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%` : '—'}</td>
+                          <td className="td">
+                            {m.water_loss_total_pct != null
+                              ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%`
+                              : '—'}
+                          </td>
                           <td className="td">{m.water_loss_total_g ?? '—'}</td>
-                          <td className="td">{m.water_loss_day_pct != null ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%` : '—'}</td>
+                          <td className="td">
+                            {m.water_loss_day_pct != null
+                              ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%`
+                              : '—'}
+                          </td>
                           <td className="td">{m.water_loss_day_g ?? '—'}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-              )
-            )}
+              ))}
           </div>
         </>
       )}

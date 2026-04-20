@@ -82,7 +82,9 @@ describe('src/main.jsx bootstrap', () => {
 
     // Strict assertions on the rendered element tree structure
     // renderedElement should be <React.StrictMode> ...
-    expect(renderedElement.type && renderedElement.type.$$typeof ? 'fragment' : renderedElement.type).toBe(React.StrictMode)
+    expect(
+      renderedElement.type && renderedElement.type.$$typeof ? 'fragment' : renderedElement.type,
+    ).toBe(React.StrictMode)
 
     // StrictMode has a single child which is ThemeProvider
     const strictChildren = React.Children.toArray(renderedElement.props.children)

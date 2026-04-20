@@ -71,15 +71,29 @@ class _SeqConn:
 
 
 @pytest.mark.asyncio
-async def test_list_plants_for_calibration_enriched(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_list_plants_for_calibration_enriched(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Base list from PlantsList: replace the class with a simple stub namespace
     monkeypatch.setattr(
         measurements_routes,
         "PlantsList",
-        types.SimpleNamespace(fetch_all=lambda: [
-            {"id": 1, "uuid": "aa" * 16, "name": "A", "latest_at": datetime(2025, 1, 1, 0, 0, 0)},
-            {"id": 2, "uuid": "bb" * 16, "name": "B", "latest_at": datetime(2025, 1, 1, 0, 0, 0)},
-        ])
+        types.SimpleNamespace(
+            fetch_all=lambda: [
+                {
+                    "id": 1,
+                    "uuid": "aa" * 16,
+                    "name": "A",
+                    "latest_at": datetime(2025, 1, 1, 0, 0, 0),
+                },
+                {
+                    "id": 2,
+                    "uuid": "bb" * 16,
+                    "name": "B",
+                    "latest_at": datetime(2025, 1, 1, 0, 0, 0),
+                },
+            ]
+        ),
     )
     # Calibration maps
     entry = {
@@ -91,8 +105,14 @@ async def test_list_plants_for_calibration_enriched(app: FastAPI, async_client: 
         "under_g": 0,
         "under_pct": 0.0,
     }
-    monkeypatch.setattr(measurements_routes, "calibrate_by_max_water_retained", lambda conn: {"aa" * 16: [entry], "bb" * 16: [entry]})
-    monkeypatch.setattr(measurements_routes, "calibrate_by_minimum_dry_weight", lambda conn: {"aa" * 16: [entry]})
+    monkeypatch.setattr(
+        measurements_routes,
+        "calibrate_by_max_water_retained",
+        lambda conn: {"aa" * 16: [entry], "bb" * 16: [entry]},
+    )
+    monkeypatch.setattr(
+        measurements_routes, "calibrate_by_minimum_dry_weight", lambda conn: {"aa" * 16: [entry]}
+    )
 
     r = await async_client.get("/api/measurements/calibrating")
     assert r.status_code == 200
@@ -110,15 +130,27 @@ async def test_list_plants_for_calibration_enriched(app: FastAPI, async_client: 
 
 
 @pytest.mark.asyncio
-async def test_list_plants_for_calibration_skips_missing_uuid_and_close_except(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_list_plants_for_calibration_skips_missing_uuid_and_close_except(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Include an entry without uuid to trigger `continue` branch (line 196)
     monkeypatch.setattr(
         measurements_routes,
         "PlantsList",
-        types.SimpleNamespace(fetch_all=lambda: [
-            {"id": 1, "uuid": "aa" * 16, "name": "A", "latest_at": datetime(2025, 1, 1, 0, 0, 0)},
-            {"name": "NoUUID", "latest_at": datetime(2025, 1, 1, 0, 0, 0)},  # missing both uuid and id -> skipped
-        ])
+        types.SimpleNamespace(
+            fetch_all=lambda: [
+                {
+                    "id": 1,
+                    "uuid": "aa" * 16,
+                    "name": "A",
+                    "latest_at": datetime(2025, 1, 1, 0, 0, 0),
+                },
+                {
+                    "name": "NoUUID",
+                    "latest_at": datetime(2025, 1, 1, 0, 0, 0),
+                },  # missing both uuid and id -> skipped
+            ]
+        ),
     )
     # Stub calibration maps to empty
     monkeypatch.setattr(measurements_routes, "calibrate_by_max_water_retained", lambda conn: {})
@@ -150,7 +182,9 @@ async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: 
     assert r_bad.json()["detail"] == "Invalid plant_id"
 
     # invalid cap
-    r_cap = await async_client.post("/api/measurements/corrections", json={"plant_id": "aa" * 16, "cap": "bogus"})
+    r_cap = await async_client.post(
+        "/api/measurements/corrections", json={"plant_id": "aa" * 16, "cap": "bogus"}
+    )
     assert r_cap.status_code == 400
     assert r_cap.json()["detail"] == "Invalid cap mode"
 
@@ -171,15 +205,26 @@ async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: 
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_capacity_and_retained_ratio(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_corrections_capacity_and_retained_ratio(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # last repotting default window present
-    monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: types.SimpleNamespace(measured_at=datetime(2025, 1, 1, 0, 0, 0)))
+    monkeypatch.setattr(
+        measurements_routes,
+        "get_last_repotting_event",
+        lambda conn, pid: types.SimpleNamespace(measured_at=datetime(2025, 1, 1, 0, 0, 0)),
+    )
 
     # Plant exists with full calibration
     plant_row = (100, 50, 80)  # min_dry, max_water, rec_pct
     # Two candidate measurements: one exceeding, one equal
     # id, measured_at, water_added_g, last_wet_weight_g
-    m1 = (bytes.fromhex("11" * 16), datetime(2025, 1, 2, 0, 0, 0), 60, 170)  # target 150 -> excess 20 -> new_added 40
+    m1 = (
+        bytes.fromhex("11" * 16),
+        datetime(2025, 1, 2, 0, 0, 0),
+        60,
+        170,
+    )  # target 150 -> excess 20 -> new_added 40
     m2 = (bytes.fromhex("22" * 16), datetime(2025, 1, 3, 0, 0, 0), 10, 150)  # no excess
     cur = _SeqCursor(plant_row=plant_row, meas_rows=[m1, m2])
     conn = _SeqConn(cur)
@@ -195,19 +240,30 @@ async def test_apply_corrections_capacity_and_retained_ratio(app: FastAPI, async
 
     # retained_ratio mode, edit_last_wet false
     cur.update_calls.clear()
-    r2 = await async_client.post("/api/measurements/corrections", json={"plant_id": "aa" * 16, "cap": "retained_ratio", "edit_last_wet": False})
+    r2 = await async_client.post(
+        "/api/measurements/corrections",
+        json={"plant_id": "aa" * 16, "cap": "retained_ratio", "edit_last_wet": False},
+    )
     assert r2.status_code == 200
     j2 = r2.json()
     assert j2["updated"] >= 1
-    assert any("set water_added_g" in sql and "last_wet_weight_g" not in sql for sql, _ in cur.update_calls)
+    assert any(
+        "set water_added_g" in sql and "last_wet_weight_g" not in sql for sql, _ in cur.update_calls
+    )
 
     app.dependency_overrides.pop(get_conn_factory, None)
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_window_build_no_rows_and_exceptions(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_corrections_window_build_no_rows_and_exceptions(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Force last repotting to have a non-datetime value that will cause parse to raise -> caught (276-278)
-    monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: types.SimpleNamespace(measured_at="not-a-date"))
+    monkeypatch.setattr(
+        measurements_routes,
+        "get_last_repotting_event",
+        lambda conn, pid: types.SimpleNamespace(measured_at="not-a-date"),
+    )
 
     # Plant present; no measurement rows
     cur = _SeqCursor(plant_row=(100, 50, 80), meas_rows=[])
@@ -215,6 +271,7 @@ async def test_apply_corrections_window_build_no_rows_and_exceptions(app: FastAP
     class _ConnCloseFail(_SeqConn):
         def __init__(self, c):
             super().__init__(c)
+
         def close(self):
             raise RuntimeError("close fail")
 
@@ -235,7 +292,9 @@ async def test_apply_corrections_window_build_no_rows_and_exceptions(app: FastAP
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_update_failure_triggers_rollback_and_close_except(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_corrections_update_failure_triggers_rollback_and_close_except(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # No default window; provide explicit so selection runs
     monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
 
@@ -247,6 +306,7 @@ async def test_apply_corrections_update_failure_triggers_rollback_and_close_exce
     class _ConnRBAndCloseFail(_SeqConn):
         def __init__(self, c):
             super().__init__(c, raise_on_rollback=False)
+
         def close(self):
             raise RuntimeError("close fail")
 
@@ -261,9 +321,15 @@ async def test_apply_corrections_update_failure_triggers_rollback_and_close_exce
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_default_window_parse_error_branch(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_corrections_default_window_parse_error_branch(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # No from/to provided; last repotting has invalid measured_at -> triggers parse exception path (276-278)
-    monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: types.SimpleNamespace(measured_at="bogus-ts"))
+    monkeypatch.setattr(
+        measurements_routes,
+        "get_last_repotting_event",
+        lambda conn, pid: types.SimpleNamespace(measured_at="bogus-ts"),
+    )
 
     cur = _SeqCursor(plant_row=(100, 50, 80), meas_rows=[])
     conn = _SeqConn(cur)
@@ -277,7 +343,9 @@ async def test_apply_corrections_default_window_parse_error_branch(app: FastAPI,
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_update_failure_rollback_raises(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_corrections_update_failure_rollback_raises(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Force update failure and rollback raising to cover except branch (358-359)
     monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
 

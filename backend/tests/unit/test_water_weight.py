@@ -46,7 +46,9 @@ def test_update_min_dry_and_max_watering_updates_and_commits():
         ww.calculate_max_watering_added_g = lambda c, h, r: 20  # type: ignore
 
         # New measurement lowers min and raises max
-        ww.update_min_dry_weight_and_max_watering_added_g(conn, "aa" * 16, new_measured_weight_g=90, new_added_watering_g=25)
+        ww.update_min_dry_weight_and_max_watering_added_g(
+            conn, "aa" * 16, new_measured_weight_g=90, new_added_watering_g=25
+        )
 
         # Verify SQL executed with updated values and commit called
         assert conn.committed is True

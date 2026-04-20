@@ -44,9 +44,7 @@ export default function PlantsTableBase({
       <div className="overflow-x-auto">
         <table className={className}>
           <thead>
-            <tr>
-              {renderHeaders()}
-            </tr>
+            <tr>{renderHeaders()}</tr>
           </thead>
           <tbody>
             <tr>
@@ -64,9 +62,7 @@ export default function PlantsTableBase({
     <div className="overflow-x-auto">
       <table className={className}>
         <thead>
-          <tr>
-            {renderHeaders()}
-          </tr>
+          <tr>{renderHeaders()}</tr>
         </thead>
         <tbody>
           {plants.map((plant, idx) => {
@@ -99,7 +95,10 @@ export function TableHeader({ title, children, className = 'th', scope = 'col' }
     <th className={className} scope={scope} title={title}>
       <span style={{ pointerEvents: 'none' }}>{children}</span>
       {title && (
-        <span aria-hidden="true" style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}>
+        <span
+          aria-hidden="true"
+          style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}
+        >
           ⓘ
         </span>
       )}

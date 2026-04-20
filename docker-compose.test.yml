@@ -20,7 +20,11 @@ services:
     networks:
       - aw-tests-net
     healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 --protocol=TCP -uroot -p\"$MARIADB_ROOT_PASSWORD\" --connect-timeout=3 --silent || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          'mariadb-admin ping -h 127.0.0.1 --protocol=TCP -uroot -p"$MARIADB_ROOT_PASSWORD" --connect-timeout=3 --silent || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -48,7 +52,18 @@ services:
       - DB_PASSWORD=apppass
     volumes:
       - ./backend/app:/app/app
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+        "--reload-dir",
+        "/app/app",
+      ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/health"]
       interval: 10s
@@ -72,7 +87,12 @@ services:
     # Ensure dev server dependencies (vite) are present in the test node_modules directory.
     # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
     # Always install to ensure deps match current package.json for tests
-    command: ["bash", "-lc", "cd /app && npm ci --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0"]
+    command:
+      [
+        "bash",
+        "-lc",
+        "cd /app && npm ci --no-audit --no-fund; exec npm run dev -- --host 0.0.0.0",
+      ]
 
   nginx:
     build:
@@ -92,8 +112,12 @@ services:
       - ${SSL_CERT_FILE:-./ssl/dev.fullchain.pem}:/etc/ssl/aw.max/fullchain.pem:ro
       - ${SSL_KEY_FILE:-./ssl/dev.privkey.pem}:/etc/ssl/aw.max/privkey.pem:ro
     healthcheck:
-      test: ["CMD-SHELL", "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem"]
-    
+      test:
+        [
+          "CMD-SHELL",
+          "nginx -t && test -f /etc/ssl/aw.max/fullchain.pem && test -f /etc/ssl/aw.max/privkey.pem",
+        ]
+
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,7 +159,12 @@ services:
     # Ensure dev dependencies are installed (including newly added ones)
     # If vitest binary is missing, run npm ci, then keep container running
     # Use npm ci to enforce lockfile consistency for deterministic test deps
-    command: ["bash", "-lc", "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm ci --no-audit --no-fund && tail -f /dev/null"]
+    command:
+      [
+        "bash",
+        "-lc",
+        "cd /app/frontend && [ -x node_modules/.bin/vitest ] || npm ci --no-audit --no-fund && tail -f /dev/null",
+      ]
     networks:
       - aw-tests-net
 

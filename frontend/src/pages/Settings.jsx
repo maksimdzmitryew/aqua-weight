@@ -6,8 +6,12 @@ export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
   const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
   const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
-  const [operationMode, setOperationMode] = useState(() => localStorage.getItem('operationMode') || 'manual')
-  const [defaultThreshold, setDefaultThreshold] = useState(() => localStorage.getItem('defaultThreshold') || '40')
+  const [operationMode, setOperationMode] = useState(
+    () => localStorage.getItem('operationMode') || 'manual',
+  )
+  const [defaultThreshold, setDefaultThreshold] = useState(
+    () => localStorage.getItem('defaultThreshold') || '40',
+  )
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
 
@@ -77,7 +81,9 @@ export default function Settings() {
 
       <form onSubmit={save} style={{ maxWidth: 520 }}>
         <div style={fieldRow}>
-          <label style={label} htmlFor="display_name">Display name</label>
+          <label style={label} htmlFor="display_name">
+            Display name
+          </label>
           <input
             id="display_name"
             type="text"
@@ -88,22 +94,38 @@ export default function Settings() {
           />
         </div>
         <div style={fieldRow}>
-          <label style={label} htmlFor="theme">Theme</label>
-          <select id="theme" value={theme} onChange={(e) => setTheme(e.target.value)} style={styles.input}>
+          <label style={label} htmlFor="theme">
+            Theme
+          </label>
+          <select
+            id="theme"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            style={styles.input}
+          >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
             <option value="system">System</option>
           </select>
         </div>
         <div style={fieldRow}>
-          <label style={label} htmlFor="dt_format">Date/Time format</label>
-          <select id="dt_format" value={dtFormat} onChange={(e) => setDtFormat(e.target.value)} style={styles.input}>
+          <label style={label} htmlFor="dt_format">
+            Date/Time format
+          </label>
+          <select
+            id="dt_format"
+            value={dtFormat}
+            onChange={(e) => setDtFormat(e.target.value)}
+            style={styles.input}
+          >
             <option value="europe">Europe (DD/MM/YYYY 24h)</option>
             <option value="usa">USA (MM/DD/YYYY 12h)</option>
           </select>
         </div>
         <div style={fieldRow}>
-          <label style={label} htmlFor="operation_mode">Operation mode</label>
+          <label style={label} htmlFor="operation_mode">
+            Operation mode
+          </label>
           <select
             id="operation_mode"
             value={operationMode}
@@ -116,7 +138,9 @@ export default function Settings() {
           </select>
         </div>
         <div style={fieldRow}>
-          <label style={label} htmlFor="default_threshold">Default Watering Threshold (%)</label>
+          <label style={label} htmlFor="default_threshold">
+            Default Watering Threshold (%)
+          </label>
           <input
             id="default_threshold"
             type="number"
@@ -137,7 +161,9 @@ export default function Settings() {
           )}
         </div>
         <div style={{ marginTop: 16 }}>
-          <button type="submit" style={styles.button}>Save</button>
+          <button type="submit" style={styles.button}>
+            Save
+          </button>
           {saved && <span style={{ marginLeft: 12, color: 'seagreen' }}>{saved}</span>}
         </div>
       </form>

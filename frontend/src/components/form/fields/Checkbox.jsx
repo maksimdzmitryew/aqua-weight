@@ -25,7 +25,11 @@ export default function Checkbox({ form, name, label, disabled, validators, requ
         />
         <span>{label}</span>
       </label>
-      {error && <div id={`${name}-error`} style={errStyle}>{error}</div>}
+      {error && (
+        <div id={`${name}-error`} style={errStyle}>
+          {error}
+        </div>
+      )}
     </div>
   )
 }

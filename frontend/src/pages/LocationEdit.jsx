@@ -131,7 +131,9 @@ export default function LocationEdit() {
           </div>
 
           <div style={rowStyle}>
-            <label style={labelStyle} htmlFor="name">Name</label>
+            <label style={labelStyle} htmlFor="name">
+              Name
+            </label>
             <input
               id="name"
               name="name"
@@ -139,7 +141,7 @@ export default function LocationEdit() {
               onChange={onChange}
               style={{
                 ...inputStyle,
-                borderColor: fieldErrors.name ? 'crimson' : (isDark ? '#374151' : '#d1d5db'),
+                borderColor: fieldErrors.name ? 'crimson' : isDark ? '#374151' : '#d1d5db',
               }}
               aria-invalid={!!fieldErrors.name}
               aria-describedby={fieldErrors.name ? 'name-error' : undefined}
@@ -147,13 +149,24 @@ export default function LocationEdit() {
               disabled
             />
             {fieldErrors.name && (
-              <div id="name-error" style={{ color: 'crimson', marginTop: 6 }}>{fieldErrors.name}</div>
+              <div id="name-error" style={{ color: 'crimson', marginTop: 6 }}>
+                {fieldErrors.name}
+              </div>
             )}
           </div>
 
           <div style={rowStyle}>
-            <label style={labelStyle} htmlFor="type">Type</label>
-            <input id="type" name="type" value={loc.type || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+            <label style={labelStyle} htmlFor="type">
+              Type
+            </label>
+            <input
+              id="type"
+              name="type"
+              value={loc.type || ''}
+              onChange={onChange}
+              style={inputStyle}
+              placeholder="Optional"
+            />
           </div>
 
           <div style={rowStyle}>
@@ -162,8 +175,23 @@ export default function LocationEdit() {
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" style={{ ...btn, background: isDark ? '#1f2937' : '#111827', color: 'white' }}>Save</button>
-            <button type="button" onClick={onCancel} style={{ ...btn, background: 'transparent', borderColor: isDark ? '#374151' : '#d1d5db' }}>Cancel</button>
+            <button
+              type="submit"
+              style={{ ...btn, background: isDark ? '#1f2937' : '#111827', color: 'white' }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                ...btn,
+                background: 'transparent',
+                borderColor: isDark ? '#374151' : '#d1d5db',
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </form>
       )}

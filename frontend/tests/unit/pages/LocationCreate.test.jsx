@@ -28,7 +28,7 @@ function renderPage({ initialEntries = ['/locations/new'] } = {}) {
           <Route path="*" element={<LocationCreate />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -36,7 +36,9 @@ describe('pages/LocationCreate', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
     // reset theme
-    try { localStorage.removeItem('theme') } catch {}
+    try {
+      localStorage.removeItem('theme')
+    } catch {}
   })
 
   it('client-side validation: empty name shows error and a11y wiring; clears on change', async () => {
@@ -75,7 +77,7 @@ describe('pages/LocationCreate', () => {
         const body = await request.json()
         expect(body).toEqual({ name: 'Shelf', description: null })
         return HttpResponse.json({ uuid: 'loc-1', id: 1 }, { status: 201 })
-      })
+      }),
     )
 
     renderPage()
@@ -91,12 +93,16 @@ describe('pages/LocationCreate', () => {
 
   it('server error maps to name field error', async () => {
     server.use(
-      http.post('/api/locations', () => HttpResponse.json({ message: 'Already exists' }, { status: 409 }))
+      http.post('/api/locations', () =>
+        HttpResponse.json({ message: 'Already exists' }, { status: 409 }),
+      ),
     )
 
     renderPage()
 
-    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Office' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'Office' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/already exists/i)).toBeInTheDocument()
@@ -108,7 +114,9 @@ describe('pages/LocationCreate', () => {
 
     renderPage()
 
-    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Office 2' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /name/i }), {
+      target: { value: 'Office 2' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
@@ -123,13 +131,15 @@ describe('pages/LocationCreate', () => {
         const body = await request.json()
         expect(body).toEqual({ name: 'Desk', description: 'north wall' })
         return HttpResponse.json({ uuid: 'loc-2', id: 2 }, { status: 201 })
-      })
+      }),
     )
 
     renderPage()
 
     fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Desk' } })
-    fireEvent.change(screen.getByRole('textbox', { name: /description/i }), { target: { value: '  north wall  ' } })
+    fireEvent.change(screen.getByRole('textbox', { name: /description/i }), {
+      target: { value: '  north wall  ' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
@@ -145,7 +155,9 @@ describe('pages/LocationCreate', () => {
   })
 
   it('renders under dark theme (style branches executed)', async () => {
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
 
     const { container } = renderPage()
     const form = container.querySelector('form')

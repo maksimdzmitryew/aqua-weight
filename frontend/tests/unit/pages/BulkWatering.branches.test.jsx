@@ -44,13 +44,22 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
         }
         // Next, once commit has updated WL to 60 (per handlers), perform delete exactly once
         if (
-          __commitThenDelete && didCommitRef.current && !didDeleteRef.current && onDeleteWatering && wl === 60
+          __commitThenDelete &&
+          didCommitRef.current &&
+          !didDeleteRef.current &&
+          onDeleteWatering &&
+          wl === 60
         ) {
           didDeleteRef.current = true
           onDeleteWatering(id, 'm-1')
         }
         // Fallback: in non-commit mode, call delete once when plants first arrive
-        if (!__commitThenDelete && !didDeleteRef.current && onDeleteWatering && lastWlRef.current === undefined) {
+        if (
+          !__commitThenDelete &&
+          !didDeleteRef.current &&
+          onDeleteWatering &&
+          lastWlRef.current === undefined
+        ) {
           didDeleteRef.current = true
           onDeleteWatering(id, 'm-1')
         }
@@ -61,9 +70,7 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
       return (
         <div>
           Mocked Table
-          {wl !== undefined && (
-            <div aria-label="water-loss">{String(wl)}</div>
-          )}
+          {wl !== undefined && <div aria-label="water-loss">{String(wl)}</div>}
         </div>
       )
     },
@@ -81,7 +88,7 @@ describe('pages/BulkWatering (branches)', () => {
         <MemoryRouter>
           <BulkWatering />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // The mock invoked onViewPlant with no uuid; ensure navigate was not called
     expect(mockNavigate).not.toHaveBeenCalled()
@@ -95,7 +102,7 @@ describe('pages/BulkWatering (branches)', () => {
         <MemoryRouter>
           <BulkWatering />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // Allow initial effect to run once, then unmount to trigger cleanup
     // Using a microtask tick to ensure effect mounted
@@ -111,7 +118,7 @@ describe('pages/BulkWatering (branches)', () => {
         <MemoryRouter>
           <BulkWatering />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     const backBtn = await screen.findByRole('button', { name: /daily care/i })
     backBtn.click()
@@ -131,9 +138,7 @@ describe('pages/BulkWatering (branches)', () => {
     }
 
     // Provide plants via MSW handlers (no prior commit implied, so originalWaterLoss is undefined)
-    server.use(
-      ...paginatedPlantsHandler([plant])
-    )
+    server.use(...paginatedPlantsHandler([plant]))
 
     // Mock the API delete to succeed
     const delSpy = vi.spyOn(measurementsApi, 'delete').mockResolvedValue({ status: 'success' })
@@ -143,7 +148,7 @@ describe('pages/BulkWatering (branches)', () => {
         <MemoryRouter>
           <BulkWatering />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Assert: after the mocked table triggers onDeleteWatering, the parent should
@@ -170,9 +175,7 @@ describe('pages/BulkWatering (branches)', () => {
       recommended_water_threshold_pct: 30,
     }
 
-    server.use(
-      ...paginatedPlantsHandler([plant])
-    )
+    server.use(...paginatedPlantsHandler([plant]))
 
     // Enable commit-then-delete sequence inside the mocked table
     __commitThenDelete = true
@@ -184,14 +187,17 @@ describe('pages/BulkWatering (branches)', () => {
         <MemoryRouter>
           <BulkWatering />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const wl = await screen.findByLabelText('water-loss')
     // Ensure commit changes it to a different value
-    await waitFor(() => {
-      expect(wl.textContent?.trim()).not.toBe('11')
-    }, { timeout: 3000 })
+    await waitFor(
+      () => {
+        expect(wl.textContent?.trim()).not.toBe('11')
+      },
+      { timeout: 3000 },
+    )
     expect(delSpy).toHaveBeenCalled()
 
     // Reset flag and cleanup mocks

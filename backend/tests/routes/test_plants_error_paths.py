@@ -48,8 +48,15 @@ class FakeCursor:
 
 
 class FakeConn:
-    def __init__(self, fail_on_execute_at: int | None = None, returns_exists: bool = False, rollback_raises: bool = False):
-        self._cursor = FakeCursor(fail_on_execute_at=fail_on_execute_at, returns_exists=returns_exists)
+    def __init__(
+        self,
+        fail_on_execute_at: int | None = None,
+        returns_exists: bool = False,
+        rollback_raises: bool = False,
+    ):
+        self._cursor = FakeCursor(
+            fail_on_execute_at=fail_on_execute_at, returns_exists=returns_exists
+        )
         self._rollback_raises = rollback_raises
         self._closed = False
 
@@ -72,7 +79,9 @@ class FakeConn:
 
 
 @pytest.mark.anyio
-async def test_create_plant_db_error_triggers_rollback_inner_except(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_create_plant_db_error_triggers_rollback_inner_except(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     # Arrange: reset and patch connection to fail on first INSERT execute and rollback raising
     await async_client.post("/api/test/reset")
 
@@ -93,7 +102,9 @@ async def test_create_plant_db_error_triggers_rollback_inner_except(async_client
 
 
 @pytest.mark.anyio
-async def test_reorder_plants_db_error_rollback_inner_except(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_reorder_plants_db_error_rollback_inner_except(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     await async_client.post("/api/test/reset")
     import backend.app.routes.plants as plants_mod
 
@@ -109,7 +120,9 @@ async def test_reorder_plants_db_error_rollback_inner_except(async_client: Async
 
 
 @pytest.mark.anyio
-async def test_update_plant_db_error_triggers_rollback_inner_except(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_update_plant_db_error_triggers_rollback_inner_except(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     await async_client.post("/api/test/reset")
     # First, create a plant normally (without patch)
     r = await async_client.post("/api/plants", json={"name": "ToUpdate"})
@@ -179,6 +192,7 @@ async def test_validate_and_update_order_count_mismatch_hits_135(async_client: A
     # Ensure empty DB for plants
     await async_client.post("/api/test/reset")
     from backend.app.routes.plants import _validate_and_update_order
+
     with pytest.raises(Exception) as excinfo:
         _validate_and_update_order("plants", ["1" * 32, "2" * 32])
     # HTTPException from count mismatch
@@ -186,7 +200,9 @@ async def test_validate_and_update_order_count_mismatch_hits_135(async_client: A
 
 
 @pytest.mark.anyio
-async def test_validate_and_update_order_rollback_inner_except(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_validate_and_update_order_rollback_inner_except(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     await async_client.post("/api/test/reset")
     import backend.app.routes.plants as plants_mod
 
@@ -207,6 +223,7 @@ async def test_validate_and_update_order_rollback_inner_except(async_client: Asy
 
 class FakeCursorNames:
     """Cursor that returns plant names for list_plant_names tests."""
+
     def __init__(self, rows=None):
         self._rows = rows or []
 
@@ -225,6 +242,7 @@ class FakeCursorNames:
 
 class FakeConnNames:
     """Connection for list_plant_names tests."""
+
     def __init__(self, rows=None, close_raises=False):
         self._cursor = FakeCursorNames(rows=rows)
         self._close_raises = close_raises
@@ -240,7 +258,9 @@ class FakeConnNames:
 
 
 @pytest.mark.anyio
-async def test_list_plant_names_returns_plants(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_list_plant_names_returns_plants(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     """Test list_plant_names endpoint returns plant names (lines 36-57)."""
     import backend.app.routes.plants as plants_mod
 
@@ -263,15 +283,17 @@ async def test_list_plant_names_returns_plants(async_client: AsyncClient, monkey
 
 
 @pytest.mark.anyio
-async def test_list_plant_names_skips_invalid_entries(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_list_plant_names_skips_invalid_entries(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     """Test list_plant_names skips rows with None uuid or name (lines 53-55)."""
     import backend.app.routes.plants as plants_mod
 
     pid1 = bytes.fromhex("33" * 16)
     rows = [
-        (None, "NoId"),       # skip: no id
-        (pid1, None),         # skip: no name
-        (pid1, "ValidPlant"), # include
+        (None, "NoId"),  # skip: no id
+        (pid1, None),  # skip: no name
+        (pid1, "ValidPlant"),  # include
     ]
 
     monkeypatch.setattr(plants_mod, "get_conn", lambda: FakeConnNames(rows=rows))
@@ -284,7 +306,9 @@ async def test_list_plant_names_skips_invalid_entries(async_client: AsyncClient,
 
 
 @pytest.mark.anyio
-async def test_list_plant_names_close_exception(async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch):
+async def test_list_plant_names_close_exception(
+    async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
     """Test list_plant_names handles close() exception gracefully (lines 59-62)."""
     import backend.app.routes.plants as plants_mod
 

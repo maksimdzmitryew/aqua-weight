@@ -26,6 +26,7 @@ class FakeConn:
 
 def test_get_measured_weights_without_repotting():
     from app.helpers.weight_minimum import get_measured_weights_since_repotting
+
     rows = [(100,), (None,), (95,), (110,)]
     conn = FakeConn(rows)
     vals = get_measured_weights_since_repotting(conn, "dead" * 8, last_repotting=None)

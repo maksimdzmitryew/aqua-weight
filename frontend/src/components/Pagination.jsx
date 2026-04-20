@@ -8,7 +8,7 @@ export default function Pagination({
   pageSize,
   onPageSizeChange,
   total,
-  disabled = false
+  disabled = false,
 }) {
   // Calculate range of items being displayed
   const startItem = totalPages === 0 ? 0 : (currentPage - 1) * pageSize + 1

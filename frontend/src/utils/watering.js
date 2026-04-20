@@ -1,6 +1,6 @@
 /**
  * Checks if a plant needs watering based on the operation mode and available data.
- * 
+ *
  * @param {Object} plant - The plant object.
  * @param {string} mode - The current operation mode ('manual', 'automatic', 'vacation').
  * @param {Object} [approximation] - The approximation data for the plant (required for vacation mode).
@@ -26,7 +26,7 @@ export function checkNeedsWater(plant, mode, approximation = null) {
 
 /**
  * Gets the water retained percentage to display based on mode and data.
- * 
+ *
  * @param {Object} plant - The plant object.
  * @param {string} mode - Current operation mode.
  * @param {Object} [approximation] - Approximation data.
@@ -35,8 +35,8 @@ export function checkNeedsWater(plant, mode, approximation = null) {
 export function getWaterRetainedPct(plant, mode, approximation = null) {
   if (mode === 'vacation' && approximation) {
     const val = approximation.virtual_water_retained_pct
-    return (val !== undefined && val !== null) ? Math.round(val) : 'N/A'
+    return val !== undefined && val !== null ? Math.round(val) : 'N/A'
   }
   const val = plant?.water_retained_pct
-  return (val !== undefined && val !== null) ? Math.round(val) : 'N/A'
+  return val !== undefined && val !== null ? Math.round(val) : 'N/A'
 }

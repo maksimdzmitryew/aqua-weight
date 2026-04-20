@@ -14,10 +14,10 @@ export function paginatedPlantsHandler(items) {
         page: 1,
         limit: 100,
         global_total: items.length,
-      })
+      }),
     ),
     http.get('/api/plants/names', () =>
-      HttpResponse.json(items.map(i => ({ uuid: i.uuid, name: i.name })))
-    )
+      HttpResponse.json(items.map((i) => ({ uuid: i.uuid, name: i.name }))),
+    ),
   ]
 }

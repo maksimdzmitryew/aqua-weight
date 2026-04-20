@@ -14,7 +14,9 @@ class RO {
     this.cb?.([{ contentRect: { width: 320, height: 80 } }])
   }
   unobserve() {}
-  disconnect() { disconnectSpy() }
+  disconnect() {
+    disconnectSpy()
+  }
 }
 
 describe('components/Sparkline (component-level behaviors)', () => {
@@ -27,7 +29,7 @@ describe('components/Sparkline (component-level behaviors)', () => {
     const { unmount } = render(
       <ThemeProvider>
         <Sparkline data={[]} width={240} height={80} />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // Unmount triggers ResizeObserver disconnect branch
     unmount()

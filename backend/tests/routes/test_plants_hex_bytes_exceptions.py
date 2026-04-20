@@ -14,7 +14,9 @@ class BytesRaiser:
 
 
 @pytest.mark.anyio
-async def test_create_plant_hex_to_bytes_fromhex_exception(monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient):
+async def test_create_plant_hex_to_bytes_fromhex_exception(
+    monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient
+):
     # Reset DB
     r = await async_client.post("/api/test/reset")
     assert r.status_code == 200
@@ -36,7 +38,9 @@ async def test_create_plant_hex_to_bytes_fromhex_exception(monkeypatch: pytest.M
 
 
 @pytest.mark.anyio
-async def test_update_plant_hex_to_bytes_fromhex_exception(monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient):
+async def test_update_plant_hex_to_bytes_fromhex_exception(
+    monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient
+):
     # Reset DB
     r = await async_client.post("/api/test/reset")
     assert r.status_code == 200

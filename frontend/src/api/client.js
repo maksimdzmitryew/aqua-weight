@@ -14,12 +14,18 @@ export class ApiError extends Error {
   }
 }
 
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)) }
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
 
 async function parseBody(res) {
   const text = await res.text()
   if (!text) return null
-  try { return JSON.parse(text) } catch { return text }
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
 }
 
 export class ApiClient {
@@ -37,7 +43,7 @@ export class ApiClient {
 
   async request(path, { method = 'GET', headers, body, signal, retry = undefined } = {}) {
     const isGet = method.toUpperCase() === 'GET'
-    const attempts = typeof retry === 'number' ? retry + 1 : (isGet ? 3 : 1)
+    const attempts = typeof retry === 'number' ? retry + 1 : isGet ? 3 : 1
     const backoffMs = [0, 200, 500]
 
     for (let i = 0; i < attempts; i++) {
@@ -45,7 +51,7 @@ export class ApiClient {
       try {
         // Merge headers and ensure JSON content type when sending a body
         const mergedHeaders = {
-          'Accept': 'application/json, text/plain; q=0.8, */*; q=0.5',
+          Accept: 'application/json, text/plain; q=0.8, */*; q=0.5',
           ...this.getHeaders(),
           ...headers,
         }
@@ -64,8 +70,17 @@ export class ApiClient {
 
         const data = await parseBody(res)
         if (!res.ok) {
-          const detail = typeof data === 'object' && data && (data.detail || data.message) ? (data.detail || data.message) : (typeof data === 'string' ? data : '')
-          throw new ApiError(detail || `Request failed (HTTP ${res.status})`, { status: res.status, detail, body: data })
+          const detail =
+            typeof data === 'object' && data && (data.detail || data.message)
+              ? data.detail || data.message
+              : typeof data === 'string'
+                ? data
+                : ''
+          throw new ApiError(detail || `Request failed (HTTP ${res.status})`, {
+            status: res.status,
+            detail,
+            body: data,
+          })
         }
         return data
       } catch (err) {
@@ -85,10 +100,18 @@ export class ApiClient {
     }
   }
 
-  get(path, opts = {}) { return this.request(path, { ...opts, method: 'GET' }) }
-  post(path, body, opts = {}) { return this.request(path, { ...opts, method: 'POST', body }) }
-  put(path, body, opts = {}) { return this.request(path, { ...opts, method: 'PUT', body }) }
-  delete(path, opts = {}) { return this.request(path, { ...opts, method: 'DELETE' }) }
+  get(path, opts = {}) {
+    return this.request(path, { ...opts, method: 'GET' })
+  }
+  post(path, body, opts = {}) {
+    return this.request(path, { ...opts, method: 'POST', body })
+  }
+  put(path, body, opts = {}) {
+    return this.request(path, { ...opts, method: 'PUT', body })
+  }
+  delete(path, opts = {}) {
+    return this.request(path, { ...opts, method: 'DELETE' })
+  }
 }
 
 export const apiClient = new ApiClient()

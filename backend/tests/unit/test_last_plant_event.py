@@ -47,6 +47,7 @@ def test_get_last_event_none(monkeypatch):
     # No rows returned
     fake_conn = FakeConnection(row=None)
     from backend.app.helpers import last_plant_event as mod
+
     monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
 
     assert LastPlantEvent.get_last_event("abcd" * 8) is None
@@ -60,17 +61,18 @@ def test_get_last_event_happy_path(monkeypatch):
     scale_id = bytes.fromhex("ad" * 16)
     row = (
         measured_at,  # measured_at
-        123.4,        # measured_weight_g
-        50.0,         # last_dry_weight_g
-        200.0,        # last_wet_weight_g
-        70.0,         # water_added_g
-        method_id,    # method_id (bytes)
-        scale_id,     # scale_id (bytes)
+        123.4,  # measured_weight_g
+        50.0,  # last_dry_weight_g
+        200.0,  # last_wet_weight_g
+        70.0,  # water_added_g
+        method_id,  # method_id (bytes)
+        scale_id,  # scale_id (bytes)
         "note text",  # note
     )
 
     fake_conn = FakeConnection(row=row)
     from backend.app.helpers import last_plant_event as mod
+
     monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
 
     out = LastPlantEvent.get_last_event("0f" * 16)
@@ -91,7 +93,6 @@ def test_get_last_event_happy_path(monkeypatch):
     assert cur.last_params == ["0f" * 16]
 
 
-
 def test_get_last_event_close_exception_is_swallowed(monkeypatch):
     class ExplodingCloseConnection(FakeConnection):
         def close(self):
@@ -101,6 +102,7 @@ def test_get_last_event_close_exception_is_swallowed(monkeypatch):
 
     fake_conn = ExplodingCloseConnection(row=None)
     from backend.app.helpers import last_plant_event as mod
+
     monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
 
     # Should not raise even though close() explodes

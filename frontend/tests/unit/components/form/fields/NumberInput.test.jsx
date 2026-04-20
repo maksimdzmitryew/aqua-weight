@@ -3,13 +3,26 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../../../src/ThemeContext.jsx'
 import NumberInput from '../../../../../src/components/form/fields/NumberInput.jsx'
-import { required, minNumber, maxNumber, useForm } from '../../../../../src/components/form/useForm.js'
+import {
+  required,
+  minNumber,
+  maxNumber,
+  useForm,
+} from '../../../../../src/components/form/useForm.js'
 
 function Wrapper({ children }) {
   return <ThemeProvider>{children}</ThemeProvider>
 }
 
-function FormWithNumber({ validators = [], disabled = false, requiredProp = false, placeholder = '0', min, max, step }) {
+function FormWithNumber({
+  validators = [],
+  disabled = false,
+  requiredProp = false,
+  placeholder = '0',
+  min,
+  max,
+  step,
+}) {
   const form = useForm({ qty: '' })
   return (
     <form>
@@ -37,7 +50,7 @@ describe('NumberInput field', () => {
     const { rerender } = render(
       <Wrapper>
         <FormWithNumber requiredProp placeholder="Enter qty" min={0} max={10} step={2} />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByLabelText(/quantity/i)
@@ -55,7 +68,7 @@ describe('NumberInput field', () => {
     rerender(
       <Wrapper>
         <FormWithNumber disabled />
-      </Wrapper>
+      </Wrapper>,
     )
     const disabledInput = screen.getByLabelText(/quantity/i)
     expect(disabledInput).toBeDisabled()
@@ -67,7 +80,7 @@ describe('NumberInput field', () => {
     render(
       <Wrapper>
         <FormWithNumber validators={[minNumber(2), maxNumber(5), required('Needed')]} />
-      </Wrapper>
+      </Wrapper>,
     )
     const input = screen.getByLabelText(/quantity/i)
 
@@ -107,7 +120,7 @@ describe('NumberInput field', () => {
     render(
       <Wrapper>
         <FormWithNumber validators={[required()]} />
-      </Wrapper>
+      </Wrapper>,
     )
     const input = screen.getByLabelText(/quantity/i)
 

@@ -26,7 +26,9 @@ export default function PlantStats() {
       const v = localStorage.getItem('chart.showSuggestedInterval')
       if (v === '0') return false
       return true
-    } catch { return true }
+    } catch {
+      return true
+    }
   })
 
   useEffect(() => {
@@ -59,18 +61,22 @@ export default function PlantStats() {
         let lastRepotIndex = -1
         for (let i = 0; i < arr.length; i++) {
           const m = arr[i]
-          const isRepot = (m?.measured_weight_g != null)
-            && (m?.last_dry_weight_g != null)
-            && (m?.water_added_g != null)
-            && (m?.last_wet_weight_g == null)
-            && (m?.water_loss_total_pct == null)
-            && (m?.water_loss_total_g == null)
-            && (m?.water_loss_day_pct == null)
-            && (m?.water_loss_day_g == null)
-          if (isRepot) { lastRepotIndex = i; break }
+          const isRepot =
+            m?.measured_weight_g != null &&
+            m?.last_dry_weight_g != null &&
+            m?.water_added_g != null &&
+            m?.last_wet_weight_g == null &&
+            m?.water_loss_total_pct == null &&
+            m?.water_loss_total_g == null &&
+            m?.water_loss_day_pct == null &&
+            m?.water_loss_day_g == null
+          if (isRepot) {
+            lastRepotIndex = i
+            break
+          }
         }
-        const afterRepotDesc = (lastRepotIndex >= 0 ? arr.slice(0, lastRepotIndex) : arr)
-        const onlyWeightsDesc = afterRepotDesc.filter(m => m?.measured_weight_g != null)
+        const afterRepotDesc = lastRepotIndex >= 0 ? arr.slice(0, lastRepotIndex) : arr
+        const onlyWeightsDesc = afterRepotDesc.filter((m) => m?.measured_weight_g != null)
         // Collapse to last reading per day
         const seenDays = new Set()
         const perDayDesc = []
@@ -81,15 +87,17 @@ export default function PlantStats() {
           perDayDesc.push(m)
         }
         const chronological = perDayDesc.slice().reverse()
-        const pts = chronological.map(m => {
-          const w = m.measured_weight_g
-          const ma = m.measured_at
-          let t = NaN
-          if (ma) t = Date.parse(ma.replace(' ', 'T'))
-          if (!isFinite(w) || !isFinite(t)) return null
-          const title = `${m.measured_at} — ${w} g`
-          return { x: t, y: w, title }
-        }).filter(Boolean)
+        const pts = chronological
+          .map((m) => {
+            const w = m.measured_weight_g
+            const ma = m.measured_at
+            let t = NaN
+            if (ma) t = Date.parse(ma.replace(' ', 'T'))
+            if (!isFinite(w) || !isFinite(t)) return null
+            const title = `${m.measured_at} — ${w} g`
+            return { x: t, y: w, title }
+          })
+          .filter(Boolean)
         setPoints(pts)
       } catch (e) {
         setMError(e?.message || 'Failed to load measurements')
@@ -102,14 +110,20 @@ export default function PlantStats() {
 
   return (
     <DashboardLayout title={plant ? `${plant.name} — Stats` : 'Stats'}>
-      <PageHeader title={plant ? plant.name : 'Stats'} onBack={() => navigate('/dashboard')} titleBack="Dashboard" />
+      <PageHeader
+        title={plant ? plant.name : 'Stats'}
+        onBack={() => navigate('/dashboard')}
+        titleBack="Dashboard"
+      />
 
       {loading && <Loader text="Loading plant..." />}
       {error && <ErrorNotice message={error} />}
 
       {!loading && !error && (
         <div>
-          <div style={{ marginBottom: 8, color: '#6b7280' }}>Weight since last repotting (last reading per day)</div>
+          <div style={{ marginBottom: 8, color: '#6b7280' }}>
+            Weight since last repotting (last reading per day)
+          </div>
           {mLoading ? (
             <Loader text="Loading measurements..." />
           ) : points.length > 1 ? (
@@ -118,16 +132,23 @@ export default function PlantStats() {
                 // Build reference lines to match Dashboard logic so features depending on
                 // the recommended threshold ("Thresh") work here as well.
                 const refLines = []
-                const minDry = Number.isFinite(plant?.min_dry_weight_g) ? Number(plant.min_dry_weight_g) : null
-                const maxWater = Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null
-                const threshPct = Number.isFinite(plant?.recommended_water_threshold_pct) ? Number(plant.recommended_water_threshold_pct) : null
+                const minDry = Number.isFinite(plant?.min_dry_weight_g)
+                  ? Number(plant.min_dry_weight_g)
+                  : null
+                const maxWater = Number.isFinite(plant?.max_water_weight_g)
+                  ? Number(plant.max_water_weight_g)
+                  : null
+                const threshPct = Number.isFinite(plant?.recommended_water_threshold_pct)
+                  ? Number(plant.recommended_water_threshold_pct)
+                  : null
                 if (minDry != null) refLines.push({ y: minDry, label: 'Dry' })
-                if (minDry != null && maxWater != null) refLines.push({ y: minDry + maxWater, label: 'Max' })
+                if (minDry != null && maxWater != null)
+                  refLines.push({ y: minDry + maxWater, label: 'Max' })
                 if (minDry != null && maxWater != null && threshPct != null) {
                   const pct = Number(threshPct)
                   if (Number.isFinite(pct)) {
                     const frac = Math.max(0, Math.min(1, pct / 100))
-                    const y = minDry + (maxWater * frac)
+                    const y = minDry + maxWater * frac
                     if (Number.isFinite(y)) refLines.push({ y, label: 'Thresh' })
                   }
                 }
@@ -137,7 +158,11 @@ export default function PlantStats() {
                     width="100%"
                     height={200}
                     showPoints={true}
-                    maxWaterG={Number.isFinite(plant?.max_water_weight_g) ? Number(plant.max_water_weight_g) : null}
+                    maxWaterG={
+                      Number.isFinite(plant?.max_water_weight_g)
+                        ? Number(plant.max_water_weight_g)
+                        : null
+                    }
                     refLines={refLines}
                     // Toggle the blue marker that suggests watering interval (first drop below threshold)
                     showFirstBelowThreshVLine={!!showSuggestedInterval}
@@ -149,7 +174,11 @@ export default function PlantStats() {
             <div style={{ color: '#6b7280' }}>Not enough data to chart</div>
           )}
 
-          {mError && <div style={{ marginTop: 8 }}><ErrorNotice message={mError} /></div>}
+          {mError && (
+            <div style={{ marginTop: 8 }}>
+              <ErrorNotice message={mError} />
+            </div>
+          )}
         </div>
       )}
     </DashboardLayout>

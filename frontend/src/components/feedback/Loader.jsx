@@ -12,7 +12,7 @@ export default function Loader({ label = 'Loading...', inline = false }) {
     display: inline ? 'inline-flex' : 'flex',
     alignItems: 'center',
     gap: 8,
-    color: 'var(--muted)'
+    color: 'var(--muted)',
   }
   const spinnerStyle = {
     width: 16,
@@ -20,7 +20,7 @@ export default function Loader({ label = 'Loading...', inline = false }) {
     border: '2px solid var(--border)',
     borderTopColor: 'var(--text)',
     borderRadius: '50%',
-    animation: 'aw-spin 1s linear infinite'
+    animation: 'aw-spin 1s linear infinite',
   }
   return (
     <div role="status" aria-live="polite" aria-busy="true" style={style}>

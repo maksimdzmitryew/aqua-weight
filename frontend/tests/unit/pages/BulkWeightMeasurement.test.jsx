@@ -26,7 +26,7 @@ vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
       <h3>{title}</h3>
       <div>{description}</div>
     </div>
-  )
+  ),
 }))
 
 function renderPage(mode = null) {
@@ -40,7 +40,7 @@ function renderPage(mode = null) {
       <MemoryRouter>
         <BulkWeightMeasurement />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -51,7 +51,7 @@ describe('pages/BulkWeightMeasurement', () => {
   test('default shows all plants that need attention (all in manual mode)', async () => {
     renderPage()
 
-    // Default showAll = false -> initially shows all plants (Aloe and Monstera) 
+    // Default showAll = false -> initially shows all plants (Aloe and Monstera)
     // because in manual mode plantNeedsAttention returns true for all
     expect(await screen.findByText('Aloe')).toBeInTheDocument()
     expect(screen.getByText('Monstera')).toBeInTheDocument()
@@ -65,9 +65,8 @@ describe('pages/BulkWeightMeasurement', () => {
     server.use(
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Needs Weighing', needs_weighing: true },
-        { uuid: 'u2', name: 'Full Water', needs_weighing: false }
-      ]
-    )
+        { uuid: 'u2', name: 'Full Water', needs_weighing: false },
+      ]),
     )
 
     renderPage()
@@ -114,7 +113,7 @@ describe('pages/BulkWeightMeasurement', () => {
           water_retained_pct: 37,
           water_loss_total_pct: 63,
         })
-      })
+      }),
     )
 
     renderPage()
@@ -145,7 +144,9 @@ describe('pages/BulkWeightMeasurement', () => {
 
   test('shows error when plants API fails', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }))
+      http.get('/api/plants', () =>
+        HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }),
+      ),
     )
     renderPage()
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
@@ -155,7 +156,10 @@ describe('pages/BulkWeightMeasurement', () => {
     renderPage()
     const aloe = await screen.findByText('Aloe')
     fireEvent.click(aloe)
-    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1', expect.objectContaining({ state: expect.any(Object) }))
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/plants/u1',
+      expect.objectContaining({ state: expect.any(Object) }),
+    )
   })
 
   test('back button navigates to /daily (covers inline onBack callback)', async () => {
@@ -167,12 +171,14 @@ describe('pages/BulkWeightMeasurement', () => {
 
   test('shows explanation and link to settings in vacation mode', async () => {
     renderPage('vacation')
-    
+
     const emptyState = await screen.findByTestId('empty-state')
     expect(emptyState).toBeInTheDocument()
     expect(screen.getByText(/Not available in Vacation mode/i)).toBeInTheDocument()
-    expect(screen.getByText(/Bulk weight measurement is disabled while in vacation mode/i)).toBeInTheDocument()
-    
+    expect(
+      screen.getByText(/Bulk weight measurement is disabled while in vacation mode/i),
+    ).toBeInTheDocument()
+
     const settingsLink = within(emptyState).getByRole('link', { name: /Settings/i })
     expect(settingsLink).toBeInTheDocument()
     expect(settingsLink.getAttribute('href')).toBe('/settings')
@@ -186,18 +192,21 @@ describe('pages/BulkWeightMeasurement', () => {
     server.use(
       http.post('/api/measurements/weight', async ({ request }) => {
         const payload = await request.json()
-        return HttpResponse.json({
-          status: 'success',
-          data: {
-            id: 3001,
-            plant_id: payload?.plant_id,
-            measured_at: payload?.measured_at || '2025-01-06T00:00:00',
-            latest_at: payload?.measured_at || '2025-01-06T00:00:00',
-            water_retained_pct: 44,
-            water_loss_total_pct: 56,
+        return HttpResponse.json(
+          {
+            status: 'success',
+            data: {
+              id: 3001,
+              plant_id: payload?.plant_id,
+              measured_at: payload?.measured_at || '2025-01-06T00:00:00',
+              latest_at: payload?.measured_at || '2025-01-06T00:00:00',
+              water_retained_pct: 44,
+              water_loss_total_pct: 56,
+            },
           },
-        }, { status: 201 })
-      })
+          { status: 201 },
+        )
+      }),
     )
 
     renderPage()
@@ -212,7 +221,9 @@ describe('pages/BulkWeightMeasurement', () => {
 
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.put('/api/measurements/weight/:id', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+      http.put('/api/measurements/weight/:id', () =>
+        HttpResponse.json({ message: 'fail' }, { status: 500 }),
+      ),
     )
 
     fireEvent.click(input)

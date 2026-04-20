@@ -8,7 +8,9 @@ describe('measurementsApi', () => {
   })
 
   it('listByPlant throws ApiError when plant uuid missing', () => {
-    expect(() => measurementsApi.listByPlant('' as unknown as string, undefined as any)).toThrow(ApiError)
+    expect(() => measurementsApi.listByPlant('' as unknown as string, undefined as any)).toThrow(
+      ApiError,
+    )
     try {
       measurementsApi.listByPlant('' as unknown as string, undefined as any)
     } catch (e: any) {
@@ -30,7 +32,9 @@ describe('measurementsApi', () => {
   })
 
   it('getById throws when id missing and calls GET /measurements/:id otherwise', async () => {
-    expect(() => measurementsApi.getById('' as unknown as string, undefined as any)).toThrow(ApiError)
+    expect(() => measurementsApi.getById('' as unknown as string, undefined as any)).toThrow(
+      ApiError,
+    )
 
     const item = { id: 'm2' }
     const spy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce(item as any)
@@ -42,7 +46,9 @@ describe('measurementsApi', () => {
   })
 
   it('delete throws when id missing and calls DELETE /measurements/:id otherwise', async () => {
-    expect(() => measurementsApi.delete('' as unknown as string, undefined as any)).toThrow(ApiError)
+    expect(() => measurementsApi.delete('' as unknown as string, undefined as any)).toThrow(
+      ApiError,
+    )
 
     const ok = { removed: 1 }
     const spy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce(ok as any)
@@ -70,7 +76,9 @@ describe('measurementsApi', () => {
   })
 
   it('weight.update throws on missing id and sends PUT with headers and signal', async () => {
-    expect(() => measurementsApi.weight.update('' as unknown as string, { grams: 1 }, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      measurementsApi.weight.update('' as unknown as string, { grams: 1 }, undefined as any),
+    ).toThrow(ApiError)
 
     const updated = { id: 'w2', grams: 200 }
     const spy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce(updated as any)
@@ -102,7 +110,9 @@ describe('measurementsApi', () => {
   })
 
   it('watering.update throws on missing id and sends PUT with headers and signal', async () => {
-    expect(() => measurementsApi.watering.update('' as unknown as string, { ml: 1 }, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      measurementsApi.watering.update('' as unknown as string, { ml: 1 }, undefined as any),
+    ).toThrow(ApiError)
 
     const updated = { id: 'wa2', ml: 600 }
     const spy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce(updated as any)
@@ -119,7 +129,9 @@ describe('measurementsApi', () => {
   })
 
   it('repotting.get throws on missing id and calls GET /measurements/:id otherwise', async () => {
-    expect(() => measurementsApi.repotting.get('' as unknown as string, undefined as any)).toThrow(ApiError)
+    expect(() => measurementsApi.repotting.get('' as unknown as string, undefined as any)).toThrow(
+      ApiError,
+    )
 
     const item = { id: 'r1' }
     const spy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce(item as any)
@@ -147,7 +159,13 @@ describe('measurementsApi', () => {
   })
 
   it('repotting.update throws on missing id and sends PUT with headers and signal', async () => {
-    expect(() => measurementsApi.repotting.update('' as unknown as string, { pot_size: 'L' }, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      measurementsApi.repotting.update(
+        '' as unknown as string,
+        { pot_size: 'L' },
+        undefined as any,
+      ),
+    ).toThrow(ApiError)
 
     const updated = { id: 'r3', pot_size: 'L' }
     const spy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce(updated as any)

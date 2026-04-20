@@ -52,7 +52,6 @@ class _FakeCursor:
     payload_water_added_g=st.one_of(st.none(), st.integers(min_value=0, max_value=50000)),
     last_watering_added=st.integers(min_value=0, max_value=50000),
 )
-
 def test_derive_weights_invariants(
     has_prev,
     prev_measured,
@@ -70,10 +69,11 @@ def test_derive_weights_invariants(
 
     # Patch watering lookup using context manager to avoid function-scoped fixture
     from unittest.mock import patch
+
     with patch(
         "backend.app.services.measurements.get_last_watering_event",
         lambda cursor, plant_id_hex: {"water_added_g": last_watering_added},
-    ): 
+    ):
         derived = derive_weights(
             cursor=cur,
             plant_id_hex="0" * 32,

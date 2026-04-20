@@ -127,6 +127,7 @@ def test_fetch_all_mapping_and_timestamp_preference(monkeypatch):
 
     fake_conn = FakeConnection(rows=[row1, row2])
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all()
@@ -146,9 +147,13 @@ def test_fetch_all_mapping_and_timestamp_preference(monkeypatch):
     assert items[1]["location_id"] is None
 
     # Timestamp preference: measured_at over created_at over now
-    assert items[0]["created_at"].replace(microsecond=0) == (now - timedelta(days=1)).replace(microsecond=0)
+    assert items[0]["created_at"].replace(microsecond=0) == (now - timedelta(days=1)).replace(
+        microsecond=0
+    )
     # Second item has no measured_at, should pick created_at
-    assert items[1]["created_at"].replace(microsecond=0) == (now - timedelta(days=2)).replace(microsecond=0)
+    assert items[1]["created_at"].replace(microsecond=0) == (now - timedelta(days=2)).replace(
+        microsecond=0
+    )
 
     # Water loss passthrough
     assert items[0]["water_loss_total_pct"] == 12.5
@@ -217,6 +222,7 @@ def test_fetch_all_full_row_mapping(monkeypatch):
 
     fake_conn = FakeConnection(rows=[row])
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all()
@@ -239,6 +245,7 @@ def test_fetch_all_compute_frequency_exception(monkeypatch):
 
     fake_conn = FakeConnection(rows=[row])
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     def _boom(*args, **kwargs):
@@ -288,12 +295,12 @@ def test_fetch_all_db_params_exception_coverage(monkeypatch):
 
     fake_conn = BadConn(rows=[row])
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     # Should not raise
     items = PlantsList.fetch_all()
     assert len(items) == 1
-
 
     # Should not raise
     items = PlantsList.fetch_all()
@@ -308,6 +315,7 @@ def test_fetch_all_with_min_water_loss_filter_full_coverage(monkeypatch):
     fake_conn = FakeConnection(rows=[row])
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     # Use a value that will trigger the if block
@@ -343,6 +351,7 @@ def test_fetch_all_restore_params_exception_coverage(monkeypatch):
     fake_conn = BadConnRestore(real_cursor)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     # Should not raise during restore attempt
@@ -362,9 +371,10 @@ def test_fetch_all_restore_params_branch_coverage(monkeypatch):
         @property
         def last_query(self):
             raise AttributeError("no query")
+
         @last_query.setter
         def last_query(self, v):
-             pass
+            pass
 
     fake_cursor = SqlFailCursor(rows=[row])
 
@@ -372,11 +382,13 @@ def test_fetch_all_restore_params_branch_coverage(monkeypatch):
         def __init__(self, cursor):
             self._cursor = cursor
             self.closed = False
+
         def cursor(self):
             return self._cursor
 
     fake_conn = FixedConn(fake_cursor)
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all(min_water_loss_total_pct=5.0)
@@ -394,6 +406,7 @@ def test_fetch_all_search_numeric_threshold(monkeypatch):
     fake_conn = FakeConnection(rows=[row])
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all(search="0.5")
@@ -411,6 +424,7 @@ def test_fetch_all_search_text_pattern(monkeypatch):
     fake_conn = FakeConnection(rows=[row])
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all(search="tropical")
@@ -431,6 +445,7 @@ def test_fetch_all_search_empty_string(monkeypatch):
     fake_conn = FakeConnection(rows=[row])
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all(search="   ")
@@ -448,6 +463,7 @@ def test_fetch_all_with_pagination(monkeypatch):
     fake_conn = FakeConnection(rows=[row])
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     items = PlantsList.fetch_all(limit=10, offset=5)
@@ -466,6 +482,7 @@ def test_count_all_basic(monkeypatch):
     fake_conn = FakeConnection(count_result=5)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all()
@@ -480,6 +497,7 @@ def test_count_all_with_min_water_loss_filter(monkeypatch):
     fake_conn = FakeConnection(count_result=3)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all(min_water_loss_total_pct=15.0)
@@ -494,6 +512,7 @@ def test_count_all_search_numeric_threshold(monkeypatch):
     fake_conn = FakeConnection(count_result=2)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all(search="0.4")
@@ -508,6 +527,7 @@ def test_count_all_search_text_pattern(monkeypatch):
     fake_conn = FakeConnection(count_result=4)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all(search="kitchen")
@@ -522,6 +542,7 @@ def test_count_all_search_empty_string(monkeypatch):
     fake_conn = FakeConnection(count_result=10)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all(search="  ")
@@ -540,6 +561,7 @@ def test_count_all_close_exception(monkeypatch):
     fake_conn = BadCloseConnection(count_result=7)
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     # Should not raise, exception is caught
@@ -562,6 +584,7 @@ def test_count_all_fetchone_none(monkeypatch):
     fake_conn = NullConnection()
 
     from backend.app.helpers import plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     count = PlantsList.count_all()

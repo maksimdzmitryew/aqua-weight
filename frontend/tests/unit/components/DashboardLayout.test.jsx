@@ -19,7 +19,7 @@ function renderWithRoute(ui, { initialEntries = ['/dashboard'] } = {}) {
       <Routes>
         <Route path="*" element={ui} />
       </Routes>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
@@ -35,7 +35,7 @@ describe('DashboardLayout', () => {
       <DashboardLayout title="Plants">
         <div data-testid="child">Hello</div>
       </DashboardLayout>,
-      { initialEntries: ['/plants'] }
+      { initialEntries: ['/plants'] },
     )
 
     // Sidebar title text (select the specific element by its class to avoid matching the nav link)

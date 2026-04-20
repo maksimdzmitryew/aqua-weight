@@ -56,7 +56,9 @@ def test_parse_dt_and_to_iso_roundtrip(z_str):
     assert out.endswith("Z")
 
 
-@given(iso_with_z, st.integers(min_value=0, max_value=59), st.integers(min_value=-100, max_value=2000))
+@given(
+    iso_with_z, st.integers(min_value=0, max_value=59), st.integers(min_value=-100, max_value=2000)
+)
 def test_fill_with_fixed_requires_bounds(z_str, sec, ms):
     # When using fill_with=fixed, passing fixed values should be applied with clamping for ms
     dt = normalize_measured_at(z_str, fill_with="fixed", fixed_seconds=sec, fixed_milliseconds=ms)

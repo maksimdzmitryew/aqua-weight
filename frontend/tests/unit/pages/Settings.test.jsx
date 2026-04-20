@@ -12,7 +12,7 @@ function renderPage() {
       <MemoryRouter>
         <Settings />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 

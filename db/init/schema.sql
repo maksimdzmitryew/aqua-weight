@@ -200,4 +200,3 @@ CREATE TABLE IF NOT EXISTS plants_events (
   CONSTRAINT fk_events_type FOREIGN KEY (event_type_id) REFERENCES event_types(id) ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT fk_events_location FOREIGN KEY (related_location_id) REFERENCES locations(id) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
-

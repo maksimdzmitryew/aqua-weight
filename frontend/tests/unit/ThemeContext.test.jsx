@@ -40,7 +40,7 @@ test('ThemeProvider registers and cleans up listener using addEventListener/remo
     const { unmount } = render(
       <ThemeProvider>
         <div>child</div>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Effect should have registered the handler
@@ -55,17 +55,15 @@ test('ThemeProvider registers and cleans up listener using addEventListener/remo
 })
 
 test('persists theme to localStorage but swallows errors (catch path)', async () => {
-  const spy = vi
-    .spyOn(Storage.prototype, 'setItem')
-    .mockImplementation(() => {
-      throw new Error('quota exceeded')
-    })
+  const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('quota exceeded')
+  })
 
   // Render will trigger the persistence effect
   render(
     <ThemeProvider>
       <div>child</div>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   await waitFor(() => {
@@ -92,7 +90,7 @@ test('effectiveTheme uses systemTheme when theme is set to system', async () => 
   render(
     <ThemeProvider>
       <div>child</div>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // The document element should reflect dark theme via effectiveTheme
@@ -124,7 +122,7 @@ test('ThemeProvider falls back to addListener/removeListener and cleans up', () 
     const { unmount } = render(
       <ThemeProvider>
         <div>child</div>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Registered via legacy API
@@ -167,7 +165,7 @@ test('useTheme hook provides theme values and setTheme updates effective theme',
   const { findByTestId, getByText } = render(
     <ThemeProvider>
       <Consumer />
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Initially light
@@ -247,7 +245,7 @@ test('system theme updates when media query change handler fires', async () => {
   render(
     <ThemeProvider>
       <div>child</div>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Initially light because mq.matches = false
@@ -291,7 +289,7 @@ test('document data-theme attribute is cleaned up on unmount', async () => {
   const { unmount } = render(
     <ThemeProvider>
       <Consumer />
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   await waitFor(() => {

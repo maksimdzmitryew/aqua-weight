@@ -27,13 +27,13 @@ def fake_cursor():
 def test_calculate_water_loss_watering_event_returns_zero_pct(fake_cursor, monkeypatch):
     # measured_weight_g None => watering event
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: None,
     )
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-01T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-01T00:00:00Z",
         measured_weight_g=None,
         last_wet_weight_g=500,
         water_added_g=1000,
@@ -50,18 +50,18 @@ def test_calculate_water_loss_day_and_total_pct_with_prev_and_last_event(fake_cu
     fake_cursor.summed = 100
 
     last_event = {
-        'water_added_g': 800,
-        'measured_at': '2024-12-31T00:00:00Z',
+        "water_added_g": 800,
+        "measured_at": "2024-12-31T00:00:00Z",
     }
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: last_event,
     )
 
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-01T10:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-01T10:00:00Z",
         measured_weight_g=480,
         last_wet_weight_g=500,
         water_added_g=None,
@@ -71,27 +71,27 @@ def test_calculate_water_loss_day_and_total_pct_with_prev_and_last_event(fake_cu
 
     # baseline is prev_measured_weight (500) so daydiff = 20
     assert res.water_loss_day_g == 20
-    assert res.water_loss_day_pct == pytest.approx((20/800)*100, rel=1e-3)
+    assert res.water_loss_day_pct == pytest.approx((20 / 800) * 100, rel=1e-3)
     # total = summed(100) + day(20) = 120; pct uses last_watering_water_added
     assert res.water_loss_total_g == 120
-    assert res.water_loss_total_pct == pytest.approx((120/800)*100, rel=1e-3)
+    assert res.water_loss_total_pct == pytest.approx((120 / 800) * 100, rel=1e-3)
 
 
 def test_calculate_water_loss_uses_last_wet_when_prev_missing(fake_cursor, monkeypatch):
     fake_cursor.summed = 0
     last_event = {
-        'water_added_g': 1000,
-        'measured_at': '2024-12-31T00:00:00Z',
+        "water_added_g": 1000,
+        "measured_at": "2024-12-31T00:00:00Z",
     }
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: last_event,
     )
 
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-02T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-02T00:00:00Z",
         measured_weight_g=900,
         last_wet_weight_g=950,
         water_added_g=None,
@@ -108,14 +108,14 @@ def test_calculate_water_loss_uses_last_wet_when_prev_missing(fake_cursor, monke
 
 def test_calculate_water_loss_no_prior_watering_keeps_totals_none(fake_cursor, monkeypatch):
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: None,
     )
 
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-01T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-01T00:00:00Z",
         measured_weight_g=900,
         last_wet_weight_g=950,
         water_added_g=None,
@@ -132,43 +132,42 @@ def test_calculate_water_loss_no_prior_watering_keeps_totals_none(fake_cursor, m
 def test_calculate_water_loss_exclude_measurement_id_param(fake_cursor, monkeypatch):
     fake_cursor.summed = 10
     last_event = {
-        'water_added_g': 200,
-        'measured_at': '2024-12-31T00:00:00Z',
+        "water_added_g": 200,
+        "measured_at": "2024-12-31T00:00:00Z",
     }
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: last_event,
     )
 
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-01T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-01T00:00:00Z",
         measured_weight_g=195,
         last_wet_weight_g=200,
         water_added_g=None,
         last_watering_water_added=200,
         prev_measured_weight=200,
-        exclude_measurement_id='DEADBEEF',
+        exclude_measurement_id="DEADBEEF",
     )
 
     # Ensure SUM result is included and percentages computed
     assert res.water_loss_day_g == 5
     assert res.water_loss_total_g == 15
-    assert res.water_loss_total_pct == pytest.approx((15/200)*100, rel=1e-3)
-
+    assert res.water_loss_total_pct == pytest.approx((15 / 200) * 100, rel=1e-3)
 
 
 def test_day_pct_uses_last_wet_weight_when_no_water_added(fake_cursor, monkeypatch):
     # No prior watering event in params and zero added => pct falls back to last_wet_weight_g (lines 77–80)
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: None,
     )
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-03T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-03T00:00:00Z",
         measured_weight_g=950,
         last_wet_weight_g=1000,
         water_added_g=None,
@@ -177,20 +176,20 @@ def test_day_pct_uses_last_wet_weight_when_no_water_added(fake_cursor, monkeypat
     )
     assert res.water_loss_day_g == 30
     # pct based on last_wet_weight_g (1000) because last_watering_water_added == 0
-    assert res.water_loss_day_pct == pytest.approx((30/1000)*100, rel=1e-3)
+    assert res.water_loss_day_pct == pytest.approx((30 / 1000) * 100, rel=1e-3)
 
 
 def test_exception_in_daily_calc_is_swallowed(fake_cursor, monkeypatch):
     # Force TypeError in daydiff calculation (lines 81–82)
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: None,
     )
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-03T00:00:00Z',
-        measured_weight_g='bad',  # non-numeric causes subtraction error
+        plant_id_hex="abc",
+        measured_at="2025-01-03T00:00:00Z",
+        measured_weight_g="bad",  # non-numeric causes subtraction error
         last_wet_weight_g=1000,
         water_added_g=None,
         last_watering_water_added=0,
@@ -206,26 +205,26 @@ def test_day_pct_set_inside_totals_block_when_not_set_earlier(fake_cursor, monke
     # but totals block knows 600 from last event and should set day pct (lines 134–139)
     fake_cursor.summed = 40  # accumulated since watering
     last_event = {
-        'water_added_g': 600,
-        'measured_at': '2025-01-01T00:00:00Z',
+        "water_added_g": 600,
+        "measured_at": "2025-01-01T00:00:00Z",
     }
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: last_event,
     )
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-02T12:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-02T12:00:00Z",
         measured_weight_g=940,
-        last_wet_weight_g=None,   # prevents early day pct fallback
+        last_wet_weight_g=None,  # prevents early day pct fallback
         water_added_g=None,
         last_watering_water_added=0,  # prevents early day pct by first branch
-        prev_measured_weight=950,     # baseline=950 => daydiff=10
+        prev_measured_weight=950,  # baseline=950 => daydiff=10
     )
     # totals: summed 40 + day 10 = 50; pct based on last event 600
     assert res.water_loss_total_g == 50
-    assert res.water_loss_total_pct == pytest.approx((50/600)*100, rel=1e-3)
+    assert res.water_loss_total_pct == pytest.approx((50 / 600) * 100, rel=1e-3)
     # and day pct should be set inside totals block using last_watering_water_added from event
     assert res.water_loss_day_pct == 1.67
 
@@ -233,15 +232,16 @@ def test_day_pct_set_inside_totals_block_when_not_set_earlier(fake_cursor, monke
 def test_totals_block_exception_keeps_totals_none(fake_cursor, monkeypatch):
     # Make the totals try block raise (lines 144–146)
     def boom(cursor, plant_id_hex):
-        raise RuntimeError('DB down')
+        raise RuntimeError("DB down")
+
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         boom,
     )
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-04T00:00:00Z',
+        plant_id_hex="abc",
+        measured_at="2025-01-04T00:00:00Z",
         measured_weight_g=900,
         last_wet_weight_g=950,
         water_added_g=None,
@@ -258,34 +258,38 @@ def test_day_pct_inner_try_except_branch_hit(fake_cursor, monkeypatch):
     class FakeNumber:
         def __int__(self):
             return 3  # used when computing total_g
+
         def __float__(self):
-            raise ValueError('cannot float me')
+            raise ValueError("cannot float me")
 
     last_event = {
-        'water_added_g': 300,  # > 0 to enter totals pct branch
-        'measured_at': '2025-01-01T00:00:00Z',
+        "water_added_g": 300,  # > 0 to enter totals pct branch
+        "measured_at": "2025-01-01T00:00:00Z",
     }
     monkeypatch.setattr(
-        'backend.app.helpers.water_loss.get_last_watering_event',
+        "backend.app.helpers.water_loss.get_last_watering_event",
         lambda cursor, plant_id_hex: last_event,
     )
 
     # Monkeypatch builtins.max to return our FakeNumber for the daydiff calc
     import builtins as _builtins
+
     orig_max = _builtins.max
+
     def max_hook(*args, **kwargs):
         # When called from water_loss daily diff with two ints, return FakeNumber
         if len(args) == 2 and isinstance(args[0], int) and isinstance(args[1], int):
             return FakeNumber()
         return orig_max(*args, **kwargs)
-    monkeypatch.setattr(_builtins, 'max', max_hook)
+
+    monkeypatch.setattr(_builtins, "max", max_hook)
 
     fake_cursor.summed = 7  # accumulated since watering
     res = calculate_water_loss(
         cursor=fake_cursor,
-        plant_id_hex='abc',
-        measured_at='2025-01-02T00:00:00Z',
-        measured_weight_g=197,     # baseline 200 → daydiff becomes FakeNumber
+        plant_id_hex="abc",
+        measured_at="2025-01-02T00:00:00Z",
+        measured_weight_g=197,  # baseline 200 → daydiff becomes FakeNumber
         last_wet_weight_g=200,
         water_added_g=None,
         last_watering_water_added=0,  # initial param not used for pct

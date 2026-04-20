@@ -25,7 +25,8 @@ export default function BulkWatering() {
   // Snapshot of plants that needed watering on initial load
   const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState([])
   const [approximations, setApproximations] = useState({})
-  const operationMode = (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
+  const operationMode =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
 
   // Initialize local plants state from hook
   useEffect(() => {
@@ -53,7 +54,11 @@ export default function BulkWatering() {
           // Snapshot which plants needed watering at the moment of initial page load
           // Only set the snapshot once to keep watered plants visible for undo
           if (initialNeedsWaterIds.length === 0) {
-            setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, approxMap[p.uuid])).map(p => p.uuid))
+            setInitialNeedsWaterIds(
+              plants
+                .filter((p) => checkNeedsWater(p, operationMode, approxMap[p.uuid]))
+                .map((p) => p.uuid),
+            )
           }
         }
       } catch (e) {
@@ -62,13 +67,17 @@ export default function BulkWatering() {
     }
 
     loadApproximations()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [plants, operationMode, initialNeedsWaterIds.length])
 
   // For manual mode, set initial needs water IDs when plants load
   useEffect(() => {
     if (operationMode === 'manual' && plants.length && initialNeedsWaterIds.length === 0) {
-      setInitialNeedsWaterIds(plants.filter(p => checkNeedsWater(p, operationMode, null)).map(p => p.uuid))
+      setInitialNeedsWaterIds(
+        plants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
+      )
     }
   }, [plants, operationMode, initialNeedsWaterIds.length])
 
@@ -85,16 +94,16 @@ export default function BulkWatering() {
   async function handleWateringCommit(plantId, newWeightValue) {
     const numeric = Number(newWeightValue)
     if (Number.isNaN(numeric) || numeric < 0) {
-      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
       return
     }
 
-    const plant = plants.find(p => p.uuid === plantId)
+    const plant = plants.find((p) => p.uuid === plantId)
     if (plant && !measurementIds[plantId]) {
-      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
+      setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
     }
 
-    setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
 
     try {
       const existingId = measurementIds[plantId]
@@ -117,23 +126,26 @@ export default function BulkWatering() {
         data = data.data
       }
 
-      setPlants(prev => prev.map(p => {
-        if (p.uuid === plantId) {
-          return {
-            ...p,
-            current_weight: numeric,
-            water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
-            water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
-            // Update timestamps so the UI can reflect the latest change
-            latest_at: data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
-            measured_at: data?.measured_at || p.measured_at,
+      setPlants((prev) =>
+        prev.map((p) => {
+          if (p.uuid === plantId) {
+            return {
+              ...p,
+              current_weight: numeric,
+              water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
+              water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
+              // Update timestamps so the UI can reflect the latest change
+              latest_at:
+                data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
+              measured_at: data?.measured_at || p.measured_at,
+            }
           }
-        }
-        return p
-      }))
+          return p
+        }),
+      )
 
       if (data?.id && !existingId) {
-        setMeasurementIds(prev => ({ ...prev, [plantId]: data.id }))
+        setMeasurementIds((prev) => ({ ...prev, [plantId]: data.id }))
       }
     } catch (err) {
       console.error('Error saving watering measurement:', err)
@@ -142,76 +154,80 @@ export default function BulkWatering() {
   }
 
   async function handleWateringDelete(plantId, measurementId) {
-    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       await measurementsApi.delete(measurementId)
-      setMeasurementIds(prev => {
+      setMeasurementIds((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
-      setInputStatus(prev => {
+      setInputStatus((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
 
       // Revert plant data in list to previous state (approximate)
-      setPlants(prev => prev.map(p => {
-        if (p.uuid === plantId) {
-          // Use explicit if/else to help coverage tools register both branches
-          let revertedLoss
-          if (Object.prototype.hasOwnProperty.call(originalWaterLoss, plantId)) {
-            revertedLoss = originalWaterLoss[plantId]
-          } else {
-            revertedLoss = p.water_loss_total_pct
+      setPlants((prev) =>
+        prev.map((p) => {
+          if (p.uuid === plantId) {
+            // Use explicit if/else to help coverage tools register both branches
+            let revertedLoss
+            if (Object.prototype.hasOwnProperty.call(originalWaterLoss, plantId)) {
+              revertedLoss = originalWaterLoss[plantId]
+            } else {
+              revertedLoss = p.water_loss_total_pct
+            }
+            return {
+              ...p,
+              water_loss_total_pct: revertedLoss,
+              water_retained_pct: null,
+              latest_at: p.latest_at,
+            }
           }
-          return {
-            ...p,
-            water_loss_total_pct: revertedLoss,
-            water_retained_pct: null,
-            latest_at: p.latest_at,
-          }
-        }
-        return p
-      }))
-      setOriginalWaterLoss(prev => {
+          return p
+        }),
+      )
+      setOriginalWaterLoss((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
     } catch (err) {
       console.error('Error deleting watering:', err)
-      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
 
   async function handleVacationWateringCommit(plantId) {
-    const plant = plants.find(p => p.uuid === plantId)
+    const plant = plants.find((p) => p.uuid === plantId)
     if (plant) {
-      setOriginalWaterLoss(prev => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
+      setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
     }
-    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       const data = await measurementsApi.watering.createVacation({ plant_id: plantId })
       const measurement = data?.data || data
       if (measurement?.id) {
-        setMeasurementIds(prev => ({ ...prev, [plantId]: measurement.id }))
-        setInputStatus(prev => ({ ...prev, [plantId]: 'success' }))
+        setMeasurementIds((prev) => ({ ...prev, [plantId]: measurement.id }))
+        setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
 
         // Update plant data in list
-        setPlants(prev => prev.map(p => {
-          if (p.uuid === plantId) {
-            return {
-              ...p,
-              water_loss_total_pct: measurement.water_loss_total_pct ?? p.water_loss_total_pct,
-              water_retained_pct: measurement.water_retained_pct ?? p.water_retained_pct,
-              latest_at: measurement.latest_at || measurement.measured_at || p.latest_at,
-              measured_at: measurement.measured_at || p.measured_at,
+        setPlants((prev) =>
+          prev.map((p) => {
+            if (p.uuid === plantId) {
+              return {
+                ...p,
+                water_loss_total_pct: measurement.water_loss_total_pct ?? p.water_loss_total_pct,
+                water_retained_pct: measurement.water_retained_pct ?? p.water_retained_pct,
+                latest_at: measurement.latest_at || measurement.measured_at || p.latest_at,
+                measured_at: measurement.measured_at || p.measured_at,
+              }
             }
-          }
-          return p
-        }))
+            return p
+          }),
+        )
 
         // Refresh approximations to update days_offset and next_watering_at
         try {
@@ -226,42 +242,47 @@ export default function BulkWatering() {
           console.error('Failed to refresh approximations', e)
         }
       } else {
-        setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+        setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
       }
     } catch (err) {
       console.error('Error saving vacation watering:', err)
-      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
 
   async function handleVacationWateringDelete(plantId, measurementId) {
-    setInputStatus(prev => ({ ...prev, [plantId]: 'saving' }))
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       await measurementsApi.delete(measurementId)
-      setMeasurementIds(prev => {
+      setMeasurementIds((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
-      setInputStatus(prev => {
+      setInputStatus((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
-      
+
       // Revert plant data in list to previous state (approximate)
-      setPlants(prev => prev.map(p => {
-        if (p.uuid === plantId) {
-          return {
-            ...p,
-            water_loss_total_pct: originalWaterLoss[plantId] !== undefined ? originalWaterLoss[plantId] : p.water_loss_total_pct,
-            water_retained_pct: null,
-            latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
+      setPlants((prev) =>
+        prev.map((p) => {
+          if (p.uuid === plantId) {
+            return {
+              ...p,
+              water_loss_total_pct:
+                originalWaterLoss[plantId] !== undefined
+                  ? originalWaterLoss[plantId]
+                  : p.water_loss_total_pct,
+              water_retained_pct: null,
+              latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
+            }
           }
-        }
-        return p
-      }))
-      setOriginalWaterLoss(prev => {
+          return p
+        }),
+      )
+      setOriginalWaterLoss((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
@@ -281,7 +302,7 @@ export default function BulkWatering() {
       }
     } catch (err) {
       console.error('Error deleting vacation watering:', err)
-      setInputStatus(prev => ({ ...prev, [plantId]: 'error' }))
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
 
@@ -291,7 +312,7 @@ export default function BulkWatering() {
     // When showing only those that need watering, use the snapshot captured at page load
     if (!initialNeedsWaterIds || initialNeedsWaterIds.length === 0) return []
     const initialSet = new Set(initialNeedsWaterIds)
-    return plants.filter(p => initialSet.has(p.uuid))
+    return plants.filter((p) => initialSet.has(p.uuid))
   }, [plants, showAll, initialNeedsWaterIds])
 
   // Deemphasis predicate for rows above threshold (only when showAll is true)
@@ -300,34 +321,31 @@ export default function BulkWatering() {
     return (p) => !plantNeedsWater(p)
   }, [showAll])
 
-
   return (
     <DashboardLayout title="Bulk watering">
-      <PageHeader
-        title="Bulk watering"
-        onBack={() => navigate('/daily')}
-        titleBack="Daily Care"
-      />
+      <PageHeader title="Bulk watering" onBack={() => navigate('/daily')} titleBack="Daily Care" />
 
-      <p>{operationMode === 'vacation' ? 'Click the water drop icon to record watering based on historical data.' : 'Enter the new weight after watering.'} {operationMode === 'vacation' 
-        ? 'By default, we show only plants that need water according to the approximation schedule.'
-        : 'By default, we show only plants that need water (retained ≤ threshold).'}
+      <p>
+        {operationMode === 'vacation'
+          ? 'Click the water drop icon to record watering based on historical data.'
+          : 'Enter the new weight after watering.'}{' '}
+        {operationMode === 'vacation'
+          ? 'By default, we show only plants that need water according to the approximation schedule.'
+          : 'By default, we show only plants that need water (retained ≤ threshold).'}
       </p>
 
       {/* Toggle to switch visibility mode */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-          />
+          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
           <span>Show all plants</span>
         </label>
         <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
-          {showAll ? 'Showing all plants; those above threshold are deemphasized.' : (operationMode === 'vacation'
-            ? 'Showing only plants that need watering according to the approximation schedule.'
-            : 'Showing only plants that need watering (retained ≤ threshold).')}
+          {showAll
+            ? 'Showing all plants; those above threshold are deemphasized.'
+            : operationMode === 'vacation'
+              ? 'Showing only plants that need watering according to the approximation schedule.'
+              : 'Showing only plants that need watering (retained ≤ threshold).'}
         </span>
       </div>
 
