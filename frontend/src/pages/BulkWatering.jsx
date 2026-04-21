@@ -37,8 +37,7 @@ export default function BulkWatering() {
   useEffect(() => {
     let cancelled = false
     async function loadApproximations() {
-      if (!plants.length || operationMode !== 'vacation' || initialNeedsWaterIds !== null)
-        return
+      if (!plants.length || operationMode !== 'vacation' || initialNeedsWaterIds !== null) return
 
       try {
         const approxData = await plantsApi.getApproximation()
@@ -310,9 +309,7 @@ export default function BulkWatering() {
     if (initialNeedsWaterIds === null) {
       // While initializing snapshot, we can either show nothing or do a live calculation
       // to avoid flickering empty table. Live calculation is better for UX and tests.
-      return plants.filter((p) =>
-        checkNeedsWater(p, operationMode, approximations[p.uuid] || null),
-      )
+      return plants.filter((p) => checkNeedsWater(p, operationMode, approximations[p.uuid] || null))
     }
     const initialSet = new Set(initialNeedsWaterIds)
     return plants.filter((p) => initialSet.has(p.uuid))
