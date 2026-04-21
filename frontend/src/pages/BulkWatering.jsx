@@ -16,7 +16,7 @@ export default function BulkWatering() {
 
   const navigate = useNavigate()
   // Local plants state that can be updated when watering events are created
-  const [plants, setPlants] = useState([])
+  const [plants, setPlants] = useState(null)
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
   const [originalWaterLoss, setOriginalWaterLoss] = useState({})
@@ -28,16 +28,20 @@ export default function BulkWatering() {
   const operationMode =
     (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
 
-  // Initialize local plants state from hook
+  // Sync local plants state from hook
   useEffect(() => {
     setPlants(plantsFromHook)
   }, [plantsFromHook])
+
+  // Effective plants list: use local state if initialized, fallback to hook data
+  const currentPlants = plants !== null ? plants : plantsFromHook
 
   // Load approximations separately when plants are loaded
   useEffect(() => {
     let cancelled = false
     async function loadApproximations() {
-      if (!plants.length || operationMode !== 'vacation' || initialNeedsWaterIds !== null) return
+      if (!currentPlants.length || operationMode !== 'vacation' || initialNeedsWaterIds !== null)
+        return
 
       try {
         const approxData = await plantsApi.getApproximation()
@@ -52,7 +56,7 @@ export default function BulkWatering() {
           // Snapshot which plants needed watering at the moment of initial page load
           // Only set the snapshot once to keep watered plants visible for undo
           setInitialNeedsWaterIds(
-            plants
+            currentPlants
               .filter((p) => checkNeedsWater(p, operationMode, approxMap[p.uuid]))
               .map((p) => p.uuid),
           )
@@ -66,16 +70,16 @@ export default function BulkWatering() {
     return () => {
       cancelled = true
     }
-  }, [plants, operationMode, initialNeedsWaterIds])
+  }, [currentPlants, operationMode, initialNeedsWaterIds])
 
   // For manual mode, set initial needs water IDs when plants load
   useEffect(() => {
-    if (operationMode === 'manual' && plants.length && initialNeedsWaterIds === null) {
+    if (operationMode === 'manual' && currentPlants.length && initialNeedsWaterIds === null) {
       setInitialNeedsWaterIds(
-        plants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
+        currentPlants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
       )
     }
-  }, [plants, operationMode, initialNeedsWaterIds])
+  }, [currentPlants, operationMode, initialNeedsWaterIds])
 
   // Helper: determine if a plant needs water based on per-plant threshold
   function plantNeedsWater(p) {
@@ -94,7 +98,7 @@ export default function BulkWatering() {
       return
     }
 
-    const plant = plants.find((p) => p.uuid === plantId)
+    const plant = currentPlants.find((p) => p.uuid === plantId)
     if (plant && !measurementIds[plantId]) {
       setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
     }
@@ -123,7 +127,7 @@ export default function BulkWatering() {
       }
 
       setPlants((prev) =>
-        prev.map((p) => {
+        (prev || []).map((p) => {
           if (p.uuid === plantId) {
             return {
               ...p,
@@ -166,7 +170,7 @@ export default function BulkWatering() {
 
       // Revert plant data in list to previous state (approximate)
       setPlants((prev) =>
-        prev.map((p) => {
+        (prev || []).map((p) => {
           if (p.uuid === plantId) {
             // Use explicit if/else to help coverage tools register both branches
             let revertedLoss
@@ -197,7 +201,7 @@ export default function BulkWatering() {
   }
 
   async function handleVacationWateringCommit(plantId) {
-    const plant = plants.find((p) => p.uuid === plantId)
+    const plant = currentPlants.find((p) => p.uuid === plantId)
     if (plant) {
       setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
     }
@@ -211,7 +215,7 @@ export default function BulkWatering() {
 
         // Update plant data in list
         setPlants((prev) =>
-          prev.map((p) => {
+          (prev || []).map((p) => {
             if (p.uuid === plantId) {
               return {
                 ...p,
@@ -263,7 +267,7 @@ export default function BulkWatering() {
 
       // Revert plant data in list to previous state (approximate)
       setPlants((prev) =>
-        prev.map((p) => {
+        (prev || []).map((p) => {
           if (p.uuid === plantId) {
             return {
               ...p,
@@ -304,16 +308,18 @@ export default function BulkWatering() {
 
   // Derived list depending on toggle
   const displayedPlants = useMemo(() => {
-    if (showAll) return plants
+    if (showAll) return currentPlants
     // When showing only those that need watering, use the snapshot captured at page load
     if (initialNeedsWaterIds === null) {
       // While initializing snapshot, we can either show nothing or do a live calculation
       // to avoid flickering empty table. Live calculation is better for UX and tests.
-      return plants.filter((p) => checkNeedsWater(p, operationMode, approximations[p.uuid] || null))
+      return currentPlants.filter((p) =>
+        checkNeedsWater(p, operationMode, approximations[p.uuid] || null),
+      )
     }
     const initialSet = new Set(initialNeedsWaterIds)
-    return plants.filter((p) => initialSet.has(p.uuid))
-  }, [plants, showAll, initialNeedsWaterIds, operationMode, approximations])
+    return currentPlants.filter((p) => initialSet.has(p.uuid))
+  }, [currentPlants, showAll, initialNeedsWaterIds, operationMode, approximations])
 
   // Deemphasis predicate for rows above threshold (only when showAll is true)
   const deemphasizePredicate = useMemo(() => {

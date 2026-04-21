@@ -42,8 +42,9 @@ export default function PlantSelect({
       } catch (e) {
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (isAbort) return
-        setError('Failed to load plants')
+        if (!isAbort) {
+          setError('Failed to load plants')
+        }
         setLoading(false)
       }
     }

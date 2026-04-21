@@ -34,7 +34,7 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
       const didCommitRef = React.useRef(false)
       const lastWlRef = React.useRef(undefined)
       React.useEffect(() => {
-        if (!plants.length) return
+        if (!plants || !plants.length) return
         const id = plants[0].uuid
         const wl = plants[0]?.water_loss_total_pct
         // First, when flagged, trigger a commit exactly once to populate originalWaterLoss

@@ -84,6 +84,9 @@ describe('components/PlantSelect', () => {
       // It should NOT set error state and should eventually NOT be loading (if another request follows)
       // or at least NOT show an error.
       expect(screen.queryByText(/failed to load plants/i)).not.toBeInTheDocument()
+
+      // Wait for loading to end (due to our change to setLoading(false) on abort)
+      await waitFor(() => expect(screen.queryByText(/loading plants/i)).not.toBeInTheDocument())
     } finally {
       plantsApi.listNames = originalListNames
     }
