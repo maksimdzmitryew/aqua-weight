@@ -79,7 +79,12 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
 describe.sequential('pages/BulkWatering (branches)', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
+    localStorage.clear()
     __commitThenDelete = false
+  })
+
+  afterEach(() => {
+    localStorage.clear()
   })
 
   test('handleView returns early when plant has no uuid (no navigation)', async () => {

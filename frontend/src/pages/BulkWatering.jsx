@@ -30,8 +30,13 @@ export default function BulkWatering() {
 
   // Sync local plants state from hook
   useEffect(() => {
-    setPlants(plantsFromHook)
-  }, [plantsFromHook])
+    // Only update local plants if we have actual data from the hook
+    // or if the hook has finished its first load.
+    // This prevents setting local plants to [] on mount while loading is still true.
+    if (plantsFromHook.length > 0 || !loading) {
+      setPlants(plantsFromHook)
+    }
+  }, [plantsFromHook, loading])
 
   // Effective plants list: use local state if initialized, fallback to hook data
   const currentPlants = plants !== null ? plants : plantsFromHook
@@ -40,8 +45,15 @@ export default function BulkWatering() {
   useEffect(() => {
     let cancelled = false
     async function loadApproximations() {
-      if (!currentPlants.length || operationMode !== 'vacation' || initialNeedsWaterIds !== null)
+      if (operationMode !== 'vacation' || initialNeedsWaterIds !== null) return
+
+      // If plants have loaded and list is empty, stop waiting for approximations
+      if (!loading && (!currentPlants || currentPlants.length === 0)) {
+        setInitialNeedsWaterIds([])
         return
+      }
+
+      if (!currentPlants || !currentPlants.length) return
 
       try {
         const approxData = await plantsApi.getApproximation()
@@ -63,6 +75,10 @@ export default function BulkWatering() {
         }
       } catch (e) {
         console.error('Failed to load approximations', e)
+        if (!cancelled) {
+          // Unblock the UI even if approximations fail to load
+          setInitialNeedsWaterIds([])
+        }
       }
     }
 
@@ -74,12 +90,18 @@ export default function BulkWatering() {
 
   // For manual mode, set initial needs water IDs when plants load
   useEffect(() => {
-    if (operationMode === 'manual' && currentPlants.length && initialNeedsWaterIds === null) {
-      setInitialNeedsWaterIds(
-        currentPlants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
-      )
+    if (operationMode === 'manual' && initialNeedsWaterIds === null) {
+      if (!loading && (!currentPlants || currentPlants.length === 0)) {
+        setInitialNeedsWaterIds([])
+        return
+      }
+      if (currentPlants && currentPlants.length) {
+        setInitialNeedsWaterIds(
+          currentPlants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
+        )
+      }
     }
-  }, [currentPlants, operationMode, initialNeedsWaterIds])
+  }, [currentPlants, operationMode, initialNeedsWaterIds, loading])
 
   // Helper: determine if a plant needs water based on per-plant threshold
   function plantNeedsWater(p) {
@@ -327,6 +349,15 @@ export default function BulkWatering() {
     return (p) => !plantNeedsWater(p)
   }, [showAll])
 
+  const isSyncing =
+    operationMode !== 'manual' &&
+    initialNeedsWaterIds === null &&
+    !error &&
+    !loading &&
+    currentPlants &&
+    currentPlants.length > 0
+  const showLoading = loading || isSyncing
+
   return (
     <DashboardLayout title="Bulk watering">
       <PageHeader title="Bulk watering" onBack={() => navigate('/daily')} titleBack="Daily Care" />
@@ -355,10 +386,10 @@ export default function BulkWatering() {
         </span>
       </div>
 
-      {loading && <div>Loading...</div>}
-      {error && !loading && <div className="text-danger">{error}</div>}
+      {showLoading && <div>Loading...</div>}
+      {error && !showLoading && <div className="text-danger">{error}</div>}
 
-      {!loading && !error && (
+      {!showLoading && !error && (
         <BulkMeasurementTable
           plants={displayedPlants}
           inputStatus={inputStatus}

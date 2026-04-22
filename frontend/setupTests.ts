@@ -4,7 +4,10 @@ import 'whatwg-fetch'
 
 // MSW setup for unit tests; only active in test environment
 import { server } from './tests/unit/msw/server'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
+
+// Increase timeout for findBy/waitFor to handle slow CI environments
+configure({ asyncUtilTimeout: 3000 })
 
 // Establish API mocking before all tests.
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))

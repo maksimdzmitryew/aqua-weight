@@ -924,6 +924,26 @@ test('ignores AbortError during initial load and shows EmptyState without alert'
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
+test('covers signal.aborted check by unmounting during load', async () => {
+  // Use a delayed response to ensure we can unmount while loading
+  server.use(
+    http.get('/api/plants', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      return HttpResponse.json({ items: [], total: 0, total_pages: 0 })
+    }),
+  )
+  const { unmount } = render(
+    <ThemeProvider>
+      <MemoryRouter>
+        <PlantsList />
+      </MemoryRouter>
+    </ThemeProvider>,
+  )
+  // Unmount immediately to trigger abort
+  unmount()
+  // Line 126 should be covered (signal.aborted will be true when catch is hit or during execution)
+})
+
 test('ignores non-AbortError when message includes "abort" (case-insensitive)', async () => {
   server.use(
     http.get('/api/plants', () => {

@@ -30,9 +30,13 @@ function renderPage() {
   )
 }
 
-describe('pages/BulkWatering', () => {
+describe.sequential('pages/BulkWatering', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
+    localStorage.clear()
+  })
+  afterEach(() => {
+    localStorage.clear()
   })
   test('handles non-array plants response gracefully and shows empty state', async () => {
     server.use(http.get('/api/plants', () => HttpResponse.json({ foo: 'bar' })))
@@ -208,6 +212,17 @@ describe('pages/BulkWatering', () => {
       consoleSpy.mockRestore()
       localStorage.removeItem('operationMode')
     }
+  })
+
+  test('handles empty plants list correctly (covers vacation sync fallback)', async () => {
+    localStorage.setItem('operationMode', 'vacation')
+    server.use(...paginatedPlantsHandler([]))
+
+    renderPage()
+    // Should show the empty message
+    expect(await screen.findByText(/no plants need watering/i)).toBeInTheDocument()
+    // Should NOT be loading
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
   })
 
   test('committing watering creates measurement then updates on second commit; invalid input marks error', async () => {
