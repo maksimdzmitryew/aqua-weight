@@ -79,6 +79,11 @@ Notes:
 
 ### Extra tips FE
 
+#### Run frontend unit tests in GitHub CI parity mode locally:
+
+- `make test-fe-ci`
+- This mirrors CI frontend unit-test conditions: Node 24, `npm ci`, `CI=true`, and coverage run.
+
 #### Install deps in the e2e container (once per container lifecycle):
 
 - `docker compose -f docker-compose.test.yml exec e2e npm ci --prefix /app/frontend`

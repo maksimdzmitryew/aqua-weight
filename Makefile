@@ -35,6 +35,7 @@ help:
 	@echo "Frontend targets (local/Docker):"
 	@echo "  make fe-dev            - Start Vite dev server (local)"
 	@echo "  make test-fe           - Run frontend unit tests (in Docker)"
+	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
 	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
@@ -170,6 +171,18 @@ test-fe:
 		npm install --no-audit --no-fund && \
 		npm run test:unit:coverage && \
 		cp -r coverage /app/"
+
+.PHONY: test-fe-ci
+test-fe-ci:
+	@# Mirrors GitHub frontend unit-test job: Node 24 + npm ci + CI=true + coverage
+	docker run --rm \
+	  -v "$(PWD)/frontend:/src" \
+	  node:24 \
+	  bash -lc "\
+		cp -r /src /tmp/fe && \
+		cd /tmp/fe && \
+		npm ci --no-audit --no-fund && \
+		CI=true npm run test:unit:coverage"
 
 .PHONY: fe-sb
 fe-sb:
