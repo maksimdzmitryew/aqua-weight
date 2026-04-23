@@ -27,6 +27,7 @@ help:
 	@echo ""
 	@echo "E2E targets (in Docker):"
 	@echo "  make test-e2e          - Run Playwright E2E tests"
+	@echo "  make test-e2e-ci-wait  - Reproduce GitHub CI wait-for-services check from a clean stack"
 	@echo "  make e2e-deps          - Run Playwright E2E tests with reinstalling deps"
 	@echo "  make e2e-headed        - Run Playwright E2E tests in headed mode"
 	@echo "  make e2e-report        - Open Playwright report"
@@ -143,6 +144,32 @@ e2e-deps:
 test-e2e:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+
+.PHONY: test-e2e-ci-wait
+test-e2e-ci-wait:
+	@# Mirrors GitHub E2E readiness behavior from a clean Docker volume state.
+	docker compose -f $(TEST_COMPOSE) down -v
+	SSL_CERT_FILE=./ssl/dev.fullchain.pem SSL_KEY_FILE=./ssl/dev.privkey.pem docker compose -f $(TEST_COMPOSE) up -d --build db backend frontend nginx
+	@bash -lc 'set -euo pipefail; \
+		backend_ready=0; \
+		for i in {1..90}; do \
+			if curl -sSf http://127.0.0.1:5080/api/health >/dev/null; then backend_ready=1; echo "Backend is up"; break; fi; \
+			echo "Waiting for backend..."; sleep 5; \
+		done; \
+		frontend_ready=0; \
+		for i in {1..90}; do \
+			if curl -sSf http://127.0.0.1:5080/ >/dev/null; then frontend_ready=1; echo "Frontend is up"; break; fi; \
+			echo "Waiting for frontend..."; sleep 5; \
+		done; \
+		if [ "$$backend_ready" -ne 1 ] || [ "$$frontend_ready" -ne 1 ]; then \
+			echo "Stack not reachable after wait; dumping logs..."; \
+			docker compose -f $(TEST_COMPOSE) ps; \
+			docker compose -f $(TEST_COMPOSE) logs --no-color nginx || true; \
+			docker compose -f $(TEST_COMPOSE) logs --no-color backend || true; \
+			docker compose -f $(TEST_COMPOSE) logs --no-color frontend || true; \
+			exit 1; \
+		fi; \
+		echo "Services reachable via nginx at http://127.0.0.1:5080"'
 
 .PHONY: e2e-headed
 e2e-headed:

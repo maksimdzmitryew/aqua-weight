@@ -84,14 +84,13 @@ services:
     volumes:
       - ./frontend:/app
       - fe_node_modules_test:/app/node_modules
-    # Ensure dev server dependencies (vite) are present in the test node_modules directory.
-    # If vite binary is missing, install all deps; then start Vite on 0.0.0.0 so nginx can reach it.
-    # Always install to ensure deps match current package.json for tests
+    # Ensure dev server dependencies (vite) are present in the shared test node_modules volume.
+    # On fresh CI runners this volume starts empty; bootstrap it deterministically before starting Vite.
     command:
       [
         "bash",
         "-lc",
-        "cd /app && while [ ! -x node_modules/.bin/vite ]; do echo 'Waiting for node_modules...'; sleep 2; done; exec npm run dev -- --host 0.0.0.0",
+        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm ci --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm ci' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
       ]
 
   nginx:

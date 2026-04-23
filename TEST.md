@@ -84,6 +84,11 @@ Notes:
 - `make test-fe-ci`
 - This mirrors CI frontend unit-test conditions: Node 24, `npm ci`, `CI=true`, and coverage run.
 
+#### Reproduce GitHub E2E "Wait for services" check locally from a clean stack:
+
+- `make test-e2e-ci-wait`
+- This tears down test volumes, starts `db/backend/frontend/nginx`, and runs the same readiness probes used by CI.
+
 #### Install deps in the e2e container (once per container lifecycle):
 
 - `docker compose -f docker-compose.test.yml exec e2e npm ci --prefix /app/frontend`
