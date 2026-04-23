@@ -22,7 +22,7 @@ class DummyCreate:
         self.pest_status_id = "-" * 32
         self.health_status_id = "123"
         self.photo_url = None
-        self.default_measurement_method_id = " "+"1"*31
+        self.default_measurement_method_id = " " + "1" * 31
         self.substrate_last_refresh_at = None
         self.fertilized_last_at = None
         self.fertilizer_ec_ms = None
@@ -60,10 +60,10 @@ async def test_hex_to_bytes_invalid_paths_unit(async_client):
     resp = await create_plant(DummyCreate())
     assert resp["ok"] is True
 
-    # Find created UUID via GET list to get an id for update
+    # Find created UUID via GET list to get an id for update (paginated response)
     lr = await async_client.get("/api/plants")
     assert lr.status_code == 200
-    items = lr.json()
+    items = lr.json()["items"]
     uid = next(it["uuid"] for it in items if it["name"] == "Unit Invalid")
 
     # Call update_plant directly with invalid hex fields

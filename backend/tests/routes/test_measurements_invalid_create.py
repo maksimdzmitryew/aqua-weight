@@ -7,7 +7,9 @@ from backend.app.routes import measurements as measurements_routes
 
 
 @pytest.mark.asyncio
-async def test_create_measurement_invalid_hex_branch(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_create_measurement_invalid_hex_branch(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # Make the router's HEX_RE reject otherwise valid lower-case hex strings
     monkeypatch.setattr(measurements_routes, "HEX_RE", re.compile(r"^x$"))
 

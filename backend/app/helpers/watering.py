@@ -34,7 +34,7 @@ def get_last_watering_event(
         Dictionary with watering event data or None if not found
     """
     query = """
-        SELECT 
+        SELECT
             id,
             plant_id,
             measured_at,

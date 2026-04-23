@@ -7,6 +7,7 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { measurementsApi } from '../../../src/api/measurements'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate to observe navigations
 const mockNavigate = vi.fn()
@@ -21,15 +22,23 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
       <h1>{title}</h1>
       {children}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => (
+    <div role="status" data-testid="loader">
+      {message || 'Loading...'}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -38,79 +47,54 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <h1>{title}</h1>
       <button onClick={onBack}>Back</button>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
   default: ({ label, form, name, required }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="datetime-local"
-        {...form.register(name)}
-        required={required}
-      />
+      <input id={name} type="datetime-local" {...form.register(name)} required={required} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
   default: ({ label, form, name, children, required, disabled }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <select
-        id={name}
-        {...form.register(name)}
-        required={required}
-        disabled={disabled}
-      >
+      <select id={name} {...form.register(name)} required={required} disabled={disabled}>
         {children}
       </select>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
   default: ({ label, form, name, min }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="number"
-        min={min}
-        {...form.register(name)}
-      />
+      <input id={name} type="number" min={min} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Checkbox.jsx', () => ({
   default: ({ label, form, name }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="checkbox"
-        {...form.register(name)}
-        checked={form.values[name]}
-      />
+      <input id={name} type="checkbox" {...form.register(name)} checked={form.values[name]} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
   default: ({ label, form, name, placeholder }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="text"
-        placeholder={placeholder}
-        {...form.register(name)}
-      />
+      <input id={name} type="text" placeholder={placeholder} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/utils/datetime.js', async () => {
@@ -118,7 +102,7 @@ vi.mock('../../../src/utils/datetime.js', async () => {
   return {
     ...actual,
     nowLocalISOMinutes: () => '2025-01-10T23:00',
-    toLocalISOMinutes: (val) => (val && val !== 'invalid') ? val.substring(0, 16) : ''
+    toLocalISOMinutes: (val) => (val && val !== 'invalid' ? val.substring(0, 16) : ''),
   }
 })
 
@@ -130,7 +114,7 @@ function renderWithRouter(initialEntries) {
           <Route path="*" element={<MeasurementCreate />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -139,10 +123,10 @@ describe('pages/MeasurementCreate', () => {
     mockNavigate.mockReset()
     // default handlers for plants list
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
+      ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe' },
         { uuid: 'u2', name: 'Monstera' },
-      ]))
+      ]),
     )
   })
 
@@ -156,7 +140,7 @@ describe('pages/MeasurementCreate', () => {
         expect(payload.measured_weight_g).toBe(null)
         called = true
         return HttpResponse.json({ id: 101 }, { status: 201 })
-      })
+      }),
     )
 
     renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/plants?tab=1' } }])
@@ -195,7 +179,7 @@ describe('pages/MeasurementCreate', () => {
         // plant_id should remain the same and select disabled
         expect(payload.plant_id).toBe('u2')
         return HttpResponse.json({ ok: true })
-      })
+      }),
     )
 
     renderWithRouter(['/edit?id=500'])
@@ -221,20 +205,22 @@ describe('pages/MeasurementCreate', () => {
 
   test('edit flow: handles null values in load and submit', async () => {
     server.use(
-      http.get('/api/measurements/:id', () => HttpResponse.json({
-        id: 501,
-        plant_id: 'u2',
-        measured_at: '2025-01-10T12:34:00Z',
-        measured_weight_g: null,
-        method_id: null,
-        use_last_method: null,
-        scale_id: null,
-        note: null,
-      })),
+      http.get('/api/measurements/:id', () =>
+        HttpResponse.json({
+          id: 501,
+          plant_id: 'u2',
+          measured_at: '2025-01-10T12:34:00Z',
+          measured_weight_g: null,
+          method_id: null,
+          use_last_method: null,
+          scale_id: null,
+          note: null,
+        }),
+      ),
       http.put('/api/measurements/weight/:id', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json({ ok: true, payload })
-      })
+      }),
     )
 
     renderWithRouter(['/edit?id=501'])
@@ -248,7 +234,9 @@ describe('pages/MeasurementCreate', () => {
   test('edit flow: loadExisting failure is ignored (catch path executed)', async () => {
     // Force GET to fail to cover the catch branch in loadExisting
     server.use(
-      http.get('/api/measurements/:id', () => HttpResponse.json({ message: 'nope' }, { status: 500 }))
+      http.get('/api/measurements/:id', () =>
+        HttpResponse.json({ message: 'nope' }, { status: 500 }),
+      ),
     )
 
     renderWithRouter(['/edit?id=404'])
@@ -265,27 +253,37 @@ describe('pages/MeasurementCreate', () => {
   test('edit flow: effect cancelled before response arrives (covers cancelled branch)', async () => {
     // Delay the GET so we can unmount first and hit the `if (cancelled) return` path
     server.use(
-      http.get('/api/measurements/:id', () => new Promise(resolve => {
-        setTimeout(() => resolve(HttpResponse.json({
-          id: 'slow', plant_id: 'u1', measured_at: '2025-01-01T00:00:00Z'
-        })), 50)
-      }))
+      http.get(
+        '/api/measurements/:id',
+        () =>
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve(
+                  HttpResponse.json({
+                    id: 'slow',
+                    plant_id: 'u1',
+                    measured_at: '2025-01-01T00:00:00Z',
+                  }),
+                ),
+              50,
+            )
+          }),
+      ),
     )
 
     const utils = renderWithRouter(['/edit?id=slow'])
     // Immediately unmount to set cancelled = true in cleanup
     utils.unmount()
     // Wait a tick to allow the delayed handler to resolve without updating unmounted component
-    await new Promise(r => setTimeout(r, 75))
+    await new Promise((r) => setTimeout(r, 75))
     // If the effect respects the cancelled flag, there should be no error logs or act warnings.
     // Nothing to assert; test passes by not throwing.
   })
 
   test('plants API returns non-array; select shows only placeholder', async () => {
     // Return a non-array to exercise Array.isArray false branch in loadPlants
-    server.use(
-      http.get('/api/plants', () => HttpResponse.json({ any: 'shape' }))
-    )
+    server.use(http.get('/api/plants/names', () => HttpResponse.json({ any: 'shape' })))
 
     renderWithRouter(['/new'])
     const select = await screen.findByLabelText(/plant/i)
@@ -297,16 +295,18 @@ describe('pages/MeasurementCreate', () => {
 
   test('edit flow with missing fields uses fallbacks in form values', async () => {
     server.use(
-      http.get('/api/measurements/:id', () => HttpResponse.json({
-        id: 777,
-        plant_id: '', // missing plant id should fallback to current form value (empty)
-        measured_at: null, // missing measured_at to exercise fallback to existing form value (line 65)
-        measured_weight_g: null, // becomes '' in input
-        method_id: '', // becomes ''
-        // use_last_method missing -> defaults to true
-        scale_id: '', // becomes ''
-        note: null, // becomes ''
-      })),
+      http.get('/api/measurements/:id', () =>
+        HttpResponse.json({
+          id: 777,
+          plant_id: '', // missing plant id should fallback to current form value (empty)
+          measured_at: null, // missing measured_at to exercise fallback to existing form value (line 65)
+          measured_weight_g: null, // becomes '' in input
+          method_id: '', // becomes ''
+          // use_last_method missing -> defaults to true
+          scale_id: '', // becomes ''
+          note: null, // becomes ''
+        }),
+      ),
     )
 
     renderWithRouter(['/edit?id=777'])
@@ -331,7 +331,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('submit with location.state.from navigates to that path', async () => {
     server.use(
-      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 }))
+      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
     )
 
     renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom-path' } }])
@@ -344,9 +344,7 @@ describe('pages/MeasurementCreate', () => {
   })
 
   test('edit flow: API returns null data', async () => {
-    server.use(
-      http.get('/api/measurements/:id', () => HttpResponse.json(null))
-    )
+    server.use(http.get('/api/measurements/:id', () => HttpResponse.json(null)))
 
     renderWithRouter(['/edit?id=123'])
 
@@ -354,7 +352,7 @@ describe('pages/MeasurementCreate', () => {
     const dt = await screen.findByLabelText(/measured at/i)
     const initial = dt.value
     await waitFor(() => expect(dt).toHaveValue(initial))
-    
+
     // Check that other fields also use fallbacks (not crashing)
     expect(screen.getByLabelText(/measured weight/i)).toHaveValue(null)
   })
@@ -363,12 +361,14 @@ describe('pages/MeasurementCreate', () => {
     // Return a measured_at that cannot be parsed by toLocalISOMinutes to hit the `|| form.values.measured_at` branch
     // and also cover the branch where data?.measured_at is truthy but toLocalISOMinutes returns falsy (empty string)
     server.use(
-      http.get('/api/measurements/:id', () => HttpResponse.json({
-        id: 909,
-        plant_id: 'u1',
-        measured_at: 'invalid', // will make toLocalISOMinutes return '' in the mock
-        measured_weight_g: 10,
-      }))
+      http.get('/api/measurements/:id', () =>
+        HttpResponse.json({
+          id: 909,
+          plant_id: 'u1',
+          measured_at: 'invalid', // will make toLocalISOMinutes return '' in the mock
+          measured_weight_g: 10,
+        }),
+      ),
     )
 
     renderWithRouter(['/edit?id=909'])
@@ -392,7 +392,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('shows error when plants API fails to load', async () => {
     server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+      http.get('/api/plants/names', () => HttpResponse.json({ message: 'fail' }, { status: 500 })),
     )
     renderWithRouter(['/'])
     expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
@@ -400,7 +400,9 @@ describe('pages/MeasurementCreate', () => {
 
   test('save error renders message', async () => {
     server.use(
-      http.post('/api/measurements/weight', () => HttpResponse.json({ message: 'nope' }, { status: 500 }))
+      http.post('/api/measurements/weight', () =>
+        HttpResponse.json({ message: 'nope' }, { status: 500 }),
+      ),
     )
 
     renderWithRouter(['/new?plant=u1'])
@@ -411,10 +413,12 @@ describe('pages/MeasurementCreate', () => {
   })
 
   test('dark theme renders and cancel navigates back', async () => {
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
     // success handlers
     server.use(
-      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 }))
+      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
     )
     renderWithRouter(['/new?plant=u1'])
 

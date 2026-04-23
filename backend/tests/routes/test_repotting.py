@@ -59,13 +59,16 @@ def dummy_db(monkeypatch):
 @pytest.fixture(autouse=True)
 def patch_uuid(monkeypatch):
     """Make uuid4 deterministic so number of INSERTs doesn't break tests."""
+
     class _FixedUUID:
         def __init__(self):
             self._i = 0
+
         def uuid4(self):
             self._i += 1
             # Return 16 zero bytes; value doesn't matter for the test
             return types.SimpleNamespace(bytes=b"\x00" * 16)
+
     fixed = _FixedUUID()
     monkeypatch.setattr(repotting_mod, "uuid", fixed)
 
@@ -74,7 +77,9 @@ def patch_uuid(monkeypatch):
 def patch_services(monkeypatch):
     """Patch external service/helpers used by the route to deterministic stubs."""
     # Last watering event
-    monkeypatch.setattr(repotting_mod, "get_last_watering_event", lambda cur, pid: {"water_added_g": 50})
+    monkeypatch.setattr(
+        repotting_mod, "get_last_watering_event", lambda cur, pid: {"water_added_g": 50}
+    )
 
     # Last plant event present by default
     def _last_event(_pid):
@@ -84,6 +89,7 @@ def patch_services(monkeypatch):
             "last_wet_weight_g": 1000,
             "water_added_g": 200,
         }
+
     monkeypatch.setattr(repotting_mod.LastPlantEvent, "get_last_event", staticmethod(_last_event))
 
     # compute_water_losses returns a simple object with required attrs
@@ -93,10 +99,13 @@ def patch_services(monkeypatch):
             self.water_loss_total_g = 100
             self.water_loss_day_pct = 1.0
             self.water_loss_day_g = 10
+
     monkeypatch.setattr(repotting_mod, "compute_water_losses", lambda **kwargs: Loss())
 
     # parse_timestamp_local just echo the same string for simplicity
-    monkeypatch.setattr(repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s)
+    monkeypatch.setattr(
+        repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s
+    )
 
 
 @pytest.mark.asyncio
@@ -133,10 +142,13 @@ async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, 
 
 
 @pytest.mark.asyncio
-async def test_create_repotting_invalid_plant_id(async_client: AsyncClient, dummy_db, patch_services, monkeypatch):
+async def test_create_repotting_invalid_plant_id(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
     # Pydantic enforces hex format; to hit the route's own HEX_RE check,
     # provide a valid hex and patch HEX_RE to a stricter pattern that rejects it.
     import re as _re
+
     monkeypatch.setattr(repotting_mod, "HEX_RE", _re.compile(r"^b{32}$"))
 
     bad_payload = {
@@ -151,7 +163,9 @@ async def test_create_repotting_invalid_plant_id(async_client: AsyncClient, dumm
 
 
 @pytest.mark.asyncio
-async def test_create_repotting_missing_required_due_to_zero(async_client: AsyncClient, dummy_db, patch_services):
+async def test_create_repotting_missing_required_due_to_zero(
+    async_client: AsyncClient, dummy_db, patch_services
+):
     # measured_weight_g=0 should be treated as missing by the route's falsy check
     payload = {
         "plant_id": VALID_HEX,
@@ -165,9 +179,13 @@ async def test_create_repotting_missing_required_due_to_zero(async_client: Async
 
 
 @pytest.mark.asyncio
-async def test_create_repotting_no_last_event_404(async_client: AsyncClient, dummy_db, patch_services, monkeypatch):
+async def test_create_repotting_no_last_event_404(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
     # Force LastPlantEvent.get_last_event to return None to trigger 404
-    monkeypatch.setattr(repotting_mod.LastPlantEvent, "get_last_event", staticmethod(lambda _pid: None))
+    monkeypatch.setattr(
+        repotting_mod.LastPlantEvent, "get_last_event", staticmethod(lambda _pid: None)
+    )
 
     payload = {
         "plant_id": VALID_HEX,

@@ -30,7 +30,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         onViewPlant={onViewPlant}
-      />
+      />,
     )
 
     // Name cell renders as a link (uuid present)
@@ -53,14 +53,14 @@ describe('BulkMeasurementTable', () => {
   })
 
   test('does not render badge when retained > threshold; renders plain text when no uuid', () => {
-    const p = makePlant({ uuid: undefined, name: 'Cactus', identify_hint: '', water_retained_pct: 90, recommended_water_threshold_pct: 40 })
-    render(
-      <BulkMeasurementTable
-        plants={[p]}
-        inputStatus={{}}
-        onCommitValue={vi.fn()}
-      />
-    )
+    const p = makePlant({
+      uuid: undefined,
+      name: 'Cactus',
+      identify_hint: '',
+      water_retained_pct: 90,
+      recommended_water_threshold_pct: 40,
+    })
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
 
     // No link since uuid missing
     expect(screen.queryByRole('link', { name: /Cactus/ })).not.toBeInTheDocument()
@@ -71,10 +71,14 @@ describe('BulkMeasurementTable', () => {
   })
 
   test('non-uuid row: titles absent on name/notes/water-loss cells; water loss text has no %', () => {
-    const p = makePlant({ uuid: undefined, identify_hint: '', name: 'Plain', notes: 'NN', water_loss_total_pct: 42 })
-    render(
-      <BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />
-    )
+    const p = makePlant({
+      uuid: undefined,
+      identify_hint: '',
+      name: 'Plain',
+      notes: 'NN',
+      water_loss_total_pct: 42,
+    })
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
     const nameCell = screen.getByText('Plain').closest('td')
     expect(nameCell).toBeTruthy()
     expect(nameCell).not.toHaveAttribute('title')
@@ -95,7 +99,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         showUpdatedColumn
-      />
+      />,
     )
     // Find cell by title attribute matching raw value (avoid locale formatting)
     const updatedCell = screen.getByTitle(latest)
@@ -111,7 +115,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         showUpdatedColumn
-      />
+      />,
     )
     const cell = screen.getByTitle(measured)
     expect(cell).toBeInTheDocument()
@@ -128,7 +132,7 @@ describe('BulkMeasurementTable', () => {
         plants={[pSuccess, pError, pNoUuid]}
         inputStatus={{ 'u-ok': 'success', 'u-err': 'error' }}
         onCommitValue={onCommitValue}
-      />
+      />,
     )
 
     // Inputs are rendered in row order
@@ -164,7 +168,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         deemphasizePredicate={deemphasizePredicate}
-      />
+      />,
     )
     const link = screen.getByRole('link', { name: /Dim Plant/i })
     const row = link.closest('tr')
@@ -183,7 +187,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         waterLossCellStyle={override}
-      />
+      />,
     )
 
     // Override: find water loss cell by text and assert sentinel background
@@ -193,13 +197,7 @@ describe('BulkMeasurementTable', () => {
 
     // Then render default path without override
     const pDefault = makePlant({ uuid: 'df', name: 'Default', water_loss_total_pct: 150 }) // triggers default red background
-    rerender(
-      <BulkMeasurementTable
-        plants={[pDefault]}
-        inputStatus={{}}
-        onCommitValue={vi.fn()}
-      />
-    )
+    rerender(<BulkMeasurementTable plants={[pDefault]} inputStatus={{}} onCommitValue={vi.fn()} />)
     const dfCell = screen.getByText('150%').closest('td')
     expect(dfCell).toBeTruthy()
     expect(dfCell).toHaveStyle({ background: '#dc2626' })
@@ -214,7 +212,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         onViewPlant={onViewPlant}
-      />
+      />,
     )
     // Notes link
     const notesLink = screen.getByRole('link', { name: 'N' })
@@ -228,9 +226,7 @@ describe('BulkMeasurementTable', () => {
 
   test('link text omits identify_hint when absent, and notes link shows fallback when empty', () => {
     const p = makePlant({ uuid: 'u2', identify_hint: '', name: 'OnlyName', notes: '' })
-    render(
-      <BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />
-    )
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
     // Name link should show only the name without extra space
     expect(screen.getByRole('link', { name: 'OnlyName' })).toBeInTheDocument()
     // Notes link shows fallback dash when empty
@@ -239,19 +235,15 @@ describe('BulkMeasurementTable', () => {
 
   test('non-uuid name cell shows identify_hint + name text', () => {
     const p = makePlant({ uuid: undefined, identify_hint: 'Hint', name: 'Name' })
-    render(
-      <BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />
-    )
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
     expect(screen.getByText('Hint Name')).toBeInTheDocument()
   })
 
   test('non-uuid name falls back to empty string when name missing; notes falls back to dash', () => {
     const p = makePlant({ uuid: undefined, identify_hint: '', name: undefined, notes: '' })
-    render(
-      <BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />
-    )
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
     // Name cell should exist but have empty text content
-    const nameCell = screen.getAllByRole('cell').find(td => td.textContent === '')
+    const nameCell = screen.getAllByRole('cell').find((td) => td.textContent === '')
     expect(nameCell).toBeTruthy()
     // Notes cell shows dash in non-uuid path
     expect(screen.getByText('—')).toBeInTheDocument()
@@ -259,7 +251,13 @@ describe('BulkMeasurementTable', () => {
 
   test('first column tooltip and label render, and cell titles depend on uuid', () => {
     const pWith = makePlant({ uuid: 'has', notes: 'Note', water_loss_total_pct: 3 })
-    const pWithout = makePlant({ uuid: undefined, identify_hint: '', name: 'Plain', notes: '', water_loss_total_pct: 0 })
+    const pWithout = makePlant({
+      uuid: undefined,
+      identify_hint: '',
+      name: 'Plain',
+      notes: '',
+      water_loss_total_pct: 0,
+    })
     const { container } = render(
       <BulkMeasurementTable
         plants={[pWith, pWithout]}
@@ -267,7 +265,7 @@ describe('BulkMeasurementTable', () => {
         onCommitValue={vi.fn()}
         firstColumnLabel="Value"
         firstColumnTooltip="Enter latest value"
-      />
+      />,
     )
     // Header first column has the provided title attribute
     const firstHeader = screen.getByRole('columnheader', { name: /Value/i })
@@ -296,25 +294,30 @@ describe('BulkMeasurementTable', () => {
 
   test('renders empty state with correct colSpan when no plants', () => {
     const { rerender } = render(
-      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} />
+      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} />,
     )
     const cell = screen.getByText(/No plants found/i)
     expect(cell).toBeInTheDocument()
-    expect(cell).toHaveAttribute('colspan', '6')
+    expect(cell).toHaveAttribute('colspan', '100')
 
-    // With Updated column enabled, colspan increases to 7
+    // With Updated column enabled, colspan stays at 100 (spans all columns)
     rerender(
-      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} showUpdatedColumn />
+      <BulkMeasurementTable
+        plants={[]}
+        inputStatus={{}}
+        onCommitValue={vi.fn()}
+        showUpdatedColumn
+      />,
     )
     const cell2 = screen.getByText(/No plants found/i)
-    expect(cell2).toHaveAttribute('colspan', '7')
+    expect(cell2).toHaveAttribute('colspan', '100')
   })
 
   test('location cell shows provided location and falls back to dash when missing', () => {
     // Truthy path
     const pWith = makePlant({ location: 'Living room' })
     const { rerender } = render(
-      <BulkMeasurementTable plants={[pWith]} inputStatus={{}} onCommitValue={vi.fn()} />
+      <BulkMeasurementTable plants={[pWith]} inputStatus={{}} onCommitValue={vi.fn()} />,
     )
     let locCell = document.querySelector('td.hide-column-phone')
     expect(locCell).toBeTruthy()
@@ -322,9 +325,7 @@ describe('BulkMeasurementTable', () => {
 
     // Falsy path (fallback)
     const pWithout = makePlant({ location: undefined })
-    rerender(
-      <BulkMeasurementTable plants={[pWithout]} inputStatus={{}} onCommitValue={vi.fn()} />
-    )
+    rerender(<BulkMeasurementTable plants={[pWithout]} inputStatus={{}} onCommitValue={vi.fn()} />)
     locCell = document.querySelector('td.hide-column-phone')
     expect(locCell).toBeTruthy()
     expect(locCell?.textContent).toBe('—')
@@ -341,7 +342,7 @@ describe('BulkMeasurementTable', () => {
         onCommitVacationWatering={onCommit}
         onDeleteVacationWatering={onDelete}
         inputStatus={{}}
-      />
+      />,
     )
 
     // Initially no measurementId, so clicking should call onCommit
@@ -358,7 +359,7 @@ describe('BulkMeasurementTable', () => {
         onDeleteVacationWatering={onDelete}
         measurementIds={{ u1: 'm1' }}
         inputStatus={{}}
-      />
+      />,
     )
     const deleteBtn = screen.getByRole('button', { name: /undo/i })
     fireEvent.click(deleteBtn)
@@ -378,13 +379,13 @@ describe('BulkMeasurementTable', () => {
         operationMode="vacation"
         approximations={{ u1: approx }}
         inputStatus={{}}
-      />
+      />,
     )
 
     // Check for date and offset
     expect(screen.getByText(/12\/01/)).toBeInTheDocument()
     expect(screen.getByText(/\(-1d\)/)).toBeInTheDocument()
-    
+
     // Check overdue style (background: #fecaca)
     const dateSpan = screen.getByText(/\(-1d\)/).parentElement
     expect(dateSpan?.style.background).toBe('rgb(254, 202, 202)')

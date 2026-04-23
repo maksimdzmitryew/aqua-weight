@@ -1,6 +1,12 @@
 import React, { useId } from 'react'
 
-export default function SearchField({ value, onChange, placeholder = 'Search…', ariaLabel = 'Search', autoFocus = false }) {
+export default function SearchField({
+  value,
+  onChange,
+  placeholder = 'Search...',
+  ariaLabel = 'Search',
+  autoFocus = false,
+}) {
   const id = useId()
   const inputStyle = {
     flex: 1,
@@ -13,7 +19,12 @@ export default function SearchField({ value, onChange, placeholder = 'Search…'
     background: '#fff',
     color: '#111827',
   }
-  const wrapperStyle = { position: 'relative', display: 'inline-flex', alignItems: 'center', flex: 1 }
+  const wrapperStyle = {
+    position: 'relative',
+    display: 'inline-flex',
+    alignItems: 'center',
+    flex: 1,
+  }
   const clearBtnStyle = {
     position: 'absolute',
     right: 6,

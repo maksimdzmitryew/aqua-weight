@@ -3,13 +3,18 @@ import { http, HttpResponse } from 'msw'
 // Basic in-memory fixtures to satisfy UI needs in tests
 const plants = [
   {
-    uuid: 'u1', id: 1, name: 'Aloe', identify_hint: '',
+    uuid: 'u1',
+    id: 1,
+    name: 'Aloe',
+    identify_hint: '',
     latest_at: '2025-01-01T00:00:00', // local time string for DailyCare logic
     water_retained_pct: 20,
     recommended_water_threshold_pct: 30,
   },
   {
-    uuid: 'u2', id: 2, name: 'Monstera',
+    uuid: 'u2',
+    id: 2,
+    name: 'Monstera',
     latest_at: '2025-01-02T00:00:00',
     water_retained_pct: 50,
     recommended_water_threshold_pct: 30,
@@ -17,8 +22,21 @@ const plants = [
 ]
 
 export const handlers = [
+  http.get('/api/plants/names', () => {
+    // Return minimal plant data for dropdowns
+    return HttpResponse.json(plants.map((p) => ({ uuid: p.uuid, name: p.name })))
+  }),
+
   http.get('/api/plants', () => {
-    return HttpResponse.json(plants)
+    // Return paginated response structure
+    return HttpResponse.json({
+      items: plants,
+      total: plants.length,
+      global_total: plants.length,
+      page: 1,
+      limit: 20,
+      total_pages: 1,
+    })
   }),
 
   // Explicitly handle a noisy test route used for error-path testing
@@ -51,6 +69,10 @@ export const handlers = [
 
   http.get('/api/plants/:uuid/measurements', () => {
     return HttpResponse.json([])
+  }),
+
+  http.delete('/api/measurements/:id', () => {
+    return HttpResponse.json({ ok: true })
   }),
 
   // Measurements: watering

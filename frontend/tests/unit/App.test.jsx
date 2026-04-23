@@ -7,9 +7,7 @@ import App from '../../src/App.jsx'
 describe('App.jsx', () => {
   test('shows loading, then renders backend message on success', async () => {
     // Arrange mock for /api/ root endpoint
-    server.use(
-      http.get('/api/', () => HttpResponse.json({ message: 'Hello from test' }))
-    )
+    server.use(http.get('/api/', () => HttpResponse.json({ message: 'Hello from test' })))
 
     render(<App />)
 
@@ -25,9 +23,7 @@ describe('App.jsx', () => {
 
   test('shows fallback message when backend request fails', async () => {
     // Make the request reject to hit catch() branch
-    server.use(
-      http.get('/api/', () => HttpResponse.json(null, { status: 500 }))
-    )
+    server.use(http.get('/api/', () => HttpResponse.json(null, { status: 500 })))
 
     render(<App />)
 

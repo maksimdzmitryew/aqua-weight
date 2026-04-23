@@ -30,7 +30,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         onViewPlant={onViewPlant}
-      />
+      />,
     )
 
     // Name cell renders as a link (uuid present)
@@ -53,14 +53,14 @@ describe('BulkMeasurementTable', () => {
   })
 
   test('does not render badge when retained > threshold; renders plain text when no uuid', () => {
-    const p = makePlant({ uuid: undefined, name: 'Cactus', identify_hint: '', water_retained_pct: 90, recommended_water_threshold_pct: 40 })
-    render(
-      <BulkMeasurementTable
-        plants={[p]}
-        inputStatus={{}}
-        onCommitValue={vi.fn()}
-      />
-    )
+    const p = makePlant({
+      uuid: undefined,
+      name: 'Cactus',
+      identify_hint: '',
+      water_retained_pct: 90,
+      recommended_water_threshold_pct: 40,
+    })
+    render(<BulkMeasurementTable plants={[p]} inputStatus={{}} onCommitValue={vi.fn()} />)
 
     // No link since uuid missing
     expect(screen.queryByRole('link', { name: /Cactus/ })).not.toBeInTheDocument()
@@ -79,7 +79,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         showUpdatedColumn
-      />
+      />,
     )
     // Find cell by title attribute matching raw value (avoid locale formatting)
     const updatedCell = screen.getByTitle(latest)
@@ -97,7 +97,7 @@ describe('BulkMeasurementTable', () => {
         plants={[pSuccess, pError, pNoUuid]}
         inputStatus={{ 'u-ok': 'success', 'u-err': 'error' }}
         onCommitValue={onCommitValue}
-      />
+      />,
     )
 
     // Inputs are rendered in row order
@@ -133,7 +133,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         deemphasizePredicate={deemphasizePredicate}
-      />
+      />,
     )
     const link = screen.getByRole('link', { name: /Dim Plant/i })
     const row = link.closest('tr')
@@ -143,13 +143,7 @@ describe('BulkMeasurementTable', () => {
 
   test('waterLossCellStyle default path styles high loss cell red', () => {
     const pDefault = makePlant({ uuid: 'df', name: 'Default', water_loss_total_pct: 150 }) // triggers default red background
-    render(
-      <BulkMeasurementTable
-        plants={[pDefault]}
-        inputStatus={{}}
-        onCommitValue={vi.fn()}
-      />
-    )
+    render(<BulkMeasurementTable plants={[pDefault]} inputStatus={{}} onCommitValue={vi.fn()} />)
     const dfCell = screen.getByText('150%').closest('td')
     expect(dfCell).toBeTruthy()
     expect(dfCell).toHaveStyle({ background: '#dc2626' })
@@ -164,7 +158,7 @@ describe('BulkMeasurementTable', () => {
         inputStatus={{}}
         onCommitValue={vi.fn()}
         waterLossCellStyle={override}
-      />
+      />,
     )
     const ovCell = screen.getByText('10%').closest('td')
     expect(ovCell).toBeTruthy()
@@ -173,17 +167,22 @@ describe('BulkMeasurementTable', () => {
 
   test('renders empty state with correct colSpan when no plants', () => {
     const { rerender } = render(
-      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} />
+      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} />,
     )
     const cell = screen.getByText(/No plants found/i)
     expect(cell).toBeInTheDocument()
-    expect(cell).toHaveAttribute('colspan', '6')
+    expect(cell).toHaveAttribute('colspan', '100')
 
-    // With Updated column enabled, colspan increases to 7
+    // With Updated column enabled, colspan stays at 100 (spans all columns)
     rerender(
-      <BulkMeasurementTable plants={[]} inputStatus={{}} onCommitValue={vi.fn()} showUpdatedColumn />
+      <BulkMeasurementTable
+        plants={[]}
+        inputStatus={{}}
+        onCommitValue={vi.fn()}
+        showUpdatedColumn
+      />,
     )
     const cell2 = screen.getByText(/No plants found/i)
-    expect(cell2).toHaveAttribute('colspan', '7')
+    expect(cell2).toHaveAttribute('colspan', '100')
   })
 })

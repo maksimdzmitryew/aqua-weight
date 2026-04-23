@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import DailyCare from '../../../src/pages/DailyCare.jsx'
@@ -8,6 +8,7 @@ import { http, HttpResponse } from 'msw'
 import { plantsApi } from '../../../src/api/plants'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock navigate to assert button navigations
 const mockNavigate = vi.fn()
@@ -26,7 +27,7 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
       <h1>{title}</h1>
       {children}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -38,7 +39,7 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       {onCreate && <button onClick={onCreate}>Create</button>}
       {actions}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/IconButton.jsx', () => ({
@@ -46,15 +47,23 @@ vi.mock('../../../src/components/IconButton.jsx', () => ({
     <button onClick={onClick} aria-label={label} data-icon={icon}>
       {label}
     </button>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => (
+    <div role="status" data-testid="loader">
+      {message || 'Loading...'}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
@@ -62,22 +71,35 @@ vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
     <div role="note" data-testid="empty-state">
       <h3>{title}</h3>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/StatusIcon.jsx', () => ({
-  default: ({ type, active }) => <div role="img" aria-label={active ? (type === 'measure' ? 'Needs measurement' : 'Needs watering') : (type === 'measure' ? 'No measurement needed' : 'No watering needed')} />
+  default: ({ type, active }) => (
+    <div
+      role="img"
+      aria-label={
+        active
+          ? type === 'measure'
+            ? 'Needs measurement'
+            : 'Needs watering'
+          : type === 'measure'
+            ? 'No measurement needed'
+            : 'No watering needed'
+      }
+    />
+  ),
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/utils/datetime.js', async () => {
   const actual = await vi.importActual('../../../src/utils/datetime.js')
   return {
     ...actual,
-    formatDateTime: (val) => val
+    formatDateTime: (val) => val,
   }
 })
 
@@ -90,23 +112,26 @@ function renderPage(mode = 'manual') {
   return render(
     <MemoryRouter>
       <DailyCare />
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
 test('shows tasks table with water indicators', async () => {
   // provide one plant that needs both water and measurement
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       {
-        uuid: 'u1', id: 1, name: 'Aloe', latest_at: '2020-01-01T00:00:00',
-      }
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'u1', days_offset: 0 }
-      ]
-    }))
+        uuid: 'u1',
+        id: 1,
+        name: 'Aloe',
+        latest_at: '2020-01-01T00:00:00',
+      },
+    ]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'u1', days_offset: 0 }],
+      }),
+    ),
   )
   renderPage('vacation') // Use vacation to match original test expectations (no measurement icon)
 
@@ -125,16 +150,19 @@ test('shows tasks table with water indicators', async () => {
 test('renders empty state when no tasks are due', async () => {
   // All plants above water threshold and recently updated (future time) → no tasks
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       {
-        uuid: 'x1', id: 1, name: 'Fern', latest_at: '2999-01-01T00:00:00',
+        uuid: 'x1',
+        id: 1,
+        name: 'Fern',
+        latest_at: '2999-01-01T00:00:00',
       },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'x1', days_offset: 5 }
-      ]
-    }))
+    ]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'x1', days_offset: 5 }],
+      }),
+    ),
   )
   renderPage('vacation') // Use vacation mode to ensure no measurement tasks are generated
   const note = await screen.findByRole('note')
@@ -145,7 +173,7 @@ test('handles non-array API response gracefully as empty', async () => {
   // Spy to return a non-array; component should treat as [] and show EmptyState
   const spy = vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({})
   server.use(
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage('vacation') // Use vacation mode
   const note = await screen.findByRole('note')
@@ -156,42 +184,50 @@ test('handles non-array API response gracefully as empty', async () => {
 test('shows error notice when API fails', async () => {
   server.use(
     http.get('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage()
   const alert = await screen.findByRole('alert')
   expect(alert).toHaveTextContent(/boom/i)
 })
 
-test("shows default error message when API rejects without message", async () => {
+test('shows default error message when API rejects without message', async () => {
   // Spy on plantsApi.list to reject with an object without message so component uses fallback text
   const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({})
   server.use(
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage()
   const alert = await screen.findByRole('alert')
-  expect(alert).toHaveTextContent("Failed to load today's tasks")
+  expect(alert).toHaveTextContent('Failed to load plants')
   spy.mockRestore()
 })
 
 test('header actions: refresh reloads data; buttons navigate and show counts', async () => {
   // First response: two plants, one needs water
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       {
-        uuid: 'a', id: 1, name: 'Aloe', latest_at: '2025-01-01T00:00:00',
+        uuid: 'a',
+        id: 1,
+        name: 'Aloe',
+        latest_at: '2025-01-01T00:00:00',
       },
       {
-        uuid: 'b', id: 2, name: 'Cactus', latest_at: '2025-01-01T00:00:00',
+        uuid: 'b',
+        id: 2,
+        name: 'Cactus',
+        latest_at: '2025-01-01T00:00:00',
       },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'a', days_offset: 0 },
-        { plant_uuid: 'b', days_offset: 2 }
-      ]
-    }))
+    ]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [
+          { plant_uuid: 'a', days_offset: 0 },
+          { plant_uuid: 'b', days_offset: 2 },
+        ],
+      }),
+    ),
   )
 
   renderPage('vacation')
@@ -211,14 +247,14 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
 
   // Now change server response and click refresh to re-load
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       { uuid: 'c', id: 3, name: 'New', latest_at: '2999-01-01T00:00:00' },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'c', days_offset: 10 }
-      ]
-    }))
+    ]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'c', days_offset: 10 }],
+      }),
+    ),
   )
   const refreshBtn = screen.getByRole('button', { name: /refresh/i })
   fireEvent.click(refreshBtn)
@@ -226,12 +262,35 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
   expect(await screen.findByRole('note')).toHaveTextContent(/No tasks for today/i)
 })
 
+test('handle reload error (line 111) and refetch usage', async () => {
+  const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+  // To trigger refetch, we can call the handleRefresh on PageHeader
+  server.use(...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]))
+  renderPage()
+  await screen.findByRole('table')
+
+  // Now make reload fail
+  server.use(
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({ message: 'Fail' }, { status: 500 }),
+    ),
+  )
+  const refreshBtn = screen.getByRole('button', { name: /refresh/i })
+  fireEvent.click(refreshBtn)
+
+  await waitFor(() =>
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to reload approximations', expect.any(Error)),
+  )
+  consoleSpy.mockRestore()
+})
+
 test('missing approximation data results in no tasks', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       { uuid: 'x', id: 10, name: 'Ivy', latest_at: '2020-01-01T00:00:00' },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+    ]),
+    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage('vacation')
   const note = await screen.findByRole('note')
@@ -240,14 +299,12 @@ test('missing approximation data results in no tasks', async () => {
 
 test('missing latest_at results in no measurement icon and potentially needs water from approximation', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'm1', id: 20, name: 'Monstera' },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'm1', days_offset: 0 }
-      ]
-    }))
+    ...paginatedPlantsHandler([{ uuid: 'm1', id: 20, name: 'Monstera' }]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'm1', days_offset: 0 }],
+      }),
+    ),
   )
   renderPage('vacation')
   await screen.findByRole('table')
@@ -260,16 +317,18 @@ test('missing latest_at results in no measurement icon and potentially needs wat
 test('fallback rendering: water task from approximation and name/notes/location fallbacks', async () => {
   // One plant: has identify_hint and only measurement due; another: no names to force em-dash and reason fallback
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
+    ...paginatedPlantsHandler([
       { uuid: 'p1', id: 11, identify_hint: 'Hint:', plant: 'LegacyName', location: 'Shelf' },
       { uuid: 'p2', id: 12, reason: 'Auto', scheduled_for: '2024-12-12T12:00:00' },
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'p1', days_offset: 0 },
-        { plant_uuid: 'p2', days_offset: 0 }
-      ]
-    }))
+    ]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [
+          { plant_uuid: 'p1', days_offset: 0 },
+          { plant_uuid: 'p2', days_offset: 0 },
+        ],
+      }),
+    ),
   )
   renderPage('vacation')
   const table = await screen.findByRole('table')
@@ -303,15 +362,14 @@ test('unmount runs effect cleanup (improves function coverage)', async () => {
       <MemoryRouter>
         <DailyCare />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Wait until either table or empty state appears (depending on default MSW handlers)
-  await screen.findByRole('table')
-    .catch(async () => {
-      // if no table, expect an empty state note to be present
-      await screen.findByRole('note')
-    })
+  await screen.findByRole('table').catch(async () => {
+    // if no table, expect an empty state note to be present
+    await screen.findByRole('note')
+  })
 
   // Now unmount to execute the useEffect cleanup function
   expect(() => unmount()).not.toThrow()
@@ -323,7 +381,7 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
       <MemoryRouter>
         <DailyCare />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 
   // Wait for header to be present and click the back button
@@ -337,14 +395,12 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
 
 test('bulk watering button does not show count when not in vacation mode', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'a', days_offset: 0 }
-      ]
-    }))
+    ...paginatedPlantsHandler([{ uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [{ plant_uuid: 'a', days_offset: 0 }],
+      }),
+    ),
   )
 
   renderPage('manual')
@@ -357,14 +413,14 @@ test('bulk watering button does not show count when not in vacation mode', async
 
 test('shows weight column and enables bulk measurement in manual mode', async () => {
   server.use(
-    http.get('/api/plants', () => HttpResponse.json([
-      { uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }
-    ])),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-      items: [
-        { plant_uuid: 'a', days_offset: 10 } // Not needing water
-      ]
-    }))
+    ...paginatedPlantsHandler([{ uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }]),
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [
+          { plant_uuid: 'a', days_offset: 10 }, // Not needing water
+        ],
+      }),
+    ),
   )
 
   renderPage('manual')
@@ -373,7 +429,7 @@ test('shows weight column and enables bulk measurement in manual mode', async ()
   // Bulk measurement should be enabled
   const weightBtn = screen.getByRole('button', { name: /Bulk measurement/ })
   expect(weightBtn).not.toBeDisabled()
-  
+
   // Weight column should be present in header
   expect(screen.getByRole('columnheader', { name: /Weight/i })).toBeInTheDocument()
 

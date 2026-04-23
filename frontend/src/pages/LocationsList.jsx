@@ -25,12 +25,13 @@ export default function LocationsList() {
       try {
         const data = await locationsApi.list(controller.signal)
         setLocations(Array.isArray(data) ? data : [])
+        setLoading(false)
       } catch (e) {
         // Ignore abort errors (e.g., React StrictMode double-invokes effects in dev)
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) setError(msg || 'Failed to load locations')
-      } finally {
+        if (isAbort) return
+        setError(msg || 'Failed to load locations')
         setLoading(false)
       }
     }
@@ -46,12 +47,16 @@ export default function LocationsList() {
       setLocations((prev) => prev.map((it) => (it.id === updated.id ? updated : it)))
       try {
         window.history.replaceState({}, document.title, routerLocation.pathname)
-      } catch {}
+      } catch {
+        // ignore
+      }
     }
   }, [routerLocation.state, routerLocation.pathname])
 
   function handleView(l) {
-    const details = `Location #${l.id}\nName: ${l.name}\nDescription: ${l.description || '—'}\nCreated: ${formatDateTime(l.created_at)}`
+    const details = `Location #${l.id}\nName: ${l.name}\nDescription: ${
+      l.description || '—'
+    }\nCreated: ${formatDateTime(l.created_at)}`
     window.alert(details)
   }
 
@@ -105,7 +110,10 @@ export default function LocationsList() {
   }
 
   async function confirmDelete() {
-    if (!toDelete) { closeDialog(); return }
+    if (!toDelete) {
+      closeDialog()
+      return
+    }
     try {
       setSaveError('')
       const uuid = toDelete.uuid
@@ -133,7 +141,7 @@ export default function LocationsList() {
 
       <p>List of all available locations fetched from the API.</p>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div className="text-danger">{error}</div>}
       {saveError && !loading && <div className="text-danger">{saveError}</div>}
 
@@ -151,28 +159,54 @@ export default function LocationsList() {
             </thead>
             <tbody>
               {locations.map((l, idx) => (
-                <tr key={l.id}
-                    draggable
-                    onDragStart={() => onDragStart(idx)}
-                    onDragOver={(e) => onDragOver(e, idx)}
-                    onDragEnd={onDragEnd}
+                <tr
+                  key={l.id}
+                  draggable
+                  onDragStart={() => onDragStart(idx)}
+                  onDragOver={(e) => onDragOver(e, idx)}
+                  onDragEnd={onDragEnd}
                 >
                   <td className="td" style={{ width: 24 }}>
-                    <span className="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">⋮⋮</span>
+                    <span
+                      className="drag-handle"
+                      title="Drag to reorder"
+                      aria-label="Drag to reorder"
+                    >
+                      ⋮⋮
+                    </span>
                   </td>
                   <td className="td">{l.name}</td>
                   <td className="td">{l.description || '—'}</td>
-                  <td className="td"><DateTimeText value={l.created_at} /></td>
+                  <td className="td">
+                    <DateTimeText value={l.created_at} />
+                  </td>
                   <td className="td text-right nowrap">
-                    <IconButton icon="view" label={`View location ${l.name}`} onClick={() => handleView(l)} variant="ghost" />
-                    <IconButton icon="edit" label={`Edit location ${l.name}`} onClick={() => handleEdit(l)} variant="subtle" />
-                    <IconButton icon="delete" label={`Delete location ${l.name}`} onClick={() => handleDelete(l)} variant="danger" />
+                    <IconButton
+                      icon="view"
+                      label={`View location ${l.name}`}
+                      onClick={() => handleView(l)}
+                      variant="ghost"
+                    />
+                    <IconButton
+                      icon="edit"
+                      label={`Edit location ${l.name}`}
+                      onClick={() => handleEdit(l)}
+                      variant="subtle"
+                    />
+                    <IconButton
+                      icon="delete"
+                      label={`Delete location ${l.name}`}
+                      onClick={() => handleDelete(l)}
+                      variant="danger"
+                    />
                   </td>
                 </tr>
               ))}
               {locations.length === 0 && (
                 <tr>
-                  <td className="td" colSpan={5}>No locations found</td>
+                  <td className="td" colSpan={5}>
+                    No locations found
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -193,4 +227,3 @@ export default function LocationsList() {
     </DashboardLayout>
   )
 }
-

@@ -15,17 +15,18 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/ConfirmDialog.jsx', () => ({
-  default: ({ open, onConfirm, onCancel, title }) => open ? (
-    <div role="dialog" data-testid="mock-confirm-dialog">
-      <h2>{title}</h2>
-      <button onClick={onConfirm}>Delete</button>
-      <button onClick={onCancel}>Cancel</button>
-    </div>
-  ) : null
+  default: ({ open, onConfirm, onCancel, title }) =>
+    open ? (
+      <div role="dialog" data-testid="mock-confirm-dialog">
+        <h2>{title}</h2>
+        <button onClick={onConfirm}>Delete</button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+    ) : null,
 }))
 
 vi.mock('../../../src/components/IconButton.jsx', () => ({
@@ -33,11 +34,11 @@ vi.mock('../../../src/components/IconButton.jsx', () => ({
     <button onClick={onClick} aria-label={label} data-icon={icon}>
       {label}
     </button>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -47,11 +48,11 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onBack}>Dashboard</button>
       <button onClick={onCreate}>Create</button>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({
-  formatDateTime: (val) => val
+  formatDateTime: (val) => val,
 }))
 
 function renderPage(initialEntries) {
@@ -60,7 +61,7 @@ function renderPage(initialEntries) {
       <MemoryRouter initialEntries={initialEntries || ['/locations']}>
         <LocationsList />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -70,10 +71,18 @@ describe('pages/LocationsList', () => {
   })
   test('renders locations after loading', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 1, uuid: 'l1', name: 'Living Room', description: 'Sunny', created_at: '2025-01-01 10:00' },
-        { id: 2, uuid: 'l2', name: 'Kitchen', description: '', created_at: '2025-01-02 11:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          {
+            id: 1,
+            uuid: 'l1',
+            name: 'Living Room',
+            description: 'Sunny',
+            created_at: '2025-01-01 10:00',
+          },
+          { id: 2, uuid: 'l2', name: 'Kitchen', description: '', created_at: '2025-01-02 11:00' },
+        ]),
+      ),
     )
 
     renderPage()
@@ -85,14 +94,18 @@ describe('pages/LocationsList', () => {
   test('applies updatedLocation from router state and clears history state; header buttons navigate', async () => {
     // Base list with one item to be updated
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 5, uuid: 'uu5', name: 'Before', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 5, uuid: 'uu5', name: 'Before', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
 
     const replaceSpy = vi.spyOn(window.history, 'replaceState')
 
-    renderPage([{ pathname: '/locations', state: { updatedLocation: { id: 5, uuid: 'uu5', name: 'After' } } }])
+    renderPage([
+      { pathname: '/locations', state: { updatedLocation: { id: 5, uuid: 'uu5', name: 'After' } } },
+    ])
 
     // History state should be cleared via replaceState when updatedLocation present
     // Note: DOM text might still show original name depending on load timing, so we assert replaceState call.
@@ -112,9 +125,7 @@ describe('pages/LocationsList', () => {
   })
 
   test('renders empty state when no locations', async () => {
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
 
     renderPage()
     // table has a single row with "No locations found"
@@ -124,7 +135,7 @@ describe('pages/LocationsList', () => {
 
   test('shows error message when API fails', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json({ message: 'down' }, { status: 500 }))
+      http.get('/api/locations', () => HttpResponse.json({ message: 'down' }, { status: 500 })),
     )
     renderPage()
     // Depending on apiClient, message may be the server body message or the fallback text
@@ -133,11 +144,13 @@ describe('pages/LocationsList', () => {
 
   test('drag-and-drop reorders and persists order; server error shows saveError', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 1, uuid: 'a', name: 'A', description: '', created_at: '2025-01-01 00:00' },
-        { id: 2, uuid: 'b', name: 'B', description: '', created_at: '2025-01-01 00:00' },
-        { id: 3, uuid: 'c', name: 'C', description: '', created_at: '2025-01-01 00:00' },
-      ])),
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 1, uuid: 'a', name: 'A', description: '', created_at: '2025-01-01 00:00' },
+          { id: 2, uuid: 'b', name: 'B', description: '', created_at: '2025-01-01 00:00' },
+          { id: 3, uuid: 'c', name: 'C', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
       http.put('/api/locations/order', async ({ request }) => {
         const body = await request.json()
         // Accept only when first is 'b' (after moving A below B); else return error
@@ -145,7 +158,7 @@ describe('pages/LocationsList', () => {
           return HttpResponse.json({ ok: true })
         }
         return HttpResponse.json({ message: 'Persist failed' }, { status: 500 })
-      })
+      }),
     )
 
     renderPage()
@@ -159,7 +172,15 @@ describe('pages/LocationsList', () => {
 
     const rowA = bodyRows()[0]
     const rowB = bodyRows()[1]
-    const dt = { data: {}, setData(k,v){ this.data[k]=v }, getData(k){ return this.data[k] } }
+    const dt = {
+      data: {},
+      setData(k, v) {
+        this.data[k] = v
+      },
+      getData(k) {
+        return this.data[k]
+      },
+    }
     fireEvent.dragStart(rowA, { dataTransfer: dt })
     fireEvent.dragOver(rowB, { dataTransfer: dt })
     fireEvent.dragEnd(rowB, { dataTransfer: dt })
@@ -181,9 +202,11 @@ describe('pages/LocationsList', () => {
   test('delete flow: missing uuid shows saveError; API error keeps row; success removes row', async () => {
     // 1) Missing uuid case
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 1, name: 'NoId', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 1, name: 'NoId', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     renderPage()
 
@@ -191,14 +214,20 @@ describe('pages/LocationsList', () => {
     fireEvent.click(screen.getByRole('button', { name: /delete location noid/i }))
     const dlg1 = await screen.findByRole('dialog')
     fireEvent.click(within(dlg1).getByRole('button', { name: /delete/i }))
-    expect(await screen.findByText(/cannot delete this location: missing identifier/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/cannot delete this location: missing identifier/i),
+    ).toBeInTheDocument()
 
     // 2) API error case
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 2, uuid: 'x1', name: 'X', description: '', created_at: '2025-01-01 00:00' },
-      ])),
-      http.delete('/api/locations/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 }))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 2, uuid: 'x1', name: 'X', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
+      http.delete('/api/locations/:uuid', () =>
+        HttpResponse.json({ message: 'Boom' }, { status: 500 }),
+      ),
     )
     renderPage()
     expect(await screen.findByText('X')).toBeInTheDocument()
@@ -212,10 +241,12 @@ describe('pages/LocationsList', () => {
 
     // 3) Success removes row
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 3, uuid: 'y1', name: 'Y', description: '', created_at: '2025-01-01 00:00' },
-      ])),
-      http.delete('/api/locations/:uuid', () => HttpResponse.json({ ok: true }))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 3, uuid: 'y1', name: 'Y', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
+      http.delete('/api/locations/:uuid', () => HttpResponse.json({ ok: true })),
     )
     renderPage()
     expect(await screen.findByText('Y')).toBeInTheDocument()
@@ -230,9 +261,11 @@ describe('pages/LocationsList', () => {
     // Spy alert
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 10, uuid: 'u10', name: 'Old', description: 'D', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 10, uuid: 'u10', name: 'Old', description: 'D', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
 
     renderPage()
@@ -250,9 +283,17 @@ describe('pages/LocationsList', () => {
 
   test('edit button navigates to location edit with state', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 7, uuid: 'u7', name: 'To Edit', description: 'Desc', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          {
+            id: 7,
+            uuid: 'u7',
+            name: 'To Edit',
+            description: 'Desc',
+            created_at: '2025-01-01 00:00',
+          },
+        ]),
+      ),
     )
 
     renderPage()
@@ -273,10 +314,12 @@ describe('pages/LocationsList', () => {
   test('drag handlers early returns and abort error path produce no changes/errors', async () => {
     // Return data but we will abort before it resolves in one run; then run again normally
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 30, uuid: 'u30', name: 'D1', description: '', created_at: '2025-01-01 00:00' },
-        { id: 31, uuid: 'u31', name: 'D2', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 30, uuid: 'u30', name: 'D1', description: '', created_at: '2025-01-01 00:00' },
+          { id: 31, uuid: 'u31', name: 'D2', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
 
     const { unmount } = renderPage()
@@ -293,7 +336,15 @@ describe('pages/LocationsList', () => {
     const first = rows()[0]
 
     // onDragOver early return when dragIndex === index (no reorder)
-    const dt = { data: {}, setData(k,v){ this.data[k]=v }, getData(k){ return this.data[k] } }
+    const dt = {
+      data: {},
+      setData(k, v) {
+        this.data[k] = v
+      },
+      getData(k) {
+        return this.data[k]
+      },
+    }
     const reorderSpy = vi.spyOn(locationsApi, 'reorder').mockResolvedValueOnce({})
     fireEvent.dragStart(first, { dataTransfer: dt })
     fireEvent.dragOver(first, { dataTransfer: dt }) // same index → early return path
@@ -310,10 +361,18 @@ describe('pages/LocationsList', () => {
 
   test('persistOrder early-return when some locations have no uuid (no API call)', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 21, name: 'No UUID', description: '', created_at: '2025-01-01 00:00' },
-        { id: 22, uuid: 'u22', name: 'Has UUID', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 21, name: 'No UUID', description: '', created_at: '2025-01-01 00:00' },
+          {
+            id: 22,
+            uuid: 'u22',
+            name: 'Has UUID',
+            description: '',
+            created_at: '2025-01-01 00:00',
+          },
+        ]),
+      ),
     )
 
     const reorderSpy = vi.spyOn(locationsApi, 'reorder')
@@ -324,7 +383,15 @@ describe('pages/LocationsList', () => {
     const rows = () => screen.getAllByRole('row').slice(1)
     const first = rows()[0]
     const second = rows()[1]
-    const dt = { data: {}, setData(k,v){ this.data[k]=v }, getData(k){ return this.data[k] } }
+    const dt = {
+      data: {},
+      setData(k, v) {
+        this.data[k] = v
+      },
+      getData(k) {
+        return this.data[k]
+      },
+    }
     // Reorder to trigger onDragEnd which calls persistOrder
     fireEvent.dragStart(first, { dataTransfer: dt })
     fireEvent.dragOver(second, { dataTransfer: dt })
@@ -339,9 +406,7 @@ describe('pages/LocationsList', () => {
   })
 
   test('handles non-array locations response gracefully and shows empty state', async () => {
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json({}))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json({})))
     renderPage()
     const cell = await screen.findByText('No locations found')
     expect(cell).toBeInTheDocument()
@@ -349,10 +414,12 @@ describe('pages/LocationsList', () => {
 
   test('onDragOver and onDragEnd without active drag index do nothing', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 41, uuid: 'u41', name: 'X', description: '', created_at: '2025-01-01 00:00' },
-        { id: 42, uuid: 'u42', name: 'Y', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 41, uuid: 'u41', name: 'X', description: '', created_at: '2025-01-01 00:00' },
+          { id: 42, uuid: 'u42', name: 'Y', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     const reorderSpy = vi.spyOn(locationsApi, 'reorder')
     renderPage()
@@ -371,10 +438,12 @@ describe('pages/LocationsList', () => {
 
   test('persistOrder catch fallback: API rejects without message shows generic save error', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 70, uuid: 'a70', name: 'A', description: '', created_at: '2025-01-01 00:00' },
-        { id: 71, uuid: 'b71', name: 'B', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 70, uuid: 'a70', name: 'A', description: '', created_at: '2025-01-01 00:00' },
+          { id: 71, uuid: 'b71', name: 'B', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     const spy = vi.spyOn(locationsApi, 'reorder').mockRejectedValueOnce({})
     renderPage()
@@ -382,7 +451,15 @@ describe('pages/LocationsList', () => {
     const rows = () => screen.getAllByRole('row').slice(1)
     const first = rows()[0]
     const second = rows()[1]
-    const dt = { data: {}, setData(k,v){ this.data[k]=v }, getData(k){ return this.data[k] } }
+    const dt = {
+      data: {},
+      setData(k, v) {
+        this.data[k] = v
+      },
+      getData(k) {
+        return this.data[k]
+      },
+    }
     fireEvent.dragStart(first, { dataTransfer: dt })
     fireEvent.dragOver(second, { dataTransfer: dt })
     fireEvent.dragEnd(second, { dataTransfer: dt })
@@ -392,16 +469,24 @@ describe('pages/LocationsList', () => {
 
   test('router state effect: replaceState catch branch is covered without breaking router', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 80, uuid: 'u80', name: 'R', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 80, uuid: 'u80', name: 'R', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     const spy = vi.spyOn(window.history, 'replaceState').mockImplementation((state, title, url) => {
       if (url === '/locations') throw new Error('boom')
       return undefined
     })
     // Use a different initial URL so router's own replaceState calls don't match '/locations'
-    renderPage([{ pathname: '/locations', search: '?x=1', state: { updatedLocation: { id: 80, uuid: 'u80', name: 'R2' } } }])
+    renderPage([
+      {
+        pathname: '/locations',
+        search: '?x=1',
+        state: { updatedLocation: { id: 80, uuid: 'u80', name: 'R2' } },
+      },
+    ])
     expect(await screen.findByText('R')).toBeInTheDocument()
     spy.mockRestore()
   })
@@ -413,21 +498,25 @@ describe('pages/LocationsList', () => {
     vi.doMock('../../../src/components/ConfirmDialog.jsx', () => ({
       __esModule: true,
       default: (props) => (
-        <button aria-label="trigger-confirm" onClick={() => props.onConfirm()}>Confirm</button>
+        <button aria-label="trigger-confirm" onClick={() => props.onConfirm()}>
+          Confirm
+        </button>
       ),
     }))
     const { default: LocalLocationsList } = await import('../../../src/pages/LocationsList.jsx')
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 90, uuid: 'u90', name: 'Z', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 90, uuid: 'u90', name: 'Z', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     render(
       <ThemeProvider>
         <MemoryRouter>
           <LocalLocationsList />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     fireEvent.click(await screen.findByRole('button', { name: /trigger-confirm/i }))
     expect(removeSpy).not.toHaveBeenCalled()
@@ -440,9 +529,11 @@ describe('pages/LocationsList', () => {
   test('view with missing description uses em dash in alert', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 50, uuid: 'u50', name: 'NoDesc', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 50, uuid: 'u50', name: 'NoDesc', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     renderPage()
     expect(await screen.findByText('NoDesc')).toBeInTheDocument()
@@ -453,7 +544,9 @@ describe('pages/LocationsList', () => {
   })
 
   test('initial load abort error is suppressed (no error message)', async () => {
-    const listSpy = vi.spyOn(locationsApi, 'list').mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+    const listSpy = vi
+      .spyOn(locationsApi, 'list')
+      .mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
     renderPage()
     // Loading should disappear and no error displayed
     await screen.findByText('List of all available locations fetched from the API.')
@@ -473,21 +566,22 @@ describe('pages/LocationsList', () => {
     vi.resetModules()
     vi.doMock('../../../src/components/ConfirmDialog.jsx', () => ({
       __esModule: true,
-      default: (props) => (
+      default: (props) =>
         props.open ? (
           <div role="dialog">
             <button onClick={props.onConfirm}>Delete</button>
           </div>
-        ) : null
-      ),
+        ) : null,
     }))
     const { default: LocalLocationsList } = await import('../../../src/pages/LocationsList.jsx')
 
     // Return a list with one item; then stub locationsApi.remove to reject without message
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 60, uuid: 'u60', name: 'Del', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 60, uuid: 'u60', name: 'Del', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
     // Spy on the same module instance that the dynamically imported component uses
     const api = await import('../../../src/api/locations')
@@ -498,14 +592,16 @@ describe('pages/LocationsList', () => {
         <MemoryRouter>
           <LocalLocationsList />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(await screen.findByText('Del')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /delete location del/i }))
     const dlg = await screen.findByRole('dialog')
     fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     // Assert generic fallback or any status-derived message is surfaced
-    expect(await screen.findByText(/failed to delete location|internal server error|500/i)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/failed to delete location|internal server error|500/i),
+    ).toBeInTheDocument()
     // Row remains
     expect(screen.getByText('Del')).toBeInTheDocument()
     removeSpy.mockRestore()
@@ -518,26 +614,29 @@ describe('pages/LocationsList', () => {
     vi.resetModules()
     vi.doMock('../../../src/components/ConfirmDialog.jsx', () => ({
       __esModule: true,
-      default: (props) => (
+      default: (props) =>
         props.open ? (
           <div role="dialog">
             <button onClick={props.onConfirm}>Delete</button>
           </div>
-        ) : null
-      ),
+        ) : null,
     }))
     const { default: LocalLocationsList } = await import('../../../src/pages/LocationsList.jsx')
 
     // Make list contain one deletable row
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 61, uuid: 'u61', name: 'Row', description: '', created_at: '2025-01-01 00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 61, uuid: 'u61', name: 'Row', description: '', created_at: '2025-01-01 00:00' },
+        ]),
+      ),
     )
 
     // Provide MSW handler that returns 500 with a message to exercise e?.message branch
     server.use(
-      http.delete('/api/locations/:uuid', () => HttpResponse.json({ message: 'Kaboom' }, { status: 500 }))
+      http.delete('/api/locations/:uuid', () =>
+        HttpResponse.json({ message: 'Kaboom' }, { status: 500 }),
+      ),
     )
 
     render(
@@ -545,7 +644,7 @@ describe('pages/LocationsList', () => {
         <MemoryRouter>
           <LocalLocationsList />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByText('Row')).toBeInTheDocument()

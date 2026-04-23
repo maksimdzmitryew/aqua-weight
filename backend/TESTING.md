@@ -5,10 +5,12 @@ This guide explains how to run backend tests, the fixture philosophy, and common
 ## Commands
 
 - Run or rebuild the Docker test stack (DB, backend image, test runner):
+
   - Rebuild and start: `docker compose -f docker-compose.test.yml up -d --build`
   - Stop stack: `docker compose -f docker-compose.test.yml down`
 
 - Execute the backend test suite from the runner container using pytest:
+
   - `docker compose -f docker-compose.test.yml exec tests pytest -q`
   - With coverage: `docker compose -f docker-compose.test.yml exec tests pytest -q --cov=app --cov-report=term-missing`
 
@@ -68,6 +70,7 @@ assert resp.json()['id'] == plant.id
 ## Linting and Type Checking (optional but recommended)
 
 Inside the tests container:
+
 - Ruff: `ruff backend`
 - MyPy: `mypy backend`
 

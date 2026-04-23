@@ -28,9 +28,18 @@ export function buildUpdatePayload(plant) {
     light_level_id: (plant.light_level_id || '').trim() || null,
     pest_status_id: (plant.pest_status_id || '').trim() || null,
     health_status_id: (plant.health_status_id || '').trim() || null,
-    recommended_water_threshold_pct: (plant.recommended_water_threshold_pct === '' || plant.recommended_water_threshold_pct == null) ? null : Number(plant.recommended_water_threshold_pct),
-    min_dry_weight_g: (plant.min_dry_weight_g === '' || plant.min_dry_weight_g == null) ? null : Number(plant.min_dry_weight_g),
-    max_water_weight_g: (plant.max_water_weight_g === '' || plant.max_water_weight_g == null) ? null : Number(plant.max_water_weight_g),
+    recommended_water_threshold_pct:
+      plant.recommended_water_threshold_pct === '' || plant.recommended_water_threshold_pct == null
+        ? null
+        : Number(plant.recommended_water_threshold_pct),
+    min_dry_weight_g:
+      plant.min_dry_weight_g === '' || plant.min_dry_weight_g == null
+        ? null
+        : Number(plant.min_dry_weight_g),
+    max_water_weight_g:
+      plant.max_water_weight_g === '' || plant.max_water_weight_g == null
+        ? null
+        : Number(plant.max_water_weight_g),
   }
   const idHex = plant.uuid
   if (!idHex) throw new Error('Missing plant id')
@@ -87,12 +96,13 @@ export default function PlantEdit() {
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(normalize(data))
+        setLoading(false)
       } catch (e) {
         /* c8 ignore next */
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
-        if (!isAbort) setError('Failed to load plant')
-      } finally {
+        if (isAbort) return
+        setError('Failed to load plant')
         setLoading(false)
       }
     }
@@ -115,7 +125,9 @@ export default function PlantEdit() {
       }
     }
     loadLocations()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   function onChange(e) {
@@ -127,7 +139,7 @@ export default function PlantEdit() {
     e.preventDefault()
     try {
       const built = buildUpdatePayload(plant)
-      const resData = await plantsApi.update(built.idHex, built.payload)
+      await plantsApi.update(built.idHex, built.payload)
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {
@@ -165,12 +177,17 @@ export default function PlantEdit() {
     border: '1px solid transparent',
     cursor: 'pointer',
   }
-  const tabsWrap = { display: 'flex', gap: 8, borderBottom: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}`, marginBottom: 16 }
+  const tabsWrap = {
+    display: 'flex',
+    gap: 8,
+    borderBottom: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}`,
+    marginBottom: 16,
+  }
   const tabBtn = (active) => ({
     ...btn,
     background: active ? (isDark ? '#111827' : '#111827') : 'transparent',
-    color: active ? 'white' : (isDark ? '#9ca3af' : '#374151'),
-    borderColor: active ? 'transparent' : (isDark ? '#374151' : '#d1d5db'),
+    color: active ? 'white' : isDark ? '#9ca3af' : '#374151',
+    borderColor: active ? 'transparent' : isDark ? '#374151' : '#d1d5db',
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
   })
@@ -182,49 +199,129 @@ export default function PlantEdit() {
         <Link to="/plants">← Back to Plants</Link>
       </p>
 
-      {loading && <div>Loading…</div>}
+      {loading && <div>Loading...</div>}
       {error && !loading && <div style={{ color: 'crimson' }}>{error}</div>}
 
       {!loading && !error && plant && (
         <form onSubmit={onSave} style={boxStyle}>
           <div style={tabsWrap} role="tablist" aria-label="Edit plant tabs">
-            <button type="button" role="tab" aria-selected={activeTab === 'general'} onClick={() => setActiveTab('general')} style={tabBtn(activeTab === 'general')}>General</button>
-            <button type="button" role="tab" aria-selected={activeTab === 'advanced'} onClick={() => setActiveTab('advanced')} style={tabBtn(activeTab === 'advanced')}>Advanced</button>
-            <button type="button" role="tab" aria-selected={activeTab === 'calculated'} onClick={() => setActiveTab('calculated')} style={tabBtn(activeTab === 'calculated')}>Calculated</button>
-            <button type="button" role="tab" aria-selected={activeTab === 'health'} onClick={() => setActiveTab('health')} style={tabBtn(activeTab === 'health')}>Health</button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'general'}
+              onClick={() => setActiveTab('general')}
+              style={tabBtn(activeTab === 'general')}
+            >
+              General
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'advanced'}
+              onClick={() => setActiveTab('advanced')}
+              style={tabBtn(activeTab === 'advanced')}
+            >
+              Advanced
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'calculated'}
+              onClick={() => setActiveTab('calculated')}
+              style={tabBtn(activeTab === 'calculated')}
+            >
+              Calculated
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'health'}
+              onClick={() => setActiveTab('health')}
+              style={tabBtn(activeTab === 'health')}
+            >
+              Health
+            </button>
           </div>
 
           {activeTab === 'general' && (
             <div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="name">Name</label>
-                <input id="name" name="name" value={plant.name || ''} onChange={onChange} style={inputStyle} required disabled />
+                <label style={labelStyle} htmlFor="name">
+                  Name
+                </label>
+                <input
+                  id="name"
+                  name="name"
+                  value={plant.name || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  required
+                  disabled
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="description">Description</label>
-                <textarea id="description" name="description" value={plant.description || ''} onChange={onChange} style={{...inputStyle, minHeight: 90, resize: 'vertical'}} placeholder="Optional notes" />
+                <label style={labelStyle} htmlFor="description">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={plant.description || ''}
+                  onChange={onChange}
+                  style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }}
+                  placeholder="Optional notes"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="location_id">Location</label>
-                <select id="location_id" name="location_id" value={plant.location_id || ''} onChange={onChange} style={inputStyle} disabled={locLoading}>
+                <label style={labelStyle} htmlFor="location_id">
+                  Location
+                </label>
+                <select
+                  id="location_id"
+                  name="location_id"
+                  value={plant.location_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  disabled={locLoading}
+                >
                   <option value="">— Select location —</option>
                   {locations.map((loc) => (
-                    <option key={loc.uuid} value={loc.uuid}>{loc.name}</option>
+                    <option key={loc.uuid} value={loc.uuid}>
+                      {loc.name}
+                    </option>
                   ))}
                 </select>
                 {locError && <div style={{ color: 'crimson', marginTop: 6 }}>{locError}</div>}
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="photo_url">Photo URL</label>
-                <input id="photo_url" name="photo_url" value={plant.photo_url || ''} onChange={onChange} style={inputStyle} placeholder="https://..." />
+                <label style={labelStyle} htmlFor="photo_url">
+                  Photo URL
+                </label>
+                <input
+                  id="photo_url"
+                  name="photo_url"
+                  value={plant.photo_url || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="https://..."
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="default_measurement_method_id">Default Measurement Method ID</label>
-                <input id="default_measurement_method_id" name="default_measurement_method_id" value={plant.default_measurement_method_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="default_measurement_method_id">
+                  Default Measurement Method ID
+                </label>
+                <input
+                  id="default_measurement_method_id"
+                  name="default_measurement_method_id"
+                  value={plant.default_measurement_method_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
             </div>
           )}
@@ -232,42 +329,115 @@ export default function PlantEdit() {
           {activeTab === 'advanced' && (
             <div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="species_name">Species name</label>
-                <input id="species_name" name="species_name" value={plant.species_name || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="species_name">
+                  Species name
+                </label>
+                <input
+                  id="species_name"
+                  name="species_name"
+                  value={plant.species_name || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="botanical_name">Botanical name</label>
-                <input id="botanical_name" name="botanical_name" value={plant.botanical_name || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="botanical_name">
+                  Botanical name
+                </label>
+                <input
+                  id="botanical_name"
+                  name="botanical_name"
+                  value={plant.botanical_name || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="cultivar">Cultivar</label>
-                <input id="cultivar" name="cultivar" value={plant.cultivar || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="cultivar">
+                  Cultivar
+                </label>
+                <input
+                  id="cultivar"
+                  name="cultivar"
+                  value={plant.cultivar || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="substrate_type_id">Substrate Type ID</label>
-                <input id="substrate_type_id" name="substrate_type_id" value={plant.substrate_type_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="substrate_type_id">
+                  Substrate Type ID
+                </label>
+                <input
+                  id="substrate_type_id"
+                  name="substrate_type_id"
+                  value={plant.substrate_type_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="substrate_last_refresh_at">Substrate Last Refresh At</label>
-                <input id="substrate_last_refresh_at" name="substrate_last_refresh_at" type="datetime-local" value={plant.substrate_last_refresh_at || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="substrate_last_refresh_at">
+                  Substrate Last Refresh At
+                </label>
+                <input
+                  id="substrate_last_refresh_at"
+                  name="substrate_last_refresh_at"
+                  type="datetime-local"
+                  value={plant.substrate_last_refresh_at || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="fertilized_last_at">Fertilized Last At</label>
-                <input id="fertilized_last_at" name="fertilized_last_at" type="datetime-local" value={plant.fertilized_last_at || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="fertilized_last_at">
+                  Fertilized Last At
+                </label>
+                <input
+                  id="fertilized_last_at"
+                  name="fertilized_last_at"
+                  type="datetime-local"
+                  value={plant.fertilized_last_at || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="fertilizer_ec_ms">Fertilizer EC (mS)</label>
-                {/* c8 ignore next */}
-                <input id="fertilizer_ec_ms" name="fertilizer_ec_ms" type="number" step="0.01" value={plant.fertilizer_ec_ms ?? ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="fertilizer_ec_ms">
+                  Fertilizer EC (mS)
+                </label>
+                <input
+                  id="fertilizer_ec_ms"
+                  name="fertilizer_ec_ms"
+                  type="number"
+                  step="0.01"
+                  value={plant.fertilizer_ec_ms}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
-              <div style={{...rowStyle, marginTop: 22, paddingTop: 10, borderTop: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}`}}>
+              <div
+                style={{
+                  ...rowStyle,
+                  marginTop: 22,
+                  paddingTop: 10,
+                  borderTop: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}`,
+                }}
+              >
                 <div style={labelStyle}>ID</div>
                 <div>{plant.id}</div>
               </div>
@@ -282,18 +452,48 @@ export default function PlantEdit() {
           {activeTab === 'calculated' && (
             <div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="recommended_water_threshold_pct">Recommended Water Threshold (%)</label>
-                <input id="recommended_water_threshold_pct" name="recommended_water_threshold_pct" type="number" value={plant.recommended_water_threshold_pct} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="recommended_water_threshold_pct">
+                  Recommended Water Threshold (%)
+                </label>
+                <input
+                  id="recommended_water_threshold_pct"
+                  name="recommended_water_threshold_pct"
+                  type="number"
+                  value={plant.recommended_water_threshold_pct}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="min_dry_weight_g">Min Dry Weight (g)</label>
-                <input id="min_dry_weight_g" name="min_dry_weight_g" type="number" value={plant.min_dry_weight_g} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="min_dry_weight_g">
+                  Min Dry Weight (g)
+                </label>
+                <input
+                  id="min_dry_weight_g"
+                  name="min_dry_weight_g"
+                  type="number"
+                  value={plant.min_dry_weight_g}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
 
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="max_water_weight_g">Max Water Weight (g)</label>
-                <input id="max_water_weight_g" name="max_water_weight_g" type="number" value={plant.max_water_weight_g} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="max_water_weight_g">
+                  Max Water Weight (g)
+                </label>
+                <input
+                  id="max_water_weight_g"
+                  name="max_water_weight_g"
+                  type="number"
+                  value={plant.max_water_weight_g}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
             </div>
           )}
@@ -301,23 +501,65 @@ export default function PlantEdit() {
           {activeTab === 'health' && (
             <div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="light_level_id">Light Level ID</label>
-                <input id="light_level_id" name="light_level_id" value={plant.light_level_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="light_level_id">
+                  Light Level ID
+                </label>
+                <input
+                  id="light_level_id"
+                  name="light_level_id"
+                  value={plant.light_level_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="pest_status_id">Pest Status ID</label>
-                <input id="pest_status_id" name="pest_status_id" value={plant.pest_status_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="pest_status_id">
+                  Pest Status ID
+                </label>
+                <input
+                  id="pest_status_id"
+                  name="pest_status_id"
+                  value={plant.pest_status_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
               <div style={rowStyle}>
-                <label style={labelStyle} htmlFor="health_status_id">Health Status ID</label>
-                <input id="health_status_id" name="health_status_id" value={plant.health_status_id || ''} onChange={onChange} style={inputStyle} placeholder="Optional" />
+                <label style={labelStyle} htmlFor="health_status_id">
+                  Health Status ID
+                </label>
+                <input
+                  id="health_status_id"
+                  name="health_status_id"
+                  value={plant.health_status_id || ''}
+                  onChange={onChange}
+                  style={inputStyle}
+                  placeholder="Optional"
+                />
               </div>
             </div>
           )}
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="submit" style={{ ...btn, background: isDark ? '#1f2937' : '#111827', color: 'white' }}>Save</button>
-            <button type="button" onClick={onCancel} style={{ ...btn, background: 'transparent', borderColor: isDark ? '#374151' : '#d1d5db' }}>Cancel</button>
+            <button
+              type="submit"
+              style={{ ...btn, background: isDark ? '#1f2937' : '#111827', color: 'white' }}
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                ...btn,
+                background: 'transparent',
+                borderColor: isDark ? '#374151' : '#d1d5db',
+              }}
+            >
+              Cancel
+            </button>
           </div>
         </form>
       )}

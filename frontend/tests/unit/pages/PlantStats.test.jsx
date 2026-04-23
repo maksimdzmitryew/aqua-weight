@@ -5,10 +5,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 // Stub Sparkline to capture props passed by PlantStats
 vi.mock('../../../src/components/Sparkline.jsx', () => ({
-  default: (props) => React.createElement('div', {
-    'data-testid': 'sparkline',
-    'data-props': JSON.stringify(props),
-  }),
+  default: (props) =>
+    React.createElement('div', {
+      'data-testid': 'sparkline',
+      'data-props': JSON.stringify(props),
+    }),
 }))
 
 // Mock navigate to prevent real navigation
@@ -41,7 +42,7 @@ function renderAt(path, element) {
           <Route path="/stats/:uuid" element={element} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -54,7 +55,8 @@ describe('pages/PlantStats', () => {
 
   test('uses plant from router state (no fetch) and renders Sparkline with refLines and default suggested interval flag', async () => {
     const plant = {
-      uuid: 'p-1', name: 'Aloe',
+      uuid: 'p-1',
+      name: 'Aloe',
       min_dry_weight_g: 100,
       max_water_weight_g: 50,
       recommended_water_threshold_pct: 40,
@@ -84,7 +86,7 @@ describe('pages/PlantStats', () => {
     expect(Array.isArray(props.data)).toBe(true)
     expect(props.data.length).toBe(2)
     // refLines include Dry, Max, Thresh
-    expect(props.refLines?.map(r => r.label)).toEqual(['Dry', 'Max', 'Thresh'])
+    expect(props.refLines?.map((r) => r.label)).toEqual(['Dry', 'Max', 'Thresh'])
     // default suggested interval flag equals true
     expect(props.showFirstBelowThreshVLine).toBe(true)
     // maxWaterG propagated from plant
@@ -92,7 +94,13 @@ describe('pages/PlantStats', () => {
   })
 
   test('shows "Not enough data to chart" when <= 1 point', async () => {
-    const plant = { uuid: 'p-2', name: 'Monstera', min_dry_weight_g: 200, max_water_weight_g: 40, recommended_water_threshold_pct: 30 }
+    const plant = {
+      uuid: 'p-2',
+      name: 'Monstera',
+      min_dry_weight_g: 200,
+      max_water_weight_g: 40,
+      recommended_water_threshold_pct: 30,
+    }
     const { measurementsApi } = await import('../../../src/api/measurements')
     // Single valid point
     measurementsApi.listByPlant.mockResolvedValueOnce([
@@ -136,7 +144,11 @@ describe('pages/PlantStats', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
     const plant = {
-      uuid: 'ok-1', name: 'ZZ Plant', min_dry_weight_g: 90, max_water_weight_g: 30, recommended_water_threshold_pct: 50,
+      uuid: 'ok-1',
+      name: 'ZZ Plant',
+      min_dry_weight_g: 90,
+      max_water_weight_g: 30,
+      recommended_water_threshold_pct: 50,
     }
     plantsApi.getByUuid.mockResolvedValueOnce(plant)
     measurementsApi.listByPlant.mockResolvedValueOnce([
@@ -158,7 +170,11 @@ describe('pages/PlantStats', () => {
   test('respects localStorage chart.showSuggestedInterval flag = 0', async () => {
     localStorage.setItem('chart.showSuggestedInterval', '0')
     const plant = {
-      uuid: 'p-4', name: 'Ficus', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 25,
+      uuid: 'p-4',
+      name: 'Ficus',
+      min_dry_weight_g: 100,
+      max_water_weight_g: 50,
+      recommended_water_threshold_pct: 25,
     }
     const { measurementsApi } = await import('../../../src/api/measurements')
     measurementsApi.listByPlant.mockResolvedValueOnce([
@@ -184,7 +200,11 @@ describe('pages/PlantStats', () => {
       return orig.call(this, key)
     })
     const plant = {
-      uuid: 'p-5', name: 'Fern', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 40,
+      uuid: 'p-5',
+      name: 'Fern',
+      min_dry_weight_g: 100,
+      max_water_weight_g: 50,
+      recommended_water_threshold_pct: 40,
     }
     const { measurementsApi } = await import('../../../src/api/measurements')
     measurementsApi.listByPlant.mockResolvedValueOnce([
@@ -216,7 +236,13 @@ describe('pages/PlantStats', () => {
   })
 
   test('treats non-array measurements response as empty and shows fallback', async () => {
-    const plant = { uuid: 'p-6', name: 'Ivy', min_dry_weight_g: 50, max_water_weight_g: 20, recommended_water_threshold_pct: 30 }
+    const plant = {
+      uuid: 'p-6',
+      name: 'Ivy',
+      min_dry_weight_g: 50,
+      max_water_weight_g: 20,
+      recommended_water_threshold_pct: 30,
+    }
     const { measurementsApi } = await import('../../../src/api/measurements')
     measurementsApi.listByPlant.mockResolvedValueOnce(null)
     const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
@@ -225,7 +251,13 @@ describe('pages/PlantStats', () => {
   })
 
   test('filters out invalid measurements (no date or invalid weight), keeping only valid points', async () => {
-    const plant = { uuid: 'p-7', name: 'Palm', min_dry_weight_g: 80, max_water_weight_g: 40, recommended_water_threshold_pct: 20 }
+    const plant = {
+      uuid: 'p-7',
+      name: 'Palm',
+      min_dry_weight_g: 80,
+      max_water_weight_g: 40,
+      recommended_water_threshold_pct: 20,
+    }
     const { measurementsApi } = await import('../../../src/api/measurements')
     measurementsApi.listByPlant.mockResolvedValueOnce([
       { measured_weight_g: 120, measured_at: '2025-05-01 10:00:00' },
@@ -242,7 +274,13 @@ describe('pages/PlantStats', () => {
   })
 
   test('covers mapping branch where measured_at is falsy at mapping time (line 86 else → NaN filtered)', async () => {
-    const plant = { uuid: 'p-10x', name: 'ToggleDate', min_dry_weight_g: 10, max_water_weight_g: 5, recommended_water_threshold_pct: 50 }
+    const plant = {
+      uuid: 'p-10x',
+      name: 'ToggleDate',
+      min_dry_weight_g: 10,
+      max_water_weight_g: 5,
+      recommended_water_threshold_pct: 50,
+    }
     const { measurementsApi } = await import('../../../src/api/measurements')
     // Craft an entry whose measured_at is truthy on first access (during dayKey build)
     // and falsy on second access (during mapping), so the ternary false branch executes.
@@ -252,7 +290,10 @@ describe('pages/PlantStats', () => {
       configurable: true,
       enumerable: true,
       get() {
-        if (firstRead) { firstRead = false; return '2025-08-01 10:00:00' }
+        if (firstRead) {
+          firstRead = false
+          return '2025-08-01 10:00:00'
+        }
         return '' // falsy on subsequent read → triggers NaN path in mapping
       },
     })
@@ -292,12 +333,20 @@ describe('pages/PlantStats', () => {
     ])
     const { default: PlantStats } = await import('../../../src/pages/PlantStats.jsx')
     renderAt({ pathname: '/stats/r-1', state: { plant: plantA } }, <PlantStats />)
-    let props = JSON.parse((await screen.findByTestId('sparkline')).getAttribute('data-props') || '{}')
+    let props = JSON.parse(
+      (await screen.findByTestId('sparkline')).getAttribute('data-props') || '{}',
+    )
     expect(props.refLines?.length ?? 0).toBe(0)
     expect(props.maxWaterG).toBe(25)
 
     // Now min_dry + max_water with out-of-range threshold -> clamped and Thresh present
-    const plantB = { uuid: 'r-2', name: 'TestB', min_dry_weight_g: 100, max_water_weight_g: 50, recommended_water_threshold_pct: 200 }
+    const plantB = {
+      uuid: 'r-2',
+      name: 'TestB',
+      min_dry_weight_g: 100,
+      max_water_weight_g: 50,
+      recommended_water_threshold_pct: 200,
+    }
     measurementsApi.listByPlant.mockResolvedValueOnce([
       { measured_weight_g: 140, measured_at: '2025-06-01 10:00:00' },
       { measured_weight_g: 130, measured_at: '2025-06-02 10:00:00' },
@@ -307,7 +356,7 @@ describe('pages/PlantStats', () => {
       const all = await screen.findAllByTestId('sparkline')
       const last = all[all.length - 1]
       const props = JSON.parse(last.getAttribute('data-props') || '{}')
-      const labels = props.refLines?.map(r => r.label)
+      const labels = props.refLines?.map((r) => r.label)
       expect(labels).toEqual(['Dry', 'Max', 'Thresh'])
     })
   })
@@ -322,7 +371,13 @@ describe('pages/PlantStats', () => {
   })
 
   test('maxWaterG is null and only Dry refLine when max_water_weight_g is non-finite', async () => {
-    const plant = { uuid: 'p-9', name: 'Pothos', min_dry_weight_g: 77, max_water_weight_g: 'n/a', recommended_water_threshold_pct: 25 }
+    const plant = {
+      uuid: 'p-9',
+      name: 'Pothos',
+      min_dry_weight_g: 77,
+      max_water_weight_g: 'n/a',
+      recommended_water_threshold_pct: 25,
+    }
     const { measurementsApi } = await import('../../../src/api/measurements')
     measurementsApi.listByPlant.mockResolvedValueOnce([
       { measured_weight_g: 100, measured_at: '2025-07-01 10:00:00' },
@@ -333,7 +388,7 @@ describe('pages/PlantStats', () => {
     const spark = await screen.findByTestId('sparkline')
     const props = JSON.parse(spark.getAttribute('data-props') || '{}')
     expect(props.maxWaterG).toBe(null)
-    expect(props.refLines?.map(r => r.label)).toEqual(['Dry'])
+    expect(props.refLines?.map((r) => r.label)).toEqual(['Dry'])
   })
 
   test('Abort error recognized by message content (no error shown to user)', async () => {
@@ -390,7 +445,10 @@ describe('pages/PlantStats', () => {
       get measured_at() {
         // First access (dayKey calculation) returns a valid date string
         // Second access (mapping) returns undefined to exercise the : NaN branch
-        if (state === 0) { state = 1; return '2025-10-01 09:00:00' }
+        if (state === 0) {
+          state = 1
+          return '2025-10-01 09:00:00'
+        }
         return undefined
       },
     }
@@ -412,7 +470,10 @@ describe('pages/PlantStats', () => {
       measured_weight_g: 170,
       get measured_at() {
         // First read for per-day collapse -> valid date; second read in mapping -> null (falsy)
-        if (reads === 0) { reads++; return '2025-11-05 08:00:00' }
+        if (reads === 0) {
+          reads++
+          return '2025-11-05 08:00:00'
+        }
         return null
       },
     }

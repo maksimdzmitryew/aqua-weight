@@ -135,6 +135,7 @@ def test_capture_params_exception_is_swallowed_and_no_restore_attempt(monkeypatc
     conn = FakeConn(cursor)
 
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: conn)
     # Frequency returns None so next_watering branch is skipped
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda conn, uid: None)
@@ -143,7 +144,9 @@ def test_capture_params_exception_is_swallowed_and_no_restore_attempt(monkeypatc
     assert len(items) == 1
     # Because capture failed, restoration should be skipped — attributes remain whatever inner code left
     # In this path there is no inner query, so attributes remain unset
-    assert not hasattr(cursor, "_last_params") or cursor._rows is not None  # sanity; nothing crashes
+    assert (
+        not hasattr(cursor, "_last_params") or cursor._rows is not None
+    )  # sanity; nothing crashes
 
 
 def test_restore_main_cursor_params_and_query(monkeypatch):
@@ -152,6 +155,7 @@ def test_restore_main_cursor_params_and_query(monkeypatch):
     conn = FakeConn(cursor)
 
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: conn)
     # Force next_watering path to run so that an inner execute overwrites last_params/query
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: 2)
@@ -169,6 +173,7 @@ def test_restore_block_exceptions_are_swallowed(monkeypatch):
     conn = FakeConn(cursor)
 
     import backend.app.helpers.plants_list as pl_mod
+
     monkeypatch.setattr(pl_mod, "get_conn", lambda: conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda c, u: 2)
 

@@ -7,13 +7,19 @@ import Select from '../../src/components/form/fields/Select.jsx'
 function makeForm({ defaultValue = '', error = '' } = {}) {
   const state = { value: defaultValue, errors: error ? { sel: error } : {} }
   return {
-    get value() { return state.value },
-    get errors() { return state.errors },
+    get value() {
+      return state.value
+    },
+    get errors() {
+      return state.errors
+    },
     register(field) {
       return {
         name: field,
         value: state.value,
-        onChange: (e) => { state.value = e.target.value },
+        onChange: (e) => {
+          state.value = e.target.value
+        },
       }
     },
   }
@@ -29,7 +35,7 @@ test('renders select with label and options', () => {
     <Select form={form} name="sel" label="Choose one">
       <option value="a">A</option>
       <option value="b">B</option>
-    </Select>
+    </Select>,
   )
   const select = screen.getByLabelText('Choose one')
   expect(select).toBeInTheDocument()
@@ -43,7 +49,7 @@ test('changes selection on user action', async () => {
     <Select form={form} name="sel" label="Choose one">
       <option value="a">A</option>
       <option value="b">B</option>
-    </Select>
+    </Select>,
   )
   const select = screen.getByLabelText('Choose one')
   await user.selectOptions(select, 'b')
@@ -55,7 +61,7 @@ test('shows error and accessibility attributes', () => {
   renderWithTheme(
     <Select form={form} name="sel" label="Choose one">
       <option value="a">A</option>
-    </Select>
+    </Select>,
   )
   expect(screen.getByText('Please select a value')).toBeInTheDocument()
   const select = screen.getByLabelText('Choose one')

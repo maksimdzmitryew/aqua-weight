@@ -6,12 +6,12 @@ from fastapi import APIRouter, Cookie, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, get_conn, hex_to_bin
+from ..db import HEX_RE, bin_to_hex, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
 from ..schemas.plant import (
+    PaginatedPlantsResponse,
     PlantCreateRequest,
     PlantDetail,
-    PlantListItem,
     PlantUpdateRequest,
 )
 from ..utils.settings_defaults import parse_default_threshold
@@ -19,16 +19,93 @@ from ..utils.settings_defaults import parse_default_threshold
 app = APIRouter()
 
 
-@app.get("/plants", response_model=list[PlantListItem])
-async def list_plants(
-    operationMode: str | None = Cookie(None),
-    defaultThreshold: str | None = Cookie(None)
-) -> list[PlantListItem]:
-    mode = operationMode or "manual"
-    def_thr = parse_default_threshold(defaultThreshold)
+class PlantNameItem(BaseModel):
+    """Minimal plant data for dropdowns - only uuid and name."""
+
+    uuid: str
+    name: str
+
+
+@app.get("/plants/names", response_model=list[PlantNameItem])
+async def list_plant_names() -> list[PlantNameItem]:
+    """
+    Fetch only uuid and name for all active plants.
+    Used for dropdowns to minimize data transfer and prevent DDoS via large payloads.
+    Returns all active plants without pagination.
+    """
 
     def fetch():
-        return PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                query = """
+                    SELECT p.id, p.name
+                    FROM plants p
+                    WHERE p.archive = 0
+                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
+                """
+                cur.execute(query)
+                rows = cur.fetchall() or []
+
+                results = []
+                for row in rows:
+                    plant_id = row[0]
+                    name = row[1]
+                    uuid_hex = bin_to_hex(plant_id) if plant_id else None
+                    if uuid_hex and name:
+                        results.append(PlantNameItem(uuid=uuid_hex, name=name))
+
+                return results
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/plants", response_model=PaginatedPlantsResponse)
+async def list_plants(
+    page: int = 1,
+    limit: int = 20,
+    search: str | None = None,
+    operationMode: str | None = Cookie(None),
+    defaultThreshold: str | None = Cookie(None),
+) -> PaginatedPlantsResponse:
+    # Validate and sanitize pagination parameters
+    if page < 1:
+        raise HTTPException(status_code=400, detail="page must be >= 1")
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
+
+    mode = operationMode or "manual"
+    def_thr = parse_default_threshold(defaultThreshold)
+    offset = (page - 1) * limit
+
+    def fetch():
+        # Get filtered count for pagination
+        total = PlantsList.count_all(search=search)
+
+        # Get global count for drift detection (always without filters)
+        global_total = PlantsList.count_all(search=None)
+
+        # Calculate total pages based on filtered count
+        total_pages = (total + limit - 1) // limit if total > 0 else 0
+
+        # Fetch paginated items
+        items = PlantsList.fetch_all(
+            mode=mode, default_threshold=def_thr, offset=offset, limit=limit, search=search
+        )
+
+        return PaginatedPlantsResponse(
+            items=items,
+            total=total,
+            global_total=global_total,
+            page=page,
+            limit=limit,
+            total_pages=total_pages,
+        )
 
     return await run_in_threadpool(fetch)
 

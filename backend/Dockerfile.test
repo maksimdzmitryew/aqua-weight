@@ -12,7 +12,8 @@ RUN apt-get update && \
         python3-pip \
         git \
         ca-certificates \
-        curl && \
+        curl \
+        libatomic1 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -13,11 +13,21 @@ export function parseAPIDate(v) {
   if (!s) return null
 
   // Detect SQL format: YYYY-MM-DD HH:MM[:SS[.ms]]
-  const sqlMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/)
-  if (sqlMatch && !/[zZ]|[+\-]\d{2}:?\d{2}$/.test(s)) {
+  const sqlMatch = s.match(
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/,
+  )
+  if (sqlMatch && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
     const [, y, mo, d, h, mi, se = '0', msRaw = '0'] = sqlMatch
     const ms = Math.round(Number(`0.${msRaw}`) * 1000)
-    const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(se), ms)
+    const date = new Date(
+      Number(y),
+      Number(mo) - 1,
+      Number(d),
+      Number(h),
+      Number(mi),
+      Number(se),
+      ms,
+    )
     return isNaN(date.getTime()) ? null : date
   }
 
@@ -32,7 +42,8 @@ export function formatDateTime(v) {
     if (!d) return String(v ?? '')
 
     // Read preference; default to 'europe'
-    const pref = (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
+    const pref =
+      (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
 
     const isEurope = pref === 'europe'
     const locale = isEurope ? 'en-GB' : 'en-US'
@@ -60,7 +71,8 @@ export function formatDayMonth(v) {
   try {
     const d = parseAPIDate(v)
     if (!d) return String(v ?? '')
-    const pref = (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
+    const pref =
+      (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
     const isEurope = pref === 'europe'
     const pad = (n) => String(n).padStart(2, '0')
     const day = pad(d.getDate())

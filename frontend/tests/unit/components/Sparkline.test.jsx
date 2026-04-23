@@ -1,7 +1,14 @@
 import React from 'react'
 import { render, screen, within, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
-import Sparkline, { computeFirstBelow, shouldHideFirstBelow, computeDaysSincePrevPeak, computePeakVLines, buildDefaultHoverLines, findNearestIndexByX as findNearestIndexByXHelper } from '../../../src/components/Sparkline.jsx'
+import Sparkline, {
+  computeFirstBelow,
+  shouldHideFirstBelow,
+  computeDaysSincePrevPeak,
+  computePeakVLines,
+  buildDefaultHoverLines,
+  findNearestIndexByX as findNearestIndexByXHelper,
+} from '../../../src/components/Sparkline.jsx'
 
 // Helper to render with ThemeProvider (light by default)
 function renderWithTheme(ui) {
@@ -17,9 +24,29 @@ describe('components/Sparkline', () => {
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
       // If this is an SVG, return non-zero dims
       if (this.getAttribute && (this.tagName === 'svg' || this.tagName === 'SVG')) {
-        return { left: 0, top: 0, width: 300, height: 80, right: 300, bottom: 80, x: 0, y: 0, toJSON() {} }
+        return {
+          left: 0,
+          top: 0,
+          width: 300,
+          height: 80,
+          right: 300,
+          bottom: 80,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        }
       }
-      return { left: 0, top: 0, width: 300, height: 80, right: 300, bottom: 80, x: 0, y: 0, toJSON() {} }
+      return {
+        left: 0,
+        top: 0,
+        width: 300,
+        height: 80,
+        right: 300,
+        bottom: 80,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      }
     })
   })
 
@@ -46,7 +73,9 @@ describe('components/Sparkline', () => {
 
   test('measures container width and updates viewBox (covers line 147)', async () => {
     // Force the responsive branch by passing a non-number width, and mock clientWidth
-    const clientWidthSpy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(320)
+    const clientWidthSpy = vi
+      .spyOn(HTMLElement.prototype, 'clientWidth', 'get')
+      .mockReturnValue(320)
 
     const t0 = new Date('2025-03-01T00:00:00Z').getTime()
     const data = [
@@ -58,7 +87,7 @@ describe('components/Sparkline', () => {
 
     const svg = screen.getByLabelText('sparkline')
     // After the effect measures clientWidth, it should set measuredW to 320
-    await new Promise(r => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
     expect(svg.getAttribute('viewBox')).toBe('0 0 320 80')
 
     clientWidthSpy.mockRestore()
@@ -148,7 +177,7 @@ describe('components/Sparkline', () => {
     expect(d).toBeTruthy()
 
     // Extract all numbers after commas (the Y components of commands like Mx,y Lx,y)
-    const yMatches = Array.from(d.matchAll(/,([0-9]+(?:\.[0-9]+)?)/g)).map(m => Number(m[1]))
+    const yMatches = Array.from(d.matchAll(/,([0-9]+(?:\.[0-9]+)?)/g)).map((m) => Number(m[1]))
     expect(yMatches.length).toBeGreaterThanOrEqual(2)
     // All y coordinates should map to the same bottom value when all y are equal
     for (const y of yMatches) {
@@ -197,7 +226,7 @@ describe('components/Sparkline', () => {
     renderWithTheme(<Sparkline data={[]} width="responsive" height={80} />)
 
     // Allow effect microtask to run
-    await new Promise(r => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
 
     // No resize listeners should be attached because the effect returned early
     expect(addListenerSpy).not.toHaveBeenCalled()
@@ -240,7 +269,7 @@ describe('components/Sparkline', () => {
     expect(paths.length).toBeGreaterThanOrEqual(2)
 
     // Area path is the one with stroke="none" and a non-none fill
-    const areaPath = Array.from(paths).find(p => p.getAttribute('stroke') === 'none')
+    const areaPath = Array.from(paths).find((p) => p.getAttribute('stroke') === 'none')
     expect(areaPath).toBeTruthy()
     expect(areaPath.getAttribute('fill')).toBe('rgba(96,165,250,0.15)')
   })
@@ -269,7 +298,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -299,7 +328,7 @@ describe('components/Sparkline', () => {
         peakDeltaPct={0.1}
         width={300}
         height={80}
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -353,14 +382,7 @@ describe('components/Sparkline', () => {
       { x: t0 + 1000, y: 50 },
       { x: t0 + 2000, y: 2 },
     ]
-    renderWithTheme(
-      <Sparkline
-        data={pts}
-        width={300}
-        height={80}
-        tooltipPlacement="below"
-      />
-    )
+    renderWithTheme(<Sparkline data={pts} width={300} height={80} tooltipPlacement="below" />)
     const svg = screen.getByLabelText('sparkline')
     // Hover near the middle point (peak) to ensure space below may be constrained
     fireEvent.mouseMove(svg, { clientX: 150, clientY: 10 })
@@ -376,16 +398,21 @@ describe('components/Sparkline', () => {
     const t0 = new Date('2025-04-02T00:00:00').getTime()
     renderWithTheme(
       <Sparkline
-        data={[{ x: t0, y: 5 }, { x: t0 + 1, y: 6 }]}
+        data={[
+          { x: t0, y: 5 },
+          { x: t0 + 1, y: 6 },
+        ]}
         width={300}
         height={80}
         tooltipPlacement="below"
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // Move mouse somewhere near the top to guarantee room below for the tooltip
     fireEvent.mouseMove(svg, { clientX: 100, clientY: 5 })
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // Should be placed with a small top (near top since belowY used). Numeric assert only.
     expect(parseFloat(tip.style.top)).toBeGreaterThanOrEqual(0)
@@ -395,16 +422,22 @@ describe('components/Sparkline', () => {
     const t0 = new Date('2025-04-03T00:00:00').getTime()
     renderWithTheme(
       <Sparkline
-        data={[{ x: t0, y: 1 }, { x: t0 + 1, y: 2 }, { x: t0 + 2, y: 1.5 }]}
+        data={[
+          { x: t0, y: 1 },
+          { x: t0 + 1, y: 2 },
+          { x: t0 + 2, y: 1.5 },
+        ]}
         width={320}
         height={180}
         tooltipPlacement="below"
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // Hover near the very top-left to maximize space below
     fireEvent.mouseMove(svg, { clientX: 5, clientY: 1 })
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // With ample height, the below branch should be used resulting in a small top value
     expect(parseFloat(tip.style.top)).toBeGreaterThanOrEqual(0)
@@ -419,19 +452,14 @@ describe('components/Sparkline', () => {
     ]
     const longToken = 'X'.repeat(400) // force hard-break path inside wrapLine
     const formatter = () => [longToken]
-    renderWithTheme(
-      <Sparkline
-        data={pts}
-        width={300}
-        height={80}
-        hoverFormatter={formatter}
-      />
-    )
+    renderWithTheme(<Sparkline data={pts} width={300} height={80} hoverFormatter={formatter} />)
 
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 299, clientY: 40 })
     // The tooltip should be an absolutely positioned div rendered after the SVG
-    const absTooltips = Array.from(document.querySelectorAll('div')).filter((el) => el.style?.position === 'absolute')
+    const absTooltips = Array.from(document.querySelectorAll('div')).filter(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(absTooltips.length).toBeGreaterThan(0)
     const tooltipContainer = absTooltips[absTooltips.length - 1]
     const lines = tooltipContainer.querySelectorAll('div')
@@ -481,16 +509,13 @@ describe('components/Sparkline', () => {
       `short ${longWord}`,
     ]
     renderWithTheme(
-      <Sparkline
-        data={[{ x: t0, y: 1 }]}
-        width={300}
-        height={80}
-        hoverFormatter={formatter}
-      />
+      <Sparkline data={[{ x: t0, y: 1 }]} width={300} height={80} hoverFormatter={formatter} />,
     )
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 50, clientY: 40 })
-    const absTooltips = Array.from(document.querySelectorAll('div')).filter((el) => el.style?.position === 'absolute')
+    const absTooltips = Array.from(document.querySelectorAll('div')).filter(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(absTooltips.length).toBeGreaterThan(0)
     const tooltipContainer = absTooltips.at(-1)
     // We expect multiple lines due to wrapping and hard-breaks
@@ -509,13 +534,17 @@ describe('components/Sparkline', () => {
     const svg = screen.getByLabelText('sparkline')
     // Hover near the left so preferRight should be true
     fireEvent.mouseMove(svg, { clientX: 20, clientY: 40 })
-    let tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    let tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     const leftPosRightPref = parseFloat(tip.style.left)
 
     // Now hover near the far right so preferRight should be false and tip flips to the left side
     fireEvent.mouseMove(svg, { clientX: 295, clientY: 40 })
-    tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     const leftPosLeftPref = parseFloat(tip.style.left)
     // Both measurements should be finite numbers, indicating placement computed in both branches
@@ -533,7 +562,9 @@ describe('components/Sparkline', () => {
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 150, clientY: 40 })
     // No absolutely positioned tooltip div should appear
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeUndefined()
   })
 
@@ -553,7 +584,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels={false}
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // There should be a dashed vertical line for the peak
@@ -577,7 +608,7 @@ describe('components/Sparkline', () => {
         width={300}
         height={80}
         showFirstBelowThreshVLine={false}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // No vertical dashed line with dasharray 4 2 for first-below marker
@@ -637,7 +668,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     const badge = within(svg).getByText(/\d+d/)
@@ -664,7 +695,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     const badge = within(svg).getByText(/\d+d/)
@@ -687,7 +718,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     const badge = within(svg).getByText(/\d+d/)
@@ -703,7 +734,9 @@ describe('components/Sparkline', () => {
     const refs = [{ y: 1.5, label: 'L', color: '#123456', dash: '1 1' }]
     renderWithTheme(<Sparkline data={pts} refLines={refs} width={300} height={80} />)
     const svg = screen.getByLabelText('sparkline')
-    const refLine = svg.querySelector('line[stroke_dasharray], line[stroke-dasharray]') || svg.querySelector('line')
+    const refLine =
+      svg.querySelector('line[stroke_dasharray], line[stroke-dasharray]') ||
+      svg.querySelector('line')
     expect(refLine).toBeTruthy()
     // dash attribute should be set to "1 1"
     expect(refLine.getAttribute('stroke-dasharray')).toBe('1 1')
@@ -723,14 +756,18 @@ describe('components/Sparkline', () => {
     renderWithTheme(<Sparkline data={pts} width={300} height={80} tooltipOffsetX={10} />)
     const svg1 = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg1, { clientX: 30, clientY: 40 })
-    let tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    let tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
 
     // Render a second chart with huge offset to force preferRight = false even on mid positions
     renderWithTheme(<Sparkline data={pts} width={300} height={80} tooltipOffsetX={500} />)
     const svg2 = screen.getAllByLabelText('sparkline')[1]
     fireEvent.mouseMove(svg2, { clientX: 150, clientY: 40 })
-    tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
   })
 
@@ -744,7 +781,14 @@ describe('components/Sparkline', () => {
     ]
     const ref = [{ y: 9.5, label: 'Thresh' }]
     renderWithTheme(
-      <Sparkline data={pts} refLines={ref} width={300} height={80} maxWaterG={100} peakDeltaPct={0.5} />
+      <Sparkline
+        data={pts}
+        refLines={ref}
+        width={300}
+        height={80}
+        maxWaterG={100}
+        peakDeltaPct={0.5}
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // There should be a first-below marker with daysSince from the first point => 1d
@@ -842,7 +886,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // Find the day counter text and assert its fill color is the green value for light theme
@@ -870,7 +914,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -904,7 +948,7 @@ describe('components/Sparkline', () => {
         showPeakVLineLabels
         width={300}
         height={80}
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -928,9 +972,7 @@ describe('components/Sparkline', () => {
     ]
     const ref = [{ y: 10, label: 'Thresh' }]
 
-    renderWithTheme(
-      <Sparkline data={pts} refLines={ref} width={300} height={80} />
-    )
+    renderWithTheme(<Sparkline data={pts} refLines={ref} width={300} height={80} />)
 
     const svg = screen.getByLabelText('sparkline')
     // The first-below vertical marker has dash "4 2" and width 1.5
@@ -955,9 +997,7 @@ describe('components/Sparkline', () => {
     ]
     const ref = [{ y: 10, label: 'Thresh' }]
 
-    renderWithTheme(
-      <Sparkline data={pts} refLines={ref} width={300} height={80} />
-    )
+    renderWithTheme(<Sparkline data={pts} refLines={ref} width={300} height={80} />)
 
     const svg = screen.getByLabelText('sparkline')
     const fbLine = svg.querySelector('line[stroke-dasharray="4 2"][stroke-width="1.5"]')
@@ -992,7 +1032,9 @@ describe('components/Sparkline', () => {
     expect(hoverCircle.getAttribute('stroke')).toBe('#ffffff')
 
     // HTML tooltip overlay and its theme-dependent styles
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // Theme-dependent assertions (light)
     expect(tip.style.background).toBe('rgb(255, 255, 255)')
@@ -1030,7 +1072,9 @@ describe('components/Sparkline', () => {
     expect(hoverCircle.getAttribute('stroke')).toBe('#111827')
 
     // Tooltip styles for dark theme
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // Theme-dependent assertions (dark)
     expect(tip.style.background).toBe('rgb(17, 24, 39)')
@@ -1059,7 +1103,7 @@ describe('components/Sparkline', () => {
       const t = Date.now()
       const pts = [
         { x: t, y: 10 },
-        null,       // should be skipped when cur is null
+        null, // should be skipped when cur is null
         { x: t + 2, y: 12 },
         { x: t + 3, y: 9 }, // first valid drop below thresh from 12 -> 9
       ]
@@ -1136,15 +1180,17 @@ describe('components/Sparkline', () => {
       { x: t0 + 60_000, y: 15 },
     ]
     // Provide a getter that throws to exercise the try/catch in buildDefaultHoverLines
-    const throwingGet = () => { throw new Error('boom') }
+    const throwingGet = () => {
+      throw new Error('boom')
+    }
     // Index 1 is valid so we go past the early-return and into formatting
     const lines = buildDefaultHoverLines(pts, 1, throwingGet)
     expect(Array.isArray(lines)).toBe(true)
     // Europe format dd/mm (no AM/PM) and includes value g and delta line
     expect(lines[0]).toMatch(/\d{2}\/\d{2}\/\d{4}/)
     // Value line like "15 g"
-    expect(lines.some(l => /^\d+\s?g$/.test(l))).toBe(true)
-    expect(lines.some(l => /^Δ /.test(l))).toBe(true)
+    expect(lines.some((l) => /^\d+\s?g$/.test(l))).toBe(true)
+    expect(lines.some((l) => /^Δ /.test(l))).toBe(true)
   })
 
   test('domain calculation with only refLines covers refYs map and maxY/spanY fallbacks (covers 228,238,240)', () => {
@@ -1185,7 +1231,7 @@ describe('components/Sparkline', () => {
         peakDeltaPct={0.1}
         showPeakVLines
         showPeakVLineLabels
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -1205,10 +1251,13 @@ describe('components/Sparkline', () => {
 
     // Empty pref string -> falls back to 'europe' via ||, without throwing
     const t0 = new Date('2025-02-01T01:02:00').getTime()
-    const pts = [{ x: t0, y: 3 }, { x: t0 + 60_000, y: 5 }]
+    const pts = [
+      { x: t0, y: 3 },
+      { x: t0 + 60_000, y: 5 },
+    ]
     const res2 = buildDefaultHoverLines(pts, 1, () => '')
     expect(res2[0]).toMatch(/\d{2}\/\d{2}\/\d{4}/) // dd/mm/yyyy
-    expect(res2.some(l => /^\d+\s?g$/.test(l))).toBe(true)
+    expect(res2.some((l) => /^\d+\s?g$/.test(l))).toBe(true)
   })
 
   test('explicit fill prop uses provided color instead of theme default (covers 189)', () => {
@@ -1219,7 +1268,9 @@ describe('components/Sparkline', () => {
     ]
     renderWithTheme(<Sparkline data={data} width={240} height={80} fill="#ff000080" />)
     const svg = screen.getByLabelText('sparkline')
-    const areaPath = Array.from(svg.querySelectorAll('path')).find(p => p.getAttribute('stroke') === 'none')
+    const areaPath = Array.from(svg.querySelectorAll('path')).find(
+      (p) => p.getAttribute('stroke') === 'none',
+    )
     expect(areaPath).toBeTruthy()
     expect(areaPath?.getAttribute('fill')).toBe('#ff000080')
   })
@@ -1231,7 +1282,7 @@ describe('components/Sparkline', () => {
       { x: t0 + 1, y: 2 },
     ]
     // @ts-ignore pass string to hit the non-array guard
-    renderWithTheme(<Sparkline data={pts} refLines={"not-array"} width={240} height={80} />)
+    renderWithTheme(<Sparkline data={pts} refLines={'not-array'} width={240} height={80} />)
     const svg = screen.getByLabelText('sparkline')
     const refDash = svg.querySelectorAll('line[stroke-dasharray="4 3"]')
     // No dashed ref lines should appear
@@ -1250,15 +1301,17 @@ describe('components/Sparkline', () => {
     const path = svg.querySelector('path')
     expect(path).toBeTruthy()
     const d = path?.getAttribute('d') || ''
-    const yMatches = Array.from(d.matchAll(/,([0-9]+(?:\.[0-9]+)?)/g)).map(m => Number(m[1]))
+    const yMatches = Array.from(d.matchAll(/,([0-9]+(?:\.[0-9]+)?)/g)).map((m) => Number(m[1]))
     expect(yMatches.length).toBeGreaterThanOrEqual(3)
     // Expect not all y the same (spanY non-zero branch)
-    const uniq = new Set(yMatches.map(v => v.toFixed(2)))
+    const uniq = new Set(yMatches.map((v) => v.toFixed(2)))
     expect(uniq.size).toBeGreaterThan(1)
   })
 
   test('peakVLines daysSince yields 0 when startOfDay invalid for both first and subsequent peaks (covers 305,309 false branch)', () => {
-    const getTimeSpy = vi.spyOn(Date.prototype, 'getTime').mockImplementation(function () { return NaN })
+    const getTimeSpy = vi.spyOn(Date.prototype, 'getTime').mockImplementation(function () {
+      return NaN
+    })
     try {
       const base = Date.UTC(2025, 0, 1)
       const d = (n) => base + n * 86_400_000
@@ -1278,7 +1331,7 @@ describe('components/Sparkline', () => {
           peakDeltaPct={0.1}
           showPeakVLines
           showPeakVLineLabels
-        />
+        />,
       )
       const svg = screen.getByLabelText('sparkline')
       // Both day badges should be 0d due to invalid startOfDay
@@ -1303,7 +1356,7 @@ describe('components/Sparkline', () => {
       Number.isFinite = origIsFinite
     }
   })
-  
+
   test('line 240 fallback via NaN difference: force maxY/minY to NaN without triggering 238 (covers 240)', () => {
     const origIsFinite = Number.isFinite
     // Treat NaN as finite so guards at 237-238 do not correct it
@@ -1339,18 +1392,33 @@ describe('components/Sparkline', () => {
     const t0 = Date.now()
     renderWithTheme(
       <Sparkline
-        data={[{ x: t0, y: 1 }, { x: t0 + 1, y: 2 }]}
+        data={[
+          { x: t0, y: 1 },
+          { x: t0 + 1, y: 2 },
+        ]}
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // Override this element's bounding rect so left is Infinity => px becomes -Infinity
     const orig = svg.getBoundingClientRect
-    svg.getBoundingClientRect = () => ({ left: Infinity, top: 0, width: 300, height: 80, right: 300, bottom: 80, x: 0, y: 0, toJSON() {} })
+    svg.getBoundingClientRect = () => ({
+      left: Infinity,
+      top: 0,
+      width: 300,
+      height: 80,
+      right: 300,
+      bottom: 80,
+      x: 0,
+      y: 0,
+      toJSON() {},
+    })
     fireEvent.mouseMove(svg, { clientX: 150, clientY: 10 })
     // No tooltip should appear after this event alone
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeUndefined()
     // Restore
     svg.getBoundingClientRect = orig
@@ -1358,10 +1426,12 @@ describe('components/Sparkline', () => {
 
   test('localStorage.getItem throws: dtPref try/catch branches are handled (covers 236-240, 303-306)', () => {
     // Mock getItem to throw to exercise both try/catch blocks (peaks and tooltip formatter)
-    const getItemSpy = vi.spyOn(window.localStorage.__proto__, 'getItem').mockImplementation((key) => {
-      if (key === 'dtFormat') throw new Error('boom')
-      return null
-    })
+    const getItemSpy = vi
+      .spyOn(window.localStorage.__proto__, 'getItem')
+      .mockImplementation((key) => {
+        if (key === 'dtFormat') throw new Error('boom')
+        return null
+      })
 
     const t0 = Date.now()
     const pts = [
@@ -1378,13 +1448,15 @@ describe('components/Sparkline', () => {
         showPeakVLines
         width={300}
         height={80}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     // Hover to trigger defaultHoverLines which also reads dtFormat in a try/catch
     fireEvent.mouseMove(svg, { clientX: 150, clientY: 30 })
     // A tooltip should still render despite the getItem error
-    const tooltip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tooltip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tooltip).toBeTruthy()
 
     getItemSpy.mockRestore()
@@ -1403,7 +1475,9 @@ describe('components/Sparkline', () => {
     // This should hit the early return branch of onMouseLeave without errors
     fireEvent.mouseLeave(svg)
     // And no tooltip should be present (it was never allowed)
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeUndefined()
   })
 
@@ -1422,10 +1496,14 @@ describe('components/Sparkline', () => {
     // and ensure the single-letter token itself fits, taking the 379 branch.
     const tokens = Array.from({ length: 40 }, (_, i) => String.fromCharCode(97 + (i % 26)))
     const formatter = () => [tokens.join(' ')]
-    renderWithTheme(<Sparkline data={[{ x: t0, y: 1 }]} width={300} height={80} hoverFormatter={formatter} />)
+    renderWithTheme(
+      <Sparkline data={[{ x: t0, y: 1 }]} width={300} height={80} hoverFormatter={formatter} />,
+    )
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 200, clientY: 40 })
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // We expect multiple wrapped lines
     expect(tip?.querySelectorAll('div').length || 0).toBeGreaterThan(2)
@@ -1438,16 +1516,21 @@ describe('components/Sparkline', () => {
     const formatter = () => [null, 'ok']
     renderWithTheme(
       <Sparkline
-        data={[{ x: t0, y: 1 }, { x: t0 + 1, y: 2 }]}
+        data={[
+          { x: t0, y: 1 },
+          { x: t0 + 1, y: 2 },
+        ]}
         width={300}
         height={80}
         hoverFormatter={formatter}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 150, clientY: 30 })
     // Tooltip should render (thanks to the 'ok' line) and thus exercise wrapLine on null for the first item
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     expect(within(tip).getByText('ok')).toBeInTheDocument()
   })
@@ -1466,11 +1549,13 @@ describe('components/Sparkline', () => {
         height={80}
         // negative offset should be clamped by Math.max(0, Number(offset) || 0)
         tooltipOffsetX={-10}
-      />
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 250, clientY: 40 })
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // Ensure left is a finite number, implying geometry was computed with clamped offset
     expect(Number.isFinite(parseFloat(tip.style.left))).toBe(true)
@@ -1490,12 +1575,14 @@ describe('components/Sparkline', () => {
         width={300}
         height={80}
         // @ts-ignore intentionally non-numeric to hit the fallback
-        tooltipOffsetX={"abc"}
-      />
+        tooltipOffsetX={'abc'}
+      />,
     )
     const svg = screen.getByLabelText('sparkline')
     fireEvent.mouseMove(svg, { clientX: 40, clientY: 30 })
-    const tip = Array.from(document.querySelectorAll('div')).find((el) => el.style?.position === 'absolute')
+    const tip = Array.from(document.querySelectorAll('div')).find(
+      (el) => el.style?.position === 'absolute',
+    )
     expect(tip).toBeTruthy()
     // Ensure computed left is finite (placement succeeded with off=0)
     expect(Number.isFinite(parseFloat(tip.style.left))).toBe(true)
@@ -1521,7 +1608,7 @@ describe('components/Sparkline', () => {
         peakDeltaPct={0.1}
         showPeakVLines
         showPeakVLineLabels
-      />
+      />,
     )
 
     const svg = screen.getByLabelText('sparkline')
@@ -1549,7 +1636,7 @@ describe('components/Sparkline', () => {
       const pts = [
         { x: d(0), y: 12 },
         { x: d(1), y: 30 }, // peak candidate
-        { x: d(2), y: 8 },  // crosses below threshold 10
+        { x: d(2), y: 8 }, // crosses below threshold 10
       ]
       renderWithTheme(
         <Sparkline
@@ -1561,7 +1648,7 @@ describe('components/Sparkline', () => {
           showPeakVLines
           showPeakVLineLabels
           refLines={[{ y: 10, label: 'Thresh' }]}
-        />
+        />,
       )
 
       const svg = screen.getByLabelText('sparkline')

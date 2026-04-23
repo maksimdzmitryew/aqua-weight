@@ -9,7 +9,12 @@ function Wrapper({ children }) {
   return <ThemeProvider>{children}</ThemeProvider>
 }
 
-function FormWithText({ validators = [], disabled = false, requiredProp = false, placeholder = 'Type here' }) {
+function FormWithText({
+  validators = [],
+  disabled = false,
+  requiredProp = false,
+  placeholder = 'Type here',
+}) {
   const form = useForm({ name: '' })
   return (
     <form>
@@ -34,7 +39,7 @@ describe('TextInput field', () => {
     const { rerender } = render(
       <Wrapper>
         <FormWithText requiredProp placeholder="Your name" />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByRole('textbox', { name: /name/i })
@@ -50,7 +55,7 @@ describe('TextInput field', () => {
     rerender(
       <Wrapper>
         <FormWithText disabled />
-      </Wrapper>
+      </Wrapper>,
     )
     const disabledInput = screen.getByRole('textbox', { name: /name/i })
     expect(disabledInput).toBeDisabled()
@@ -61,8 +66,8 @@ describe('TextInput field', () => {
 
     render(
       <Wrapper>
-        <FormWithText validators={[required('Please enter name')]}/>
-      </Wrapper>
+        <FormWithText validators={[required('Please enter name')]} />
+      </Wrapper>,
     )
 
     const input = screen.getByRole('textbox', { name: /name/i })
@@ -89,7 +94,7 @@ describe('TextInput field', () => {
     render(
       <Wrapper>
         <FormWithText validators={[required()]} />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const input = screen.getByRole('textbox', { name: /name/i })

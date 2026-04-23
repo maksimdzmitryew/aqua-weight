@@ -88,6 +88,7 @@ line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.11"
+plugins = ["pydantic.mypy"]
 warn_unused_configs = true
 warn_return_any = true
 warn_unused_ignores = true
@@ -126,8 +127,6 @@ module = [
   "backend.app.services.*",
 ]
 ignore_errors = true
-
-[tool.mypy.plugins]
 
 [tool.isort]
 # If isort is used via ruff, leave minimal config; otherwise align with black

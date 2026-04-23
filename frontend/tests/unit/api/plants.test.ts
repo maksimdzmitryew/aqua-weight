@@ -7,16 +7,25 @@ describe('plantsApi', () => {
     vi.restoreAllMocks()
   })
 
-  it('list calls apiClient.get with /plants and forwards signal, returning data', async () => {
-    const payload = [{ uuid: 'p1' }]
+  it('list calls apiClient.get with /plants?page=...&limit=... and forwards signal, returning data', async () => {
+    const payload = { items: [{ uuid: 'p1' }], total: 1, total_pages: 1 }
     const spy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce(payload as any)
 
     const ac = new AbortController()
-    const res = await plantsApi.list(ac.signal)
+    const res = await plantsApi.list({ signal: ac.signal })
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants', { signal: ac.signal })
+    expect(spy).toHaveBeenCalledWith('/plants?page=1&limit=20', { signal: ac.signal })
     expect(res).toBe(payload)
+  })
+
+  it('list passes search, page and limit as query params', async () => {
+    const payload = { items: [], total: 0, total_pages: 0 }
+    const spy = vi.spyOn(apiClient, 'get').mockResolvedValueOnce(payload as any)
+
+    await plantsApi.list({ page: 2, limit: 50, search: 'fern' })
+
+    expect(spy).toHaveBeenCalledWith('/plants?page=2&limit=50&search=fern', { signal: undefined })
   })
 
   it('getByUuid throws ApiError when uuid missing', () => {
@@ -58,7 +67,9 @@ describe('plantsApi', () => {
   })
 
   it('update throws ApiError when uuid missing', () => {
-    expect(() => plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any),
+    ).toThrow(ApiError)
     try {
       plantsApi.update('' as unknown as string, { name: 'x' }, undefined as any)
     } catch (e: any) {
@@ -75,10 +86,14 @@ describe('plantsApi', () => {
     const res = await plantsApi.update('abc', { name: 'New' }, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/abc', { name: 'New' }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/abc',
+      { name: 'New' },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(updated)
   })
 
@@ -91,10 +106,14 @@ describe('plantsApi', () => {
     const res = await plantsApi.reorder(ids, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/order', { ordered_ids: ids }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/order',
+      { ordered_ids: ids },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(ok)
   })
 

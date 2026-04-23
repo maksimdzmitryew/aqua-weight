@@ -13,8 +13,18 @@ function FormWithSelect({ validators = [], disabled = false, requiredProp = fals
   const form = useForm({ choice: '' })
   return (
     <form>
-      <Select form={form} name="choice" label="Choice" validators={validators} disabled={disabled} required={requiredProp} data-testid="choice-select">
-        <option value="" disabled hidden>Pick</option>
+      <Select
+        form={form}
+        name="choice"
+        label="Choice"
+        validators={validators}
+        disabled={disabled}
+        required={requiredProp}
+        data-testid="choice-select"
+      >
+        <option value="" disabled hidden>
+          Pick
+        </option>
         <option value="a">A</option>
         <option value="b">B</option>
       </Select>
@@ -29,7 +39,7 @@ describe('Select field', () => {
     const { rerender } = render(
       <Wrapper>
         <FormWithSelect requiredProp />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const select = screen.getByLabelText(/choice/i)
@@ -48,7 +58,7 @@ describe('Select field', () => {
     rerender(
       <Wrapper>
         <FormWithSelect disabled />
-      </Wrapper>
+      </Wrapper>,
     )
     const disabledSelect = screen.getByLabelText(/choice/i)
     expect(disabledSelect).toBeDisabled()
@@ -60,7 +70,7 @@ describe('Select field', () => {
     render(
       <Wrapper>
         <FormWithSelect validators={[required('Please pick one')]} />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const select = screen.getByLabelText(/choice/i)
@@ -85,7 +95,7 @@ describe('Select field', () => {
     render(
       <Wrapper>
         <FormWithSelect validators={[required()]} />
-      </Wrapper>
+      </Wrapper>,
     )
     const select = screen.getByLabelText(/choice/i)
 

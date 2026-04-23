@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { useTheme } from '../ThemeContext.jsx'
-import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
 import { nowLocalISOMinutes, toLocalISOMinutes } from '../utils/datetime.js'
 import { useForm, required, minNumber, optionalHexLen } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
-import Select from '../components/form/fields/Select.jsx'
+import PlantSelect from '../components/PlantSelect.jsx'
 import NumberInput from '../components/form/fields/NumberInput.jsx'
 import Checkbox from '../components/form/fields/Checkbox.jsx'
 import TextInput from '../components/form/fields/TextInput.jsx'
@@ -16,12 +14,9 @@ export default function MeasurementCreate() {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
   const editId = search.get('id')
-  const location = useLocation();
+  const location = useLocation()
   const navigate = useNavigate()
-  const { effectiveTheme } = useTheme()
-  const isDark = effectiveTheme === 'dark'
 
-  const [plants, setPlants] = useState([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const isEdit = !!editId
@@ -37,20 +32,6 @@ export default function MeasurementCreate() {
   })
 
   useEffect(() => {
-    let cancelled = false
-    async function loadPlants() {
-      try {
-        const data = await plantsApi.list()
-        if (!cancelled) setPlants(Array.isArray(data) ? data : [])
-      } catch (_) {
-        if (!cancelled) setError('Failed to load plants')
-      }
-    }
-    loadPlants()
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
     if (preselect && !isEdit) form.setValue('plant_id', preselect)
   }, [preselect, isEdit])
 
@@ -62,7 +43,9 @@ export default function MeasurementCreate() {
       try {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
-        const measured_at = data?.measured_at ? toLocalISOMinutes(data.measured_at) || form.values.measured_at : form.values.measured_at
+        const measured_at = data?.measured_at
+          ? toLocalISOMinutes(data.measured_at) || form.values.measured_at
+          : form.values.measured_at
         form.setValues({
           ...form.values,
           plant_id: data?.plant_id || form.values.plant_id,
@@ -78,7 +61,9 @@ export default function MeasurementCreate() {
       }
     }
     loadExisting()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [isEdit, editId])
 
   const onSubmit = form.handleSubmit(async (vals) => {
@@ -99,9 +84,9 @@ export default function MeasurementCreate() {
       } else {
         await measurementsApi.weight.create(payload)
       }
-      const from = location.state?.from;
-      if (from) navigate(from);
-      else navigate(`/plants/${vals.plant_id}`);
+      const from = location.state?.from
+      if (from) navigate(from)
+      else navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
       setError(e.message || 'Failed to save')
     } finally {
@@ -114,27 +99,69 @@ export default function MeasurementCreate() {
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <DateTimeLocal form={form} name="measured_at" label="Measured at" required validators={[required()]} />
-          <Select form={form} name="plant_id" label="Plant" required validators={[required()]} disabled={isEdit}>
-            <option value="">Select plant…</option>
-            {plants.map(p => (
-              <option key={p.uuid} value={p.uuid}>{p.name}</option>
-            ))}
-          </Select>
-          <NumberInput form={form} name="measured_weight_g" label="Measured weight (g)" min={0} validators={[minNumber(0)]} />
+          <DateTimeLocal
+            form={form}
+            name="measured_at"
+            label="Measured at"
+            required
+            validators={[required()]}
+          />
+          <PlantSelect
+            form={form}
+            name="plant_id"
+            label="Plant"
+            required
+            validators={[required()]}
+            disabled={isEdit}
+          />
+          <NumberInput
+            form={form}
+            name="measured_weight_g"
+            label="Measured weight (g)"
+            min={0}
+            validators={[minNumber(0)]}
+          />
           <Checkbox form={form} name="use_last_method" label="Use last method" />
           <div />
-          <TextInput form={form} name="method_id" label="Method (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
+          <TextInput
+            form={form}
+            name="method_id"
+            label="Method (optional, hex id)"
+            placeholder="32-char hex"
+            validators={[optionalHexLen(32)]}
+          />
           <div />
-          <TextInput form={form} name="scale_id" label="Scale (optional, hex id)" placeholder="32-char hex" validators={[optionalHexLen(32)]} />
+          <TextInput
+            form={form}
+            name="scale_id"
+            label="Scale (optional, hex id)"
+            placeholder="32-char hex"
+            validators={[optionalHexLen(32)]}
+          />
           <div style={{ gridColumn: '1 / -1' }}>
-            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>Note</label>
-            <textarea id="note" {...form.register('note')} className="input" style={{ height: 100 }} />
+            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
+              Note
+            </label>
+            <textarea
+              id="note"
+              {...form.register('note')}
+              className="input"
+              style={{ height: 100 }}
+            />
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">{isEdit ? 'Update measurement' : 'Save measurement'}</button>
-          <button type="button" onClick={() => location.state?.from ? navigate(location.state.from) : navigate(-1)} className="btn btn-secondary" style={{ marginLeft: 8 }}>Cancel</button>
+          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">
+            {isEdit ? 'Update measurement' : 'Save measurement'}
+          </button>
+          <button
+            type="button"
+            onClick={() => (location.state?.from ? navigate(location.state.from) : navigate(-1))}
+            className="btn btn-secondary"
+            style={{ marginLeft: 8 }}
+          >
+            Cancel
+          </button>
         </div>
       </form>
     </DashboardLayout>

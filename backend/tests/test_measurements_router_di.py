@@ -58,15 +58,17 @@ async def test_list_measurements_for_plant_di(app: FastAPI, async_client: AsyncC
         [
             bytes.fromhex("11" * 16),  # id
             # measured_at as a naive datetime-like with isoformat; we can pass a simple stub
-            types.SimpleNamespace(isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 00:00:00"),
+            types.SimpleNamespace(
+                isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 00:00:00"
+            ),
             100,  # measured_weight_g
-            90,   # last_dry_weight_g
+            90,  # last_dry_weight_g
             120,  # last_wet_weight_g
-            30,   # water_added_g
-            10.5, # water_loss_total_pct
-            20,   # water_loss_total_g
+            30,  # water_added_g
+            10.5,  # water_loss_total_pct
+            20,  # water_loss_total_g
             1.2,  # water_loss_day_pct
-            3,    # water_loss_day_g
+            3,  # water_loss_day_g
         ]
     ]
 

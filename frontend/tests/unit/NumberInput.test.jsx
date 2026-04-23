@@ -7,13 +7,19 @@ import NumberInput from '../../src/components/form/fields/NumberInput.jsx'
 function makeForm({ defaultValue = '', error = '' } = {}) {
   const state = { value: defaultValue, errors: error ? { qty: error } : {} }
   return {
-    get value() { return state.value },
-    get errors() { return state.errors },
+    get value() {
+      return state.value
+    },
+    get errors() {
+      return state.errors
+    },
     register(field) {
       return {
         name: field,
         value: state.value,
-        onChange: (e) => { state.value = e.target.value },
+        onChange: (e) => {
+          state.value = e.target.value
+        },
       }
     },
   }

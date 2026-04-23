@@ -38,20 +38,20 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
-    # Confirm the created plant appears in the list
+    # Confirm the created plant appears in the list (paginated response)
     lr = await async_client.get("/api/plants")
     assert lr.status_code == 200
-    items = lr.json()
+    items = lr.json()["items"]
     assert any(it["name"] == "With Location" for it in items)
 
 
 async def _create_plant_and_get_uuid(async_client: AsyncClient, name: str) -> str:
     r = await async_client.post("/api/plants", json={"name": name})
     assert r.status_code == 200
-    # Find uuid via list endpoint
+    # Find uuid via list endpoint (paginated response)
     lr = await async_client.get("/api/plants")
     assert lr.status_code == 200
-    for it in lr.json():
+    for it in lr.json()["items"]:
         if it["name"] == name:
             return it["uuid"]
     raise AssertionError("Created plant not found")

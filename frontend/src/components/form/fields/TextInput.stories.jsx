@@ -5,7 +5,9 @@ function useMockForm({ initial = '', initialError = '' } = {}) {
   const [value, setValue] = useState(initial)
   const [errors, setErrors] = useState(initialError ? { name: initialError } : {})
   return {
-    get errors() { return errors },
+    get errors() {
+      return errors
+    },
     register(field) {
       return {
         name: field,
@@ -13,7 +15,9 @@ function useMockForm({ initial = '', initialError = '' } = {}) {
         onChange: (e) => setValue(e.target.value),
       }
     },
-    setError(msg) { setErrors(msg ? { name: msg } : {}) },
+    setError(msg) {
+      setErrors(msg ? { name: msg } : {})
+    },
   }
 }
 
@@ -32,7 +36,7 @@ export default {
   argTypes: {
     error: { control: 'text' },
     defaultValue: { control: 'text' },
-  }
+  },
 }
 
 export const Default = (args) => {

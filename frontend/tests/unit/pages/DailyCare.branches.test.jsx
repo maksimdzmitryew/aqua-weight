@@ -7,23 +7,24 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 describe('DailyCare hoursSinceLocal', () => {
   test('hoursSinceLocal coverage', () => {
-    let internalHoursSinceLocal;
+    let internalHoursSinceLocal
     window.__VITEST_STUB_OPERATION_MODE__ = (fn) => {
-      internalHoursSinceLocal = fn;
-      return 'manual';
-    };
+      internalHoursSinceLocal = fn
+      return 'manual'
+    }
 
     render(
       <MemoryRouter>
         <DailyCare />
-      </MemoryRouter>
+      </MemoryRouter>,
     )
 
-    expect(internalHoursSinceLocal).toBeDefined();
-    
+    expect(internalHoursSinceLocal).toBeDefined()
+
     // Now test the internal function
     expect(internalHoursSinceLocal(null)).toBeNull()
     expect(internalHoursSinceLocal('')).toBeNull()
@@ -36,24 +37,26 @@ describe('DailyCare hoursSinceLocal', () => {
     expect(hours).toBeLessThan(1.1)
 
     // Test the internal hook as well
-    window.__VITEST_STUB_HOURS_SINCE_LOCAL__ = (ts) => ts === 'test' ? 123 : null;
+    window.__VITEST_STUB_HOURS_SINCE_LOCAL__ = (ts) => (ts === 'test' ? 123 : null)
     expect(internalHoursSinceLocal('test')).toBe(123)
 
-    delete window.__VITEST_STUB_OPERATION_MODE__;
-    delete window.__VITEST_STUB_HOURS_SINCE_LOCAL__;
+    delete window.__VITEST_STUB_OPERATION_MODE__
+    delete window.__VITEST_STUB_HOURS_SINCE_LOCAL__
   })
 })
 
 describe('DailyCare branches', () => {
   test('handles approximation loading failure (lines 44-45)', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    let internalError;
+    let internalError
     window.__VITEST_STUB_LOAD_APPROX_ERROR__ = (e) => {
-      internalError = e;
-    };
+      internalError = e
+    }
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ message: 'Error' }, { status: 500 }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ message: 'Error' }, { status: 500 }),
+      ),
     )
 
     render(
@@ -61,27 +64,27 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Should still load plants and show them (since it's not a fatal error for the whole page)
     expect(await screen.findByRole('table')).toBeInTheDocument()
     expect(consoleSpy).toHaveBeenCalledWith('Failed to load approximations', expect.any(Error))
-    expect(internalError).toBeDefined();
+    expect(internalError).toBeDefined()
 
     consoleSpy.mockRestore()
-    delete window.__VITEST_STUB_LOAD_APPROX_ERROR__;
+    delete window.__VITEST_STUB_LOAD_APPROX_ERROR__
   })
 
   test('fallback coverage', async () => {
-    let internalFallback;
+    let internalFallback
     window.__VITEST_STUB_FALLBACK__ = (f) => {
-      internalFallback = f;
-      return f;
-    };
+      internalFallback = f
+      return f
+    }
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', needs_weighing: true }])), // No name, no plant
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', needs_weighing: true }]), // No name, no plant
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -89,23 +92,32 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
-    expect(internalFallback).toBe('—');
-    delete window.__VITEST_STUB_FALLBACK__;
+    expect(internalFallback).toBe('—')
+    delete window.__VITEST_STUB_FALLBACK__
   })
 
   test('notes/location/dateNow/operationMode coverage', async () => {
-    let internalNotes, internalLocation, internalDateNow;
-    window.__VITEST_STUB_NOTES__ = (f) => { internalNotes = f; return f; };
-    window.__VITEST_STUB_LOCATION__ = (f) => { internalLocation = f; return f; };
-    window.__VITEST_STUB_DATE_NOW__ = () => { internalDateNow = true; return 123; };
-    
+    let internalNotes, internalLocation, internalDateNow
+    window.__VITEST_STUB_NOTES__ = (f) => {
+      internalNotes = f
+      return f
+    }
+    window.__VITEST_STUB_LOCATION__ = (f) => {
+      internalLocation = f
+      return f
+    }
+    window.__VITEST_STUB_DATE_NOW__ = () => {
+      internalDateNow = true
+      return 123
+    }
+
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -113,31 +125,33 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
-    expect(internalNotes).toBe('—');
-    expect(internalLocation).toBe('—');
-    expect(internalDateNow).toBe(true);
-    
-    delete window.__VITEST_STUB_NOTES__;
-    delete window.__VITEST_STUB_LOCATION__;
-    delete window.__VITEST_STUB_DATE_NOW__;
+    expect(internalNotes).toBe('—')
+    expect(internalLocation).toBe('—')
+    expect(internalDateNow).toBe(true)
+
+    delete window.__VITEST_STUB_NOTES__
+    delete window.__VITEST_STUB_LOCATION__
+    delete window.__VITEST_STUB_DATE_NOW__
   })
 
   test('reduce fallback', async () => {
-    let internalReduce;
+    let internalReduce
     window.__VITEST_STUB_REDUCE__ = (a) => {
-      internalReduce = a;
+      internalReduce = a
       return a.reduce((acc, item) => {
         acc[item.plant_uuid] = item
         return acc
-      }, {});
-    };
+      }, {})
+    }
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }),
+      ),
     )
 
     render(
@@ -145,23 +159,18 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
-    expect(internalReduce).toBeDefined();
-    delete window.__VITEST_STUB_REDUCE__;
+    expect(internalReduce).toBeDefined()
+    delete window.__VITEST_STUB_REDUCE__
   })
 
   test('plantsData fallback', async () => {
-    let internalPlantsData;
-    window.__VITEST_STUB_PLANTS_DATA__ = (d) => {
-      internalPlantsData = d;
-      return [];
-    };
     server.use(
       http.get('/api/plants', () => HttpResponse.json({ not_an_array: true })),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -169,24 +178,22 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('note')).toHaveTextContent(/No tasks for today/i)
-    expect(internalPlantsData).toBeDefined();
-    delete window.__VITEST_STUB_PLANTS_DATA__;
   })
 
   test('approxItems fallback (line 43)', async () => {
-    let internalApproxItems;
+    let internalApproxItems
     window.__VITEST_STUB_APPROX_ITEMS__ = (d) => {
-      internalApproxItems = d;
-      return [];
-    };
+      internalApproxItems = d
+      return []
+    }
     // Case 1: approxData is null
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)),
     )
 
     const { rerender } = render(
@@ -194,37 +201,41 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
     // When approxData is null, approxData?.items is undefined, so it falls through to the stub/[]
-    expect(internalApproxItems).toBeDefined();
+    expect(internalApproxItems).toBeDefined()
 
     // Case 2: approxData exists but items is missing
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ no_items: true }))
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ no_items: true }),
+      ),
     )
     rerender(
       <ThemeProvider>
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(await screen.findByRole('table')).toBeInTheDocument()
 
     // Case 3: No stub, fallback to []
-    delete window.__VITEST_STUB_APPROX_ITEMS__;
+    delete window.__VITEST_STUB_APPROX_ITEMS__
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ no_items: true }))
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ no_items: true }),
+      ),
     )
     rerender(
       <ThemeProvider>
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(await screen.findByRole('table')).toBeInTheDocument()
   })
@@ -233,8 +244,8 @@ describe('DailyCare branches', () => {
     // Case 1: Needs measurement (true)
     localStorage.setItem('operationMode', 'manual')
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     const { unmount } = render(
@@ -242,20 +253,24 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect((await screen.findAllByLabelText('Needs measurement')).length).toBeGreaterThan(0)
     unmount()
 
     // Case 2: No measurement needed (false)
-    window.__VITEST_STUB_NEEDS_MEASURE__ = () => false;
+    window.__VITEST_STUB_NEEDS_MEASURE__ = () => false
     // Force plants that need water
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50 }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({
-        items: [{ plant_uuid: 'p1', days_offset: 0 }]
-      }))
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50 },
+      ]),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [{ plant_uuid: 'p1', days_offset: 0 }],
+        }),
+      ),
     )
 
     render(
@@ -263,26 +278,21 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('table')).toBeInTheDocument()
     expect((await screen.findAllByLabelText('No measurement needed')).length).toBeGreaterThan(0)
 
-    delete window.__VITEST_STUB_NEEDS_MEASURE__;
+    delete window.__VITEST_STUB_NEEDS_MEASURE__
     localStorage.removeItem('operationMode')
   })
 
   test('error fallback', async () => {
-    let internalErrorFallback;
-    window.__VITEST_STUB_ERROR_FALLBACK__ = (f) => {
-      internalErrorFallback = f;
-      return f;
-    };
     // Mock list to reject with something that has no message
-    const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({});
+    const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({})
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -290,13 +300,12 @@ describe('DailyCare branches', () => {
         <MemoryRouter>
           <DailyCare />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
-    expect(internalErrorFallback).toBe("Failed to load today's tasks");
-    delete window.__VITEST_STUB_ERROR_FALLBACK__;
-    spy.mockRestore();
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to load plants')
+    spy.mockRestore()
   })
 
   test('operationMode defaults to null if localStorage is undefined (line 25)', async () => {
@@ -307,7 +316,7 @@ describe('DailyCare branches', () => {
       render(
         <MemoryRouter>
           <DailyCare />
-        </MemoryRouter>
+        </MemoryRouter>,
       )
       // If operationMode is null, Bulk measurement button should be enabled (since it's !== 'vacation')
       const weightBtn = await screen.findByRole('button', { name: /Bulk measurement/ })
@@ -322,11 +331,11 @@ describe('DailyCare branches', () => {
   })
 
   test('inline handlers coverage (lines 100, 109, 113)', async () => {
-    const mockNavigate = vi.fn();
+    const mockNavigate = vi.fn()
 
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([{ uuid: 'p1', name: 'P1', needs_weighing: true }])),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] }))
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     await act(async () => {
@@ -335,7 +344,7 @@ describe('DailyCare branches', () => {
           <MemoryRouter>
             <DailyCare />
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       )
     })
 

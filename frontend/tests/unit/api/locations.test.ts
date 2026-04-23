@@ -36,7 +36,9 @@ describe('locationsApi', () => {
   })
 
   it('updateByName throws ApiError when name missing', () => {
-    expect(() => locationsApi.updateByName('Original', '' as unknown as string, undefined as any)).toThrow(ApiError)
+    expect(() =>
+      locationsApi.updateByName('Original', '' as unknown as string, undefined as any),
+    ).toThrow(ApiError)
     try {
       locationsApi.updateByName('Original', '' as unknown as string, undefined as any)
     } catch (e: any) {
@@ -53,10 +55,14 @@ describe('locationsApi', () => {
     const res = await locationsApi.updateByName('Old', 'New', ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/locations/by-name', { original_name: 'Old', name: 'New' }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/locations/by-name',
+      { original_name: 'Old', name: 'New' },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(updated)
   })
 
@@ -91,10 +97,14 @@ describe('locationsApi', () => {
     const res = await locationsApi.reorder(ids, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/locations/order', { ordered_ids: ids }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/locations/order',
+      { ordered_ids: ids },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(ok)
   })
 })

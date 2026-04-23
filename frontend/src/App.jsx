@@ -5,8 +5,8 @@ export default function App() {
 
   useEffect(() => {
     fetch('/api/')
-      .then(r => r.json())
-      .then(d => setMessage(d.message))
+      .then((r) => r.json())
+      .then((d) => setMessage(d.message))
       .catch(() => setMessage('Failed to reach backend'))
   }, [])
 
@@ -15,7 +15,8 @@ export default function App() {
       <h1>AW Frontend</h1>
       <p>Backend says: {message}</p>
       <p>
-        Try <code>/api/hello/YourName</code> via this domain: <a href="https://aw.max">https://aw.max</a>
+        Try <code>/api/hello/YourName</code> via this domain:{' '}
+        <a href="https://aw.max">https://aw.max</a>
       </p>
       <hr style={{ margin: '24px 0' }} />
       <p>

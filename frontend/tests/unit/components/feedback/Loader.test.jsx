@@ -9,7 +9,7 @@ describe('components/feedback/Loader', () => {
     expect(status).toBeInTheDocument()
     expect(status).toHaveAttribute('aria-live', 'polite')
     expect(status).toHaveAttribute('aria-busy', 'true')
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
   test('uses custom label and inline layout', () => {

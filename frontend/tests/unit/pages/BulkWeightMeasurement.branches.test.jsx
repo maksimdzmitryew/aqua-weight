@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
+import { paginatedPlantsHandler } from '../msw/paginate.js'
 
 // Mock useNavigate to verify it is NOT called when handleView receives plant without uuid
 const mockNavigate = vi.fn()
@@ -39,7 +40,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // The mock invoked onViewPlant with no uuid; ensure navigate was not called
     expect(mockNavigate).not.toHaveBeenCalled()
@@ -49,9 +50,14 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   test('useMemo branch: handles displayed plants filtering', async () => {
     // Return plants
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
-        { uuid: 'p1', name: 'ZZ Plant', water_retained_pct: 80, recommended_water_threshold_pct: 30 },
-      ]))
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p1',
+          name: 'ZZ Plant',
+          water_retained_pct: 80,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
     )
 
     vi.resetModules()
@@ -62,7 +68,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Initially should show ZZ Plant because default plantNeedsAttention=true
@@ -71,9 +77,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   })
 
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
-    server.use(
-      http.get('/api/plants', () => HttpResponse.json({ message: 'not-an-array' }))
-    )
+    server.use(http.get('/api/plants', () => HttpResponse.json({ message: 'not-an-array' })))
 
     vi.resetModules()
     vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
@@ -83,7 +87,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Falls back to [] and renders empty state
@@ -93,14 +97,20 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   test('OR-chain fallback for timestamps and nullish metrics keep previous values', async () => {
     // Plant without latest_at/measured_at to force deepest fallback path to nowLocalISOMinutes()
     server.use(
-      http.get('/api/plants', () => HttpResponse.json([
-        { uuid: 'w1', name: 'Cactus', water_retained_pct: 22, water_loss_total_pct: 78, recommended_water_threshold_pct: 30 },
-      ])),
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'w1',
+          name: 'Cactus',
+          water_retained_pct: 22,
+          water_loss_total_pct: 78,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
       // Weight POST returns without timestamps and without metrics -> component should keep previous percentages
       http.post('/api/measurements/weight', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json({ id: 501, plant_id: payload?.plant_id })
-      })
+      }),
     )
 
     vi.resetModules()
@@ -111,7 +121,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         <MemoryRouter>
           <Page />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const cell = await screen.findByText('Cactus')
@@ -138,7 +148,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
       render(
         <MemoryRouter>
           <Page />
-        </MemoryRouter>
+        </MemoryRouter>,
       )
 
       // If operationMode is null (not 'vacation'), it should show the "Show all plants" checkbox

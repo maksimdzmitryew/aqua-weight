@@ -1,7 +1,12 @@
 import pytest
 from datetime import datetime, timezone, timedelta
 
-from backend.app.utils.date_time import to_iso_utc, parse_dt, normalize_measured_at, normalize_measured_at_local
+from backend.app.utils.date_time import (
+    to_iso_utc,
+    parse_dt,
+    normalize_measured_at,
+    normalize_measured_at_local,
+)
 
 
 @pytest.mark.parametrize(
@@ -9,7 +14,10 @@ from backend.app.utils.date_time import to_iso_utc, parse_dt, normalize_measured
     [
         (None, None),
         (datetime(2025, 1, 1, 12, 0, 0), "2025-01-01T12:00:00Z"),  # naive assumed UTC
-        (datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone(timedelta(hours=2))), "2025-01-01T10:00:00Z"),
+        (
+            datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone(timedelta(hours=2))),
+            "2025-01-01T10:00:00Z",
+        ),
         (datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc), "2025-01-01T12:00:00Z"),
     ],
 )
@@ -24,7 +32,10 @@ def test_to_iso_utc(dt_in, expected):
         ("2025-01-02T05:04:05+02:00", "2025-01-02T03:04:05+00:00"),
         ("2025-01-02 03:04:05", "2025-01-02T03:04:05+00:00"),
         (datetime(2025, 1, 2, 3, 4, 5), "2025-01-02T03:04:05+00:00"),
-        (datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone(timedelta(hours=-3))), "2025-01-02T06:04:05+00:00"),
+        (
+            datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone(timedelta(hours=-3))),
+            "2025-01-02T06:04:05+00:00",
+        ),
     ],
 )
 def test_parse_dt_variants(raw, expected_iso):
@@ -44,7 +55,11 @@ def test_parse_dt_invalid():
         ("2025-03-10T12:30", {"fill_with": "zeros"}, ":00+00:00"),
         ("2025-03-10T12:30:10", {"fill_with": "zeros"}, ":00+00:00"),
         ("2025-03-10T12:30:10+02:00", {"fill_with": "zeros"}, ":00+00:00"),
-        ("2025-03-10T12:30", {"fill_with": "fixed", "fixed_seconds": 7, "fixed_milliseconds": 123}, ":07.123000+00:00"),
+        (
+            "2025-03-10T12:30",
+            {"fill_with": "fixed", "fixed_seconds": 7, "fixed_milliseconds": 123},
+            ":07.123000+00:00",
+        ),
     ],
 )
 def test_normalize_measured_at_variants(raw, opts, expected_suffix):
@@ -56,6 +71,7 @@ def test_normalize_measured_at_variants(raw, opts, expected_suffix):
 def test_normalize_measured_at_server_uses_now_but_keeps_fields(monkeypatch):
     fake_now = datetime(2025, 6, 1, 1, 2, 3, 456000, tzinfo=timezone.utc)
     monkeypatch.setattr("backend.app.utils.date_time.datetime", datetime)
+
     # patch datetime.now returning fake_now using a small helper class
     class _FakeDT(datetime):
         @classmethod
@@ -74,7 +90,12 @@ def test_normalize_measured_at_server_uses_now_but_keeps_fields(monkeypatch):
         ("2025-03-10T12:30", {"fill_with": "zeros"}, 0, 0),
         ("2025-03-10T12:30:10", {"fill_with": "zeros"}, 0, 0),
         ("2025-03-10T12:30:10Z", {"fill_with": "zeros"}, 0, 0),
-        ("2025-03-10T12:30", {"fill_with": "fixed", "fixed_seconds": 9, "fixed_milliseconds": 7}, 9, 7000),
+        (
+            "2025-03-10T12:30",
+            {"fill_with": "fixed", "fixed_seconds": 9, "fixed_milliseconds": 7},
+            9,
+            7000,
+        ),
     ],
 )
 def test_normalize_measured_at_local_variants(raw, opts, expect_second, expect_micro):

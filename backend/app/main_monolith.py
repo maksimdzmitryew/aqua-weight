@@ -1012,5 +1012,3 @@ async def delete_measurement(id_hex: str):
 
     await run_in_threadpool(do_delete)
     return {"ok": True}
-
-

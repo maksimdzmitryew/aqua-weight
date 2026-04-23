@@ -65,7 +65,8 @@ def test_branch_127_to_148_total_pct_skipped_when_last_watering_added_zero(monke
     }
 
     monkeypatch.setattr(
-        "backend.app.helpers.water_loss.get_last_watering_event", lambda cursor, plant_id_hex: last_event
+        "backend.app.helpers.water_loss.get_last_watering_event",
+        lambda cursor, plant_id_hex: last_event,
     )
 
     res = calculate_water_loss(
@@ -76,7 +77,7 @@ def test_branch_127_to_148_total_pct_skipped_when_last_watering_added_zero(monke
         last_wet_weight_g=150,
         water_added_g=None,
         last_watering_water_added=0,  # passthrough; function will recalc from get_last_watering_event
-        prev_measured_weight=120,     # baseline so day diff = 20
+        prev_measured_weight=120,  # baseline so day diff = 20
         exclude_measurement_id="a" * 32,
     )
 

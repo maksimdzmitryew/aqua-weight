@@ -19,7 +19,7 @@ describe('components/feedback/EmptyState', () => {
     render(
       <EmptyState title="No plants" description="Create your first one.">
         <button>New</button>
-      </EmptyState>
+      </EmptyState>,
     )
     expect(screen.getByRole('note')).toBeInTheDocument()
     expect(screen.getByText('No plants')).toBeInTheDocument()

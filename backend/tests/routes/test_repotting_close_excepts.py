@@ -46,16 +46,20 @@ def patch_uuid(monkeypatch):
     class _FixedUUID:
         def __init__(self):
             self._i = 0
+
         def uuid4(self):
             self._i += 1
             return types.SimpleNamespace(bytes=b"\x00" * 16)
+
     monkeypatch.setattr(repotting_mod, "uuid", _FixedUUID())
 
 
 @pytest.fixture()
 def patch_services(monkeypatch):
     # Minimal patches needed by create handler
-    monkeypatch.setattr(repotting_mod, "get_last_watering_event", lambda cur, pid: {"water_added_g": 50})
+    monkeypatch.setattr(
+        repotting_mod, "get_last_watering_event", lambda cur, pid: {"water_added_g": 50}
+    )
 
     def _last_event(_pid):
         return {
@@ -64,6 +68,7 @@ def patch_services(monkeypatch):
             "last_wet_weight_g": 1000,
             "water_added_g": 200,
         }
+
     monkeypatch.setattr(repotting_mod.LastPlantEvent, "get_last_event", staticmethod(_last_event))
 
     class Loss:
@@ -72,12 +77,17 @@ def patch_services(monkeypatch):
             self.water_loss_total_g = 100
             self.water_loss_day_pct = 1.0
             self.water_loss_day_g = 10
+
     monkeypatch.setattr(repotting_mod, "compute_water_losses", lambda **kwargs: Loss())
-    monkeypatch.setattr(repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s)
+    monkeypatch.setattr(
+        repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s
+    )
 
 
 @pytest.mark.asyncio
-async def test_create_repotting_close_raises_is_swallowed(async_client: AsyncClient, patch_services, monkeypatch):
+async def test_create_repotting_close_raises_is_swallowed(
+    async_client: AsyncClient, patch_services, monkeypatch
+):
     store = {}
     conn = RaisingCloseConn(store)
     monkeypatch.setattr(repotting_mod, "get_conn", lambda: conn)

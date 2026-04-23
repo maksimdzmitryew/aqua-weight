@@ -20,11 +20,11 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -34,19 +34,23 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onBack}>Back</button>
       {actions}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => <div data-testid="loader">{message || 'Loading...'}</div>,
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({
-  formatDateTime: (val) => val
+  formatDateTime: (val) => val,
 }))
 
 function renderWithRoute(path, element, { initialEntries = [path] } = {}) {
@@ -57,25 +61,26 @@ function renderWithRoute(path, element, { initialEntries = [path] } = {}) {
           <Route path={path} element={element} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
 describe('pages/LocationEdit', () => {
   beforeEach(() => {
     mockNavigate.mockClear()
-    try { localStorage.removeItem('theme') } catch {}
+    try {
+      localStorage.removeItem('theme')
+    } catch {}
   })
 
   test('prefills from location state, trims name, saves and navigates with updated state', async () => {
-    
     // Successful update
     server.use(
       http.put('/api/locations/by-name', async ({ request }) => {
         const body = await request.json()
         expect(body).toEqual({ original_name: 'Hall', name: 'New Name' })
         return HttpResponse.json({ ok: true })
-      })
+      }),
     )
 
     const init = {
@@ -89,13 +94,19 @@ describe('pages/LocationEdit', () => {
     fireEvent.change(name, { target: { value: '  New Name  ' } })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/locations', expect.objectContaining({
-      state: expect.objectContaining({ updatedLocation: expect.objectContaining({ id: 2, name: 'New Name' }) })
-    })))
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/locations',
+        expect.objectContaining({
+          state: expect.objectContaining({
+            updatedLocation: expect.objectContaining({ id: 2, name: 'New Name' }),
+          }),
+        }),
+      ),
+    )
   })
 
   test('client-side validation: trimmed empty name shows field error and a11y attributes', async () => {
-    
     const init = {
       pathname: '/locations/3/edit',
       state: { location: { id: 3, name: 'Office', created_at: '2025-01-02T00:00:00' } },
@@ -113,7 +124,6 @@ describe('pages/LocationEdit', () => {
   })
 
   test('client-side validation: empty name (falsy OR branch) shows field error without typing', async () => {
-    
     const init = {
       pathname: '/locations/303/edit',
       state: { location: { id: 303, name: '', created_at: '2025-01-02T00:00:00' } },
@@ -130,13 +140,17 @@ describe('pages/LocationEdit', () => {
 
   test('loads location via API when no state provided; shows form afterwards', async () => {
     server.use(
-      http.get('/api/locations', () => HttpResponse.json([
-        { id: 5, name: 'Kitchen', type: 'room', created_at: '2025-01-03T00:00:00' },
-        { id: 6, name: 'Balcony', created_at: '2025-01-04T00:00:00' },
-      ]))
+      http.get('/api/locations', () =>
+        HttpResponse.json([
+          { id: 5, name: 'Kitchen', type: 'room', created_at: '2025-01-03T00:00:00' },
+          { id: 6, name: 'Balcony', created_at: '2025-01-04T00:00:00' },
+        ]),
+      ),
     )
 
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/5/edit'] })
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/5/edit'],
+    })
 
     // Loading first
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -147,20 +161,21 @@ describe('pages/LocationEdit', () => {
   })
 
   test('shows error when location is not found in list', async () => {
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json([{ id: 7, name: 'Other' }]))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json([{ id: 7, name: 'Other' }])))
 
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/10/edit'] })
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/10/edit'],
+    })
 
     expect(await screen.findByText(/location not found/i)).toBeInTheDocument()
   })
 
   test('maps 409/400 update error to name field error; other errors go to general error', async () => {
-    
     // First: 409 conflict → field error
     server.use(
-      http.put('/api/locations/by-name', () => HttpResponse.json({ message: 'Already exists' }, { status: 409 }))
+      http.put('/api/locations/by-name', () =>
+        HttpResponse.json({ message: 'Already exists' }, { status: 409 }),
+      ),
     )
     const init = {
       pathname: '/locations/8/edit',
@@ -178,14 +193,15 @@ describe('pages/LocationEdit', () => {
 
     // Now: 500 → general error
     server.use(
-      http.put('/api/locations/by-name', () => HttpResponse.json({ message: 'Boom' }, { status: 500 }))
+      http.put('/api/locations/by-name', () =>
+        HttpResponse.json({ message: 'Boom' }, { status: 500 }),
+      ),
     )
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/boom/i)).toBeInTheDocument()
   })
 
   test('cancel navigates back to /locations without saving', async () => {
-    
     const init = {
       pathname: '/locations/9/edit',
       state: { location: { id: 9, name: 'Porch' } },
@@ -196,13 +212,12 @@ describe('pages/LocationEdit', () => {
   })
 
   test('outer catch path: unexpected error after successful update sets general error (e.g., navigate throws)', async () => {
-    
     // Successful update
-    server.use(
-      http.put('/api/locations/by-name', () => HttpResponse.json({ ok: true }))
-    )
+    server.use(http.put('/api/locations/by-name', () => HttpResponse.json({ ok: true })))
     // Make navigate throw to trigger outer catch
-    mockNavigate.mockImplementation(() => { throw new Error('nav fail') })
+    mockNavigate.mockImplementation(() => {
+      throw new Error('nav fail')
+    })
 
     const init = {
       pathname: '/locations/12/edit',
@@ -219,8 +234,9 @@ describe('pages/LocationEdit', () => {
   })
 
   test('renders under dark theme and applies dark border color', async () => {
-    
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
     const init = {
       pathname: '/locations/11/edit',
       state: { location: { id: 11, name: 'Dark Place' } },
@@ -232,11 +248,10 @@ describe('pages/LocationEdit', () => {
   })
 
   test('uses loc.name when originalName is empty (OR-branch) and calls update with newName', async () => {
-    
     const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
     const init = {
       pathname: '/locations/21/edit',
-      state: { location: { id: 21, name: '' , created_at: '2025-01-10T00:00:00' } },
+      state: { location: { id: 21, name: '', created_at: '2025-01-10T00:00:00' } },
     }
     renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: [init] })
 
@@ -249,8 +264,9 @@ describe('pages/LocationEdit', () => {
   })
 
   test('400 with detail maps to field error and clears on change (fieldErrors clear branch)', async () => {
-    
-    const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({ status: 400, detail: 'Taken name' })
+    const spy = vi
+      .spyOn(locationsApi, 'updateByName')
+      .mockRejectedValue({ status: 400, detail: 'Taken name' })
     const init = {
       pathname: '/locations/22/edit',
       state: { location: { id: 22, name: 'Foo' } },
@@ -272,25 +288,31 @@ describe('pages/LocationEdit', () => {
 
   test('load failure without message shows generic fallback error', async () => {
     const spy = vi.spyOn(locationsApi, 'list').mockRejectedValue({})
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/33/edit'] })
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/33/edit'],
+    })
     expect(await screen.findByText(/failed to load location/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 
   test('non-array locations list leads to not found error (Array.isArray false branch)', async () => {
     const spy = vi.spyOn(locationsApi, 'list').mockResolvedValue({})
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/55/edit'] })
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/55/edit'],
+    })
     expect(await screen.findByText(/location not found/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 
   test('load success with found record missing name sets originalName to empty (OR-branch in setOriginalName)', async () => {
-    const listSpy = vi.spyOn(locationsApi, 'list').mockResolvedValue([
-      { id: 77, created_at: '2025-01-05T00:00:00' },
-    ])
+    const listSpy = vi
+      .spyOn(locationsApi, 'list')
+      .mockResolvedValue([{ id: 77, created_at: '2025-01-05T00:00:00' }])
     const updSpy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
-    
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/77/edit'] })
+
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/77/edit'],
+    })
     const name = await screen.findByRole('textbox', { name: /name/i })
     expect(name).toHaveValue('')
     fireEvent.change(name, { target: { value: 'Loaded' } })
@@ -302,13 +324,14 @@ describe('pages/LocationEdit', () => {
 
   test('load failure with message shows that message (e.message branch)', async () => {
     const spy = vi.spyOn(locationsApi, 'list').mockRejectedValue(new Error('Oops'))
-    renderWithRoute('/locations/:id/edit', <LocationEdit />, { initialEntries: ['/locations/88/edit'] })
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/88/edit'],
+    })
     expect(await screen.findByText(/oops/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 
   test('update error without detail/message shows generic "Failed to save" (fallback branch)', async () => {
-    
     const spy = vi.spyOn(locationsApi, 'updateByName').mockRejectedValue({})
     const init = {
       pathname: '/locations/66/edit',
@@ -324,10 +347,11 @@ describe('pages/LocationEdit', () => {
   })
 
   test('outer catch fallback message when thrown error has no message', async () => {
-    
     // Successful update
     const spy = vi.spyOn(locationsApi, 'updateByName').mockResolvedValue({ ok: true })
-    mockNavigate.mockImplementation(() => { throw {} })
+    mockNavigate.mockImplementation(() => {
+      throw {}
+    })
 
     const init = {
       pathname: '/locations/44/edit',

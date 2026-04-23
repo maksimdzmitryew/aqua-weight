@@ -20,7 +20,7 @@ describe('ConfirmDialog', () => {
   test('renders dialog with a11y labels and focuses the first (Cancel) button', async () => {
     const user = userEvent.setup()
     renderWithTheme(
-      <ConfirmDialog open title="Delete plant" message="This action cannot be undone" />
+      <ConfirmDialog open title="Delete plant" message="This action cannot be undone" />,
     )
 
     const dlg = screen.getByRole('dialog')
@@ -50,9 +50,7 @@ describe('ConfirmDialog', () => {
       throw new Error('focus failed')
     })
     try {
-      renderWithTheme(
-        <ConfirmDialog open title="Focus Fail" message="m" />
-      )
+      renderWithTheme(<ConfirmDialog open title="Focus Fail" message="m" />)
       // Dialog still renders despite focus throwing
       expect(screen.getByRole('dialog')).toBeInTheDocument()
     } finally {
@@ -65,7 +63,7 @@ describe('ConfirmDialog', () => {
     const onCancel = vi.fn()
     const onConfirm = vi.fn()
     renderWithTheme(
-      <ConfirmDialog open title="Confirm" onCancel={onCancel} onConfirm={onConfirm} />
+      <ConfirmDialog open title="Confirm" onCancel={onCancel} onConfirm={onConfirm} />,
     )
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(onCancel).toHaveBeenCalledTimes(1)
@@ -75,9 +73,7 @@ describe('ConfirmDialog', () => {
 
   test('backdrop click triggers onCancel, clicking panel content does not', async () => {
     const onCancel = vi.fn()
-    renderWithTheme(
-      <ConfirmDialog open title="Backdrop Test" message="m" onCancel={onCancel} />
-    )
+    renderWithTheme(<ConfirmDialog open title="Backdrop Test" message="m" onCancel={onCancel} />)
 
     const overlay = screen.getByRole('dialog')
     // Click on overlay to trigger cancel
@@ -98,16 +94,14 @@ describe('ConfirmDialog', () => {
   })
 
   test('icon and tone variations render without error (covers branches)', () => {
-    const { rerender } = renderWithTheme(
-      <ConfirmDialog open title="Tone Danger" tone="danger" />
-    )
+    const { rerender } = renderWithTheme(<ConfirmDialog open title="Tone Danger" tone="danger" />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
     // Change to another tone to traverse tone resolution
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Tone Info" tone="info" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
@@ -115,7 +109,7 @@ describe('ConfirmDialog', () => {
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Tone Warning" tone="warning" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
@@ -123,7 +117,7 @@ describe('ConfirmDialog', () => {
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Tone Success" tone="success" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
@@ -131,7 +125,7 @@ describe('ConfirmDialog', () => {
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Tone Default" tone="" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
@@ -139,7 +133,7 @@ describe('ConfirmDialog', () => {
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Tone Fallback" tone="unknown" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
@@ -147,15 +141,15 @@ describe('ConfirmDialog', () => {
     rerender(
       <ThemeProvider>
         <ConfirmDialog open title="Icon Success" icon="success" />
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
     // Unknown icon key falls back to warning icon
     rerender(
       <ThemeProvider>
-        <ConfirmDialog open title="Icon Fallback" icon={"__nope__"} />
-      </ThemeProvider>
+        <ConfirmDialog open title="Icon Fallback" icon={'__nope__'} />
+      </ThemeProvider>,
     )
     expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
@@ -163,12 +157,8 @@ describe('ConfirmDialog', () => {
   test('supports custom buttons when provided', async () => {
     const user = userEvent.setup()
     const onCustom = vi.fn()
-    const buttons = [
-      { key: 'custom', text: 'Do it', onClick: onCustom },
-    ]
-    renderWithTheme(
-      <ConfirmDialog open title="Custom" buttons={buttons} />
-    )
+    const buttons = [{ key: 'custom', text: 'Do it', onClick: onCustom }]
+    renderWithTheme(<ConfirmDialog open title="Custom" buttons={buttons} />)
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull()
     await user.click(screen.getByRole('button', { name: 'Do it' }))

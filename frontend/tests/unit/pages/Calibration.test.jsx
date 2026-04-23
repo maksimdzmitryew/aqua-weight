@@ -9,15 +9,23 @@ import { calibrationApi } from '../../../src/api/calibration'
 import { vi } from 'vitest'
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => (
+    <div role="status" data-testid="loader">
+      {message || 'Loading...'}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
@@ -26,7 +34,7 @@ vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
       <h3>{title}</h3>
       <p>{subtitle}</p>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -34,15 +42,15 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
     <div data-testid="mock-page-header">
       <h1>{title}</h1>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({
-  formatDateTime: (val) => val
+  formatDateTime: (val) => val,
 }))
 
 function renderPage() {
@@ -51,14 +59,12 @@ function renderPage() {
       <MemoryRouter>
         <Calibration />
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
 test('shows empty state when API returns no plants', async () => {
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([])))
   renderPage()
   // Loader visible first (role=status)
   expect(screen.getByRole('status')).toBeInTheDocument()
@@ -78,17 +84,39 @@ test('renders a plant with filtered rows, sorting, and highlights most under tar
     calibration: {
       max_water_retained: [
         // Latest entry has under_g 0 and positive diff; should be hidden by zero filter unless re-included
-        { id: 'm3', measured_at: '2025-01-03 12:00:00', water_added_g: 200, last_wet_weight_g: 170, target_weight_g: 150, under_g: 0, under_pct: 0 },
+        {
+          id: 'm3',
+          measured_at: '2025-01-03 12:00:00',
+          water_added_g: 200,
+          last_wet_weight_g: 170,
+          target_weight_g: 150,
+          under_g: 0,
+          under_pct: 0,
+        },
         // Most negative diff (-30)
-        { id: 'm2', measured_at: '2025-01-02 12:00:00', water_added_g: 100, last_wet_weight_g: 120, target_weight_g: 150, under_g: 30, under_pct: 60 },
+        {
+          id: 'm2',
+          measured_at: '2025-01-02 12:00:00',
+          water_added_g: 100,
+          last_wet_weight_g: 120,
+          target_weight_g: 150,
+          under_g: 30,
+          under_pct: 60,
+        },
         // Negative but not most (-10)
-        { id: 'm1', measured_at: '2025-01-01 12:00:00', water_added_g: 80, last_wet_weight_g: 140, target_weight_g: 150, under_g: 10, under_pct: 20 },
+        {
+          id: 'm1',
+          measured_at: '2025-01-01 12:00:00',
+          water_added_g: 80,
+          last_wet_weight_g: 140,
+          target_weight_g: 150,
+          under_g: 10,
+          under_pct: 20,
+        },
       ],
     },
   }
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
 
   // Wait for table to appear
@@ -131,8 +159,22 @@ test('Correct overfill button sends composed payload and refreshes list', async 
     calibration: {
       max_water_retained: [
         // min-diff entry will be this one: diff = 110 - 160 = -50
-        { id: 'x2', measured_at: '2025-02-02 10:00:00', last_wet_weight_g: 110, target_weight_g: 160, under_g: 50, under_pct: 31 },
-        { id: 'x1', measured_at: '2025-02-01 10:00:00', last_wet_weight_g: 140, target_weight_g: 160, under_g: 20, under_pct: 12 },
+        {
+          id: 'x2',
+          measured_at: '2025-02-02 10:00:00',
+          last_wet_weight_g: 110,
+          target_weight_g: 160,
+          under_g: 50,
+          under_pct: 31,
+        },
+        {
+          id: 'x1',
+          measured_at: '2025-02-01 10:00:00',
+          last_wet_weight_g: 140,
+          target_weight_g: 160,
+          under_g: 20,
+          under_pct: 12,
+        },
       ],
     },
   }
@@ -141,9 +183,7 @@ test('Correct overfill button sends composed payload and refreshes list', async 
   server.use(
     http.get('/api/measurements/calibrating', () => {
       listCalls += 1
-      return listCalls === 1
-        ? HttpResponse.json([plant])
-        : HttpResponse.json([])
+      return listCalls === 1 ? HttpResponse.json([plant]) : HttpResponse.json([])
     }),
     http.post('/api/measurements/corrections', async ({ request }) => {
       const body = await request.json()
@@ -157,7 +197,7 @@ test('Correct overfill button sends composed payload and refreshes list', async 
         start_diff_to_max_g: -50,
       })
       return HttpResponse.json({ corrected: 1 })
-    })
+    }),
   )
 
   renderPage()
@@ -167,9 +207,12 @@ test('Correct overfill button sends composed payload and refreshes list', async 
   fireEvent.click(btn)
   // POST handler assertion above verifies call; then component refreshes
   // Wait until the plant card disappears (list refreshed)
-  await waitFor(() => {
-    expect(screen.queryByText('Snake')).not.toBeInTheDocument()
-  }, { timeout: 3000 })
+  await waitFor(
+    () => {
+      expect(screen.queryByText('Snake')).not.toBeInTheDocument()
+    },
+    { timeout: 3000 },
+  )
   // Then the empty state should be present
   const note = await screen.findByRole('note')
   expect(note).toBeInTheDocument()
@@ -181,13 +224,24 @@ test('shows formatted error when correction API fails with object detail', async
     name: 'ZZ',
     min_dry_weight_g: 100,
     max_water_weight_g: 10,
-    calibration: { max_water_retained: [
-      { id: 'z1', measured_at: '2025-03-01 08:00:00', last_wet_weight_g: 90, target_weight_g: 110, under_g: 20, under_pct: 18 }
-    ] },
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'z1',
+          measured_at: '2025-03-01 08:00:00',
+          last_wet_weight_g: 90,
+          target_weight_g: 110,
+          under_g: 20,
+          under_pct: 18,
+        },
+      ],
+    },
   }
   server.use(
     http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
-    http.post('/api/measurements/corrections', () => HttpResponse.json({ detail: { error: 'boom' } }, { status: 400 }))
+    http.post('/api/measurements/corrections', () =>
+      HttpResponse.json({ detail: { error: 'boom' } }, { status: 400 }),
+    ),
   )
 
   renderPage()
@@ -206,7 +260,7 @@ test('unmount cleans up fetch (AbortController) without noise', async () => {
     http.get('/api/measurements/calibrating', async () => {
       await new Promise((r) => setTimeout(r, 50))
       return HttpResponse.json([])
-    })
+    }),
   )
   const { unmount } = renderPage()
   expect(screen.getByRole('status')).toBeInTheDocument()
@@ -214,7 +268,9 @@ test('unmount cleans up fetch (AbortController) without noise', async () => {
 })
 
 test('AbortError from list() is ignored and does not set error (covers !isAbort branch false at line 29)', async () => {
-  const spy = vi.spyOn(calibrationApi, 'list').mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
+  const spy = vi
+    .spyOn(calibrationApi, 'list')
+    .mockRejectedValueOnce({ name: 'AbortError', message: 'aborted' })
   renderPage()
   // Loader shows then goes away; no alert should appear
   expect(screen.getByRole('status')).toBeInTheDocument()
@@ -231,15 +287,31 @@ test('"Last" toggle ensures latest zero-under row is visible even when hidden by
     name: 'Peace Lily',
     min_dry_weight_g: 100,
     max_water_weight_g: 50,
-    calibration: { max_water_retained: [
-      // last (most recent) has under_g 0 → normally hidden when showOnlyNonZero is false
-      { id: 'l3', measured_at: '2025-04-03 09:00:00', water_added_g: 200, last_wet_weight_g: 170, target_weight_g: 150, under_g: 0, under_pct: 0 },
-      { id: 'l2', measured_at: '2025-04-02 09:00:00', water_added_g: 90, last_wet_weight_g: 130, target_weight_g: 150, under_g: 20, under_pct: 40 },
-    ]},
+    calibration: {
+      max_water_retained: [
+        // last (most recent) has under_g 0 → normally hidden when showOnlyNonZero is false
+        {
+          id: 'l3',
+          measured_at: '2025-04-03 09:00:00',
+          water_added_g: 200,
+          last_wet_weight_g: 170,
+          target_weight_g: 150,
+          under_g: 0,
+          under_pct: 0,
+        },
+        {
+          id: 'l2',
+          measured_at: '2025-04-02 09:00:00',
+          water_added_g: 90,
+          last_wet_weight_g: 130,
+          target_weight_g: 150,
+          under_g: 20,
+          under_pct: 40,
+        },
+      ],
+    },
   }
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('Peace Lily')
   const table = screen.getByRole('table')
@@ -254,8 +326,22 @@ test('"Last" toggle ensures latest zero-under row is visible even when hidden by
 })
 
 test('most negative entry is re-inserted when zero filter would hide it, and fallback equality highlights duplicate-value row', async () => {
-  const duplicate = { id: 'd2', measured_at: '2025-05-02 10:00:00', last_wet_weight_g: 100, target_weight_g: 150, under_g: 0, under_pct: 0 }
-  const mostNeg = { id: 'd1', measured_at: '2025-05-01 10:00:00', last_wet_weight_g: 100, target_weight_g: 160, under_g: 0, under_pct: 0 } // diff -60, under_g 0
+  const duplicate = {
+    id: 'd2',
+    measured_at: '2025-05-02 10:00:00',
+    last_wet_weight_g: 100,
+    target_weight_g: 150,
+    under_g: 0,
+    under_pct: 0,
+  }
+  const mostNeg = {
+    id: 'd1',
+    measured_at: '2025-05-01 10:00:00',
+    last_wet_weight_g: 100,
+    target_weight_g: 160,
+    under_g: 0,
+    under_pct: 0,
+  } // diff -60, under_g 0
   // Create a separate object with same values as mostNeg to trigger fallback equality in row highlighting
   const twinOfMostNeg = { ...mostNeg }
   const plant = {
@@ -265,9 +351,7 @@ test('most negative entry is re-inserted when zero filter would hide it, and fal
     max_water_weight_g: 50,
     calibration: { max_water_retained: [duplicate, mostNeg, twinOfMostNeg] },
   }
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('Fiddle')
   // With default filters, rows with under_g 0 are hidden, BUT code re-inserts most negative entry
@@ -289,7 +373,9 @@ test('most negative entry is re-inserted when zero filter would hide it, and fal
   })
   // Find the row with same date/value and ensure it has the highlight style via fallback comparison
   const allRows = within(screen.getByRole('table')).getAllByRole('row')
-  const highlighted = allRows.filter((tr) => tr.getAttribute('title')?.toLowerCase().includes('most under target'))
+  const highlighted = allRows.filter((tr) =>
+    tr.getAttribute('title')?.toLowerCase().includes('most under target'),
+  )
   expect(highlighted.length).toBeGreaterThanOrEqual(1)
 })
 
@@ -300,16 +386,24 @@ test('summary shows Maximum Weight dash when values missing and positive diff sh
     // min present, max missing
     min_dry_weight_g: 80,
     max_water_weight_g: null,
-    calibration: { max_water_retained: [
-      // Positive diff 10 → should render as "+10"
-      { id: 'pm1', measured_at: '2025-06-01 12:00:00', water_added_g: 10, last_wet_weight_g: 160, target_weight_g: 150, under_g: 0, under_pct: 0 },
-    ] },
+    calibration: {
+      max_water_retained: [
+        // Positive diff 10 → should render as "+10"
+        {
+          id: 'pm1',
+          measured_at: '2025-06-01 12:00:00',
+          water_added_g: 10,
+          last_wet_weight_g: 160,
+          target_weight_g: 150,
+          under_g: 0,
+          under_pct: 0,
+        },
+      ],
+    },
   }
   // Ensure no leftover handlers interfere with this case
   server.resetHandlers()
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   // Ensure at least one row is visible so the card renders
   const underToggle = await screen.findByLabelText(/underwatered/i)
@@ -339,7 +433,7 @@ test('coerces non-array payload from list() to [] and shows EmptyState (covers s
   server.resetHandlers()
   server.use(
     // Return an object instead of an array to exercise Array.isArray(data) === false
-    http.get('/api/measurements/calibrating', () => HttpResponse.json({ foo: 1 }))
+    http.get('/api/measurements/calibrating', () => HttpResponse.json({ foo: 1 })),
   )
   renderPage()
   // Loader first
@@ -353,7 +447,9 @@ test('initial load error (non-abort) sets error message (covers error branch)', 
   server.resetHandlers()
   server.use(
     // Return a non-2xx JSON response so the client throws
-    http.get('/api/measurements/calibrating', () => HttpResponse.json({ detail: 'boom' }, { status: 500 }))
+    http.get('/api/measurements/calibrating', () =>
+      HttpResponse.json({ detail: 'boom' }, { status: 500 }),
+    ),
   )
   renderPage()
   // Expect an error notice after loader
@@ -370,9 +466,23 @@ test('min-diff selection skips entries with non-number weights (covers continue 
     calibration: {
       max_water_retained: [
         // Non-number values should be skipped by the loop
-        { id: 'n0', measured_at: '2025-08-01 00:00:00', last_wet_weight_g: 'x', target_weight_g: 100, under_g: 0, under_pct: 0 },
+        {
+          id: 'n0',
+          measured_at: '2025-08-01 00:00:00',
+          last_wet_weight_g: 'x',
+          target_weight_g: 100,
+          under_g: 0,
+          under_pct: 0,
+        },
         // Valid negative diff becomes the min-diff entry
-        { id: 'n1', measured_at: '2025-08-02 00:00:00', last_wet_weight_g: 90, target_weight_g: 150, under_g: 60, under_pct: 60 },
+        {
+          id: 'n1',
+          measured_at: '2025-08-02 00:00:00',
+          last_wet_weight_g: 90,
+          target_weight_g: 150,
+          under_g: 60,
+          under_pct: 60,
+        },
       ],
     },
   }
@@ -386,7 +496,7 @@ test('min-diff selection skips entries with non-number weights (covers continue 
       expect(body).toMatchObject({ start_measurement_id: 'n1' })
       corrected = true
       return HttpResponse.json({ ok: true })
-    })
+    }),
   )
   renderPage()
   await screen.findByText('Skip')
@@ -400,14 +510,37 @@ test('parseMs handles null, space-form date, and invalid values for sorting (cov
     name: 'SortCheck',
     min_dry_weight_g: 1,
     max_water_weight_g: 1,
-    calibration: { max_water_retained: [
-      // valid date in space form should sort first (newest)
-      { id: 's2', measured_at: '2025-08-03 10:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 },
-      // null measured_at → parseMs returns 0
-      { id: 's1', measured_at: null, last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 },
-      // garbage string → parseMs returns 0
-      { id: 's0', measured_at: 'garbage', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 },
-    ]}
+    calibration: {
+      max_water_retained: [
+        // valid date in space form should sort first (newest)
+        {
+          id: 's2',
+          measured_at: '2025-08-03 10:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+        // null measured_at → parseMs returns 0
+        {
+          id: 's1',
+          measured_at: null,
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+        // garbage string → parseMs returns 0
+        {
+          id: 's0',
+          measured_at: 'garbage',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
   }
   server.resetHandlers()
   server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
@@ -428,9 +561,19 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
     name: 'Dashy',
     min_dry_weight_g: 1,
     max_water_weight_g: 1,
-    calibration: { max_water_retained: [
-      { id: 'm0', measured_at: null, water_added_g: undefined, last_wet_weight_g: undefined, target_weight_g: 150, under_g: undefined, under_pct: undefined },
-    ]}
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'm0',
+          measured_at: null,
+          water_added_g: undefined,
+          last_wet_weight_g: undefined,
+          target_weight_g: 150,
+          under_g: undefined,
+          under_pct: undefined,
+        },
+      ],
+    },
   }
   server.resetHandlers()
   server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
@@ -452,10 +595,29 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
 })
 
 test('correction error prefers string detail from server', async () => {
-  const plant1 = { uuid: 'p-e1', name: 'A', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [{ id: 'e1', measured_at: '2025-07-01 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 }] } }
+  const plant1 = {
+    uuid: 'p-e1',
+    name: 'A',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'e1',
+          measured_at: '2025-07-01 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
   server.use(
     http.get('/api/measurements/calibrating', () => HttpResponse.json([plant1])),
-    http.post('/api/measurements/corrections', () => HttpResponse.json({ detail: 'Too bad' }, { status: 400 }))
+    http.post('/api/measurements/corrections', () =>
+      HttpResponse.json({ detail: 'Too bad' }, { status: 400 }),
+    ),
   )
   renderPage()
   await screen.findByText('A')
@@ -468,29 +630,70 @@ test('correction error prefers string detail from server', async () => {
 test('correction error falls back to generic message when detail is empty', async () => {
   // Ensure a clean slate of handlers for this case only
   server.resetHandlers()
-  const plant2 = { uuid: 'p-e2', name: 'B', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [{ id: 'e2', measured_at: '2025-07-02 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 }] } }
+  const plant2 = {
+    uuid: 'p-e2',
+    name: 'B',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'e2',
+          measured_at: '2025-07-02 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
   server.use(
     http.get('/api/measurements/calibrating', () => HttpResponse.json([plant2])),
     // Return a JSON empty string body (""), which parses to '' (empty string).
     // ApiClient will set ApiError.body = '' and message = 'Request failed...'.
     // In Calibration catch, detail becomes '' (via e.body) so it falls through to e.message branch (81-82).
-    http.post('/api/measurements/corrections', () => HttpResponse.text('""', { status: 500 }))
+    http.post('/api/measurements/corrections', () => HttpResponse.text('""', { status: 500 })),
   )
   renderPage()
   await screen.findByText('B')
   fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alerts2 = await screen.findAllByRole('alert', {}, { timeout: 3000 })
   const alert2 = alerts2[alerts2.length - 1]
-  expect(alert2.textContent || '').toMatch(/request failed|http 500|failed to apply corrections|\{\}/i)
+  expect(alert2.textContent || '').toMatch(
+    /request failed|http 500|failed to apply corrections|\{\}/i,
+  )
 })
 
 test('does not duplicate most-negative row when a value-identical twin is already visible (covers fallback equality)', async () => {
   // Construct data where the "most negative" entry has under_g = 0 (hidden by default),
   // but there is a twin with identical measured_at/weights and under_g > 0 (visible).
-  const mostNegHidden = { id: 'mn0', measured_at: '2025-08-01 10:00:00', last_wet_weight_g: 120, target_weight_g: 200, under_g: 0, under_pct: 0 }
-  const twinVisible = { id: 'mn1', measured_at: '2025-08-01 10:00:00', last_wet_weight_g: 120, target_weight_g: 200, under_g: 5, under_pct: 10 }
+  const mostNegHidden = {
+    id: 'mn0',
+    measured_at: '2025-08-01 10:00:00',
+    last_wet_weight_g: 120,
+    target_weight_g: 200,
+    under_g: 0,
+    under_pct: 0,
+  }
+  const twinVisible = {
+    id: 'mn1',
+    measured_at: '2025-08-01 10:00:00',
+    last_wet_weight_g: 120,
+    target_weight_g: 200,
+    under_g: 5,
+    under_pct: 10,
+  }
   // Also add an entry with missing numeric fields to hit the "—" branch for diff cell (line 273)
-  const incomplete = { id: 'inc', measured_at: '2025-08-02 10:00:00', water_added_g: 10, last_wet_weight_g: null, target_weight_g: undefined, under_g: 7, under_pct: 25 }
+  const incomplete = {
+    id: 'inc',
+    measured_at: '2025-08-02 10:00:00',
+    water_added_g: 10,
+    last_wet_weight_g: null,
+    target_weight_g: undefined,
+    under_g: 7,
+    under_pct: 25,
+  }
   const plant = {
     uuid: 'p-no-dup',
     name: 'NoDup',
@@ -499,9 +702,7 @@ test('does not duplicate most-negative row when a value-identical twin is alread
     calibration: { max_water_retained: [incomplete, mostNegHidden, twinVisible] },
   }
   server.resetHandlers()
-  server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant]))
-  )
+  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('NoDup')
   // Enable 'underwatered' to include all rows regardless of numeric completeness
@@ -524,7 +725,9 @@ test('initial load error (non-abort) shows ErrorNotice with message', async () =
   // Simulate backend failure on initial list load
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json({ detail: 'Load failed' }, { status: 500 }))
+    http.get('/api/measurements/calibrating', () =>
+      HttpResponse.json({ detail: 'Load failed' }, { status: 500 }),
+    ),
   )
   renderPage()
   // Loader first
@@ -543,7 +746,14 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
     calibration: {
       max_water_retained: [
         // Entry without numeric fields → excluded from min-diff calculation
-        { id: 'e0', measured_at: '2025-09-01 00:00:00', last_wet_weight_g: undefined, target_weight_g: undefined, under_g: 0, under_pct: 0 },
+        {
+          id: 'e0',
+          measured_at: '2025-09-01 00:00:00',
+          last_wet_weight_g: undefined,
+          target_weight_g: undefined,
+          under_g: 0,
+          under_pct: 0,
+        },
       ],
     },
   }
@@ -560,7 +770,7 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
       expect(body).not.toHaveProperty('start_measurement_id')
       expect(body).not.toHaveProperty('start_diff_to_max_g')
       return HttpResponse.json({ ok: true })
-    })
+    }),
   )
   renderPage()
   // Enable the 'underwatered' toggle to include all rows regardless of diff
@@ -577,7 +787,13 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
 })
 
 test('list rendering with missing calibration still shows header/button but no table', async () => {
-  const plant = { uuid: 'p-none', name: 'NoCal', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: {} }
+  const plant = {
+    uuid: 'p-none',
+    name: 'NoCal',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {},
+  }
   server.resetHandlers()
   server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
@@ -593,9 +809,18 @@ test('post-correction refresh tolerates non-array response (covers false branch 
     name: 'NonArray',
     min_dry_weight_g: 1,
     max_water_weight_g: 1,
-    calibration: { max_water_retained: [
-      { id: 'na1', measured_at: '2025-09-02 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 }
-    ] },
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'na1',
+          measured_at: '2025-09-02 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
   }
   let calls = 0
   server.resetHandlers()
@@ -604,7 +829,7 @@ test('post-correction refresh tolerates non-array response (covers false branch 
       calls += 1
       return calls === 1 ? HttpResponse.json([plant]) : HttpResponse.json({ ok: true })
     }),
-    http.post('/api/measurements/corrections', () => HttpResponse.json({ ok: true }))
+    http.post('/api/measurements/corrections', () => HttpResponse.json({ ok: true })),
   )
   renderPage()
   await screen.findByText('NonArray')
@@ -625,13 +850,30 @@ test('initial load non-abort error triggers setError (covers line 29)', async ()
   spy.mockRestore()
 })
 
-
 test('correction error formats string detail (covers line 75)', async () => {
   // Spy on API methods to fully control both list() and correct()
   server.resetHandlers()
-  const plant = { uuid: 'p-err', name: 'Err', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [ { id: 'e', measured_at: '2025-10-10 10:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] } }
+  const plant = {
+    uuid: 'p-err',
+    name: 'Err',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'e',
+          measured_at: '2025-10-10 10:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
   const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
-  const postSpy = vi.spyOn(calibrationApi, 'correct')
+  const postSpy = vi
+    .spyOn(calibrationApi, 'correct')
     .mockRejectedValueOnce({ detail: 'Bad request' }) // hits line 75
 
   renderPage()
@@ -645,9 +887,27 @@ test('correction error formats string detail (covers line 75)', async () => {
 
 test('correction error formats object detail (covers line 79)', async () => {
   server.resetHandlers()
-  const plant = { uuid: 'p-err2', name: 'Err2', min_dry_weight_g: 1, max_water_weight_g: 1, calibration: { max_water_retained: [ { id: 'e2', measured_at: '2025-10-11 10:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] } }
+  const plant = {
+    uuid: 'p-err2',
+    name: 'Err2',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'e2',
+          measured_at: '2025-10-11 10:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
   const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
-  const postSpy = vi.spyOn(calibrationApi, 'correct')
+  const postSpy = vi
+    .spyOn(calibrationApi, 'correct')
     .mockRejectedValueOnce({ detail: { error: 'Not good' } }) // hits line 79
 
   renderPage()
@@ -661,7 +921,12 @@ test('correction error formats object detail (covers line 79)', async () => {
 
 test('handleCorrectOverfill uses [] when entries missing (covers line 46 default)', async () => {
   // Plant has calibration missing entirely, but weights present so button enabled
-  const plant = { uuid: 'p-no-cal', name: 'NoCalForBtn', min_dry_weight_g: 10, max_water_weight_g: 5 }
+  const plant = {
+    uuid: 'p-no-cal',
+    name: 'NoCalForBtn',
+    min_dry_weight_g: 10,
+    max_water_weight_g: 5,
+  }
   let called = false
   server.resetHandlers()
   server.use(
@@ -675,7 +940,7 @@ test('handleCorrectOverfill uses [] when entries missing (covers line 46 default
       expect(body).not.toHaveProperty('start_measurement_id')
       expect(body).not.toHaveProperty('start_diff_to_max_g')
       return HttpResponse.json({ ok: true })
-    })
+    }),
   )
   renderPage()
   await screen.findByText('NoCalForBtn')
@@ -697,13 +962,29 @@ test('initial load error without message uses default text (covers rhs of e?.mes
 test('correction error uses body string when present (covers e.body branch at line 75)', async () => {
   server.resetHandlers()
   const plant = {
-    uuid: 'p-body', name: 'BodyMsg', min_dry_weight_g: 1, max_water_weight_g: 1,
-    calibration: { max_water_retained: [ { id: 'b1', measured_at: '2025-10-12 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+    uuid: 'p-body',
+    name: 'BodyMsg',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'b1',
+          measured_at: '2025-10-12 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
   }
   server.use(
     http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
     // Return a non-empty raw text body so api client surfaces e.body as a non-empty string
-    http.post('/api/measurements/corrections', () => HttpResponse.text('Meaningful body message', { status: 500 }))
+    http.post('/api/measurements/corrections', () =>
+      HttpResponse.text('Meaningful body message', { status: 500 }),
+    ),
   )
   renderPage()
   await screen.findByText('BodyMsg')
@@ -716,8 +997,22 @@ test('correction error uses body string when present (covers e.body branch at li
 test('correction error with circular detail triggers stringify catch (covers catch at line 79)', async () => {
   server.resetHandlers()
   const plant = {
-    uuid: 'p-circ', name: 'Circ', min_dry_weight_g: 1, max_water_weight_g: 1,
-    calibration: { max_water_retained: [ { id: 'c1', measured_at: '2025-10-13 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+    uuid: 'p-circ',
+    name: 'Circ',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'c1',
+          measured_at: '2025-10-13 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
   }
   // Use real list via MSW but simulate correction failure via spy so we can pass an unserializable object
   const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
@@ -739,11 +1034,27 @@ test('correction error with circular detail triggers stringify catch (covers cat
 test('correction error uses e.message when detail and body are absent (covers third operand at line 75)', async () => {
   server.resetHandlers()
   const plant = {
-    uuid: 'p-msg', name: 'OnlyMsg', min_dry_weight_g: 1, max_water_weight_g: 1,
-    calibration: { max_water_retained: [ { id: 'm1', measured_at: '2025-10-14 00:00:00', last_wet_weight_g: 0, target_weight_g: 1, under_g: 1, under_pct: 100 } ] }
+    uuid: 'p-msg',
+    name: 'OnlyMsg',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'm1',
+          measured_at: '2025-10-14 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
   }
   const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
-  const postSpy = vi.spyOn(calibrationApi, 'correct').mockRejectedValueOnce({ message: 'Only message path' })
+  const postSpy = vi
+    .spyOn(calibrationApi, 'correct')
+    .mockRejectedValueOnce({ message: 'Only message path' })
 
   renderPage()
   await screen.findByText('OnlyMsg')

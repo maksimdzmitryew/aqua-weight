@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ApiClient, ApiError, apiClient } from '../../../src/api/client'
 
 // Helper to create a minimal fetch-like response
-function makeResponse({ ok = true, status = 200, body = '' }: { ok?: boolean; status?: number; body?: any }) {
+function makeResponse({
+  ok = true,
+  status = 200,
+  body = '',
+}: {
+  ok?: boolean
+  status?: number
+  body?: any
+}) {
   return {
     ok,
     status,
@@ -49,7 +57,9 @@ describe('ApiClient.request success paths', () => {
   })
 
   it('returns parsed JSON on success', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: { ok: 1 } }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: { ok: 1 } }))
     const c = new ApiClient()
     const data = await c.request('/ping')
     expect(data).toEqual({ ok: 1 })
@@ -81,7 +91,11 @@ describe('ApiClient.request error mapping', () => {
       makeResponse({ ok: false, status: 400, body: { detail: 'bad' } }),
     )
     const c = new ApiClient()
-    await expect(c.get('/oops')).rejects.toMatchObject({ name: 'ApiError', status: 400, detail: 'bad' })
+    await expect(c.get('/oops')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      detail: 'bad',
+    })
   })
 
   it('throws ApiError with JSON message', async () => {
@@ -89,7 +103,11 @@ describe('ApiClient.request error mapping', () => {
       makeResponse({ ok: false, status: 422, body: { message: 'nope' } }),
     )
     const c = new ApiClient()
-    await expect(c.get('/nope')).rejects.toMatchObject({ name: 'ApiError', status: 422, detail: 'nope' })
+    await expect(c.get('/nope')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 422,
+      detail: 'nope',
+    })
   })
 
   it('throws ApiError with plain text message', async () => {
@@ -97,7 +115,11 @@ describe('ApiClient.request error mapping', () => {
       makeResponse({ ok: false, status: 500, body: 'server exploded' }),
     )
     const c = new ApiClient()
-    await expect(c.get('/boom')).rejects.toMatchObject({ name: 'ApiError', status: 500, detail: 'server exploded' })
+    await expect(c.get('/boom')).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      detail: 'server exploded',
+    })
   })
 
   it('uses default message when body is object without detail/message', async () => {
@@ -208,9 +230,7 @@ describe('retry logic and abort handling', () => {
   })
 
   it('stops retrying when attempts exhausted and wraps network error', async () => {
-    const fetchSpy = vi
-      .spyOn(globalThis, 'fetch' as any)
-      .mockRejectedValue(new TypeError('down'))
+    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockRejectedValue(new TypeError('down'))
 
     const c = new ApiClient()
     // Attach a catch handler immediately to avoid unhandled rejection warnings
@@ -256,7 +276,9 @@ describe('headers and helpers', () => {
   })
 
   it('merges Accept, getHeaders and per-request headers', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: null }))
     const c = new ApiClient({ getHeaders: () => ({ Authorization: 'Bearer t' }) })
     await c.request('/h', { headers: { 'X-Req': '1' } })
     const passedInit = fetchSpy.mock.calls[0][1] as RequestInit
@@ -266,7 +288,9 @@ describe('headers and helpers', () => {
   })
 
   it('adds X-API-Key header when env key is set and header is missing', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: null }))
     const originalKey = process.env.VITE_API_KEY
     process.env.VITE_API_KEY = 'test-key'
     vi.resetModules()
@@ -283,7 +307,9 @@ describe('headers and helpers', () => {
   })
 
   it('serializes object body and passes string body as-is', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: null }))
     const c = new ApiClient()
     await c.post('/p', { a: 1 })
     await c.put('/u', '{"b":2}')
@@ -292,7 +318,9 @@ describe('headers and helpers', () => {
   })
 
   it('convenience methods delegate to request with proper method', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: null }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: null }))
     const c = new ApiClient()
     await c.get('/g')
     await c.post('/p', { x: 1 })
@@ -303,7 +331,9 @@ describe('headers and helpers', () => {
   })
 
   it('exported singleton apiClient works with default base url', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch' as any).mockResolvedValue(makeResponse({ body: { pong: 1 } }))
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: { pong: 1 } }))
     const data = await apiClient.get('ping') // relative without leading slash
     expect(data).toEqual({ pong: 1 })
     const [url] = fetchSpy.mock.calls[0]

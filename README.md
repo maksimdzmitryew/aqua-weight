@@ -1,22 +1,26 @@
 AW multi-container setup (Ubuntu-based)
 
 Overview
+
 - 4 containers: backend (FastAPI), frontend (React via Vite dev server), db (MariaDB 10.11 LTS official image), nginx (TLS termination + reverse proxy)
 - Domain: https://aw.max
 - SSL: locally signed certs live in ./ssl
 - One Nginx container proxies both frontend and backend
 
 Developer workflows and tests
+
 - High-level plan: see TEST_PLAN.md (step-by-step actions) and TESTING_STRATEGY.md (one-pager priorities).
 - See backend/TESTING.md and frontend/TESTING.md for per-package testing guides (commands, fixtures philosophy, AAA/GWT patterns).
 - Standardized commands are available via Makefile. Run `make help` to discover targets (test-up, test, e2e, sb, etc.).
 
 Background: collation and engine choice
+
 - MySQL offers some of the most accurate modern Unicode collations (e.g., utf8mb4_0900_ai_ci), delivering high‑quality multilingual sorting, case/diacritic handling, and consistent comparisons across scripts.
 - However, to avoid reliance on closed‑source stewardship and keep the stack community‑governed, this project uses MariaDB by default.
 - MariaDB provides a comparable level of UTF‑8 collation quality (e.g., utf8mb4_uca1400_ai_ci), and end users are welcome to choose the engine/collation that best fits their needs and preferences.
 
 Project layout
+
 - backend/
   - app/main.py
   - requirements.txt
@@ -34,28 +38,32 @@ Project layout
 - .env.example (copy to .env to override DB creds)
 
 Prerequisites
+
 - Add hosts entry (already confirmed): 127.0.0.1 aw.max
 - Create TLS certs for aw.max and place in ./ssl as:
   - ./ssl/fullchain.pem
   - ./ssl/privkey.pem
-  Note: Do not commit real certs to VCS.
+    Note: Do not commit real certs to VCS.
 
 Quick start
-1) Copy env defaults (optional):
+
+1. Copy env defaults (optional):
    cp .env.example .env
+
    # edit .env to customize MariaDB credentials
 
-2) Build and start:
+2. Build and start:
    docker compose up --build
 
-3) Open the site:
+3. Open the site:
    https://aw.max
 
-4) Test API endpoints (through nginx):
+4. Test API endpoints (through nginx):
    - https://aw.max/api/
    - https://aw.max/api/hello/World
 
 Services
+
 - Backend (FastAPI):
   - URL (internal): http://backend:8000
   - Exposed via nginx at: https://aw.max/api/
@@ -69,9 +77,10 @@ Services
   - Credentials via .env or defaults in .env.example
 - Nginx:
   - TLS termination for aw.max (certs from ./ssl)
-  - Proxies /api/* to backend and everything else to frontend
+  - Proxies /api/\* to backend and everything else to frontend
 
 Notes
+
 - All app containers (backend, frontend, nginx) use Ubuntu base images pinned by digest. MariaDB uses the official mariadb:10.11.9 image (Debian-based).
 - For local development with HTTPS, your browser may require trusting the locally signed CA/cert.
 - Frontend fetches the API via the same origin and path prefix /api to avoid CORS in the browser; backend CORS also allows https://aw.max explicitly.
@@ -81,6 +90,7 @@ Notes
 ## Application features and settings
 
 ### Operation mode (frontend setting)
+
 Operation mode allows you to switch between different care behaviors.
 
 - Location: Settings page (https://aw.max/settings)
@@ -91,14 +101,18 @@ Operation mode allows you to switch between different care behaviors.
 - Usage in code (optional):
   - Read current state in any frontend module:
     ```js
-    const operationMode = (typeof localStorage !== 'undefined' && localStorage.getItem('operationMode') || 'manual')
+    const operationMode =
+      (typeof localStorage !== "undefined" &&
+        localStorage.getItem("operationMode")) ||
+      "manual";
     ```
   - Components may use this to adjust UI or scheduling behavior.
 
 What happens with each option:
+
 - **Automatic**: Receives data from IoT measurement devices. Watering is identified by `last_dry_weight_g`, `last_wet_weight_g`, and `water_added_g` being > 0 (non-NULL), while `water_loss_total_pct` is 0. Other fields (`measured_weight_g`, `water_loss_total_g`, `water_loss_day_pct`, `water_loss_day_g`) are NULL.
 - **Manual**: Default mode. Displays a notice: "Manual mode — weighing and watering is based on human input". Watering follows the same data signature as Automatic mode.
-- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule". 
+- **Vacation**: Adaptive mode for when you're away. Displays a notice: "Vacation mode — watering by approximated historical schedule".
   - **Watering Event**: Defined by `water_loss_total_pct` being 0 and `water_added_g` equaling the `water_added_g` from any latest measurement event (watering or weighing). All weight fields (`measured_weight_g`, `last_dry_weight_g`, `last_wet_weight_g`) and other loss fields are NULL.
   - **Bulk Watering UI**: In this mode, the weight input is hidden and replaced by a water drop icon. The first column is titled "Watering status". Clicking the icon records a vacation watering event with the signature above. Clicking it again deletes the event.
   - **Water Loss Column**: In this mode, the "Water loss" column shows a projected value calculated as `100 - Projected Water Retained %`. This ensures that as the plant dries out over time according to the schedule, the visual indicators (color-coding) remain consistent with the projected state.
@@ -107,44 +121,48 @@ What happens with each option:
 **Note on Watering Frequency**: The system calculates watering frequency (interval between events) only using "Automatic" and "Manual" watering events (where `last_dry_weight_g` and `last_wet_weight_g` are present and > 0). "Vacation" mode watering events (where weights are NULL) are used as the base date for the next projection but do not influence the historical frequency interval.
 
 Notes and future direction:
+
 - "Manual" and "Vacation" modes currently show informational banners across all pages via the `DashboardLayout`.
 - In "Vacation" mode, the "Plants" page uses a central approximation API endpoint (`/api/measurements/approximation/watering`) to provide "virtual" water retained, calculated frequency, and next watering date.
 - Mapping from legacy "Vacation mode" (`enabled`/`disabled`) is not automatically performed; users will default to "Manual".
 
 ## Generating local TLS certificates (using your existing local CA)
+
 This repo includes a helper script to create a certificate for aw.max signed by your local CA and place the outputs where nginx expects them (./ssl/fullchain.pem and ./ssl/privkey.pem).
 
 Prerequisites
+
 - Ensure you have a local Certificate Authority (CA) certificate and key. The script will prompt you for their location.
 - Make sure the CA certificate is trusted by your OS/browser.
 
 Usage
+
 - Default (interactive prompts for CA location):
   bash scripts/gen-local-cert.sh
 
 - Provide CA path/name explicitly (non-interactive):
   bash scripts/gen-local-cert.sh \
-    --domain aw.max \
-    --ca-dir /path/to/ca \
-    --ca-name dockerCA
+   --domain aw.max \
+   --ca-dir /path/to/ca \
+   --ca-name dockerCA
 
 - Or specify exact files:
   bash scripts/gen-local-cert.sh \
-    --ca-cert /path/to/dockerCA.crt \
-    --ca-key  /path/to/dockerCA.key
+   --ca-cert /path/to/dockerCA.crt \
+   --ca-key /path/to/dockerCA.key
 
 - Overwrite existing ./ssl files if present:
   bash scripts/gen-local-cert.sh --force
 
 Outputs
+
 - ./ssl/privkey.pem
 - ./ssl/fullchain.pem (leaf + CA cert)
 
 After generating, start the stack:
+
 - docker compose up --build
 - Visit https://aw.max (ensure aw.max is mapped to 127.0.0.1 in /etc/hosts)
-
-
 
 ---
 
@@ -160,27 +178,32 @@ This repository is intended to be public/open-source. To reduce risk:
 - Docker build contexts are restricted via `.dockerignore` to avoid leaking local files into images.
 
 Recommended (optional):
+
 - Use a local/CI secret scanner (e.g. `detect-secrets` or `git-secrets`).
 - Enable dependency and container image scanning in CI (e.g. Dependabot, Trivy).
 - Follow the guidelines in `SECURITY.md`.
 - Run `make dep-audit` to execute `pip-audit` and `npm audit` locally.
 
 ### API authentication (optional)
+
 The backend can require a static API key via the `X-API-Key` header when `API_KEY` is set.
+
 - Set `API_KEY` in `.env` (and in production secrets).
 - Frontend can pass it via `VITE_API_KEY` (Vite env) if needed.
 - Test mode (`TEST_MODE=1`) bypasses the API key for automated tests.
 
 ## DB healthcheck mariadb-admin vs mysqladmin.
 
-Using "mariadb-admin" is more robust, explicit, and quiet, which makes health status more accurate and logs cleaner. 
+Using "mariadb-admin" is more robust, explicit, and quiet, which makes health status more accurate and logs cleaner.
+
 - Uses the MariaDB-native client: `mariadb-admin` is the preferred binary in MariaDB images; `mysqladmin` is a compatibility alias and may not be present/consistent across versions. Using `mariadb-admin` aligns with the image running.
 - Forces a real TCP check: `-h 127.0.0.1 --protocol=TCP` ensures the healthcheck validates the TCP listener and authentication path. Without this, a client might fall back to the local Unix socket (depending on host and defaults), which can report healthy even if TCP isn’t accepting connections yet.
 - Faster failure, avoids hangs: `--connect-timeout=3` prevents the healthcheck from stalling when the server isn’t reachable, so Compose can retry promptly.
 - Quieter logs: `--silent` suppresses normal output so you don’t get noisy logs on each check.
 - Explicit non‑zero exit on failure: `|| exit 1` guarantees a failing status if the command doesn’t succeed (the admin tool already exits non‑zero on failure, but this keeps the intention crystal-clear in a shell context).
 - Works well with `start_period`: When paired with a reasonable `start_period` (e.g., 20s), it avoids early unauthenticated pings during server bootstrap that can generate “Access denied” noise.
- 
+
 ### Optional refinements
+
 - If you don’t want to use root for health checks, create a dedicated low‑privilege user and use that in the command.
 - If you specifically want to validate the container’s network namespace loopback and TCP stack (not Docker DNS), `127.0.0.1` is fine. If you instead want to verify inter‑container name resolution and networking, you could target `-h db` (service name) without publishing the port; just keep `--protocol=TCP`.

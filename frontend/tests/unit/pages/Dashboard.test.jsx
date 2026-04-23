@@ -5,39 +5,50 @@ import { MemoryRouter } from 'react-router-dom'
 
 // Stub Sparkline to keep tests lightweight and to assert props easily
 vi.mock('../../../src/components/Sparkline.jsx', () => ({
-  default: (props) => (
+  default: (props) =>
     React.createElement('div', {
       'data-testid': 'sparkline',
       'data-props': JSON.stringify(props),
-    })
-  ),
+    }),
 }))
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
-  default: ({ message }) => <div role="status" data-testid="loader">{message || 'Loading...'}</div>
+  default: ({ message }) => (
+    <div role="status" data-testid="loader">
+      {message || 'Loading...'}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
-  default: ({ message }) => <div role="alert" data-testid="error-notice">{message}</div>
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/Badge.jsx', () => ({
-  default: ({ children, variant }) => <span data-testid="badge" data-variant={variant}>{children}</span>
+  default: ({ children, variant }) => (
+    <span data-testid="badge" data-variant={variant}>
+      {children}
+    </span>
+  ),
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/utils/datetime.js', async () => {
   const actual = await vi.importActual('../../../src/utils/datetime.js')
   return {
     ...actual,
-    formatDateTime: (val) => val
+    formatDateTime: (val) => val,
   }
 })
 
@@ -50,20 +61,29 @@ describe('pages/Dashboard', () => {
   })
   test('getInitialShowSuggestedInterval returns true on getter error (covers fallback)', async () => {
     const { getInitialShowSuggestedInterval } = await import('../../../src/pages/Dashboard.jsx')
-    const throws = () => { throw new Error('boom') }
+    const throws = () => {
+      throw new Error('boom')
+    }
     expect(getInitialShowSuggestedInterval(throws)).toBe(true)
   })
 
   test('renders dashboard layout and welcome text', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
     render(
       <ThemeProvider>
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Updated expectations to match current UI content
@@ -76,7 +96,14 @@ describe('pages/Dashboard', () => {
   test('shows loader then empty state when no plants (covers early return in measurements loader)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
     const listByPlantSpy = vi.spyOn(measurementsApi, 'listByPlant')
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
 
@@ -85,7 +112,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // After loading resolves, empty state should appear and no measurements request happens
@@ -103,7 +130,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Error notice rendered and loader hidden after failure
@@ -124,7 +151,14 @@ describe('pages/Dashboard', () => {
       recommended_water_threshold_pct: 40,
     }
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [plant],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
 
     // Measurements contain a repotting marker that should be excluded and daily collapse
     const meas = [
@@ -158,7 +192,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Wait for sparkline to appear (means we had > 1 unique day points)
@@ -191,7 +225,14 @@ describe('pages/Dashboard', () => {
 
   test('shows "Not enough data" when <= 1 point', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-2', name: 'Monstera' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-2', name: 'Monstera' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     // Return single valid point only -> sparkline not shown
     const { measurementsApi } = await import('../../../src/api/measurements')
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
@@ -205,7 +246,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Not enough data placeholder
@@ -220,7 +261,14 @@ describe('pages/Dashboard', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // One plant returned
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-err', name: 'Cactus' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-err', name: 'Cactus' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     // Measurements endpoint fails for that plant -> inner catch should return [uid, []]
     vi.spyOn(measurementsApi, 'listByPlant').mockRejectedValueOnce(new Error('fetch failed'))
 
@@ -231,7 +279,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // After loading finishes, since there are 0 points, the card should show the fallback text
@@ -247,7 +295,14 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
 
     // Provide at least one plant so the measurements loader runs
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-x', name: 'Fern' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-x', name: 'Fern' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
 
     // Force Promise.all to throw to hit the outer catch block
     const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => {
@@ -262,7 +317,7 @@ describe('pages/Dashboard', () => {
           <MemoryRouter>
             <Dashboard />
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       )
 
       // Series error banner should appear with our error message text
@@ -271,7 +326,6 @@ describe('pages/Dashboard', () => {
       allSpy.mockRestore()
     }
   })
-
 
   test('handles plant without uuid and filters invalid measurement date (covers 68, 105-106, 231)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
@@ -285,7 +339,14 @@ describe('pages/Dashboard', () => {
       recommended_water_threshold_pct: 50,
     }
     // Include a plant without uuid to exercise the early return [null, []]
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ name: 'NoId' }, plantOk])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ name: 'NoId' }, plantOk],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
 
     // Measurements for the valid plant: include one invalid date record to be filtered out
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
@@ -301,7 +362,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Scope to the Rose card to avoid cross-test leakage
@@ -322,7 +383,22 @@ describe('pages/Dashboard', () => {
 
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-4', name: 'Basil', min_dry_weight_g: 10, max_water_weight_g: 10, recommended_water_threshold_pct: 20 }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [
+        {
+          uuid: 'p-4',
+          name: 'Basil',
+          min_dry_weight_g: 10,
+          max_water_weight_g: 10,
+          recommended_water_threshold_pct: 20,
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-05-02 10:00:00', measured_weight_g: 30 },
       { measured_at: '2024-05-01 10:00:00', measured_weight_g: 25 },
@@ -335,7 +411,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const spark = await screen.findByTestId('sparkline')
@@ -344,7 +420,6 @@ describe('pages/Dashboard', () => {
   })
 
   // --- Additional focused tests to finish branch/function coverage for Dashboard.jsx ---
-
 
   test('plants loader AbortError is ignored (covers 72-73 abort branch)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
@@ -355,7 +430,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     // Should show empty state (no error banner) after effect settles
     await screen.findByText(/no plants yet/i)
@@ -371,7 +446,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     const alert = await screen.findByRole('alert')
     expect((alert.textContent || '').toLowerCase()).toMatch(/failed to load plants/)
@@ -381,14 +456,21 @@ describe('pages/Dashboard', () => {
     // Start with persisted off state
     localStorage.setItem('chart.showSuggestedInterval', '0')
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
     render(
       <ThemeProvider>
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
     const toggle = screen.getByLabelText(/show suggested watering interval/i)
     expect(toggle).not.toBeChecked()
@@ -404,9 +486,22 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
-      { uuid: 'p-w', name: 'Weighty', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [
+        {
+          uuid: 'p-w',
+          name: 'Weighty',
+          min_dry_weight_g: 1,
+          max_water_weight_g: 1,
+          recommended_water_threshold_pct: 10,
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     // Include an entry with invalid weight but valid date to hit the !isFinite(w) branch
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-06-02 10:00:00', measured_weight_g: 10 },
@@ -420,7 +515,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const spark = await screen.findByTestId('sparkline')
@@ -428,7 +523,7 @@ describe('pages/Dashboard', () => {
     // Only two valid items should remain
     expect(props.data.length).toBe(2)
     // Ensure the titles correspond to the two valid dates (sanity)
-    const titles = props.data.map(p => p.title)
+    const titles = props.data.map((p) => p.title)
     expect(titles.join(' | ')).toMatch(/2024-06-02|2024-05-31/)
   })
 
@@ -436,9 +531,22 @@ describe('pages/Dashboard', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
-      { uuid: 'p-day', name: 'DayKey', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [
+        {
+          uuid: 'p-day',
+          name: 'DayKey',
+          min_dry_weight_g: 1,
+          max_water_weight_g: 1,
+          recommended_water_threshold_pct: 10,
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     // Include one entry with measured_at missing; it should be ignored in per-day pass
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-09-02 10:00:00', measured_weight_g: 10 },
@@ -452,7 +560,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const spark = await screen.findByTestId('sparkline')
@@ -462,9 +570,18 @@ describe('pages/Dashboard', () => {
 
   test('outer measurements catch without message uses default text (covers 143 default branch)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-outer', name: 'Outer' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-outer', name: 'Outer' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
 
-    const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => { throw {} })
+    const allSpy = vi.spyOn(Promise, 'all').mockImplementation(() => {
+      throw {}
+    })
 
     try {
       const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
@@ -473,7 +590,7 @@ describe('pages/Dashboard', () => {
           <MemoryRouter>
             <Dashboard />
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       )
       const alert = await screen.findByRole('alert')
       expect(alert.textContent || '').toMatch(/failed to load measurements/i)
@@ -487,14 +604,23 @@ describe('pages/Dashboard', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // One plant with two valid points to render chart and controls
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-ls', name: 'Persist' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-ls', name: 'Persist' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-07-02 10:00:00', measured_weight_g: 2 },
       { measured_at: '2024-07-01 10:00:00', measured_weight_g: 1 },
     ])
 
     // Spy on localStorage.setItem to throw
-    const setItemSpy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    const setItemSpy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
 
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
     // Ensure default for suggested interval is true by clearing any persisted off state
@@ -504,7 +630,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Toggle suggested interval off – state should update despite setItem throwing
@@ -531,7 +657,14 @@ describe('pages/Dashboard', () => {
     })
 
     const plant = { uuid: 'p-key', name: 'KeyNav' }
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [plant],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-01-02 10:00:00', measured_weight_g: 20 },
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: 10 },
@@ -543,7 +676,7 @@ describe('pages/Dashboard', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const card = await screen.findByTitle('Open statistics')
@@ -579,7 +712,7 @@ describe('pages/Dashboard – additional coverage', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // After effect completes, no error banner, but empty state visible
@@ -600,9 +733,14 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
-      { uuid: 'p-dark', name: 'Darkly' },
-    ])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-dark', name: 'Darkly' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-03-02 10:00:00', measured_weight_g: 10 },
       { measured_at: '2024-03-01 10:00:00', measured_weight_g: 9 },
@@ -616,7 +754,7 @@ describe('pages/Dashboard – additional coverage', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const title = await screen.findByText('Darkly')
@@ -635,9 +773,22 @@ describe('pages/Dashboard – additional coverage', () => {
     const { measurementsApi } = await import('../../../src/api/measurements')
 
     // Return one plant with valid series so the controls are visible and chart renders
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
-      { uuid: 'p-grid', name: 'Grid', min_dry_weight_g: 1, max_water_weight_g: 1, recommended_water_threshold_pct: 10 },
-    ])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [
+        {
+          uuid: 'p-grid',
+          name: 'Grid',
+          min_dry_weight_g: 1,
+          max_water_weight_g: 1,
+          recommended_water_threshold_pct: 10,
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-01-02 10:00:00', measured_weight_g: 2 },
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: 1 },
@@ -650,7 +801,7 @@ describe('pages/Dashboard – additional coverage', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const select = await screen.findByRole('combobox', { name: /charts per row/i })
@@ -673,7 +824,14 @@ describe('pages/Dashboard – additional coverage', () => {
 
   test('plants loader returns non-array and defaults to [] (covers branch at line 50)', async () => {
     const { plantsApi } = await import('../../../src/api/plants')
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce(null)
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      total_pages: 0,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
 
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
 
@@ -682,7 +840,7 @@ describe('pages/Dashboard – additional coverage', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     // Should render empty state without errors
@@ -694,9 +852,22 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([
-      { uuid: 'p-ls', name: 'LS', min_dry_weight_g: 5, max_water_weight_g: 5, recommended_water_threshold_pct: 20 },
-    ])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [
+        {
+          uuid: 'p-ls',
+          name: 'LS',
+          min_dry_weight_g: 5,
+          max_water_weight_g: 5,
+          recommended_water_threshold_pct: 20,
+        },
+      ],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-07-02 10:00:00', measured_weight_g: 10 },
       { measured_at: '2024-07-01 10:00:00', measured_weight_g: 9 },
@@ -705,14 +876,16 @@ describe('pages/Dashboard – additional coverage', () => {
     const { default: Dashboard } = await import('../../../src/pages/Dashboard.jsx')
 
     const originalSet = window.localStorage.setItem
-    window.localStorage.setItem = () => { throw new Error('quota') }
+    window.localStorage.setItem = () => {
+      throw new Error('quota')
+    }
     try {
       render(
         <ThemeProvider>
           <MemoryRouter>
             <Dashboard />
           </MemoryRouter>
-        </ThemeProvider>
+        </ThemeProvider>,
       )
 
       await screen.findByTestId('sparkline')
@@ -735,7 +908,14 @@ describe('pages/Dashboard – additional coverage', () => {
     const { plantsApi } = await import('../../../src/api/plants')
     const { measurementsApi } = await import('../../../src/api/measurements')
 
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([{ uuid: 'p-empty', name: 'Empty' }])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [{ uuid: 'p-empty', name: 'Empty' }],
+      total: 1,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 1,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: 'bad-date', measured_weight_g: 10 }, // invalid time
       { measured_at: '2024-01-01 10:00:00', measured_weight_g: NaN }, // invalid weight
@@ -748,7 +928,7 @@ describe('pages/Dashboard – additional coverage', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     await screen.findByText('Empty')
@@ -773,7 +953,9 @@ describe('Dashboard helpers', () => {
     localStorage.setItem('k', 'v')
     expect(safeLocalGetItem('k')).toBe('v')
 
-    const spy = vi.spyOn(localStorage.__proto__, 'getItem').mockImplementation(() => { throw new Error('nope') })
+    const spy = vi.spyOn(localStorage.__proto__, 'getItem').mockImplementation(() => {
+      throw new Error('nope')
+    })
     expect(safeLocalGetItem('k')).toBeNull()
     spy.mockRestore()
 
@@ -794,7 +976,9 @@ describe('Dashboard helpers', () => {
 
   test('safeSetItem swallows errors and persists on success', async () => {
     const { safeSetItem, safeLocalGetItem } = await import('../../../src/pages/Dashboard.jsx')
-    const spy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => { throw new Error('denied') })
+    const spy = vi.spyOn(localStorage.__proto__, 'setItem').mockImplementation(() => {
+      throw new Error('denied')
+    })
     // Should not throw
     expect(() => safeSetItem('a', '1')).not.toThrow()
     spy.mockRestore()
@@ -854,7 +1038,14 @@ describe('pages/Dashboard – refLines toggle branches', () => {
       max_water_weight_g: 10,
       recommended_water_threshold_pct: 50,
     }
-    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce([plant])
+    vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({
+      items: [plant],
+      total: 0,
+      total_pages: 1,
+      page: 1,
+      limit: 100,
+      global_total: 0,
+    })
     vi.spyOn(measurementsApi, 'listByPlant').mockResolvedValueOnce([
       { measured_at: '2024-06-02 10:00:00', measured_weight_g: 22 },
       { measured_at: '2024-06-01 10:00:00', measured_weight_g: 20 },
@@ -867,7 +1058,7 @@ describe('pages/Dashboard – refLines toggle branches', () => {
         <MemoryRouter>
           <Dashboard />
         </MemoryRouter>
-      </ThemeProvider>
+      </ThemeProvider>,
     )
 
     const spark = await screen.findByTestId('sparkline')

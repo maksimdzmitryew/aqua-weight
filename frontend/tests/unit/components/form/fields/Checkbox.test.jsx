@@ -25,7 +25,12 @@ function FormWithValidation() {
   return (
     <form>
       {/* For checkbox, validate that value is true */}
-      <Checkbox form={form} name="policy" label="Accept policy" validators={[v => v === true || 'Please accept']} />
+      <Checkbox
+        form={form}
+        name="policy"
+        label="Accept policy"
+        validators={[(v) => v === true || 'Please accept']}
+      />
     </form>
   )
 }
@@ -37,7 +42,7 @@ describe('Checkbox field', () => {
     render(
       <Wrapper>
         <FormWithCheckboxes />
-      </Wrapper>
+      </Wrapper>,
     )
 
     // Renders label text
@@ -68,7 +73,7 @@ describe('Checkbox field', () => {
     render(
       <Wrapper>
         <FormWithValidation />
-      </Wrapper>
+      </Wrapper>,
     )
 
     const cb = screen.getByRole('checkbox', { name: /accept policy/i })

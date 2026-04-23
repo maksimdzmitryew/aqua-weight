@@ -2,16 +2,19 @@
   "name": "aw-frontend",
   "private": true,
   "engines": {
-    "node": ">=20 <23"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
+    "lint": "eslint src --ext .js,.jsx --max-warnings 0",
+    "format:check": "prettier --check .",
     "e2e": "playwright test --config ./playwright.config.ts",
     "e2e:headed": "playwright test --config ./playwright.config.ts --headed",
     "e2e:report": "playwright show-report ./playwright-report",
     "e2e:install": "npx playwright install --with-deps",
+    "test": "vitest --config ./vitest.config.ts run",
     "test:unit": "vitest --config ./vitest.config.ts",
     "test:unit:coverage": "vitest --config ./vitest.config.ts run --coverage",
     "storybook": "storybook dev -p 6006",
@@ -36,6 +39,9 @@
     "storybook": "^8.3.6",
     "vite": "^6.4.1",
     "vitest": "^3.0.4",
-    "whatwg-fetch": "^3.6.20"
+    "whatwg-fetch": "^3.6.20",
+    "eslint": "8.57.1",
+    "eslint-plugin-react": "7.37.2",
+    "prettier": "3.1.0"
   }
 }

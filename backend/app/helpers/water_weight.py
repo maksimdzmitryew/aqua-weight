@@ -42,7 +42,7 @@ def update_min_dry_weight_and_max_watering_added_g(
             cur.execute(
                 """
                 UPDATE plants
-                SET 
+                SET
                     min_dry_weight_g = %s,
                     max_water_weight_g = %s
                 WHERE id = UNHEX(%s)

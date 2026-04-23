@@ -16,11 +16,11 @@ vi.mock('react-router-dom', async () => {
 })
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>
+  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>
+  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -30,88 +30,65 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
       <button onClick={onBack}>Back</button>
       {actions}
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/ConfirmDialog.jsx', () => ({
-  default: ({ open, onConfirm, onCancel, title }) => open ? (
-    <div role="dialog" data-testid="mock-confirm-dialog">
-      <h2>{title}</h2>
-      <button onClick={onConfirm}>Delete</button>
-      <button onClick={onCancel}>Cancel</button>
-    </div>
-  ) : null
+  default: ({ open, onConfirm, onCancel, title }) =>
+    open ? (
+      <div role="dialog" data-testid="mock-confirm-dialog">
+        <h2>{title}</h2>
+        <button onClick={onConfirm}>Delete</button>
+        <button onClick={onCancel}>Cancel</button>
+      </div>
+    ) : null,
 }))
 
 vi.mock('../../../src/components/form/fields/DateTimeLocal.jsx', () => ({
   default: ({ label, form, name, required }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="datetime-local"
-        {...form.register(name)}
-        required={required}
-      />
+      <input id={name} type="datetime-local" {...form.register(name)} required={required} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Select.jsx', () => ({
   default: ({ label, form, name, children, required, disabled }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <select
-        id={name}
-        {...form.register(name)}
-        required={required}
-        disabled={disabled}
-      >
+      <select id={name} {...form.register(name)} required={required} disabled={disabled}>
         {children}
       </select>
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/NumberInput.jsx', () => ({
   default: ({ label, form, name, min }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="number"
-        min={min}
-        {...form.register(name)}
-      />
+      <input id={name} type="number" min={min} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/Checkbox.jsx', () => ({
   default: ({ label, form, name }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="checkbox"
-        {...form.register(name)}
-      />
+      <input id={name} type="checkbox" {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
   default: ({ label, form, name, placeholder }) => (
     <div>
       <label htmlFor={name}>{label}</label>
-      <input
-        id={name}
-        type="text"
-        placeholder={placeholder}
-        {...form.register(name)}
-      />
+      <input id={name} type="text" placeholder={placeholder} {...form.register(name)} />
     </div>
-  )
+  ),
 }))
 
 function renderWithRoute(initialEntries) {
@@ -122,7 +99,7 @@ function renderWithRoute(initialEntries) {
           <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
         </Routes>
       </MemoryRouter>
-    </ThemeProvider>
+    </ThemeProvider>,
   )
 }
 
@@ -130,9 +107,7 @@ describe('pages/PlantEdit', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     // Default mock for locations to avoid MSW warnings in every test
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
   })
 
   test('buildUpdatePayload throws when plant is null', () => {
@@ -220,7 +195,7 @@ describe('pages/PlantEdit', () => {
         called = true
         return HttpResponse.json({ ok: true })
       }),
-      http.get('/api/locations', () => HttpResponse.json([{ uuid: 'l1', name: 'Hall' }]))
+      http.get('/api/locations', () => HttpResponse.json([{ uuid: 'l1', name: 'Hall' }])),
     )
 
     renderWithRoute([init])
@@ -243,7 +218,7 @@ describe('pages/PlantEdit', () => {
         seen = await request.json()
         return HttpResponse.json({ ok: true })
       }),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute([init])
     const name = await screen.findByLabelText(/name/i)
@@ -256,8 +231,10 @@ describe('pages/PlantEdit', () => {
 
   test('loads via API when no state provided; shows loading then form', async () => {
     server.use(
-      http.get('/api/plants/:uuid', ({ params }) => HttpResponse.json({ uuid: params.uuid, name: 'Loaded' })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/plants/:uuid', ({ params }) =>
+        HttpResponse.json({ uuid: params.uuid, name: 'Loaded' }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/u2/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -266,8 +243,10 @@ describe('pages/PlantEdit', () => {
 
   test('locations load error is shown near select', async () => {
     server.use(
-      http.get('/api/plants/:uuid', ({ params }) => HttpResponse.json({ uuid: params.uuid, name: 'P' })),
-      http.get('/api/locations', () => HttpResponse.json({ message: 'fail' }, { status: 500 }))
+      http.get('/api/plants/:uuid', ({ params }) =>
+        HttpResponse.json({ uuid: params.uuid, name: 'P' }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json({ message: 'fail' }, { status: 500 })),
     )
     renderWithRoute(['/plants/u3/edit'])
     expect(await screen.findByText(/failed to load locations/i)).toBeInTheDocument()
@@ -276,7 +255,7 @@ describe('pages/PlantEdit', () => {
   test('load error shows generic error message when API fails', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.text('nope', { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErr/edit'])
     // Loading first, then error after request fails
@@ -287,7 +266,7 @@ describe('pages/PlantEdit', () => {
   test('load error with undefined message triggers generic error (non-abort)', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErr2/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -297,7 +276,7 @@ describe('pages/PlantEdit', () => {
   test('load error where thrown error is null still shows generic error', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErr3/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -305,7 +284,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('advanced shows ID and Created when provided', async () => {
-    const init = { pathname: '/plants/uAdv/edit', state: { plant: { uuid: 'uAdv', id: 42, name: 'Adv', created_at: '2024-01-01T12:00:00Z' } } }
+    const init = {
+      pathname: '/plants/uAdv/edit',
+      state: { plant: { uuid: 'uAdv', id: 42, name: 'Adv', created_at: '2024-01-01T12:00:00Z' } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -317,7 +299,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('normalize maps species -> species_name when species_name missing', async () => {
-    const init = { pathname: '/plants/uSpec/edit', state: { plant: { uuid: 'uSpec', name: 'N', species: 'Aloe vera' } } }
+    const init = {
+      pathname: '/plants/uSpec/edit',
+      state: { plant: { uuid: 'uSpec', name: 'N', species: 'Aloe vera' } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -337,7 +322,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('advanced fertilizer EC renders 0 without falling back to empty', async () => {
-    const init = { pathname: '/plants/uEC0/edit', state: { plant: { uuid: 'uEC0', name: 'E', fertilizer_ec_ms: 0 } } }
+    const init = {
+      pathname: '/plants/uEC0/edit',
+      state: { plant: { uuid: 'uEC0', name: 'E', fertilizer_ec_ms: 0 } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -347,7 +335,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('advanced fertilizer EC input is empty when value is null', async () => {
-    const init = { pathname: '/plants/uECnull/edit', state: { plant: { uuid: 'uECnull', name: 'E', fertilizer_ec_ms: null } } }
+    const init = {
+      pathname: '/plants/uECnull/edit',
+      state: { plant: { uuid: 'uECnull', name: 'E', fertilizer_ec_ms: null } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -359,7 +350,7 @@ describe('pages/PlantEdit', () => {
   test('plant load Error with empty message shows generic error (covers msg falsy path)', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json({ message: '' }, { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErrEmptyMsg/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -369,7 +360,7 @@ describe('pages/PlantEdit', () => {
   test('plant load throws undefined error object and shows generic error', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json(null, { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErrUndef/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -379,7 +370,7 @@ describe('pages/PlantEdit', () => {
   test('plant load Error with non-empty message shows generic error (non-abort)', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uErrBoom/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -391,9 +382,7 @@ describe('pages/PlantEdit', () => {
     // Use a matching route but provide state without uuid to trigger branch inside onSave
     const init = { pathname: '/plants/any/edit', state: { plant: { name: 'NoId' } } }
     // locations
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
     expect(alertSpy).toHaveBeenCalled()
@@ -401,11 +390,11 @@ describe('pages/PlantEdit', () => {
   })
 
   test('dark theme styles and tabs switch', async () => {
-    try { localStorage.setItem('theme', 'dark') } catch {}
+    try {
+      localStorage.setItem('theme', 'dark')
+    } catch {}
     const init = { pathname: '/plants/u4/edit', state: { plant: { uuid: 'u4', name: 'Dark' } } }
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json([]))
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
     const { container } = renderWithRoute([init])
     const input = await screen.findByRole('textbox', { name: /name/i })
     // dark border color rgb(55,65,81)
@@ -423,7 +412,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('light theme advanced divider is rendered', async () => {
-    const init = { pathname: '/plants/u4l/edit', state: { plant: { uuid: 'u4l', name: 'Light Name' } } }
+    const init = {
+      pathname: '/plants/u4l/edit',
+      state: { plant: { uuid: 'u4l', name: 'Light Name' } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -442,7 +434,7 @@ describe('pages/PlantEdit', () => {
         err.name = 'AbortError'
         throw err
       }),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uAbort/edit'])
     // Loading appears, then disappears; no error message rendered
@@ -457,7 +449,7 @@ describe('pages/PlantEdit', () => {
       http.get('/api/plants/:uuid', () => {
         throw new Error('request aborted by user')
       }),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uAbortMsg/edit'])
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -467,9 +459,7 @@ describe('pages/PlantEdit', () => {
 
   test('locations non-array response falls back to empty options', async () => {
     const init = { pathname: '/plants/uLoc/edit', state: { plant: { uuid: 'uLoc', name: 'L' } } }
-    server.use(
-      http.get('/api/locations', () => HttpResponse.json({ ok: true })),
-    )
+    server.use(http.get('/api/locations', () => HttpResponse.json({ ok: true })))
     renderWithRoute([init])
     const select = await screen.findByLabelText(/location/i)
     const options = within(select).getAllByRole('option')
@@ -478,7 +468,10 @@ describe('pages/PlantEdit', () => {
   })
 
   test('advanced EC input shows empty when initial value is empty string', async () => {
-    const init = { pathname: '/plants/uECEmpty/edit', state: { plant: { uuid: 'uECEmpty', name: 'E', fertilizer_ec_ms: '' } } }
+    const init = {
+      pathname: '/plants/uECEmpty/edit',
+      state: { plant: { uuid: 'uECEmpty', name: 'E', fertilizer_ec_ms: '' } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     const adv = await screen.findByRole('tab', { name: /advanced/i })
@@ -490,7 +483,7 @@ describe('pages/PlantEdit', () => {
   test('normalize early return path when plant API returns null', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.json(null)),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute(['/plants/uNull/edit'])
     // loading then no error shown; form not present because plant is null
@@ -509,14 +502,17 @@ describe('pages/PlantEdit', () => {
   })
 
   test('fertilizer_ec_ms empty string is sent as null', async () => {
-    const init = { pathname: '/plants/u6/edit', state: { plant: { uuid: 'u6', name: 'F1', fertilizer_ec_ms: '' } } }
+    const init = {
+      pathname: '/plants/u6/edit',
+      state: { plant: { uuid: 'u6', name: 'F1', fertilizer_ec_ms: '' } },
+    }
     let body
     server.use(
       http.put('/api/plants/:uuid', async ({ request }) => {
         body = await request.json()
         return HttpResponse.json({ ok: true })
       }),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
@@ -525,14 +521,17 @@ describe('pages/PlantEdit', () => {
   })
 
   test('fertilizer_ec_ms numeric string is converted to number and rendered', async () => {
-    const init = { pathname: '/plants/u7/edit', state: { plant: { uuid: 'u7', name: 'F2', fertilizer_ec_ms: '2.5' } } }
+    const init = {
+      pathname: '/plants/u7/edit',
+      state: { plant: { uuid: 'u7', name: 'F2', fertilizer_ec_ms: '2.5' } },
+    }
     let body
     server.use(
       http.put('/api/plants/:uuid', async ({ request }) => {
         body = await request.json()
         return HttpResponse.json({ ok: true })
       }),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute([init])
     // Ensure the input shows a non-empty value path (covers ?? branch)
@@ -587,7 +586,7 @@ describe('pages/PlantEdit', () => {
       name: 'Aloe',
       description: 'D',
       recommended_water_threshold_pct: 0,
-      species_name: 'Aloe vera' // hits left side of ?? in normalize later, but here test payload
+      species_name: 'Aloe vera', // hits left side of ?? in normalize later, but here test payload
     }
     const b2 = buildUpdatePayload(p2)
     expect(b2.payload.name).toBe('Aloe')
@@ -600,7 +599,7 @@ describe('pages/PlantEdit', () => {
     // Case where species_name is already present (hits left side of ?? species)
     const init = {
       pathname: '/plants/uNorm/edit',
-      state: { plant: { uuid: 'uNorm', name: 'N', species_name: 'S', species: 'Ignore' } }
+      state: { plant: { uuid: 'uNorm', name: 'N', species_name: 'S', species: 'Ignore' } },
     }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
@@ -619,10 +618,12 @@ describe('pages/PlantEdit', () => {
           recommended_water_threshold_pct: 30,
           min_dry_weight_g: 150,
           max_water_weight_g: 80,
-        }
-      }
+        },
+      },
     }
-    server.use(http.get('/api/locations', () => HttpResponse.json([{ uuid: 'loc-uuid', name: 'Kitchen' }])))
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json([{ uuid: 'loc-uuid', name: 'Kitchen' }])),
+    )
     renderWithRoute([init])
 
     // Verify location fallback worked
@@ -635,7 +636,7 @@ describe('pages/PlantEdit', () => {
     const thresh = await screen.findByLabelText(/recommended water threshold/i)
     const minDry = screen.getByLabelText(/min dry weight/i)
     const maxWater = screen.getByLabelText(/max water weight/i)
-    
+
     expect(thresh).toHaveValue(30)
     expect(minDry).toHaveValue(150)
     expect(maxWater).toHaveValue(80)
@@ -659,8 +660,8 @@ describe('pages/PlantEdit', () => {
           uuid: 'uMin',
           name: 'Min',
           // missing everything else
-        }
-      }
+        },
+      },
     }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
@@ -687,11 +688,13 @@ describe('pages/PlantEdit', () => {
 
   test('line 201: name input uses empty string fallback when plant.name is null', async () => {
     server.use(
-      http.get('/api/plants/:uuid', () => HttpResponse.json({
-        uuid: 'u1',
-        name: null, // trigger line 201 fallback
-        created_at: '2025-01-01T00:00:00Z'
-      }))
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({
+          uuid: 'u1',
+          name: null, // trigger line 201 fallback
+          created_at: '2025-01-01T00:00:00Z',
+        }),
+      ),
     )
 
     renderWithRoute(['/plants/u1/edit'])

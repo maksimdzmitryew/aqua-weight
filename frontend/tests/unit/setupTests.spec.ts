@@ -39,5 +39,4 @@ describe('src/setupTests.js (Jest-style) coverage', () => {
     const mockServer = getMockServer()
     expect(mockServer.resetHandlers.mock.calls.length).toBeGreaterThanOrEqual(1)
   })
-
 })

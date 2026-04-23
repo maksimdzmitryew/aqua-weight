@@ -17,7 +17,7 @@ describe('StatusIcon', () => {
           <StatusIcon type="measure" active={true} />
           <StatusIcon type="measure" active={false} />
         </>
-      </Wrapper>
+      </Wrapper>,
     )
 
     expect(screen.getByRole('img', { name: 'Needs watering' })).toBeInTheDocument()
@@ -30,7 +30,7 @@ describe('StatusIcon', () => {
     render(
       <Wrapper>
         <StatusIcon type="water" active={true} label="Custom" />
-      </Wrapper>
+      </Wrapper>,
     )
     const el = screen.getByRole('img', { name: 'Custom' })
     expect(el).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('StatusIcon', () => {
     const { rerender } = render(
       <Wrapper>
         <StatusIcon type="water" active={true} />
-      </Wrapper>
+      </Wrapper>,
     )
     let el = screen.getByRole('img', { name: 'Needs watering' })
     // active water uses strong blue background, light border
@@ -52,7 +52,7 @@ describe('StatusIcon', () => {
     rerender(
       <Wrapper>
         <StatusIcon type="measure" active={true} />
-      </Wrapper>
+      </Wrapper>,
     )
     el = screen.getByRole('img', { name: 'Needs measurement' })
     // active measure uses green background
@@ -61,7 +61,7 @@ describe('StatusIcon', () => {
     rerender(
       <Wrapper>
         <StatusIcon type="measure" active={false} />
-      </Wrapper>
+      </Wrapper>,
     )
     el = screen.getByRole('img', { name: 'No measurement needed' })
     // inactive uses light gray background and darker foreground text
@@ -74,27 +74,42 @@ describe('StatusIcon', () => {
     const { rerender } = render(
       <Wrapper>
         <StatusIcon type="water" active={true} />
-      </Wrapper>
+      </Wrapper>,
     )
     let el = screen.getByRole('img', { name: 'Needs watering' })
     // in dark mode for water active: blue background (same), white text, dark border, inset shadow
-    expect(el).toHaveStyle({ background: '#1d4ed8', color: '#ffffff', border: '1px solid #111827', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)' })
+    expect(el).toHaveStyle({
+      background: '#1d4ed8',
+      color: '#ffffff',
+      border: '1px solid #111827',
+      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)',
+    })
 
     rerender(
       <Wrapper>
         <StatusIcon type="measure" active={true} />
-      </Wrapper>
+      </Wrapper>,
     )
     el = screen.getByRole('img', { name: 'Needs measurement' })
-    expect(el).toHaveStyle({ background: '#16a34a', color: '#ffffff', border: '1px solid #111827', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)' })
+    expect(el).toHaveStyle({
+      background: '#16a34a',
+      color: '#ffffff',
+      border: '1px solid #111827',
+      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)',
+    })
 
     rerender(
       <Wrapper>
         <StatusIcon type="measure" active={false} />
-      </Wrapper>
+      </Wrapper>,
     )
     el = screen.getByRole('img', { name: 'No measurement needed' })
-    expect(el).toHaveStyle({ background: '#374151', color: '#9ca3af', border: '1px solid #111827', boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)' })
+    expect(el).toHaveStyle({
+      background: '#374151',
+      color: '#9ca3af',
+      border: '1px solid #111827',
+      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.2)',
+    })
 
     // cleanup
     window.localStorage.removeItem('theme')

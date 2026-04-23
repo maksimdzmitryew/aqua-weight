@@ -14,8 +14,25 @@ describe('Sparkline helpers', () => {
     expect(computeFirstBelow(null, 10)).toBeNull()
     expect(computeFirstBelow([], 10)).toBeNull()
     expect(computeFirstBelow([{ x: 1, y: 1 }], 10)).toBeNull()
-    expect(computeFirstBelow([{ x: 1, y: 2 }, { x: 2, y: 3 }], null)).toBeNull()
-    expect(computeFirstBelow([{ x: 1, y: 2 }, { x: 2, y: 3 }], 10, false)).toBeNull()
+    expect(
+      computeFirstBelow(
+        [
+          { x: 1, y: 2 },
+          { x: 2, y: 3 },
+        ],
+        null,
+      ),
+    ).toBeNull()
+    expect(
+      computeFirstBelow(
+        [
+          { x: 1, y: 2 },
+          { x: 2, y: 3 },
+        ],
+        10,
+        false,
+      ),
+    ).toBeNull()
   })
 
   it('computeFirstBelow detects first crossing below threshold', () => {
@@ -52,7 +69,7 @@ describe('Sparkline helpers', () => {
       { x: Date.UTC(2025, 0, 2), y: 12 },
       { x: Date.UTC(2025, 0, 3), y: 9 },
     ]
-    const peakVLines = [ { x: Date.UTC(2025, 0, 2) } ]
+    const peakVLines = [{ x: Date.UTC(2025, 0, 2) }]
     const firstBelow = { x: Date.UTC(2025, 0, 3), y: 9, index: 2 }
     const days = computeDaysSincePrevPeak(firstBelow, peakVLines, points, startOfDay)
     expect(days).toBe(1)
@@ -66,7 +83,7 @@ describe('Sparkline helpers', () => {
     ]
     const resEU = computePeakVLines(pts, /*maxWaterG*/ 100, /*peakDeltaPct*/ 0.2, 'europe')
     expect(resEU).toHaveLength(1)
-    expect(resEU[0]).toMatchObject({ x: Date.UTC(2025,0,2), y: 40, label: '02/01' })
+    expect(resEU[0]).toMatchObject({ x: Date.UTC(2025, 0, 2), y: 40, label: '02/01' })
     const resUS = computePeakVLines(pts, 100, 0.2, 'usa')
     expect(resUS[0].label).toBe('01/02')
   })
