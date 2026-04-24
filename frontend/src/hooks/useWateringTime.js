@@ -23,12 +23,10 @@ export default function useWateringTime() {
   }
 
   const updateDisplay = useCallback(() => {
-    if (frozen) return
-
     const elapsed = Date.now() - anchorRef.current.refTime
     const currentWall = new Date(anchorRef.current.wallTime + elapsed)
     setDisplayTime(formatDateTime(currentWall))
-  }, [frozen])
+  }, [])
 
   useEffect(() => {
     if (frozen) return

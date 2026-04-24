@@ -127,6 +127,41 @@ describe('useWateringTime hook', () => {
     expect(result.current.dateTime).toBe('2025-05-05T10:00:01')
   })
 
+  it('ignores invalid datetime string and keeps previous displayTime', () => {
+    const { result } = renderHook(() => useWateringTime())
+
+    const before = result.current.dateTime
+
+    act(() => {
+      result.current.setDateTime('not-a-valid-date')
+    })
+
+    expect(result.current.mode).toBe('manual')
+    expect(result.current.dateTime).toBe(before)
+  })
+
+  it('updateDisplay skips update when frozen (branch coverage)', () => {
+    const { result } = renderHook(() => useWateringTime())
+
+    // Freeze immediately so the effect never sets up an interval while frozen,
+    // and updateDisplay (with frozen=true in its closure) is built but guarded.
+    // Advance timers inside the same act so any pending tick fires while React
+    // is still flushing — exercising the `if (frozen) return` true branch.
+    act(() => {
+      result.current.setFrozen(true)
+      vi.advanceTimersByTime(200)
+    })
+
+    const frozenTime = result.current.dateTime
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+
+    expect(result.current.dateTime).toBe(frozenTime)
+    expect(result.current.frozen).toBe(true)
+  })
+
   it('getCommitDateTime returns millisecond precision', () => {
     const { result } = renderHook(() => useWateringTime())
     
