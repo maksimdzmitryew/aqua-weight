@@ -270,6 +270,63 @@ describe('retry logic and abort handling', () => {
   })
 })
 
+describe('normalizeSignal cross-realm / aborted-signal paths', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // lines 27-30: signal is a plain object (not instanceof AbortSignal) → normalizeSignal returns undefined,
+  // so requestInit.signal is undefined and the request proceeds normally.
+  it('ignores a cross-realm signal object and makes request without signal (lines 27-30)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: { ok: true } }))
+    const c = new ApiClient()
+    // Plain object with aborted:false is NOT instanceof AbortSignal → cross-realm branch
+    const fakeSignal = { aborted: false } as unknown as AbortSignal
+    const data = await c.get('/cross-realm', { signal: fakeSignal })
+    expect(data).toEqual({ ok: true })
+    const passedInit = fetchSpy.mock.calls[0][1] as RequestInit
+    expect(passedInit.signal).toBeUndefined()
+  })
+
+  // lines 77-80: signal.aborted is true AND normalizeSignal returned undefined (cross-realm)
+  // → request throws AbortError immediately before calling fetch.
+  it('throws AbortError immediately when cross-realm signal is already aborted (lines 77-80)', async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockResolvedValue(makeResponse({ body: null }))
+    const c = new ApiClient()
+    const fakeAbortedSignal = { aborted: true } as unknown as AbortSignal
+    await expect(c.get('/aborted-cross-realm', { signal: fakeAbortedSignal })).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Aborted',
+    })
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  // lines 94-95: fetch throws with "expected signal.*instance of AbortSignal" message while a real
+  // (normalised) signal is set → fallback fetch without signal is called and returns successfully.
+  it('falls back to fetch without signal on incompatible-signal TypeError (lines 94-95)', async () => {
+    const incompatibleErr = new TypeError(
+      'expected signal to be an instance of AbortSignal',
+    )
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch' as any)
+      .mockRejectedValueOnce(incompatibleErr)
+      .mockResolvedValueOnce(makeResponse({ body: { fallback: true } }))
+    const c = new ApiClient()
+    // Use a real AbortSignal so normalizeSignal keeps it → requestInit.signal is set
+    const ctrl = new AbortController()
+    const data = await c.get('/fallback', { signal: ctrl.signal })
+    expect(data).toEqual({ fallback: true })
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    // Second call must have no signal
+    const secondInit = fetchSpy.mock.calls[1][1] as RequestInit
+    expect(secondInit.signal).toBeUndefined()
+  })
+})
+
 describe('headers and helpers', () => {
   afterEach(() => {
     vi.restoreAllMocks()
