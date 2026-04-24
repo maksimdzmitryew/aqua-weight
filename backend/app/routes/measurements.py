@@ -123,7 +123,7 @@ async def create_vacation_watering(
 
     measured_at_str = payload.measured_at or now_local_iso()
     try:
-        measured_at_dt = parse_timestamp_local(measured_at_str, fixed_milliseconds=0)
+        measured_at_dt = parse_timestamp_local(measured_at_str)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid measured_at: {e}")
 
@@ -202,7 +202,7 @@ async def create_vacation_watering(
                 return {
                     "id": bin_to_hex(new_id),
                     "plant_id": payload.plant_id,
-                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds"),
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="milliseconds"),
                     "water_loss_total_pct": 0.0,
                     "water_retained_pct": water_retained_pct,
                     "note": final_note,
@@ -260,7 +260,7 @@ async def create_reported_watering(
 
     measured_at_str = payload.measured_at or now_local_iso()
     try:
-        measured_at_dt = parse_timestamp_local(measured_at_str, fixed_milliseconds=0)
+        measured_at_dt = parse_timestamp_local(measured_at_str)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid measured_at: {e}")
 
@@ -318,7 +318,7 @@ async def create_reported_watering(
                 return {
                     "id": bin_to_hex(new_id),
                     "plant_id": payload.plant_id,
-                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="seconds"),
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="milliseconds"),
                     "note": final_note,
                 }
         except Exception as e:
@@ -413,7 +413,7 @@ async def get_last_measurement(plant_id: str, get_conn_fn=Depends(get_conn_facto
                     return None
                 return {
                     "measured_at": (
-                        row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None
+                        row[0].isoformat(sep=" ", timespec="milliseconds") if row[0] else None
                     ),
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
@@ -525,7 +525,7 @@ async def apply_measurements_corrections(
 
             # Determine window
             from_dt = (
-                parse_timestamp_local(payload.from_ts, fixed_milliseconds=0)
+                parse_timestamp_local(payload.from_ts)
                 if payload.from_ts
                 else None
             )
@@ -543,9 +543,7 @@ async def apply_measurements_corrections(
                         if isinstance(last_repot.measured_at, datetime):
                             from_dt = last_repot.measured_at
                         else:
-                            from_dt = parse_timestamp_local(
-                                str(last_repot.measured_at), fixed_milliseconds=0
-                            )
+                            from_dt = parse_timestamp_local(str(last_repot.measured_at))
                     except Exception:
                         from_dt = None
 
@@ -621,7 +619,7 @@ async def apply_measurements_corrections(
                             {
                                 "id": bin_to_hex(mid),
                                 "measured_at": (
-                                    measured_at.isoformat(sep=" ", timespec="seconds")
+                                    measured_at.isoformat(sep=" ", timespec="milliseconds")
                                     if isinstance(measured_at, datetime)
                                     else str(measured_at)
                                 ),
@@ -683,7 +681,7 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
                         {
                             "id": bin_to_hex(_id),
                             "measured_at": (
-                                r[1].isoformat(sep=" ", timespec="seconds") if r[1] else None
+                                r[1].isoformat(sep=" ", timespec="milliseconds") if r[1] else None
                             ),
                             "measured_weight_g": r[2],
                             "last_dry_weight_g": r[3],
@@ -730,7 +728,7 @@ async def create_measurement(
         raise HTTPException(status_code=400, detail=str(e))
 
     # Use deterministic milliseconds so multiple events at the same minute can be ordered
-    measured_at_dt = parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
+    measured_at_dt = parse_timestamp_local(payload.measured_at)
     measured_at = measured_at_dt  # pass timezone-naive local datetime directly to DB driver
 
     measured_weight = payload.measured_weight_g
@@ -893,7 +891,7 @@ async def update_measurement(
 
                 # Normalize incoming values
                 measured_at = (
-                    parse_timestamp_local(payload.measured_at, fixed_milliseconds=0)
+                    parse_timestamp_local(payload.measured_at)
                     if payload.measured_at is not None
                     else None
                 )
@@ -1055,7 +1053,7 @@ async def get_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
                     "id": bin_to_hex(row[0]),
                     "plant_id": bin_to_hex(row[1]),
                     "measured_at": (
-                        row[2].isoformat(sep=" ", timespec="seconds") if row[2] else None
+                        row[2].isoformat(sep=" ", timespec="milliseconds") if row[2] else None
                     ),
                     "measured_weight_g": row[3],
                     "last_dry_weight_g": row[4],

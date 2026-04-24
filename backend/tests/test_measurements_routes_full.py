@@ -160,7 +160,7 @@ async def test_get_last_measurement_none_and_row(
     # Second case: one row returned
     row = [
         types.SimpleNamespace(
-            isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 12:00:00"
+            isoformat=lambda sep=" ", timespec="milliseconds": "2025-01-01 12:00:00.000"
         ),  # measured_at
         100,  # measured_weight_g
         90,  # last_dry_weight_g
@@ -174,7 +174,7 @@ async def test_get_last_measurement_none_and_row(
     r2 = await async_client.get("/api/measurements/last", params={"plant_id": plant_hex})
     assert r2.status_code == 200
     data = r2.json()
-    assert data["measured_at"] == "2025-01-01 12:00:00"
+    assert data["measured_at"] == "2025-01-01 12:00:00.000"
     assert data["method_id"] == ("11" * 16)
     assert data["scale_id"] == ("22" * 16)
     assert data["note"] == "note here"
@@ -224,7 +224,7 @@ async def test_create_reported_watering_invalid_and_success(
     data = r_ok.json()
     assert data["id"] == ("77" * 16)
     assert data["plant_id"] == ("aa" * 16)
-    assert data["measured_at"] == "2025-01-02 10:20:00"
+    assert data["measured_at"] == "2025-01-02 10:20:00.000"
     assert data["note"].startswith("[reported] watering")
     assert "by Alice" in data["note"] and "top-up" in data["note"]
 
@@ -955,7 +955,9 @@ async def test_get_measurement_invalid_not_found_and_success(
     row = [
         bytes.fromhex("11" * 16),  # id
         bytes.fromhex("aa" * 16),  # plant_id
-        types.SimpleNamespace(isoformat=lambda sep=" ", timespec="seconds": "2025-01-01 00:00:00"),
+        types.SimpleNamespace(
+            isoformat=lambda sep=" ", timespec="milliseconds": "2025-01-01 00:00:00.000"
+        ),
         100,
         90,
         120,

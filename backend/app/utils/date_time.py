@@ -86,6 +86,15 @@ def normalize_measured_at(
         ms = 0 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
         return dt.replace(second=sec, microsecond=ms * 1000)
 
+    if fill_with == "preserve":
+        sec = dt.second if fixed_seconds is None else int(fixed_seconds)
+        usec = (
+            dt.microsecond
+            if fixed_milliseconds is None
+            else clamp_ms(int(fixed_milliseconds)) * 1000
+        )
+        return dt.replace(second=sec, microsecond=usec)
+
     if fill_with == "server":
         now = datetime.now(timezone.utc)
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
@@ -149,6 +158,15 @@ def normalize_measured_at_local(
         ms = 0 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
         return dt.replace(second=sec, microsecond=ms * 1000)
 
+    if fill_with == "preserve":
+        sec = dt.second if fixed_seconds is None else int(fixed_seconds)
+        usec = (
+            dt.microsecond
+            if fixed_milliseconds is None
+            else clamp_ms(int(fixed_milliseconds)) * 1000
+        )
+        return dt.replace(second=sec, microsecond=usec)
+
     if fill_with == "server":
         now = datetime.now()  # local time
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
@@ -172,5 +190,5 @@ def normalize_measured_at_local(
 
 
 def now_local_iso() -> str:
-    """Return current local time as ISO 8601 string without timezone offset."""
-    return datetime.now().isoformat(sep="T", timespec="minutes")
+    """Return current local time as ISO 8601 string with millisecond precision."""
+    return datetime.now().isoformat(sep="T", timespec="milliseconds")

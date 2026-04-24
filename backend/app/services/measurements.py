@@ -20,25 +20,27 @@ from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 
 def parse_timestamp_utc(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
     """
-    Parse FE ISO string and return tz-aware UTC datetime with zeroed seconds and
-    optional fixed milliseconds for deterministic ordering.
+    Parse FE ISO string and return tz-aware UTC datetime,
+    preserving seconds and milliseconds as provided by the frontend.
     """
-    return normalize_measured_at(raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds)
+    return normalize_measured_at(raw, fill_with="preserve", fixed_milliseconds=fixed_milliseconds)
 
 
 def parse_timestamp_local(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
     """
-    Parse FE ISO string and return a timezone-naive LOCAL datetime with zeroed seconds and
-    optional fixed milliseconds for deterministic ordering, suitable for SQL DATETIME.
+    Parse FE ISO string and return a timezone-naive LOCAL datetime,
+    preserving seconds and milliseconds as provided by the frontend.
     """
     return normalize_measured_at_local(
-        raw, fill_with="zeros", fixed_milliseconds=fixed_milliseconds
+        raw, fill_with="preserve", fixed_milliseconds=fixed_milliseconds
     )
 
 
 def ts_to_db_string(dt: datetime) -> str:
-    """Format datetime to 'YYYY-MM-DD HH:MM:SS' for DB usage."""
-    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    """Format datetime to 'YYYY-MM-DD HH:MM:SS.mmm' for DB usage."""
+    base = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    ms = dt.microsecond // 1000
+    return f"{base}.{ms:03d}"
 
 
 # --- Validation --------------------------------------------------------------

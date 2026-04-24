@@ -123,9 +123,20 @@ def test_now_local_iso():
     from backend.app.utils.date_time import now_local_iso
 
     iso_str = now_local_iso()
-    # Format: YYYY-MM-DDTHH:MM
-    assert len(iso_str) == 16
+    # Format: YYYY-MM-DDTHH:MM:SS.mmm
+    assert len(iso_str) == 23
     assert iso_str[10] == "T"
     # Try to parse it back
     dt = datetime.fromisoformat(iso_str)
     assert dt is not None
+
+def test_normalize_measured_at_preserve():
+    # UTC
+    base = "2025-10-21T19:33:45.678Z"
+    out = normalize_measured_at(base, fill_with="preserve")
+    assert out == datetime(2025, 10, 21, 19, 33, 45, 678000, tzinfo=timezone.utc)
+
+    # Local
+    base_local = "2025-10-21T19:33:45.678"
+    out_local = normalize_measured_at_local(base_local, fill_with="preserve")
+    assert out_local == datetime(2025, 10, 21, 19, 33, 45, 678000)
