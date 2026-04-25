@@ -4,6 +4,22 @@
 RUN_COMPOSE = docker-compose.yml
 TEST_COMPOSE = docker-compose.test.yml
 
+define WORKFLOW_HINT
+	@echo ""
+	@echo "  Write code"
+	@echo "      ↓"
+	@echo "  make test-be    ← unit tests backend"
+	@echo "  make test-fe    ← unit tests frontend"
+	@echo "  make test-e2e   ← end-to-end tests frontend"
+	@echo "      ↓"
+	@echo "  make fe-fix     ← auto-fix formatting + lint"
+	@echo "      ↓"
+	@echo "  make fe-cicd    ← verify: pre-commit checks pass"
+	@echo "      ↓"
+	@echo "  git commit"
+	@echo ""
+endef
+
 .PHONY: help
 help:
 	@echo "Runtime targets (docker-compose.yml):"
@@ -126,6 +142,7 @@ test-ps:
 
 .PHONY: test-be
 test-be:
+	$(WORKFLOW_HINT)
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
 
@@ -190,6 +207,7 @@ fe-dev:
 
 .PHONY: test-fe
 test-fe:
+	$(WORKFLOW_HINT)
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
 	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
@@ -231,11 +249,13 @@ fe-lint: ## Auto-fix frontend ESLint issues
 
 .PHONY: fe-fix
 fe-fix: ## Run all frontend auto-fixes
+	$(WORKFLOW_HINT)
 	$(MAKE) fe-format
 	$(MAKE) fe-lint
 
 .PHONY: fe-cicd
 fe-cicd:
+	$(WORKFLOW_HINT)
 	@# Pre-requisites (run manually before this target):
 	@#
 	@#   Write code
@@ -246,7 +266,7 @@ fe-cicd:
 	@#       ↓
 	@#   make fe-fix       ← auto-fix formatting + lint
 	@#       ↓
-	@#   make fe-cicd      ← verify: pre-commit checks pass (same as CI)
+	@#   make fe-cicd      ← verify: pre-commit checks pass
 	@#       ↓
 	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d runner
@@ -306,6 +326,7 @@ be-pre-commit:
 
 .PHONY: be-cicd
 be-cicd:
+	$(WORKFLOW_HINT)
 	@# Pre-requisites (run manually before this target):
 	@#
 	@#   Write code
@@ -316,11 +337,17 @@ be-cicd:
 	@#       ↓
 	@#   make fe-fix       ← auto-fix formatting + lint
 	@#       ↓
-	@#   make be-cicd      ← verify: pre-commit checks pass (same as CI)
+	@#   make be-cicd      ← verify: pre-commit checks pass
 	@#       ↓
 	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+
+.PHONY: install-hooks
+install-hooks:
+	@cp scripts/prepare-commit-msg .git/hooks/prepare-commit-msg
+	@chmod +x .git/hooks/prepare-commit-msg
+	@echo "Git hooks installed."
 
 # --- Security / dependency audit ---
 .PHONY: dep-audit
