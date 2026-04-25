@@ -17,7 +17,7 @@ define WORKFLOW_HINT
 	@echo "  make be-cicd    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
 	@echo "  make fe-cicd    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
 	@echo "      ↓"
-	@echo "  git commit"
+	@echo "  git commit                                                                                  "
 	@echo ""
 endef
 
