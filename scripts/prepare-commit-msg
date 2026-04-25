@@ -12,6 +12,6 @@ cat >&2 <<'EOF'
   make be-cicd    ← verify: pre-commit checks pass
   make fe-cicd    ← verify: pre-commit checks pass
       ↓
-  git commit						← you are here ←
+  git commit ← you are here ←
 
 EOF
