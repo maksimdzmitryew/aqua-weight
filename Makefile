@@ -8,13 +8,14 @@ define WORKFLOW_HINT
 	@echo ""
 	@echo "  Write code"
 	@echo "      ↓"
-	@echo "  make test-be    ← unit tests backend"
-	@echo "  make test-fe    ← unit tests frontend"
-	@echo "  make test-e2e   ← end-to-end tests frontend"
+	@echo "  make test-be    ← unit tests backend$(if $(filter test-be,$(MAKECMDGOALS)),                 ← you are here ←)"
+	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                ← you are here ←)"
+	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),         ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make fe-fix     ← auto-fix formatting + lint"
+	@echo "  make fe-fix     ← auto-fix formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),          ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make fe-cicd    ← verify: pre-commit checks pass"
+	@echo "  make be-cicd    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
+	@echo "  make fe-cicd    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
 	@echo "      ↓"
 	@echo "  git commit"
 	@echo ""
@@ -72,6 +73,9 @@ help:
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
 	@echo "  make dep-audit         - Audit dependencies for vulnerable/drifting versions"
+	@echo ""
+	@echo "Developer workflow:"
+	$(WORKFLOW_HINT)
 
 
 # --- Runtime stack ---
@@ -142,9 +146,9 @@ test-ps:
 
 .PHONY: test-be
 test-be:
-	$(WORKFLOW_HINT)
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
+	$(WORKFLOW_HINT)
 
 .PHONY: test-full
 test-full:
@@ -164,6 +168,7 @@ e2e-deps:
 test-e2e:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+	$(WORKFLOW_HINT)
 
 .PHONY: test-e2e-ci-wait
 test-e2e-ci-wait:
@@ -207,7 +212,6 @@ fe-dev:
 
 .PHONY: test-fe
 test-fe:
-	$(WORKFLOW_HINT)
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
 	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
@@ -218,6 +222,7 @@ test-fe:
 		ln -s /app/node_modules node_modules && \
 		npm run test:unit:coverage && \
 		cp -r coverage /app/"
+		$(WORKFLOW_HINT)
 
 .PHONY: test-fe-ci
 test-fe-ci:
@@ -249,28 +254,15 @@ fe-lint: ## Auto-fix frontend ESLint issues
 
 .PHONY: fe-fix
 fe-fix: ## Run all frontend auto-fixes
-	$(WORKFLOW_HINT)
 	$(MAKE) fe-format
 	$(MAKE) fe-lint
+	$(WORKFLOW_HINT)
 
 .PHONY: fe-cicd
 fe-cicd:
-	$(WORKFLOW_HINT)
-	@# Pre-requisites (run manually before this target):
-	@#
-	@#   Write code
-	@#       ↓
-	@#   make test-be      ← unit tests backend
-	@#   make test-fe      ← unit tests frontend
-	@#   make test-e2e     ← end-to-end tests frontend
-	@#       ↓
-	@#   make fe-fix       ← auto-fix formatting + lint
-	@#       ↓
-	@#   make fe-cicd      ← verify: pre-commit checks pass
-	@#       ↓
-	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	$(WORKFLOW_HINT)
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
@@ -326,22 +318,9 @@ be-pre-commit:
 
 .PHONY: be-cicd
 be-cicd:
-	$(WORKFLOW_HINT)
-	@# Pre-requisites (run manually before this target):
-	@#
-	@#   Write code
-	@#       ↓
-	@#   make test-be      ← unit tests backend
-	@#   make test-fe      ← unit tests frontend
-	@#   make test-e2e     ← end-to-end tests frontend
-	@#       ↓
-	@#   make fe-fix       ← auto-fix formatting + lint
-	@#       ↓
-	@#   make be-cicd      ← verify: pre-commit checks pass
-	@#       ↓
-	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	$(WORKFLOW_HINT)
 
 .PHONY: install-hooks
 install-hooks:
