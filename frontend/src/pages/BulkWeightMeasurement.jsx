@@ -3,7 +3,8 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, Link } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
-import { nowLocalISOMinutes } from '../utils/datetime.js'
+import useWateringTime from '../hooks/useWateringTime.js'
+import WateringTimeBar from '../components/WateringTimeBar.jsx'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
 import EmptyState from '../components/feedback/EmptyState.jsx'
@@ -18,6 +19,7 @@ export default function BulkWeightMeasurement() {
   const { plants: plantsFromHook, loading, error } = usePlants()
 
   const navigate = useNavigate()
+  const wateringTime = useWateringTime()
   // Local plants state that can be updated when weight measurements are created
   const [plants, setPlants] = useState([])
   // State to track the status of each input field
@@ -68,8 +70,8 @@ export default function BulkWeightMeasurement() {
       const payload = {
         plant_id: plantId,
         measured_weight_g: numeric,
-        // Use local wall-clock time in HTML datetime-local format (minutes precision)
-        measured_at: nowLocalISOMinutes(),
+        // Use precision wall-clock time from the control bar
+        measured_at: wateringTime.getCommitDateTime(),
       }
 
       if (existingId) {
@@ -95,7 +97,10 @@ export default function BulkWeightMeasurement() {
               water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
               // Update timestamps so the UI can reflect the latest change
               latest_at:
-                data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
+                data?.latest_at ||
+                data?.measured_at ||
+                p.latest_at ||
+                wateringTime.getCommitDateTime(),
               measured_at: data?.measured_at || p.measured_at,
             }
           }
@@ -141,6 +146,8 @@ export default function BulkWeightMeasurement() {
         onBack={() => navigate('/daily')}
         titleBack="Daily Care"
       />
+
+      <WateringTimeBar wateringTime={wateringTime} />
 
       <p>Start bulk weight measurement for all plants.</p>
 

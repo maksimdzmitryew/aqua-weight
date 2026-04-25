@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter } from 'react-router-dom'
 import BulkWatering from '../../../src/pages/BulkWatering.jsx'
@@ -21,12 +22,22 @@ vi.mock('react-router-dom', async () => {
 
 // Mock the table to immediately call onViewPlant with a plant missing uuid to cover the guard in handleView
 let __commitThenDelete = false
+let __commitOnly = false
+let __vacationCommit = false
+let __vacationDelete = false
 
 vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
   const React = require('react')
   return {
     __esModule: true,
-    default: ({ plants = [], onViewPlant, onDeleteWatering, onCommitValue }) => {
+    default: ({
+      plants = [],
+      onViewPlant,
+      onDeleteWatering,
+      onCommitValue,
+      onCommitVacationWatering,
+      onDeleteVacationWatering,
+    }) => {
       // Invoke onViewPlant with an object lacking uuid to exercise early-return branch
       onViewPlant?.({ name: 'NoId' })
       // Defer delete invocation to effect to avoid setState during render
@@ -52,9 +63,27 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
           didDeleteRef.current = true
           onDeleteWatering(id, 'm-1')
         }
+        // commit-only mode: exercises handleWateringCommit null-prev branch (line 155)
+        if (__commitOnly && !didCommitRef.current && onCommitValue) {
+          didCommitRef.current = true
+          onCommitValue(id, '150')
+        }
+        // vacation commit mode: exercises handleVacationWateringCommit null-prev branch (line 249)
+        if (__vacationCommit && !didCommitRef.current && onCommitVacationWatering) {
+          didCommitRef.current = true
+          onCommitVacationWatering(id)
+        }
+        // vacation delete mode: exercises handleVacationWateringDelete null-prev branch (line 301)
+        if (__vacationDelete && !didDeleteRef.current && onDeleteVacationWatering) {
+          didDeleteRef.current = true
+          onDeleteVacationWatering(id, 'vac-m-1')
+        }
         // Fallback: in non-commit mode, call delete once when plants first arrive
         if (
           !__commitThenDelete &&
+          !__commitOnly &&
+          !__vacationCommit &&
+          !__vacationDelete &&
           !didDeleteRef.current &&
           onDeleteWatering &&
           lastWlRef.current === undefined
@@ -63,7 +92,13 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
           onDeleteWatering(id, 'm-1')
         }
         lastWlRef.current = wl
-      }, [plants, onDeleteWatering, onCommitValue])
+      }, [
+        plants,
+        onDeleteWatering,
+        onCommitValue,
+        onCommitVacationWatering,
+        onDeleteVacationWatering,
+      ])
       // Expose current water loss value in DOM so we can assert changes
       const wl = plants[0]?.water_loss_total_pct
       return (
@@ -81,10 +116,16 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     mockNavigate.mockClear()
     localStorage.clear()
     __commitThenDelete = false
+    __commitOnly = false
+    __vacationCommit = false
+    __vacationDelete = false
   })
 
   afterEach(() => {
     localStorage.clear()
+    __commitOnly = false
+    __vacationCommit = false
+    __vacationDelete = false
   })
 
   test('handleView returns early when plant has no uuid (no navigation)', async () => {
@@ -211,5 +252,123 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     // Reset flag and cleanup mocks
     __commitThenDelete = false
     delSpy.mockRestore()
+  })
+
+  test('commit watering with null plants state covers (prev || []) fallback at line 155', async () => {
+    __commitOnly = true
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    server.use(
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p-line155',
+          name: 'Plant155',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
+      http.post('/api/measurements/watering', () =>
+        HttpResponse.json(
+          { id: 9001, water_retained_pct: 50, water_loss_total_pct: 50 },
+          { status: 201 },
+        ),
+      ),
+    )
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <BulkWatering />
+        </MemoryRouter>
+      </ThemeProvider>,
+    )
+    await screen.findByText('Mocked Table')
+    await waitFor(() =>
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        'Error saving watering measurement:',
+        expect.anything(),
+      ),
+    )
+    consoleSpy.mockRestore()
+  })
+
+  test('vacation commit with null plants state covers (prev || []) fallback at line 249', async () => {
+    localStorage.setItem('operationMode', 'vacation')
+    __vacationCommit = true
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    server.use(
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p-line249',
+          name: 'Plant249',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [
+            { plant_uuid: 'p-line249', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
+          ],
+        }),
+      ),
+      http.post('/api/measurements/vacation/watering', () =>
+        HttpResponse.json({
+          data: { id: 9002, water_retained_pct: 100, water_loss_total_pct: 0 },
+        }),
+      ),
+    )
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <BulkWatering />
+        </MemoryRouter>
+      </ThemeProvider>,
+    )
+    await screen.findByText('Mocked Table')
+    await waitFor(() =>
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        'Error saving vacation watering:',
+        expect.anything(),
+      ),
+    )
+    consoleSpy.mockRestore()
+  })
+
+  test('vacation delete with null plants state covers (prev || []) fallback at line 301', async () => {
+    localStorage.setItem('operationMode', 'vacation')
+    __vacationDelete = true
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    server.use(
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p-line301',
+          name: 'Plant301',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 30,
+        },
+      ]),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [
+            { plant_uuid: 'p-line301', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
+          ],
+        }),
+      ),
+      http.delete('/api/measurements/vac-m-1', () => HttpResponse.json({ status: 'success' })),
+    )
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <BulkWatering />
+        </MemoryRouter>
+      </ThemeProvider>,
+    )
+    await screen.findByText('Mocked Table')
+    await waitFor(() =>
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        'Error deleting vacation watering:',
+        expect.anything(),
+      ),
+    )
+    consoleSpy.mockRestore()
   })
 })

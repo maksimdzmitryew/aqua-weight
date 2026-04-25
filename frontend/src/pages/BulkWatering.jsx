@@ -4,7 +4,8 @@ import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate } from 'react-router-dom'
 import { plantsApi } from '../api/plants'
 import { measurementsApi } from '../api/measurements'
-import { nowLocalISOMinutes } from '../utils/datetime.js'
+import useWateringTime from '../hooks/useWateringTime.js'
+import WateringTimeBar from '../components/WateringTimeBar.jsx'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
 import { checkNeedsWater } from '../utils/watering'
@@ -15,6 +16,7 @@ export default function BulkWatering() {
   const { plants: plantsFromHook, loading, error } = usePlants()
 
   const navigate = useNavigate()
+  const wateringTime = useWateringTime()
   // Local plants state that can be updated when watering events are created
   const [plants, setPlants] = useState(null)
   const [inputStatus, setInputStatus] = useState({})
@@ -135,7 +137,7 @@ export default function BulkWatering() {
         plant_id: plantId,
         // Entered value is the new total weight after watering
         last_wet_weight_g: numeric,
-        measured_at: nowLocalISOMinutes(),
+        measured_at: wateringTime.getCommitDateTime(),
       }
 
       if (existingId) {
@@ -158,7 +160,10 @@ export default function BulkWatering() {
               water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
               // Update timestamps so the UI can reflect the latest change
               latest_at:
-                data?.latest_at || data?.measured_at || p.latest_at || nowLocalISOMinutes(),
+                data?.latest_at ||
+                data?.measured_at ||
+                p.latest_at ||
+                wateringTime.getCommitDateTime(),
               measured_at: data?.measured_at || p.measured_at,
             }
           }
@@ -229,7 +234,10 @@ export default function BulkWatering() {
     }
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
-      const data = await measurementsApi.watering.createVacation({ plant_id: plantId })
+      const data = await measurementsApi.watering.createVacation({
+        plant_id: plantId,
+        measured_at: wateringTime.getCommitDateTime(),
+      })
       const measurement = data?.data || data
       if (measurement?.id) {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: measurement.id }))
@@ -361,6 +369,8 @@ export default function BulkWatering() {
   return (
     <DashboardLayout title="Bulk watering">
       <PageHeader title="Bulk watering" onBack={() => navigate('/daily')} titleBack="Daily Care" />
+
+      <WateringTimeBar wateringTime={wateringTime} />
 
       <p>
         {operationMode === 'vacation'

@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "lint": "eslint src --ext .js,.jsx --max-warnings 0",
+    "lint": "eslint 'src/**/*.{js,jsx}' --max-warnings 0",
     "format:check": "prettier --check .",
     "e2e": "playwright test --config ./playwright.config.ts",
     "e2e:headed": "playwright test --config ./playwright.config.ts --headed",
@@ -40,8 +40,9 @@
     "vite": "^6.4.1",
     "vitest": "^3.0.4",
     "whatwg-fetch": "^3.6.20",
-    "eslint": "8.57.1",
-    "eslint-plugin-react": "7.37.2",
+    "eslint": "^9.0.0",
+    "eslint-plugin-react": "^7.37.2",
+    "globals": "^15.0.0",
     "prettier": "3.1.0"
   }
 }

@@ -1,0 +1,17 @@
+#!/bin/sh
+cat >&2 <<'EOF'
+
+  Write code
+      ↓
+  make test-be    ← unit tests backend
+  make test-fe    ← unit tests frontend
+  make test-e2e   ← end-to-end tests frontend
+      ↓
+  make fe-fix     ← auto-fix formatting + lint
+      ↓
+  make be-cicd    ← verify: pre-commit checks pass
+  make fe-cicd    ← verify: pre-commit checks pass
+      ↓
+  git commit                                           ← you are here ←
+
+EOF

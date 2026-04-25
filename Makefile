@@ -4,6 +4,23 @@
 RUN_COMPOSE = docker-compose.yml
 TEST_COMPOSE = docker-compose.test.yml
 
+define WORKFLOW_HINT
+	@echo ""
+	@echo "  Write code"
+	@echo "      ↓"
+	@echo "  make test-be    ← unit tests backend$(if $(filter test-be,$(MAKECMDGOALS)),                 ← you are here ←)"
+	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                ← you are here ←)"
+	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),         ← you are here ←)"
+	@echo "      ↓"
+	@echo "  make fe-fix     ← auto-fix formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),          ← you are here ←)"
+	@echo "      ↓"
+	@echo "  make be-cicd    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
+	@echo "  make fe-cicd    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
+	@echo "      ↓"
+	@echo "  git commit"
+	@echo ""
+endef
+
 .PHONY: help
 help:
 	@echo "Runtime targets (docker-compose.yml):"
@@ -39,6 +56,9 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make fe-format         - Auto-fix frontend formatting with Prettier"
+	@echo "  make fe-lint           - Auto-fix frontend ESLint issues"
+	@echo "  make fe-fix            - Auto-fix formatting and lint"
 	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
@@ -53,6 +73,9 @@ help:
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
 	@echo "  make dep-audit         - Audit dependencies for vulnerable/drifting versions"
+	@echo ""
+	@echo "Developer workflow:"
+	$(WORKFLOW_HINT)
 
 
 # --- Runtime stack ---
@@ -125,6 +148,7 @@ test-ps:
 test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
+	$(WORKFLOW_HINT)
 
 .PHONY: test-full
 test-full:
@@ -144,6 +168,7 @@ e2e-deps:
 test-e2e:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+	$(WORKFLOW_HINT)
 
 .PHONY: test-e2e-ci-wait
 test-e2e-ci-wait:
@@ -195,9 +220,9 @@ test-fe:
 		cd /tmp/fe && \
 		rm -rf node_modules && \
 		ln -s /app/node_modules node_modules && \
-		npm install --no-audit --no-fund && \
 		npm run test:unit:coverage && \
 		cp -r coverage /app/"
+		$(WORKFLOW_HINT)
 
 .PHONY: test-fe-ci
 test-fe-ci:
@@ -219,23 +244,25 @@ fe-sb:
 fe-sb-build:
 	npm run build-storybook --prefix frontend
 
+.PHONY: fe-format
+fe-format: ## Auto-fix frontend formatting with Prettier
+	docker-compose run --rm frontend sh -c "npx prettier --write ."
+
+.PHONY: fe-lint
+fe-lint: ## Auto-fix frontend ESLint issues
+	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
+
+.PHONY: fe-fix
+fe-fix: ## Run all frontend auto-fixes
+	$(MAKE) fe-format
+	$(MAKE) fe-lint
+	$(WORKFLOW_HINT)
+
 .PHONY: fe-cicd
 fe-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d e2e runner
-	@# Run everything in a temporary directory to avoid Bus error on macOS bind mounts (e.g. Dropbox)
-	@# We copy source but symlink the named volume's node_modules for speed and stability.
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
-		mkdir -p /tmp/fe && \
-		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
-		cd /tmp/fe && \
-		rm -rf node_modules && \
-		ln -s /app/node_modules node_modules && \
-		npm install --no-audit --no-fund && \
-		npm run lint && \
-		npm run format:check && \
-		npm run test:unit:coverage && \
-		cp -r coverage /app/"
-	docker compose -f $(TEST_COMPOSE) exec -T -e SKIP=eslint,prettier runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) up -d runner
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	$(WORKFLOW_HINT)
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
@@ -291,8 +318,15 @@ be-pre-commit:
 
 .PHONY: be-cicd
 be-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d --build db runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
+	docker compose -f $(TEST_COMPOSE) up -d runner
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	$(WORKFLOW_HINT)
+
+.PHONY: install-hooks
+install-hooks:
+	@cp scripts/prepare-commit-msg .git/hooks/prepare-commit-msg
+	@chmod +x .git/hooks/prepare-commit-msg
+	@echo "Git hooks installed."
 
 # --- Security / dependency audit ---
 .PHONY: dep-audit

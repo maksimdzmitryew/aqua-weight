@@ -21,7 +21,7 @@ class DummyCursor:
         return self._row
 
 
-def test_parse_timestamp_utc_calls_normalize_with_zeros(monkeypatch):
+def test_parse_timestamp_utc_calls_normalize_with_preserve(monkeypatch):
     # Arrange: patch normalize_measured_at in the measurements module directly
     calls = {}
 
@@ -39,10 +39,10 @@ def test_parse_timestamp_utc_calls_normalize_with_zeros(monkeypatch):
     fixed_ms = 123
     dt = svc.parse_timestamp_utc("2025-01-01T12:34:56.789Z", fixed_milliseconds=fixed_ms)
 
-    # Assert: line 24 delegates to normalize_measured_at with zeros and our fixed ms
+    # Assert: line 24 delegates to normalize_measured_at with preserve and our fixed ms
     assert calls == {
         "raw": "2025-01-01T12:34:56.789Z",
-        "fill_with": "zeros",
+        "fill_with": "preserve",
         "fixed_milliseconds": fixed_ms,
     }
     assert isinstance(dt, datetime)
