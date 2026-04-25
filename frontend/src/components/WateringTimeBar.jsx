@@ -43,12 +43,16 @@ export default function WateringTimeBar({ wateringTime }) {
         />
       </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '14px' }}>
-        <input
-          type="checkbox"
-          checked={frozen}
-          onChange={(e) => setFrozen(e.target.checked)}
-        />
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          cursor: 'pointer',
+          fontSize: '14px',
+        }}
+      >
+        <input type="checkbox" checked={frozen} onChange={(e) => setFrozen(e.target.checked)} />
         Freeze
       </label>
 
@@ -58,11 +62,7 @@ export default function WateringTimeBar({ wateringTime }) {
           selected={mode === 'real-time'}
           onClick={() => setMode('real-time')}
         />
-        <Chip
-          label="manual"
-          selected={mode === 'manual'}
-          onClick={() => setMode('manual')}
-        />
+        <Chip label="manual" selected={mode === 'manual'} onClick={() => setMode('manual')} />
       </div>
     </div>
   )

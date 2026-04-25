@@ -39,6 +39,9 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make fe-format         - Auto-fix frontend formatting with Prettier"
+	@echo "  make fe-lint           - Auto-fix frontend ESLint issues"
+	@echo "  make fe-fix            - Auto-fix formatting and lint"
 	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
@@ -195,7 +198,6 @@ test-fe:
 		cd /tmp/fe && \
 		rm -rf node_modules && \
 		ln -s /app/node_modules node_modules && \
-		npm install --no-audit --no-fund && \
 		npm run test:unit:coverage && \
 		cp -r coverage /app/"
 
@@ -219,22 +221,35 @@ fe-sb:
 fe-sb-build:
 	npm run build-storybook --prefix frontend
 
+.PHONY: fe-format
+fe-format: ## Auto-fix frontend formatting with Prettier
+	docker-compose run --rm frontend sh -c "npx prettier --write ."
+
+.PHONY: fe-lint
+fe-lint: ## Auto-fix frontend ESLint issues
+	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
+
+.PHONY: fe-fix
+fe-fix: ## Run all frontend auto-fixes
+	$(MAKE) fe-format
+	$(MAKE) fe-lint
+
 .PHONY: fe-cicd
 fe-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d e2e runner
-	@# Run everything in a temporary directory to avoid Bus error on macOS bind mounts (e.g. Dropbox)
-	@# We copy source but symlink the named volume's node_modules for speed and stability.
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
-		mkdir -p /tmp/fe && \
-		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
-		cd /tmp/fe && \
-		rm -rf node_modules && \
-		ln -s /app/node_modules node_modules && \
-		npm install --no-audit --no-fund && \
-		npm run lint && \
-		npm run format:check && \
-		npm run test:unit:coverage && \
-		cp -r coverage /app/"
+	@# Pre-requisites (run manually before this target):
+	@#
+	@#   Write code
+	@#       ↓
+	@#   make test-be      ← unit tests backend
+	@#   make test-fe      ← unit tests frontend
+	@#   make test-e2e     ← end-to-end tests frontend
+	@#       ↓
+	@#   make fe-fix       ← auto-fix formatting + lint
+	@#       ↓
+	@#   make fe-cicd      ← verify: pre-commit checks pass (same as CI)
+	@#       ↓
+	@#   git commit
+	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T -e SKIP=eslint,prettier runner pre-commit run --all-files
 
 # --- Utility ---
@@ -291,6 +306,19 @@ be-pre-commit:
 
 .PHONY: be-cicd
 be-cicd:
+	@# Pre-requisites (run manually before this target):
+	@#
+	@#   Write code
+	@#       ↓
+	@#   make test-be      ← unit tests backend
+	@#   make test-fe      ← unit tests frontend
+	@#   make test-e2e     ← end-to-end tests frontend
+	@#       ↓
+	@#   make fe-fix       ← auto-fix formatting + lint
+	@#       ↓
+	@#   make be-cicd      ← verify: pytest + coverage pass (same as CI)
+	@#       ↓
+	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d --build db runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
 

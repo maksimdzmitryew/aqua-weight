@@ -298,7 +298,9 @@ describe('normalizeSignal cross-realm / aborted-signal paths', () => {
       .mockResolvedValue(makeResponse({ body: null }))
     const c = new ApiClient()
     const fakeAbortedSignal = { aborted: true } as unknown as AbortSignal
-    await expect(c.get('/aborted-cross-realm', { signal: fakeAbortedSignal })).rejects.toMatchObject({
+    await expect(
+      c.get('/aborted-cross-realm', { signal: fakeAbortedSignal }),
+    ).rejects.toMatchObject({
       name: 'AbortError',
       message: 'Aborted',
     })
@@ -308,9 +310,7 @@ describe('normalizeSignal cross-realm / aborted-signal paths', () => {
   // lines 94-95: fetch throws with "expected signal.*instance of AbortSignal" message while a real
   // (normalised) signal is set → fallback fetch without signal is called and returns successfully.
   it('falls back to fetch without signal on incompatible-signal TypeError (lines 94-95)', async () => {
-    const incompatibleErr = new TypeError(
-      'expected signal to be an instance of AbortSignal',
-    )
+    const incompatibleErr = new TypeError('expected signal to be an instance of AbortSignal')
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch' as any)
       .mockRejectedValueOnce(incompatibleErr)

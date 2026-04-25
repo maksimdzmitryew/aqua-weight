@@ -30,7 +30,14 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
   const React = require('react')
   return {
     __esModule: true,
-    default: ({ plants = [], onViewPlant, onDeleteWatering, onCommitValue, onCommitVacationWatering, onDeleteVacationWatering }) => {
+    default: ({
+      plants = [],
+      onViewPlant,
+      onDeleteWatering,
+      onCommitValue,
+      onCommitVacationWatering,
+      onDeleteVacationWatering,
+    }) => {
       // Invoke onViewPlant with an object lacking uuid to exercise early-return branch
       onViewPlant?.({ name: 'NoId' })
       // Defer delete invocation to effect to avoid setState during render
@@ -85,7 +92,13 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
           onDeleteWatering(id, 'm-1')
         }
         lastWlRef.current = wl
-      }, [plants, onDeleteWatering, onCommitValue, onCommitVacationWatering, onDeleteVacationWatering])
+      }, [
+        plants,
+        onDeleteWatering,
+        onCommitValue,
+        onCommitVacationWatering,
+        onDeleteVacationWatering,
+      ])
       // Expose current water loss value in DOM so we can assert changes
       const wl = plants[0]?.water_loss_total_pct
       return (
@@ -292,7 +305,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
       ]),
       http.get('/api/measurements/approximation/watering', () =>
         HttpResponse.json({
-          items: [{ plant_uuid: 'p-line249', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+          items: [
+            { plant_uuid: 'p-line249', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
+          ],
         }),
       ),
       http.post('/api/measurements/vacation/watering', () =>
@@ -333,7 +348,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
       ]),
       http.get('/api/measurements/approximation/watering', () =>
         HttpResponse.json({
-          items: [{ plant_uuid: 'p-line301', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+          items: [
+            { plant_uuid: 'p-line301', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
+          ],
         }),
       ),
       http.delete('/api/measurements/vac-m-1', () => HttpResponse.json({ status: 'success' })),

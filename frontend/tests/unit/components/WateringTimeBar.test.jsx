@@ -16,15 +16,15 @@ describe('WateringTimeBar component', () => {
 
   it('renders all elements correctly in real-time mode', () => {
     render(<WateringTimeBar wateringTime={mockWateringTime} />)
-    
+
     expect(screen.getByLabelText(/Time:/i)).toBeInTheDocument()
     // Value might be truncated if seconds are :00, so we check if it starts with the expected minutes
     expect(screen.getByLabelText(/Time:/i).value).toMatch(/^2025-01-01T12:00/)
     expect(screen.getByLabelText(/Time:/i)).toBeDisabled()
-    
+
     expect(screen.getByLabelText(/Freeze/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Freeze/i)).not.toBeChecked()
-    
+
     expect(screen.getByText('real-time')).toBeInTheDocument()
     expect(screen.getByText('manual')).toBeInTheDocument()
   })
@@ -37,17 +37,17 @@ describe('WateringTimeBar component', () => {
 
   it('calls setMode when chips are clicked', () => {
     render(<WateringTimeBar wateringTime={mockWateringTime} />)
-    
+
     fireEvent.click(screen.getByText('manual'))
     expect(mockWateringTime.setMode).toHaveBeenCalledWith('manual')
-    
+
     fireEvent.click(screen.getByText('real-time'))
     expect(mockWateringTime.setMode).toHaveBeenCalledWith('real-time')
   })
 
   it('calls setFrozen when checkbox is toggled', () => {
     render(<WateringTimeBar wateringTime={mockWateringTime} />)
-    
+
     fireEvent.click(screen.getByLabelText(/Freeze/i))
     expect(mockWateringTime.setFrozen).toHaveBeenCalledWith(true)
   })
@@ -55,8 +55,10 @@ describe('WateringTimeBar component', () => {
   it('calls setDateTime when picker value changes', () => {
     const manualTime = { ...mockWateringTime, mode: 'manual' }
     render(<WateringTimeBar wateringTime={manualTime} />)
-    
+
     fireEvent.change(screen.getByLabelText(/Time:/i), { target: { value: '2025-02-02T10:00:15' } })
-    expect(mockWateringTime.setDateTime).toHaveBeenCalledWith(expect.stringMatching(/^2025-02-02T10:00:15/))
+    expect(mockWateringTime.setDateTime).toHaveBeenCalledWith(
+      expect.stringMatching(/^2025-02-02T10:00:15/),
+    )
   })
 })

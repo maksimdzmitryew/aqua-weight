@@ -17,7 +17,7 @@ export default function Chip({ label, selected, onClick, disabled }) {
     transition: 'all 0.2s ease',
     opacity: disabled ? 0.5 : 1,
     userSelect: 'none',
-    
+
     // Theme-aware colors (can be further refined if we had access to full theme)
     background: selected ? '#111827' : 'transparent',
     color: selected ? '#ffffff' : '#374151',
