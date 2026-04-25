@@ -250,7 +250,7 @@ fe-cicd:
 	@#       ↓
 	@#   git commit
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T -e SKIP=eslint,prettier runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
 
 # --- Utility ---
 DEV_CERTS_SCRIPT := scripts/gen-dev-certs.sh
