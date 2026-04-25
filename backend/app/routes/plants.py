@@ -13,10 +13,95 @@ from ..schemas.plant import (
     PlantCreateRequest,
     PlantDetail,
     PlantUpdateRequest,
+    ReferenceItem,
 )
 from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
+
+
+@app.get("/substrate-types", response_model=list[ReferenceItem])
+async def list_substrate_types():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM substrate_types ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/light-levels", response_model=list[ReferenceItem])
+async def list_light_levels():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM light_levels ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/pest-statuses", response_model=list[ReferenceItem])
+async def list_pest_statuses():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM pest_statuses ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/health-statuses", response_model=list[ReferenceItem])
+async def list_health_statuses():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM health_statuses ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/scales", response_model=list[ReferenceItem])
+async def list_scales():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM scales ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
+
+
+@app.get("/measurement-methods", response_model=list[ReferenceItem])
+async def list_measurement_methods():
+    def fetch():
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id, name FROM measurement_methods ORDER BY sort_order, name")
+                return [{"uuid": r[0].hex(), "name": r[1]} for r in cur.fetchall()]
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(fetch)
 
 
 class PlantNameItem(BaseModel):
@@ -177,31 +262,59 @@ async def create_plant(payload: PlantCreateRequest):
             conn.autocommit(False)
             with conn.cursor() as cur:
                 new_id = uuid.uuid4().bytes
-                cur.execute(
-                    (
-                        "INSERT INTO plants (id, name, notes, species_name, botanical_name, cultivar, sort_order, location_id, substrate_type_id, substrate_last_refresh_at, light_level_id, fertilized_last_at, fertilizer_ec_ms, pest_status_id, health_status_id, photo_url, default_measurement_method_id) "
-                        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-                    ),
-                    (
-                        new_id,
-                        name,
-                        (payload.notes or None),
-                        (payload.species_name or None),
-                        (payload.botanical_name or None),
-                        (payload.cultivar or None),
-                        0,
-                        hex_to_bytes(payload.location_id),
-                        hex_to_bytes(payload.substrate_type_id),
-                        to_dt(payload.substrate_last_refresh_at),
-                        hex_to_bytes(payload.light_level_id),
-                        to_dt(payload.fertilized_last_at),
-                        payload.fertilizer_ec_ms,
-                        hex_to_bytes(payload.pest_status_id),
-                        hex_to_bytes(payload.health_status_id),
-                        (payload.photo_url or None),
-                        hex_to_bytes(payload.default_measurement_method_id),
-                    ),
+                sql = """
+                    INSERT INTO plants (
+                        id, name, plant_type, identify_hint, typical_action,
+                        description, notes, location_id, photo_url,
+                        default_measurement_method_id, scale_id, sort_order, repotted, archive,
+                        recommended_water_threshold_pct, biomass_weight_g, biomass_last_at,
+                        species_name, botanical_name, cultivar, substrate_type_id,
+                        substrate_last_refresh_at, fertilized_last_at, fertilizer_ec_ms,
+                        light_level_id, pest_status_id, health_status_id,
+                        min_dry_weight_g, max_water_weight_g
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s
+                    )
+                """
+                params = (
+                    new_id,
+                    name,
+                    (payload.plant_type or None),
+                    (payload.identify_hint or None),
+                    (payload.typical_action or None),
+                    (payload.description or None),
+                    (payload.notes or None),
+                    hex_to_bytes(payload.location_id),
+                    (payload.photo_url or None),
+                    hex_to_bytes(payload.default_measurement_method_id),
+                    hex_to_bytes(payload.scale_id),
+                    (payload.sort_order or 0),
+                    (payload.repotted or 0),
+                    (payload.archive or 0),
+                    payload.recommended_water_threshold_pct,
+                    payload.biomass_weight_g,
+                    to_dt(payload.biomass_last_at),
+                    (payload.species_name or None),
+                    (payload.botanical_name or None),
+                    (payload.cultivar or None),
+                    hex_to_bytes(payload.substrate_type_id),
+                    to_dt(payload.substrate_last_refresh_at),
+                    to_dt(payload.fertilized_last_at),
+                    payload.fertilizer_ec_ms,
+                    hex_to_bytes(payload.light_level_id),
+                    hex_to_bytes(payload.pest_status_id),
+                    hex_to_bytes(payload.health_status_id),
+                    payload.min_dry_weight_g,
+                    payload.max_water_weight_g,
                 )
+                cur.execute(sql, params)
                 # Fetch created_at
                 cur.execute("SELECT created_at FROM plants WHERE id=%s", (new_id,))
                 row = cur.fetchone()
@@ -343,34 +456,47 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                 if not exists:
                     raise HTTPException(status_code=404, detail="Plant not found")
 
-                sql = "UPDATE plants SET name=%s, description=%s, species_name=%s, botanical_name=%s, cultivar=%s, location_id=%s, substrate_type_id=%s, substrate_last_refresh_at=%s, light_level_id=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s, pest_status_id=%s, health_status_id=%s, photo_url=%s, default_measurement_method_id=%s, min_dry_weight_g=%s, max_water_weight_g=%s, recommended_water_threshold_pct=%s WHERE id=UNHEX(%s)"
+                sql = """
+                    UPDATE plants SET
+                        name=%s, plant_type=%s, identify_hint=%s, typical_action=%s,
+                        description=%s, notes=%s, location_id=%s, photo_url=%s,
+                        default_measurement_method_id=%s, scale_id=%s, sort_order=%s, repotted=%s, archive=%s,
+                        recommended_water_threshold_pct=%s, biomass_weight_g=%s, biomass_last_at=%s,
+                        species_name=%s, botanical_name=%s, cultivar=%s, substrate_type_id=%s,
+                        substrate_last_refresh_at=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s,
+                        light_level_id=%s, pest_status_id=%s, health_status_id=%s,
+                        min_dry_weight_g=%s, max_water_weight_g=%s
+                    WHERE id=UNHEX(%s)
+                """
                 params = (
                     (normalize(payload.name) if payload.name is not None else None),
+                    (payload.plant_type if payload.plant_type is not None else None),
+                    (payload.identify_hint if payload.identify_hint is not None else None),
+                    (payload.typical_action if payload.typical_action is not None else None),
                     (payload.description if payload.description is not None else None),
+                    (payload.notes if payload.notes is not None else None),
+                    hex_to_bytes(payload.location_id),
+                    (payload.photo_url if payload.photo_url is not None else None),
+                    hex_to_bytes(payload.default_measurement_method_id),
+                    hex_to_bytes(payload.scale_id),
+                    (payload.sort_order if payload.sort_order is not None else 0),
+                    (payload.repotted if payload.repotted is not None else 0),
+                    (payload.archive if payload.archive is not None else 0),
+                    payload.recommended_water_threshold_pct,
+                    payload.biomass_weight_g,
+                    to_dt(payload.biomass_last_at),
                     (payload.species_name if payload.species_name is not None else None),
                     (payload.botanical_name if payload.botanical_name is not None else None),
                     (payload.cultivar if payload.cultivar is not None else None),
-                    hex_to_bytes(payload.location_id),
                     hex_to_bytes(payload.substrate_type_id),
-                    (
-                        to_dt(payload.substrate_last_refresh_at)
-                        if payload.substrate_last_refresh_at is not None
-                        else None
-                    ),
+                    to_dt(payload.substrate_last_refresh_at),
+                    to_dt(payload.fertilized_last_at),
+                    payload.fertilizer_ec_ms,
                     hex_to_bytes(payload.light_level_id),
-                    (
-                        to_dt(payload.fertilized_last_at)
-                        if payload.fertilized_last_at is not None
-                        else None
-                    ),
-                    payload.fertilizer_ec_ms if payload.fertilizer_ec_ms is not None else None,
                     hex_to_bytes(payload.pest_status_id),
                     hex_to_bytes(payload.health_status_id),
-                    (payload.photo_url if payload.photo_url is not None else None),
-                    hex_to_bytes(payload.default_measurement_method_id),
                     payload.min_dry_weight_g,
                     payload.max_water_weight_g,
-                    payload.recommended_water_threshold_pct,
                     id_hex,
                 )
                 cur.execute(sql, params)
@@ -397,46 +523,60 @@ async def get_plant(id_hex: str) -> PlantDetail:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    (
-                        """
-                    SELECT p.id, p.name, p.notes, p.species_name, p.min_dry_weight_g, p.max_water_weight_g, p.location_id, COALESCE(l.name, NULL) AS location_name, p.created_at
+                    """
+                    SELECT
+                        p.id, p.name, p.plant_type, p.identify_hint, p.typical_action,
+                        p.description, p.notes, p.location_id, l.name AS location_name, p.photo_url,
+                        p.default_measurement_method_id, p.scale_id, p.sort_order, p.repotted, p.archive,
+                        p.recommended_water_threshold_pct, p.biomass_weight_g, p.biomass_last_at,
+                        p.species_name, p.botanical_name, p.cultivar, p.substrate_type_id,
+                        p.substrate_last_refresh_at, p.fertilized_last_at, p.fertilizer_ec_ms,
+                        p.light_level_id, p.pest_status_id, p.health_status_id,
+                        p.min_dry_weight_g, p.max_water_weight_g, p.created_at
                     FROM plants p
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.id = %s
-                    """
-                    ),
+                    """,
                     (hex_to_bin(id_hex),),
                 )
                 row = cur.fetchone()
 
                 if not row:
                     raise HTTPException(status_code=404, detail="Plant not found")
-                pid = row[0]
-                name = row[1]
-                notes = row[2]
-                species_name = row[3]
-                min_dry_weight_g = row[4]
-                max_water_weight_g = row[5]
-                location_id_bytes = row[6]
-                location_name = row[7]
-                created_at = row[8] or datetime.utcnow()
-                uuid_hex = pid.hex() if isinstance(pid, (bytes, bytearray)) else None
-                location_id_hex = (
-                    location_id_bytes.hex()
-                    if isinstance(location_id_bytes, (bytes, bytearray))
-                    else None
-                )
+
                 return PlantDetail(
                     id=1,
-                    uuid=uuid_hex,
-                    name=name,
-                    notes=notes,
-                    species=species_name,
-                    location=location_name,
-                    min_dry_weight_g=min_dry_weight_g,
-                    max_water_weight_g=max_water_weight_g,
-                    location_id=location_id_hex,
-                    created_at=created_at,
+                    uuid=row[0].hex(),
+                    name=row[1],
+                    plant_type=row[2],
+                    identify_hint=row[3],
+                    typical_action=row[4],
+                    description=row[5],
+                    notes=row[6],
+                    location_id=row[7].hex() if row[7] else None,
+                    location=row[8],
+                    photo_url=row[9],
+                    default_measurement_method_id=row[10].hex() if row[10] else None,
+                    scale_id=row[11].hex() if row[11] else None,
+                    sort_order=row[12],
+                    repotted=row[13],
+                    archive=row[14],
+                    recommended_water_threshold_pct=row[15],
+                    biomass_weight_g=row[16],
+                    biomass_last_at=row[17],
+                    species_name=row[18],
+                    botanical_name=row[19],
+                    cultivar=row[20],
+                    substrate_type_id=row[21].hex() if row[21] else None,
+                    substrate_last_refresh_at=row[22],
+                    fertilized_last_at=row[23],
+                    fertilizer_ec_ms=float(row[24]) if row[24] is not None else None,
+                    light_level_id=row[25].hex() if row[25] else None,
+                    pest_status_id=row[26].hex() if row[26] else None,
+                    health_status_id=row[27].hex() if row[27] else None,
+                    min_dry_weight_g=row[28],
+                    max_water_weight_g=row[29],
+                    created_at=row[30] or datetime.utcnow(),
                 )
         finally:
             conn.close()
