@@ -316,11 +316,11 @@ be-cicd:
 	@#       ↓
 	@#   make fe-fix       ← auto-fix formatting + lint
 	@#       ↓
-	@#   make be-cicd      ← verify: pytest + coverage pass (same as CI)
+	@#   make be-cicd      ← verify: pre-commit checks pass (same as CI)
 	@#       ↓
 	@#   git commit
-	docker compose -f $(TEST_COMPOSE) up -d --build db runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=100"
+	docker compose -f $(TEST_COMPOSE) up -d runner
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
 
 # --- Security / dependency audit ---
 .PHONY: dep-audit

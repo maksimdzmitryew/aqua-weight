@@ -9,8 +9,6 @@ export default [
   js.configs.recommended,
   react.configs.flat.recommended,
   {
-    files: ['src/**/*.{js,jsx}', 'tests/**/*.{js,jsx,ts,tsx}'],
-    ignores: ['dist', 'node_modules'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

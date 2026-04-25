@@ -130,6 +130,7 @@ def test_now_local_iso():
     dt = datetime.fromisoformat(iso_str)
     assert dt is not None
 
+
 def test_normalize_measured_at_preserve():
     # UTC
     base = "2025-10-21T19:33:45.678Z"

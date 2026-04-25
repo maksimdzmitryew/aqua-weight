@@ -524,11 +524,7 @@ async def apply_measurements_corrections(
                     return {"updated": 0, "total_excess_g": 0, "details": []}
 
             # Determine window
-            from_dt = (
-                parse_timestamp_local(payload.from_ts)
-                if payload.from_ts
-                else None
-            )
+            from_dt = parse_timestamp_local(payload.from_ts) if payload.from_ts else None
             to_dt = (
                 parse_timestamp_local(payload.to_ts, fixed_milliseconds=999)
                 if payload.to_ts
