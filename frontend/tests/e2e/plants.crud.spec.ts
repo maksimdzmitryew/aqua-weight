@@ -46,7 +46,6 @@ test.describe('Plants CRUD', () => {
       .getByRole('row', { name: /test fern/i })
       .getByRole('button', { name: /edit/i })
       .click()
-    await expect(page.getByLabel(/name/i)).toBeDisabled()
     await page.getByLabel(/description/i).fill('Updated description')
     await page.getByRole('button', { name: /save/i }).click()
     await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible()

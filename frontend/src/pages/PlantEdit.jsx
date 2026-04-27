@@ -24,7 +24,7 @@ export function buildUpdatePayload(plant) {
     // Service
     default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
     scale_id: (plant.scale_id || '').trim() || null,
-    sort_order: plant.sort_order === '' ? 0 : Number(plant.sort_order),
+    sort_order: plant.sort_order == null || plant.sort_order === '' ? 0 : Number(plant.sort_order),
     repotted: plant.repotted ? 1 : 0,
     archive: plant.archive ? 1 : 0,
     // Care
@@ -130,6 +130,8 @@ export default function PlantEdit() {
   const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
+    if (initialPlant) return
+
     const controller = new AbortController()
     async function load() {
       setLoading(true)
@@ -150,7 +152,7 @@ export default function PlantEdit() {
     return () => {
       controller.abort()
     }
-  }, [uuid])
+  }, [uuid, initialPlant])
 
   useEffect(() => {
     let cancelled = false
@@ -212,8 +214,8 @@ export default function PlantEdit() {
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {
-      if (err.response && err.response.data && err.response.data.detail) {
-        const errorData = err.response.data
+      if (err.body && err.body.detail) {
+        const errorData = err.body
         const errors = {}
         if (Array.isArray(errorData.detail)) {
           errorData.detail.forEach((e) => {

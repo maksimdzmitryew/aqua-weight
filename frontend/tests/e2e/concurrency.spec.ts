@@ -36,13 +36,10 @@ test.describe('Concurrency and Error Handling', () => {
       }
     })
 
-    // Listen for alert without waiting on navigation from submit
-    const [dialog] = await Promise.all([
-      page.waitForEvent('dialog'),
-      page.getByRole('button', { name: /save/i }).click({ noWaitAfter: true }),
-    ])
-    expect(dialog.message()).toContain('A conflict occurred')
-    await dialog.dismiss()
+    // Click save and expect error message in UI instead of dialog
+    await page.getByRole('button', { name: /save/i }).click()
+
+    await expect(page.getByText('A conflict occurred')).toBeVisible()
 
     // Verify form data is retained and we stay on the same page
     await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}\/edit/)

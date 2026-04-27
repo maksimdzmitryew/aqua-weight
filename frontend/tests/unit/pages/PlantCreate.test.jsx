@@ -112,6 +112,22 @@ describe('pages/PlantCreate', () => {
           { uuid: 'l2', name: 'Kitchen' },
         ]),
       ),
+      http.get('/api/substrate-types', () =>
+        HttpResponse.json([{ uuid: 'sub1', name: 'Soil' }]),
+      ),
+      http.get('/api/light-levels', () =>
+        HttpResponse.json([{ uuid: 'light1', name: 'Bright' }]),
+      ),
+      http.get('/api/pest-statuses', () =>
+        HttpResponse.json([{ uuid: 'pest1', name: 'None' }]),
+      ),
+      http.get('/api/health-statuses', () =>
+        HttpResponse.json([{ uuid: 'ok', name: 'Healthy' }]),
+      ),
+      http.get('/api/scales', () => HttpResponse.json([{ uuid: 'sc1', name: 'Scale 1' }])),
+      http.get('/api/measurement-methods', () =>
+        HttpResponse.json([{ uuid: 'mm1', name: 'Method 1' }]),
+      ),
     )
   })
 
@@ -128,24 +144,36 @@ describe('pages/PlantCreate', () => {
     renderPage()
     // Fill General
     fireEvent.change(await screen.findByLabelText(/name/i), { target: { value: '  My Plant  ' } })
-    fireEvent.change(screen.getByLabelText(/plant type/i), { target: { value: '  Type  ' } })
-    fireEvent.change(screen.getByLabelText(/identify hint/i), { target: { value: '  Hint  ' } })
-    fireEvent.change(screen.getByLabelText(/typical action/i), { target: { value: '  Action  ' } })
-    fireEvent.change(screen.getByLabelText(/description/i), {
-      target: { value: '  Some description  ' },
+    fireEvent.change(screen.getByLabelText(/plant type/i), {
+      target: { value: '  Type  ', name: 'plant_type' },
     })
-    fireEvent.change(screen.getByLabelText(/^notes$/i), { target: { value: '  Note  ' } })
-    fireEvent.change(screen.getByLabelText(/location/i), { target: { value: 'l2' } })
+    fireEvent.change(screen.getByLabelText(/identify hint/i), {
+      target: { value: '  Hint  ', name: 'identify_hint' },
+    })
+    fireEvent.change(screen.getByLabelText(/typical action/i), {
+      target: { value: '  Action  ', name: 'typical_action' },
+    })
+    fireEvent.change(screen.getByLabelText(/description/i), {
+      target: { value: '  Some description  ', name: 'description' },
+    })
+    fireEvent.change(screen.getByLabelText(/^notes$/i), {
+      target: { value: '  Note  ', name: 'notes' },
+    })
+    fireEvent.change(screen.getByLabelText(/location/i), {
+      target: { value: 'l2', name: 'location_id' },
+    })
     fireEvent.change(screen.getByLabelText(/photo url/i), {
-      target: { value: '  https://example.com/p.jpg  ' },
+      target: { value: '  https://example.com/p.jpg  ', name: 'photo_url' },
     })
 
     // Service tab
     fireEvent.click(screen.getByRole('tab', { name: /service/i }))
-    fireEvent.change(screen.getByLabelText(/default measurement method id/i), {
-      target: { value: '  mm1  ' },
+    fireEvent.change(screen.getByLabelText(/default measurement method/i), {
+      target: { value: 'mm1', name: 'default_measurement_method_id' },
     })
-    fireEvent.change(screen.getByLabelText(/scale id/i), { target: { value: '  sc1  ' } })
+    fireEvent.change(screen.getByLabelText(/scale/i), {
+      target: { value: 'sc1', name: 'scale_id' },
+    })
     // Toggle checkboxes to exercise checkbox branch and mapping
     const repotted = screen.getByLabelText(/repotted/i)
     const archive = screen.getByLabelText(/archive/i)
@@ -157,39 +185,59 @@ describe('pages/PlantCreate', () => {
     // Care tab
     fireEvent.click(screen.getByRole('tab', { name: /care/i }))
     fireEvent.change(screen.getByLabelText(/recommended water threshold/i), {
-      target: { value: '35' },
+      target: { value: '35', name: 'recommended_water_threshold_pct' },
     })
-    fireEvent.change(screen.getByLabelText(/biomass weight/i), { target: { value: '123' } })
+    fireEvent.change(screen.getByLabelText(/biomass weight/i), {
+      target: { value: '123', name: 'biomass_weight_g' },
+    })
     fireEvent.change(screen.getByLabelText(/biomass last at/i), {
-      target: { value: '2024-02-20T10:30' },
+      target: { value: '2024-02-20T10:30', name: 'biomass_last_at' },
     })
 
     // Advanced tab
     fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
-    fireEvent.change(screen.getByLabelText(/species name/i), { target: { value: '  Species  ' } })
-    fireEvent.change(screen.getByLabelText(/botanical name/i), {
-      target: { value: '  Botanical  ' },
+    fireEvent.change(screen.getByLabelText(/species name/i), {
+      target: { value: '  Species  ', name: 'species_name' },
     })
-    fireEvent.change(screen.getByLabelText(/cultivar/i), { target: { value: '  Cult  ' } })
-    fireEvent.change(screen.getByLabelText(/substrate type id/i), { target: { value: '  sub1  ' } })
+    fireEvent.change(screen.getByLabelText(/botanical name/i), {
+      target: { value: '  Botanical  ', name: 'botanical_name' },
+    })
+    fireEvent.change(screen.getByLabelText(/cultivar/i), {
+      target: { value: '  Cult  ', name: 'cultivar' },
+    })
+    fireEvent.change(screen.getByLabelText(/substrate type/i), {
+      target: { value: 'sub1', name: 'substrate_type_id' },
+    })
     fireEvent.change(screen.getByLabelText(/substrate last refresh at/i), {
-      target: { value: '2024-01-15T00:00' },
+      target: { value: '2024-01-15T00:00', name: 'substrate_last_refresh_at' },
     })
     fireEvent.change(screen.getByLabelText(/fertilized last at/i), {
-      target: { value: '2024-03-01T00:00' },
+      target: { value: '2024-03-01T00:00', name: 'fertilized_last_at' },
     })
-    fireEvent.change(screen.getByLabelText(/fertilizer ec/i), { target: { value: '2.5' } })
+    fireEvent.change(screen.getByLabelText(/fertilizer ec \(ms\)/i), {
+      target: { value: '2.5', name: 'fertilizer_ec_ms' },
+    })
 
     // Health tab
     fireEvent.click(screen.getByRole('tab', { name: /health/i }))
-    fireEvent.change(screen.getByLabelText(/light level id/i), { target: { value: '  light1  ' } })
-    fireEvent.change(screen.getByLabelText(/pest status id/i), { target: { value: '  pest1  ' } })
-    fireEvent.change(screen.getByLabelText(/health status id/i), { target: { value: '  ok  ' } })
+    fireEvent.change(screen.getByLabelText(/light level/i), {
+      target: { value: 'light1', name: 'light_level_id' },
+    })
+    fireEvent.change(screen.getByLabelText(/pest status/i), {
+      target: { value: 'pest1', name: 'pest_status_id' },
+    })
+    fireEvent.change(screen.getByLabelText(/health status/i), {
+      target: { value: 'ok', name: 'health_status_id' },
+    })
 
     // Calculated tab
     fireEvent.click(screen.getByRole('tab', { name: /calculated/i }))
-    fireEvent.change(screen.getByLabelText(/min dry weight/i), { target: { value: '10' } })
-    fireEvent.change(screen.getByLabelText(/max water weight/i), { target: { value: '20' } })
+    fireEvent.change(screen.getByLabelText(/min dry weight/i), {
+      target: { value: '10', name: 'min_dry_weight_g' },
+    })
+    fireEvent.change(screen.getByLabelText(/max water weight/i), {
+      target: { value: '20', name: 'max_water_weight_g' },
+    })
 
     // Save
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
@@ -238,7 +286,7 @@ describe('pages/PlantCreate', () => {
 
   test('backend error with string detail clears field errors without general message; all tabs handlers exercised', async () => {
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      response: { data: { detail: 'something went wrong' } },
+      body: { detail: 'something went wrong' },
     })
 
     renderPage()
@@ -322,10 +370,8 @@ describe('pages/PlantCreate', () => {
   test('backend validation detail array maps to field error', async () => {
     // Mock plantsApi.create to throw axios-like error structure
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      response: {
-        data: {
-          detail: [{ loc: ['body', 'name'], msg: 'too short' }],
-        },
+      body: {
+        detail: [{ loc: ['body', 'name'], msg: 'Too short' }],
       },
     })
 
@@ -345,17 +391,19 @@ describe('pages/PlantCreate', () => {
     )
     // plants create returns 500 without axios-like shape (ApiClient -> ApiError)
     server.use(
-      http.post('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+      http.post('/api/plants', () =>
+        HttpResponse.json({ detail: 'Too short' }, { status: 422 }),
+      ),
     )
 
     renderPage()
     // locations error should be shown
-    expect(await screen.findByText(/failed to load locations/i)).toBeInTheDocument()
+    expect(await screen.findByText(/failed to load reference data/i)).toBeInTheDocument()
 
     fireEvent.change(screen.getByRole('textbox', { name: /name/i }), { target: { value: 'Ok' } })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
-    // General error for save appears
-    expect(await screen.findByText(/failed to save plant/i)).toBeInTheDocument()
+    // Specific error for save appears (from e.message)
+    expect(await screen.findByText(/too short/i)).toBeInTheDocument()
   })
 
   test('dark theme renders inputs with dark styles and tabs switch content', async () => {
@@ -477,7 +525,7 @@ describe('pages/PlantCreate', () => {
 
     renderPage()
     // No error message
-    expect(screen.queryByText(/failed to load locations/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/failed to load reference data/i)).not.toBeInTheDocument()
     // Select should only have placeholder option present
     const select = await screen.findByLabelText(/location/i)
     const options = select.querySelectorAll('option')
@@ -488,11 +536,9 @@ describe('pages/PlantCreate', () => {
 
   test('backend validation: missing msg falls back to "Invalid value"', async () => {
     const spy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      response: {
-        data: {
-          // Use 'name' so the error is rendered in the UI next to the name field
-          detail: [{ loc: ['body', 'name'] }],
-        },
+      body: {
+        // Use 'name' so the error is rendered in the UI next to the name field
+        detail: [{ loc: ['body', 'name'] }],
       },
     })
 
@@ -539,5 +585,20 @@ describe('pages/PlantCreate', () => {
     // allow microtasks to flush
     await Promise.resolve()
     listSpy.mockRestore()
+  })
+
+  test('PlantCreate: sort_order default coverage', async () => {
+    let payload
+    server.use(
+      http.post('/api/plants', async ({ request }) => {
+        payload = await request.json()
+        return HttpResponse.json({ uuid: 'p1' }, { status: 201 })
+      }),
+    )
+    renderPage()
+    fireEvent.change(await screen.findByLabelText(/name/i), { target: { value: 'Test', name: 'name' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(payload).toBeDefined())
+    expect(payload.sort_order).toBe(0)
   })
 })

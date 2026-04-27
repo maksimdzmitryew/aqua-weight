@@ -137,7 +137,7 @@ export default function PlantCreate() {
         // Service
         default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
         scale_id: (plant.scale_id || '').trim() || null,
-        sort_order: plant.sort_order === '' ? 0 : Number(plant.sort_order),
+        sort_order: plant.sort_order == null || plant.sort_order === '' ? 0 : Number(plant.sort_order),
         repotted: plant.repotted ? 1 : 0,
         archive: plant.archive ? 1 : 0,
         // Care
@@ -170,20 +170,18 @@ export default function PlantCreate() {
         saved = true
         navigate('/plants')
       } catch (e) {
-        // Handle validation errors from backend
-        if (e.response && e.response.data) {
-          const errorData = e.response.data
-          if (errorData.detail) {
-            // Handle Pydantic validation errors
-            const errors = {}
-            if (Array.isArray(errorData.detail)) {
-              errorData.detail.forEach((err) => {
-                if (err.loc && err.loc.length > 0) {
-                  const fieldName = err.loc[err.loc.length - 1]
-                  errors[fieldName] = err.msg || 'Invalid value'
-                }
-              })
-            }
+        // Handle validation errors from backend using ApiError structure
+        if (e.body && e.body.detail) {
+          const errorData = e.body
+          // Handle Pydantic validation errors
+          const errors = {}
+          if (Array.isArray(errorData.detail)) {
+            errorData.detail.forEach((err) => {
+              if (err.loc && err.loc.length > 0) {
+                const fieldName = err.loc[err.loc.length - 1]
+                errors[fieldName] = err.msg || 'Invalid value'
+              }
+            })
             setFieldErrors(errors)
           } else {
             // Handle other errors
@@ -192,10 +190,9 @@ export default function PlantCreate() {
         } else {
           // If error happened after successful save (e.g., navigate throws),
           // bubble it to the outer catch to surface the real message.
-          // Otherwise (pre-save API error without axios-like shape), show
-          // the generic message here to preserve UX and existing tests.
+          // Otherwise show the generic message here.
           if (saved) throw e
-          setFieldErrors({ general: 'Failed to save plant' })
+          setFieldErrors({ general: e.message || 'Failed to save plant' })
         }
       }
     } catch (err) {
