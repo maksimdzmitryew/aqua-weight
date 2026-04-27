@@ -28,9 +28,9 @@ test.describe('Offline Resilience', () => {
 
     // Since we are offline, the API call should fail.
     // We check if the application displays an error message.
-    // Based on PlantCreate.jsx: setFieldErrors({ general: 'Failed to save plant' })
-    // when it's not an axios-like error with response.data.
-    await expect(page.getByText(/failed to save plant/i)).toBeVisible()
+    // Based on PlantCreate.jsx: setFieldErrors({ general: e.message || 'Failed to save plant' })
+    // When offline, e.message might be 'Failed to fetch' or 'Network Error'.
+    await expect(page.locator('form').getByText(/failed|error/i)).toBeVisible()
 
     // Verify form state is preserved in the UI
     await expect(page.getByLabel(/name/i)).toHaveValue('Offline Test Plant')

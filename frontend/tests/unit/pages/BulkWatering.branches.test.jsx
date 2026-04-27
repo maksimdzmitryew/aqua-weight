@@ -371,4 +371,58 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     )
     consoleSpy.mockRestore()
   })
+
+  test('covers return p branches and error paths in vacation mode', async () => {
+    localStorage.setItem('operationMode', 'vacation')
+    __vacationCommit = true
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation((msg) => {
+       if (typeof msg === 'string' && msg.includes('Failed to refresh approximations')) return;
+       // ignore react warnings
+    })
+    
+    // We need 2 plants to cover "return p" for non-matching IDs
+    server.use(
+      ...paginatedPlantsHandler([
+        { uuid: 'p-match', name: 'Match', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+        { uuid: 'p-other', name: 'Other', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+      ]),
+      http.get('/api/measurements/approximation/watering', ({request}) => {
+        // Use a counter to fail on the second call
+        const url = new URL(request.url);
+        if (url.searchParams.get('refresh') === 'true') {
+           return HttpResponse.error();
+        }
+        return HttpResponse.json({ items: [{ plant_uuid: 'p-match', days_offset: 0 }] })
+      }),
+      // Mock vacation watering commit
+      http.post('/api/measurements/vacation/watering', () =>
+        HttpResponse.json({ id: 'mock-id', water_retained_pct: 100 })
+      ),
+    )
+
+    // Note: the component doesn't actually append ?refresh=true, but I can use a simpler state-based mock
+    let callCount = 0;
+    server.use(
+      http.get('/api/measurements/approximation/watering', () => {
+        callCount++;
+        if (callCount > 1) return HttpResponse.error();
+        return HttpResponse.json({ items: [{ plant_uuid: 'p-match', days_offset: 0 }] })
+      })
+    )
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <BulkWatering />
+        </MemoryRouter>
+      </ThemeProvider>,
+    )
+    
+    await screen.findByText('Mocked Table')
+    // Wait for the commit and refresh to be attempted
+    await waitFor(() => expect(callCount).toBeGreaterThan(1))
+    
+    consoleSpy.mockRestore()
+    __vacationCommit = false
+  })
 })

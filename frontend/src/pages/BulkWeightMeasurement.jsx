@@ -34,10 +34,10 @@ export default function BulkWeightMeasurement() {
 
   // Initialize local plants state from hook
   useEffect(() => {
-    if (plantsFromHook.length > 0) {
+    if (plantsFromHook.length > 0 || !loading) {
       setPlants(plantsFromHook)
     }
-  }, [plantsFromHook])
+  }, [plantsFromHook, loading])
 
   // Snapshot plants that need attention when plants load
   useEffect(() => {
