@@ -108,7 +108,7 @@ export default function PlantCreate() {
     if (type === 'checkbox') {
       v = checked ? 1 : 0
     } else if (type === 'number') {
-      v = value === '' ? null : Number(value)
+      v = value === '' ? '' : Number(value)
     }
     setPlant((prev) => ({ ...prev, [name]: v }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))
@@ -137,15 +137,20 @@ export default function PlantCreate() {
         // Service
         default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
         scale_id: (plant.scale_id || '').trim() || null,
-        sort_order: plant.sort_order == null || plant.sort_order === '' ? 0 : Number(plant.sort_order),
+        sort_order:
+          plant.sort_order == null || plant.sort_order === '' ? 0 : Number(plant.sort_order),
         repotted: plant.repotted ? 1 : 0,
         archive: plant.archive ? 1 : 0,
         // Care
         recommended_water_threshold_pct:
+          plant.recommended_water_threshold_pct == null ||
           plant.recommended_water_threshold_pct === ''
             ? null
             : Number(plant.recommended_water_threshold_pct),
-        biomass_weight_g: plant.biomass_weight_g === '' ? null : Number(plant.biomass_weight_g),
+        biomass_weight_g:
+          plant.biomass_weight_g == null || plant.biomass_weight_g === ''
+            ? null
+            : Number(plant.biomass_weight_g),
         biomass_last_at: (plant.biomass_last_at || '').trim() || null,
         // Advanced
         species_name: (plant.species_name || '').trim() || null,
@@ -154,15 +159,23 @@ export default function PlantCreate() {
         substrate_type_id: (plant.substrate_type_id || '').trim() || null,
         substrate_last_refresh_at: (plant.substrate_last_refresh_at || '').trim() || null,
         fertilized_last_at: (plant.fertilized_last_at || '').trim() || null,
-        fertilizer_ec_ms: plant.fertilizer_ec_ms === '' ? null : Number(plant.fertilizer_ec_ms),
+        fertilizer_ec_ms:
+          plant.fertilizer_ec_ms == null || plant.fertilizer_ec_ms === ''
+            ? null
+            : Number(plant.fertilizer_ec_ms),
         // Health
         light_level_id: (plant.light_level_id || '').trim() || null,
         pest_status_id: (plant.pest_status_id || '').trim() || null,
         health_status_id: (plant.health_status_id || '').trim() || null,
         // Calculated
-        min_dry_weight_g: plant.min_dry_weight_g === '' ? null : Number(plant.min_dry_weight_g),
+        min_dry_weight_g:
+          plant.min_dry_weight_g == null || plant.min_dry_weight_g === ''
+            ? null
+            : Number(plant.min_dry_weight_g),
         max_water_weight_g:
-          plant.max_water_weight_g === '' ? null : Number(plant.max_water_weight_g),
+          plant.max_water_weight_g == null || plant.max_water_weight_g === ''
+            ? null
+            : Number(plant.max_water_weight_g),
       }
       let saved = false
       try {
@@ -171,7 +184,7 @@ export default function PlantCreate() {
         navigate('/plants')
       } catch (e) {
         // Handle validation errors from backend using ApiError structure
-        if (e.body && e.body.detail) {
+        if (e.body && e.body.detail !== undefined && e.body.detail !== null) {
           const errorData = e.body
           // Handle Pydantic validation errors
           const errors = {}

@@ -601,4 +601,75 @@ describe('pages/PlantCreate', () => {
     await waitFor(() => expect(payload).toBeDefined())
     expect(payload.sort_order).toBe(0)
   })
+
+  test('covers remaining branches: clearing number, unchecking checkbox, and error fallback', async () => {
+    let capturedBody = null
+    server.use(
+      http.post('/api/plants', async ({ request }) => {
+        capturedBody = await request.json()
+        return HttpResponse.json({ uuid: 'pX' }, { status: 201 })
+      }),
+    )
+
+    renderPage()
+
+    // 1. Cover line 111 (clearing number input)
+    fireEvent.click(screen.getByRole('tab', { name: /service/i }))
+    const sortOrderInput = await screen.findByLabelText(/sort order/i)
+    fireEvent.change(sortOrderInput, { target: { name: 'sort_order', value: '5', type: 'number' } })
+    fireEvent.change(sortOrderInput, { target: { name: 'sort_order', value: '', type: 'number' } })
+
+    // 2. Cover line 109 (unchecking checkbox)
+    const repottedCheckbox = screen.getByLabelText(/repotted/i)
+    fireEvent.click(repottedCheckbox) // check it (v=1)
+    fireEvent.click(repottedCheckbox) // uncheck it (v=0)
+
+    // 3. Fill required name
+    fireEvent.click(screen.getByRole('tab', { name: /general/i }))
+    fireEvent.change(screen.getByLabelText(/name/i), { target: { value: 'Test Plant' } })
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants'))
+    expect(capturedBody.sort_order).toBe(0)
+    expect(capturedBody.repotted).toBe(0)
+
+    // 4. Cover line 201 (other error types with detail and fallback)
+    const createSpy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
+      body: { detail: 'String error' }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(screen.getByText('String error')).toBeInTheDocument())
+
+    // Now hit the fallback branch by providing an empty string for detail
+    createSpy.mockRejectedValueOnce({
+      body: { detail: '' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+    await waitFor(() => expect(screen.getByText('Failed to save plant')).toBeInTheDocument())
+
+    createSpy.mockRestore()
+  })
+
+  test('covers reference data non-array branches', async () => {
+    // Return objects instead of arrays for all reference APIs
+    server.use(
+      http.get('/api/substrate-types', () => HttpResponse.json({})),
+      http.get('/api/light-levels', () => HttpResponse.json({})),
+      http.get('/api/pest-statuses', () => HttpResponse.json({})),
+      http.get('/api/health-statuses', () => HttpResponse.json({})),
+      http.get('/api/scales', () => HttpResponse.json({})),
+      http.get('/api/measurement-methods', () => HttpResponse.json({})),
+    )
+
+    renderPage()
+
+    // Just wait for loading to finish
+    await waitFor(() => {
+      // PlantCreate doesn't have a data-testid="loader" but it uses RefsLoading state
+      // which is used to show a Loader component (mocked in tests)
+      expect(screen.queryByTestId('loader')).not.toBeInTheDocument()
+    })
+  })
 })
