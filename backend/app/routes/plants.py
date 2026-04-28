@@ -155,6 +155,7 @@ async def list_plants(
     page: int = 1,
     limit: int = 20,
     search: str | None = None,
+    status: str = "active",
     operationMode: str | None = Cookie(None),
     defaultThreshold: str | None = Cookie(None),
 ) -> PaginatedPlantsResponse:
@@ -170,17 +171,22 @@ async def list_plants(
 
     def fetch():
         # Get filtered count for pagination
-        total = PlantsList.count_all(search=search)
+        total = PlantsList.count_all(search=search, status=status)
 
         # Get global count for drift detection (always without filters)
-        global_total = PlantsList.count_all(search=None)
+        global_total = PlantsList.count_all(search=None, status="active")
 
         # Calculate total pages based on filtered count
         total_pages = (total + limit - 1) // limit if total > 0 else 0
 
         # Fetch paginated items
         items = PlantsList.fetch_all(
-            mode=mode, default_threshold=def_thr, offset=offset, limit=limit, search=search
+            mode=mode,
+            default_threshold=def_thr,
+            offset=offset,
+            limit=limit,
+            search=search,
+            status=status,
         )
 
         return PaginatedPlantsResponse(

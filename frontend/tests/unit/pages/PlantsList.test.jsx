@@ -1190,3 +1190,67 @@ test('integrated: line 437 coverage - badge titles', async () => {
     localStorage.removeItem('operationMode')
   }
 })
+
+test('integrated: line 187-191 and 534-538 coverage - status filters and archived badges', async () => {
+  const plants = [
+    {
+      uuid: 'p-archived',
+      name: 'Archived Plant',
+      archive: 1,
+      water_retained_pct: 10,
+      recommended_water_threshold_pct: 30,
+    },
+    {
+      uuid: 'p-active-needs-water',
+      name: 'Active Needs Water',
+      archive: 0,
+      water_retained_pct: 10,
+      recommended_water_threshold_pct: 30,
+    },
+    {
+      uuid: 'p-active-full',
+      name: 'Active Full',
+      archive: 0,
+      water_retained_pct: 80,
+      recommended_water_threshold_pct: 30,
+    },
+  ]
+  server.use(mockPlantsHandler(plants))
+
+  renderPage()
+
+  // Wait for plants to load
+  await screen.findByText('Archived Plant')
+  expect(screen.getByText('Active Needs Water')).toBeInTheDocument()
+  expect(screen.getByText('Active Full')).toBeInTheDocument()
+
+  // 1. Coverage for lines 534-536: Archived badge
+  const archivedRow = screen.getByText('Archived Plant').closest('tr')
+  expect(within(archivedRow).getByText('Archived')).toBeInTheDocument()
+  expect(within(archivedRow).getByTitle('Plant is archived')).toBeInTheDocument()
+
+  // 2. Coverage for line 538: needsWater branch
+  const needsWaterRow = screen.getByText('Active Needs Water').closest('tr')
+  expect(within(needsWaterRow).getByText(/^Needs water$/i)).toBeInTheDocument()
+
+  const fullRow = screen.getByText('Active Full').closest('tr')
+  expect(within(fullRow).queryByText(/^Needs water$/i)).not.toBeInTheDocument()
+
+  // 3. Coverage for lines 187-191: handleStatusChange
+  // Initial status is 'active' (default in component)
+  const activeBtn = screen.getByRole('button', { name: /^Active$/ })
+  const archivedBtn = screen.getByRole('button', { name: /^Archived$/ })
+  const allBtn = screen.getByRole('button', { name: /^All$/ })
+
+  // Click 'Archived' filter button
+  fireEvent.click(archivedBtn)
+  await waitFor(() => expect(archivedBtn).toHaveStyle('background: #ffffff'))
+
+  // Click 'All' filter button
+  fireEvent.click(allBtn)
+  await waitFor(() => expect(allBtn).toHaveStyle('background: #ffffff'))
+
+  // Click 'Active' filter button
+  fireEvent.click(activeBtn)
+  await waitFor(() => expect(activeBtn).toHaveStyle('background: #ffffff'))
+})

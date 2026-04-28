@@ -38,6 +38,7 @@ class PlantListItem(BaseModel):
     first_calculated_at: Optional[datetime] = None
     days_offset: Optional[int] = None
     needs_weighing: bool = False
+    archive: int = 0
 
 
 class PlantDetail(BaseModel):

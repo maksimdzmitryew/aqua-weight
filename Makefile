@@ -15,8 +15,8 @@ define WORKFLOW_HINT
 	@echo "  make be-fix     ← fix backend formatting + lint + mypy$(if $(filter be-fix,$(MAKECMDGOALS)),  ← you are here ←)"
 	@echo "  make fe-fix     ← fix frontend formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),        ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make be-cicd    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),       ← you are here ←)"
-	@echo "  make fe-cicd    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),       ← you are here ←)"
+	@echo "  make cicd-be    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),       ← you are here ←)"
+	@echo "  make cicd-fe    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),       ← you are here ←)"
 	@echo "      ↓"
 	@echo "  git commit                                                                                  "
 	@echo ""
@@ -60,7 +60,7 @@ help:
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
 	@echo "  make fe-fix            - Auto-fix formatting and lint"
-	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
+	@echo "  make cicd-fe           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
 	@echo "  make be-lint           - Run ruff"
@@ -70,7 +70,7 @@ help:
 	@echo "  make be-mypy           - Run mypy"
 	@echo "  make be-fix            - Auto-fix backend formatting, lint, and mypy"
 	@echo "  make be-pre-commit     - Run pre-commit (CI config)"
-	@echo "  make be-cicd           - Run CI/CD pipeline for BE"
+	@echo "  make cicd-be           - Run CI/CD pipeline for BE"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
@@ -261,8 +261,8 @@ fe-fix: ## Run all frontend auto-fixes
 	$(MAKE) fe-lint-fix
 	$(WORKFLOW_HINT)
 
-.PHONY: fe-cicd
-fe-cicd:
+.PHONY: cicd-fe
+cicd-fe:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files frontend)
 	$(WORKFLOW_HINT)
@@ -333,8 +333,8 @@ al-cicd:
 	$(WORKFLOW_HINT)
 
 
-.PHONY: be-cicd
-be-cicd:
+.PHONY: cicd-be
+cicd-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files backend)
 	$(WORKFLOW_HINT)

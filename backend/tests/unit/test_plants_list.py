@@ -178,11 +178,12 @@ def make_row_full(
     measured_weight_g: float | None = 150.0,
     last_wet_weight_g: float | None = 200.0,
     water_loss_total_pct: float | None = 50.0,
+    archive: int = 0,
 ):
-    # Full shape (16 columns):
+    # Full shape (17 columns):
     # 0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
     # 7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct
+    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive
     return (
         pid_bytes,
         name,
@@ -200,6 +201,7 @@ def make_row_full(
         measured_weight_g,
         last_wet_weight_g,
         water_loss_total_pct,
+        archive,
     )
 
 
@@ -236,6 +238,28 @@ def test_fetch_all_full_row_mapping(monkeypatch):
     assert items[0]["max_water_weight_g"] == 200.0
     assert items[0]["recommended_water_threshold_pct"] == 0.4
     assert items[0]["identify_hint"] == "hint"
+    assert items[0]["archive"] == 0
+
+
+def test_fetch_all_full_row_mapping_archived(monkeypatch):
+    now = datetime.utcnow()
+    pid = bytes.fromhex("44" * 16)
+    loc = bytes.fromhex("bb" * 16)
+
+    row = make_row_full(
+        pid_bytes=pid,
+        name="Spider Plant",
+        archive=1,
+    )
+
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(status="all")
+
+    assert items[0]["archive"] == 1
 
 
 def test_fetch_all_compute_frequency_exception(monkeypatch):
