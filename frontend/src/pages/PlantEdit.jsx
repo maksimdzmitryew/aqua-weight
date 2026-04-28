@@ -199,7 +199,7 @@ export default function PlantEdit() {
     if (type === 'checkbox') {
       v = checked ? 1 : 0
     } else if (type === 'number') {
-      v = value === '' ? null : Number(value)
+      v = value === '' ? '' : Number(value)
     }
     setPlant((prev) => ({ ...prev, [name]: v }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))

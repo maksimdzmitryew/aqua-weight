@@ -729,29 +729,101 @@ describe('pages/PlantEdit', () => {
   })
 
   test('PlantEdit: coverage for onChange number fallback and onSave detailed errors', async () => {
-    const init = { pathname: '/plants/u1/edit', state: { plant: { uuid: 'u1', name: 'N' } } }
+    const init = {
+      pathname: '/plants/u1/edit',
+      state: { plant: { uuid: 'u1', name: 'N', archive: 0 } },
+    }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
 
-    // coverage for line 200: empty value for type="number"
+    // coverage for line 200: checkbox onChange (both branches)
+    const serviceTab = await screen.findByRole('tab', { name: /service/i })
+    fireEvent.click(serviceTab)
+    const archive = await screen.findByLabelText(/archive/i)
+    fireEvent.click(archive) // set to 1
+    expect(archive.checked).toBe(true)
+    fireEvent.click(archive) // set back to 0
+    expect(archive.checked).toBe(false)
+
+    // coverage for line 202: empty value for type="number" (both branches)
     const care = await screen.findByRole('tab', { name: /care/i })
     fireEvent.click(care)
     const threshold = await screen.findByLabelText(/recommended water threshold/i)
-    fireEvent.change(threshold, { target: { value: '', name: 'recommended_water_threshold_pct', type: 'number' } })
+    fireEvent.change(threshold, {
+      target: { value: '42', name: 'recommended_water_threshold_pct', type: 'number' },
+    })
+    expect(threshold).toHaveValue(42)
+    fireEvent.change(threshold, {
+      target: { value: '', name: 'recommended_water_threshold_pct', type: 'number' },
+    })
     expect(threshold).toHaveValue(null)
 
-    // coverage for lines 218-230: API error detail array
+    // coverage for lines 221-226: API error detail array
     server.use(
-      http.put('/api/plants/:uuid', () => HttpResponse.json({ detail: 'Too short' }, { status: 422 })),
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json(
+          {
+            detail: [
+              { loc: ['body', 'name'], msg: 'name too short' },
+              { loc: [] }, // coverage for line 222 false path
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
     )
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
-    expect(await screen.findByText(/too short/i)).toBeInTheDocument()
-    
-    // coverage for lines 225-226: API error detail string
+    // Switch back to General tab to see field errors
+    fireEvent.click(screen.getByRole('tab', { name: /general/i }))
+    const nameInput = await screen.findByLabelText(/name/i)
+    expect(await screen.findByText(/name too short/i)).toBeInTheDocument()
+
+    // coverage for line 205: clearing field error on change
+    fireEvent.change(nameInput, { target: { value: 'Valid Name', name: 'name' } })
+    expect(screen.queryByText(/name too short/i)).not.toBeInTheDocument()
+
+    // Test for 'Invalid value' fallback
     server.use(
-      http.put('/api/plants/:uuid', () => HttpResponse.json({ detail: 'Generic Error' }, { status: 400 })),
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json(
+          {
+            detail: [
+              { loc: ['body', 'name'] }, // missing msg to hit 'Invalid value' fallback
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/invalid value/i)).toBeInTheDocument()
+
+    // coverage for lines 228-229: API error detail string
+    server.use(
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json({ detail: 'Generic Error' }, { status: 400 }),
+      ),
     )
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/generic error/i)).toBeInTheDocument()
+  })
+
+  test('PlantEdit: buildUpdatePayload branch coverage', () => {
+    buildUpdatePayload({ uuid: 'u1', name: 'N', repotted: true, archive: true })
+    buildUpdatePayload({ uuid: 'u2', name: 'N', repotted: false, archive: false })
+  })
+
+  test('PlantEdit: coverage for non-array reference data responses', async () => {
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json({})),
+      http.get('/api/substrate-types', () => HttpResponse.json({})),
+      http.get('/api/light-levels', () => HttpResponse.json({})),
+      http.get('/api/pest-statuses', () => HttpResponse.json({})),
+      http.get('/api/health-statuses', () => HttpResponse.json({})),
+      http.get('/api/scales', () => HttpResponse.json({})),
+      http.get('/api/measurement-methods', () => HttpResponse.json({})),
+    )
+    renderWithRoute(['/plants/uRefs/edit'])
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
   })
 })

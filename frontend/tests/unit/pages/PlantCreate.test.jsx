@@ -112,18 +112,10 @@ describe('pages/PlantCreate', () => {
           { uuid: 'l2', name: 'Kitchen' },
         ]),
       ),
-      http.get('/api/substrate-types', () =>
-        HttpResponse.json([{ uuid: 'sub1', name: 'Soil' }]),
-      ),
-      http.get('/api/light-levels', () =>
-        HttpResponse.json([{ uuid: 'light1', name: 'Bright' }]),
-      ),
-      http.get('/api/pest-statuses', () =>
-        HttpResponse.json([{ uuid: 'pest1', name: 'None' }]),
-      ),
-      http.get('/api/health-statuses', () =>
-        HttpResponse.json([{ uuid: 'ok', name: 'Healthy' }]),
-      ),
+      http.get('/api/substrate-types', () => HttpResponse.json([{ uuid: 'sub1', name: 'Soil' }])),
+      http.get('/api/light-levels', () => HttpResponse.json([{ uuid: 'light1', name: 'Bright' }])),
+      http.get('/api/pest-statuses', () => HttpResponse.json([{ uuid: 'pest1', name: 'None' }])),
+      http.get('/api/health-statuses', () => HttpResponse.json([{ uuid: 'ok', name: 'Healthy' }])),
       http.get('/api/scales', () => HttpResponse.json([{ uuid: 'sc1', name: 'Scale 1' }])),
       http.get('/api/measurement-methods', () =>
         HttpResponse.json([{ uuid: 'mm1', name: 'Method 1' }]),
@@ -391,9 +383,7 @@ describe('pages/PlantCreate', () => {
     )
     // plants create returns 500 without axios-like shape (ApiClient -> ApiError)
     server.use(
-      http.post('/api/plants', () =>
-        HttpResponse.json({ detail: 'Too short' }, { status: 422 }),
-      ),
+      http.post('/api/plants', () => HttpResponse.json({ detail: 'Too short' }, { status: 422 })),
     )
 
     renderPage()
@@ -596,7 +586,9 @@ describe('pages/PlantCreate', () => {
       }),
     )
     renderPage()
-    fireEvent.change(await screen.findByLabelText(/name/i), { target: { value: 'Test', name: 'name' } })
+    fireEvent.change(await screen.findByLabelText(/name/i), {
+      target: { value: 'Test', name: 'name' },
+    })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => expect(payload).toBeDefined())
     expect(payload.sort_order).toBe(0)
@@ -636,7 +628,7 @@ describe('pages/PlantCreate', () => {
 
     // 4. Cover line 201 (other error types with detail and fallback)
     const createSpy = vi.spyOn(plantsApi, 'create').mockRejectedValue({
-      body: { detail: 'String error' }
+      body: { detail: 'String error' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
@@ -644,7 +636,7 @@ describe('pages/PlantCreate', () => {
 
     // Now hit the fallback branch by providing an empty string for detail
     createSpy.mockRejectedValueOnce({
-      body: { detail: '' }
+      body: { detail: '' },
     })
     fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => expect(screen.getByText('Failed to save plant')).toBeInTheDocument())
