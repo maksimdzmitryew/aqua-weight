@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 
+
 @pytest.mark.anyio
 async def test_list_reference_endpoints(async_client: AsyncClient):
     endpoints = [
