@@ -4,6 +4,7 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
 import { locationsApi } from '../api/locations'
 import { plantsApi } from '../api/plants'
+import { referenceApi } from '../api/reference'
 
 export default function PlantCreate() {
   const navigate = useNavigate()
@@ -26,8 +27,8 @@ export default function PlantCreate() {
     default_measurement_method_id: '',
     scale_id: '',
     sort_order: 0,
-    // repotted: false,
-    // archive: false,
+    repotted: 0,
+    archive: 0,
     // Care
     recommended_water_threshold_pct: '',
     biomass_weight_g: '',
@@ -49,7 +50,16 @@ export default function PlantCreate() {
     max_water_weight_g: '',
   })
   const [locations, setLocations] = useState([])
+  const [refs, setRefs] = useState({
+    substrateTypes: [],
+    lightLevels: [],
+    pestStatuses: [],
+    healthStatuses: [],
+    scales: [],
+    methods: [],
+  })
   const [locLoading, setLocLoading] = useState(true)
+  const [refsLoading, setRefsLoading] = useState(true)
   const [locError, setLocError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
 
@@ -57,12 +67,33 @@ export default function PlantCreate() {
     let cancelled = false
     async function load() {
       try {
-        const data = await locationsApi.list()
-        if (!cancelled) setLocations(Array.isArray(data) ? data : [])
+        const [locs, substrates, lights, pests, healths, scales, methods] = await Promise.all([
+          locationsApi.list(),
+          referenceApi.listSubstrateTypes(),
+          referenceApi.listLightLevels(),
+          referenceApi.listPestStatuses(),
+          referenceApi.listHealthStatuses(),
+          referenceApi.listScales(),
+          referenceApi.listMethods(),
+        ])
+        if (!cancelled) {
+          setLocations(Array.isArray(locs) ? locs : [])
+          setRefs({
+            substrateTypes: Array.isArray(substrates) ? substrates : [],
+            lightLevels: Array.isArray(lights) ? lights : [],
+            pestStatuses: Array.isArray(pests) ? pests : [],
+            healthStatuses: Array.isArray(healths) ? healths : [],
+            scales: Array.isArray(scales) ? scales : [],
+            methods: Array.isArray(methods) ? methods : [],
+          })
+        }
       } catch (e) {
-        if (!cancelled) setLocError('Failed to load locations')
+        if (!cancelled) setLocError('Failed to load reference data')
       } finally {
-        if (!cancelled) setLocLoading(false)
+        if (!cancelled) {
+          setLocLoading(false)
+          setRefsLoading(false)
+        }
       }
     }
     load()
@@ -73,7 +104,12 @@ export default function PlantCreate() {
 
   function onChange(e) {
     const { name, value, type, checked } = e.target
-    const v = type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
+    let v = value
+    if (type === 'checkbox') {
+      v = checked ? 1 : 0
+    } else if (type === 'number') {
+      v = value === '' ? '' : Number(value)
+    }
     setPlant((prev) => ({ ...prev, [name]: v }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))
   }
@@ -101,15 +137,20 @@ export default function PlantCreate() {
         // Service
         default_measurement_method_id: (plant.default_measurement_method_id || '').trim() || null,
         scale_id: (plant.scale_id || '').trim() || null,
-        // sort_order: Number(plant.sort_order),
+        sort_order:
+          plant.sort_order == null || plant.sort_order === '' ? 0 : Number(plant.sort_order),
         repotted: plant.repotted ? 1 : 0,
         archive: plant.archive ? 1 : 0,
         // Care
         recommended_water_threshold_pct:
+          plant.recommended_water_threshold_pct == null ||
           plant.recommended_water_threshold_pct === ''
             ? null
             : Number(plant.recommended_water_threshold_pct),
-        biomass_weight_g: plant.biomass_weight_g === '' ? null : Number(plant.biomass_weight_g),
+        biomass_weight_g:
+          plant.biomass_weight_g == null || plant.biomass_weight_g === ''
+            ? null
+            : Number(plant.biomass_weight_g),
         biomass_last_at: (plant.biomass_last_at || '').trim() || null,
         // Advanced
         species_name: (plant.species_name || '').trim() || null,
@@ -118,15 +159,23 @@ export default function PlantCreate() {
         substrate_type_id: (plant.substrate_type_id || '').trim() || null,
         substrate_last_refresh_at: (plant.substrate_last_refresh_at || '').trim() || null,
         fertilized_last_at: (plant.fertilized_last_at || '').trim() || null,
-        fertilizer_ec_ms: plant.fertilizer_ec_ms === '' ? null : Number(plant.fertilizer_ec_ms),
+        fertilizer_ec_ms:
+          plant.fertilizer_ec_ms == null || plant.fertilizer_ec_ms === ''
+            ? null
+            : Number(plant.fertilizer_ec_ms),
         // Health
         light_level_id: (plant.light_level_id || '').trim() || null,
         pest_status_id: (plant.pest_status_id || '').trim() || null,
         health_status_id: (plant.health_status_id || '').trim() || null,
         // Calculated
-        min_dry_weight_g: plant.min_dry_weight_g === '' ? null : Number(plant.min_dry_weight_g),
+        min_dry_weight_g:
+          plant.min_dry_weight_g == null || plant.min_dry_weight_g === ''
+            ? null
+            : Number(plant.min_dry_weight_g),
         max_water_weight_g:
-          plant.max_water_weight_g === '' ? null : Number(plant.max_water_weight_g),
+          plant.max_water_weight_g == null || plant.max_water_weight_g === ''
+            ? null
+            : Number(plant.max_water_weight_g),
       }
       let saved = false
       try {
@@ -134,20 +183,18 @@ export default function PlantCreate() {
         saved = true
         navigate('/plants')
       } catch (e) {
-        // Handle validation errors from backend
-        if (e.response && e.response.data) {
-          const errorData = e.response.data
-          if (errorData.detail) {
-            // Handle Pydantic validation errors
-            const errors = {}
-            if (Array.isArray(errorData.detail)) {
-              errorData.detail.forEach((err) => {
-                if (err.loc && err.loc.length > 0) {
-                  const fieldName = err.loc[err.loc.length - 1]
-                  errors[fieldName] = err.msg || 'Invalid value'
-                }
-              })
-            }
+        // Handle validation errors from backend using ApiError structure
+        if (e.body && e.body.detail !== undefined && e.body.detail !== null) {
+          const errorData = e.body
+          // Handle Pydantic validation errors
+          const errors = {}
+          if (Array.isArray(errorData.detail)) {
+            errorData.detail.forEach((err) => {
+              if (err.loc && err.loc.length > 0) {
+                const fieldName = err.loc[err.loc.length - 1]
+                errors[fieldName] = err.msg || 'Invalid value'
+              }
+            })
             setFieldErrors(errors)
           } else {
             // Handle other errors
@@ -156,10 +203,9 @@ export default function PlantCreate() {
         } else {
           // If error happened after successful save (e.g., navigate throws),
           // bubble it to the outer catch to surface the real message.
-          // Otherwise (pre-save API error without axios-like shape), show
-          // the generic message here to preserve UX and existing tests.
+          // Otherwise show the generic message here.
           if (saved) throw e
-          setFieldErrors({ general: 'Failed to save plant' })
+          setFieldErrors({ general: e.message || 'Failed to save plant' })
         }
       }
     } catch (err) {
@@ -563,9 +609,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="default_measurement_method_id"
               >
-                Default Measurement Method ID
+                Default Measurement Method
               </label>
-              <input
+              <select
                 id="default_measurement_method_id"
                 name="default_measurement_method_id"
                 value={plant.default_measurement_method_id}
@@ -578,8 +624,15 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
-              />
+                disabled={refsLoading}
+              >
+                <option value="">— Select method —</option>
+                {refs.methods.map((m) => (
+                  <option key={m.uuid} value={m.uuid}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={{ marginBottom: '15px' }}>
@@ -592,9 +645,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="scale_id"
               >
-                Scale ID
+                Scale
               </label>
-              <input
+              <select
                 id="scale_id"
                 name="scale_id"
                 value={plant.scale_id}
@@ -607,22 +660,46 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
+                disabled={refsLoading}
+              >
+                <option value="">— Select scale —</option>
+                {refs.scales.map((s) => (
+                  <option key={s.uuid} value={s.uuid}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '5px',
+                  fontWeight: 'bold',
+                  color: isDark ? '#fff' : '#000',
+                }}
+                htmlFor="sort_order"
+              >
+                Sort Order
+              </label>
+              <input
+                id="sort_order"
+                name="sort_order"
+                type="number"
+                value={plant.sort_order}
+                onChange={onChange}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  border: '1px solid ' + (isDark ? '#444' : '#ccc'),
+                  backgroundColor: isDark ? '#222' : '#fff',
+                  color: isDark ? '#fff' : '#000',
+                }}
+                placeholder="0"
               />
             </div>
-            {/*
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDark ? '#fff' : '#000' }} htmlFor="sort_order">Sort Order</label>
-              <input id="sort_order" name="sort_order" type="number" value={plant.sort_order} onChange={onChange} style={{
-                width: '100%',
-                padding: '8px',
-                borderRadius: '4px',
-                border: '1px solid ' + (isDark ? '#444' : '#ccc'),
-                backgroundColor: isDark ? '#222' : '#fff',
-                color: isDark ? '#fff' : '#000'
-              }} placeholder="0" />
-            </div>
-*/}
             <div style={{ marginBottom: '15px' }}>
               <label
                 style={{
@@ -862,9 +939,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="substrate_type_id"
               >
-                Substrate Type ID
+                Substrate Type
               </label>
-              <input
+              <select
                 id="substrate_type_id"
                 name="substrate_type_id"
                 value={plant.substrate_type_id}
@@ -877,8 +954,15 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
-              />
+                disabled={refsLoading}
+              >
+                <option value="">— Select substrate —</option>
+                {refs.substrateTypes.map((s) => (
+                  <option key={s.uuid} value={s.uuid}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div style={{ marginBottom: '15px' }}>
@@ -986,9 +1070,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="light_level_id"
               >
-                Light Level ID
+                Light Level
               </label>
-              <input
+              <select
                 id="light_level_id"
                 name="light_level_id"
                 value={plant.light_level_id}
@@ -1001,8 +1085,15 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
-              />
+                disabled={refsLoading}
+              >
+                <option value="">— Select light level —</option>
+                {refs.lightLevels.map((l) => (
+                  <option key={l.uuid} value={l.uuid}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div style={{ marginBottom: '15px' }}>
               <label
@@ -1014,9 +1105,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="pest_status_id"
               >
-                Pest Status ID
+                Pest Status
               </label>
-              <input
+              <select
                 id="pest_status_id"
                 name="pest_status_id"
                 value={plant.pest_status_id}
@@ -1029,8 +1120,15 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
-              />
+                disabled={refsLoading}
+              >
+                <option value="">— Select pest status —</option>
+                {refs.pestStatuses.map((s) => (
+                  <option key={s.uuid} value={s.uuid}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div style={{ marginBottom: '15px' }}>
               <label
@@ -1042,9 +1140,9 @@ export default function PlantCreate() {
                 }}
                 htmlFor="health_status_id"
               >
-                Health Status ID
+                Health Status
               </label>
-              <input
+              <select
                 id="health_status_id"
                 name="health_status_id"
                 value={plant.health_status_id}
@@ -1057,8 +1155,15 @@ export default function PlantCreate() {
                   backgroundColor: isDark ? '#222' : '#fff',
                   color: isDark ? '#fff' : '#000',
                 }}
-                placeholder="ULID or free text for now"
-              />
+                disabled={refsLoading}
+              >
+                <option value="">— Select health status —</option>
+                {refs.healthStatuses.map((s) => (
+                  <option key={s.uuid} value={s.uuid}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         )}

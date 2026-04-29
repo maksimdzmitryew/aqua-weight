@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react-swc'
 export default defineConfig({
   plugins: [react()],
   test: {
+    reporters: ['dot'],
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./setupTests.ts'],
@@ -17,7 +18,7 @@ export default defineConfig({
       provider: 'v8',
       skipFull: true,
       // Exclude fully covered files from coverage reports to keep output focused
-      reporter: [['text'], ['html'], ['lcov'], ['json-summary']],
+      reporter: ['text', 'text-summary', 'html', 'lcov', 'json-summary'],
       reportsDirectory: './coverage',
       all: true,
       include: ['src/**/*.{js,jsx,ts,tsx}'],

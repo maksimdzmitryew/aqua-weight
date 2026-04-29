@@ -10,6 +10,11 @@ else:
     HexID = constr(pattern=r"^[0-9a-f]{32}$")
 
 
+class ReferenceItem(BaseModel):
+    uuid: HexID
+    name: str
+
+
 class PlantListItem(BaseModel):
     id: int
     uuid: Optional[HexID] = None
@@ -33,18 +38,48 @@ class PlantListItem(BaseModel):
     first_calculated_at: Optional[datetime] = None
     days_offset: Optional[int] = None
     needs_weighing: bool = False
+    archive: int = 0
 
 
 class PlantDetail(BaseModel):
     id: int
     uuid: Optional[HexID] = None
+    # General
     name: str
+    plant_type: Optional[str] = None
+    identify_hint: Optional[str] = None
+    typical_action: Optional[str] = None
+    description: Optional[str] = None
     notes: Optional[str] = None
-    species: Optional[str] = None
+    location_id: Optional[HexID] = None
+    location: Optional[str] = None
+    photo_url: Optional[str] = None
+    # Service
+    default_measurement_method_id: Optional[HexID] = None
+    scale_id: Optional[HexID] = None
+    sort_order: int = 0
+    repotted: int = 0
+    archive: int = 0
+    # Care
+    recommended_water_threshold_pct: Optional[int] = None
+    biomass_weight_g: Optional[int] = None
+    biomass_last_at: Optional[datetime] = None
+    # Advanced
+    species_name: Optional[str] = None
+    botanical_name: Optional[str] = None
+    cultivar: Optional[str] = None
+    substrate_type_id: Optional[HexID] = None
+    substrate_last_refresh_at: Optional[datetime] = None
+    fertilized_last_at: Optional[datetime] = None
+    fertilizer_ec_ms: Optional[float] = None
+    # Health
+    light_level_id: Optional[HexID] = None
+    pest_status_id: Optional[HexID] = None
+    health_status_id: Optional[HexID] = None
+    # Calculated
     min_dry_weight_g: Optional[int] = None
     max_water_weight_g: Optional[int] = None
-    location: Optional[str] = None
-    location_id: Optional[HexID] = None
+    # System
     created_at: datetime
     water_loss_total_pct: Optional[float] = None
 
@@ -74,6 +109,10 @@ class PlantCreateRequest(BaseModel):
     ] = None
     # Service
     default_measurement_method_id: Optional[HexID] = None
+    scale_id: Optional[HexID] = None
+    sort_order: Optional[int] = Field(default=0, ge=0)
+    repotted: Optional[int] = Field(default=0, ge=0, le=1)
+    archive: Optional[int] = Field(default=0, ge=0, le=1)
     # Care
     recommended_water_threshold_pct: Optional[int] = None
     biomass_weight_g: Optional[int] = None
@@ -108,15 +147,40 @@ class PlantCreateRequest(BaseModel):
 
 
 class PlantUpdateRequest(BaseModel):
+    # General
     name: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]] = None
+    plant_type: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
+    ] = None
+    identify_hint: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]
+    ] = None
+    typical_action: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=140)]
+    ] = None
     description: Optional[
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]
     ] = None
+    notes: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]] = (
+        None
+    )
     location_id: Optional[HexID] = None
     photo_url: Optional[
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]
     ] = None
+    # Service
     default_measurement_method_id: Optional[HexID] = None
+    scale_id: Optional[HexID] = None
+    sort_order: Optional[int] = Field(default=None, ge=0)
+    repotted: Optional[int] = Field(default=None, ge=0, le=1)
+    archive: Optional[int] = Field(default=None, ge=0, le=1)
+    # Care
+    recommended_water_threshold_pct: Optional[int] = Field(default=None, ge=0, le=100)
+    biomass_weight_g: Optional[int] = None
+    biomass_last_at: Optional[
+        Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
+    ] = None
+    # Advanced
     species_name: Optional[
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=120)]
     ] = None
@@ -134,12 +198,13 @@ class PlantUpdateRequest(BaseModel):
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
     ] = None
     fertilizer_ec_ms: Optional[float] = Field(default=None, ge=0)
-    min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
-    max_water_weight_g: Optional[int] = Field(default=None, ge=0)
-    recommended_water_threshold_pct: Optional[int] = Field(default=None, ge=0, le=100)
+    # Health
     light_level_id: Optional[HexID] = None
     pest_status_id: Optional[HexID] = None
     health_status_id: Optional[HexID] = None
+    # Calculated
+    min_dry_weight_g: Optional[int] = Field(default=None, ge=0)
+    max_water_weight_g: Optional[int] = Field(default=None, ge=0)
 
 
 class CalibrationEntry(BaseModel):

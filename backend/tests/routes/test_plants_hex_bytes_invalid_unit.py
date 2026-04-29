@@ -10,6 +10,9 @@ class DummyCreate:
     def __init__(self):
         self.name = "Unit Invalid"
         # align with current PlantCreateRequest optional fields accessed by route
+        self.plant_type = None
+        self.identify_hint = None
+        self.typical_action = None
         self.notes = None
         self.description = None
         self.species_name = None
@@ -23,18 +26,27 @@ class DummyCreate:
         self.health_status_id = "123"
         self.photo_url = None
         self.default_measurement_method_id = " " + "1" * 31
+        self.scale_id = None
+        self.sort_order = 0
+        self.repotted = 0
+        self.archive = 0
         self.substrate_last_refresh_at = None
         self.fertilized_last_at = None
         self.fertilizer_ec_ms = None
         self.min_dry_weight_g = None
         self.max_water_weight_g = None
         self.recommended_water_threshold_pct = None
+        self.biomass_weight_g = None
+        self.biomass_last_at = None
 
 
 class DummyUpdate:
     def __init__(self):
         self.name = "Unit Invalid Updated"
         # invalid hex strings to hit final return None in update's hex_to_bytes
+        self.plant_type = None
+        self.identify_hint = None
+        self.typical_action = None
         self.location_id = "X" * 16
         self.substrate_type_id = "y" * 10
         self.light_level_id = "q" * 1
@@ -42,16 +54,23 @@ class DummyUpdate:
         self.health_status_id = "bar"
         self.photo_url = None
         self.default_measurement_method_id = "baz"
+        self.scale_id = None
+        self.sort_order = None
+        self.repotted = None
+        self.archive = None
         self.substrate_last_refresh_at = None
         self.fertilized_last_at = None
         self.fertilizer_ec_ms = None
         self.description = None
+        self.notes = None
         self.species_name = None
         self.botanical_name = None
         self.cultivar = None
         self.min_dry_weight_g = None
         self.max_water_weight_g = None
         self.recommended_water_threshold_pct = None
+        self.biomass_weight_g = None
+        self.biomass_last_at = None
 
 
 @pytest.mark.anyio

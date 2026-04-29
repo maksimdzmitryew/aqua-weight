@@ -26,6 +26,7 @@ export default function PlantsList() {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = parseInt(searchParams.get('limit') || '20', 10)
   const searchQuery = searchParams.get('search') || ''
+  const status = searchParams.get('status') || 'active'
 
   // Component state
   const [plants, setPlants] = useState([])
@@ -76,6 +77,7 @@ export default function PlantsList() {
           page,
           limit,
           search: searchQuery,
+          status,
           signal: controller.signal,
         })
 
@@ -135,7 +137,7 @@ export default function PlantsList() {
     return () => {
       controller.abort()
     }
-  }, [page, limit, searchQuery])
+  }, [page, limit, searchQuery, status])
 
   useEffect(() => {
     const updated = routerLocation.state && routerLocation.state.updatedPlant
@@ -178,6 +180,13 @@ export default function PlantsList() {
       newParams.delete('search')
     }
     newParams.set('page', '1') // Reset to first page when searching
+    setSearchParams(newParams)
+  }
+
+  const handleStatusChange = (newStatus) => {
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('status', newStatus)
+    newParams.set('page', '1') // Reset to first page when changing filter
     setSearchParams(newParams)
   }
 
@@ -307,9 +316,17 @@ export default function PlantsList() {
       )}
       {saveError && !loading && <ErrorNotice message={saveError} />}
 
-      {/* Search field - always visible regardless of results or loading state */}
+      {/* Search and status filters - always visible regardless of results or loading state */}
       {!error && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            margin: '12px 0',
+            flexWrap: 'wrap',
+          }}
+        >
           <SearchField
             value={query}
             onChange={handleSearchChange}
@@ -317,6 +334,42 @@ export default function PlantsList() {
             ariaLabel="Search plants"
             autoFocus={false}
           />
+
+          <div
+            className="segmented-control"
+            style={{
+              display: 'inline-flex',
+              background: '#f3f4f6',
+              padding: 4,
+              borderRadius: 8,
+              border: '1px solid #e5e7eb',
+            }}
+          >
+            {[
+              { id: 'active', label: 'Active' },
+              { id: 'archived', label: 'Archived' },
+              { id: 'all', label: 'All' },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                onClick={() => handleStatusChange(opt.id)}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  fontSize: 14,
+                  fontWeight: status === opt.id ? 600 : 400,
+                  background: status === opt.id ? '#ffffff' : 'transparent',
+                  color: status === opt.id ? '#111827' : '#6b7280',
+                  boxShadow: status === opt.id ? '0 1px 2px rgba(0,0,0,0.05)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
@@ -464,25 +517,38 @@ export default function PlantsList() {
                           <span
                             style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}
                           >
-                            <QuickCreateButtons
-                              plantUuid={p.uuid}
-                              plantName={p.name}
-                              compact={true}
-                            />
-                            {displayRetained}
-                            {needsWater && (
-                              <Badge
-                                tone="warning"
-                                title={
-                                  operationMode === 'vacation'
-                                    ? 'Needs water based on approximation'
-                                    : 'Needs water based on threshold'
-                                }
-                              >
-                                Needs water
-                              </Badge>
+                            {p.archive !== 1 && (
+                              <QuickCreateButtons
+                                plantUuid={p.uuid}
+                                plantName={p.name}
+                                compact={true}
+                              />
                             )}
-                            {p.needs_weighing && (
+                            {p.archive === 1 && (
+                              <span title="Archived" style={{ fontSize: '1.2em' }}>
+                                📦
+                              </span>
+                            )}
+                            {p.archive !== 1 && displayRetained}
+                            {p.archive === 1 ? (
+                              <Badge tone="subtle" title="Plant is archived">
+                                Archived
+                              </Badge>
+                            ) : (
+                              needsWater && (
+                                <Badge
+                                  tone="warning"
+                                  title={
+                                    operationMode === 'vacation'
+                                      ? 'Needs water based on approximation'
+                                      : 'Needs water based on threshold'
+                                  }
+                                >
+                                  Needs water
+                                </Badge>
+                              )
+                            )}
+                            {p.archive !== 1 && p.needs_weighing && (
                               <Badge tone="info" title="Needs weighing (>18h since last update)">
                                 Needs weight
                               </Badge>

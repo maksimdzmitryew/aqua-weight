@@ -15,7 +15,7 @@ describe('plantsApi', () => {
     const res = await plantsApi.list({ signal: ac.signal })
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants?page=1&limit=20', { signal: ac.signal })
+    expect(spy).toHaveBeenCalledWith('/plants?page=1&limit=20&status=active', { signal: ac.signal })
     expect(res).toBe(payload)
   })
 
@@ -25,7 +25,9 @@ describe('plantsApi', () => {
 
     await plantsApi.list({ page: 2, limit: 50, search: 'fern' })
 
-    expect(spy).toHaveBeenCalledWith('/plants?page=2&limit=50&search=fern', { signal: undefined })
+    expect(spy).toHaveBeenCalledWith('/plants?page=2&limit=50&status=active&search=fern', {
+      signal: undefined,
+    })
   })
 
   it('getByUuid throws ApiError when uuid missing', () => {

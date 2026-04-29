@@ -24,6 +24,7 @@ class PlantsList:
         offset: int = 0,
         limit: int | None = None,
         search: str | None = None,
+        status: str = "active",
     ) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
@@ -45,7 +46,8 @@ class PlantsList:
                            latest_pm.measured_at,
                            latest_pm.measured_weight_g,
                            latest_pm.last_wet_weight_g,
-                           latest_pm.water_loss_total_pct
+                           latest_pm.water_loss_total_pct,
+                           p.archive
                     FROM plants p
                              LEFT JOIN locations l ON l.id = p.location_id
                              LEFT JOIN (SELECT measured_at, plant_id,
@@ -53,8 +55,12 @@ class PlantsList:
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
                                         FROM plants_measurements) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
-                    WHERE p.archive = 0
+                    WHERE 1=1
                 """
+                if status == "active":
+                    query += " AND p.archive = 0"
+                elif status == "archived":
+                    query += " AND p.archive = 1"
                 # WHERE measured_weight_g IS NOT NULL AND water_loss_total_pct IS NOT NULL
                 params = []
                 if min_water_loss_total_pct is not None:
@@ -103,14 +109,14 @@ class PlantsList:
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
                     # Support both the full DB row and a simplified 9-column test row.
-                    # Full shape (16 columns):
+                    # Full shape (17 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
                     #   7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct
+                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive
                     # Simplified test shape (9 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 location_id, 5 location_name,
                     #   6 created_at, 7 measured_at, 8 water_loss_total_pct
-                    if len(row) >= 16:
+                    if len(row) >= 17:
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
@@ -127,6 +133,7 @@ class PlantsList:
                         measured_weight_g = row[13]
                         last_wet_weight_g = row[14]
                         water_loss_total_pct = row[15]
+                        archive = row[16]
                     else:
                         # Fallback mapping for simplified rows used in tests
                         pid = row[0]
@@ -146,6 +153,7 @@ class PlantsList:
                         measured_weight_g = None
                         last_wet_weight_g = None
                         water_loss_total_pct = row[8]
+                        archive = 0
 
                     # Prefer the most recent of measured_at and plant updated_at; fallback to created_at then now
                     candidates = [dt for dt in (measured_at_db, updated_at_db) if dt]
@@ -271,6 +279,7 @@ class PlantsList:
                             "first_calculated_at": first_calculated_at,
                             "days_offset": days_offset,
                             "needs_weighing": needs_weighing_val,
+                            "archive": archive,
                         }
                     )
                 # Restore last_params of the main cursor when FakeConnection reuses the same cursor instance
@@ -293,6 +302,7 @@ class PlantsList:
     def count_all(
         min_water_loss_total_pct: float = None,
         search: str | None = None,
+        status: str = "active",
     ) -> int:
         """
         Count total plants matching the same filters as fetch_all.
@@ -310,8 +320,12 @@ class PlantsList:
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
                                         FROM plants_measurements) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
-                    WHERE p.archive = 0
+                    WHERE 1=1
                 """
+                if status == "active":
+                    query += " AND p.archive = 0"
+                elif status == "archived":
+                    query += " AND p.archive = 1"
                 params = []
                 if min_water_loss_total_pct is not None:
                     query += " AND latest_pm.water_loss_total_pct > %s"

@@ -158,7 +158,7 @@ services:
     # Ensure dev dependencies are installed (including newly added ones)
     # If vitest binary is missing, run npm ci, then keep container running
     # Use npm ci to enforce lockfile consistency for deterministic test deps
-    command: ["tail", "-f", "/dev/null"]
+    command: ["sh", "-c", "npm install -g npm@11.13.0 && tail -f /dev/null"]
     networks:
       - aw-tests-net
 

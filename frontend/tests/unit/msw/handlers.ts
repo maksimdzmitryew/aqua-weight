@@ -102,4 +102,11 @@ export const handlers = [
   http.get('/api/measurements/approximation/watering', () => {
     return HttpResponse.json({ items: [] })
   }),
+  http.get('/api/substrate-types', () => HttpResponse.json([])),
+  http.get('/api/light-levels', () => HttpResponse.json([])),
+  http.get('/api/pest-statuses', () => HttpResponse.json([])),
+  http.get('/api/health-statuses', () => HttpResponse.json([])),
+  http.get('/api/scales', () => HttpResponse.json([])),
+  http.get('/api/measurement-methods', () => HttpResponse.json([])),
+  http.get('/api/locations', () => HttpResponse.json({ items: [], total: 0 })),
 ]
