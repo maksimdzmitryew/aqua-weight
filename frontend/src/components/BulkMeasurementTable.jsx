@@ -88,8 +88,21 @@ export default function BulkMeasurementTable({
             {operationMode !== 'vacation' ? (
               <>
                 <input
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab') {
+                        const direction = e.shiftKey ? 'previousElementSibling' : 'nextElementSibling';
+                        const targetRow = e.currentTarget.closest('tr')[direction];
+                        const nextInput = targetRow?.querySelector('input');
+
+                        if (nextInput) {
+                          e.preventDefault();
+                          nextInput.focus();
+                          nextInput.select();
+                        }
+                      }
+                    }}
                   type="number"
-                  style={{ width: 60 }}
+                  style={{ width: 80 }}
                   className={`input ${status === 'success' ? 'bg-success' : ''} ${
                     status === 'error' ? 'bg-error' : ''
                   }`}
