@@ -107,7 +107,15 @@ describe('pages/PlantEdit', () => {
   beforeEach(() => {
     mockNavigate.mockReset()
     // Default mock for locations to avoid MSW warnings in every test
-    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json([])),
+      http.get('/api/substrate-types', () => HttpResponse.json([])),
+      http.get('/api/light-levels', () => HttpResponse.json([])),
+      http.get('/api/pest-statuses', () => HttpResponse.json([])),
+      http.get('/api/health-statuses', () => HttpResponse.json([])),
+      http.get('/api/scales', () => HttpResponse.json([])),
+      http.get('/api/measurement-methods', () => HttpResponse.json([])),
+    )
   })
 
   test('buildUpdatePayload throws when plant is null', () => {
@@ -141,10 +149,21 @@ describe('pages/PlantEdit', () => {
     expect(built.idHex).toBe('uPayload')
     expect(built.payload).toEqual({
       name: 'New',
+      plant_type: null,
+      identify_hint: null,
+      typical_action: null,
       description: 'note',
+      notes: null,
       location_id: null,
       photo_url: null,
       default_measurement_method_id: null,
+      scale_id: null,
+      sort_order: 0,
+      repotted: 0,
+      archive: 0,
+      recommended_water_threshold_pct: null,
+      biomass_weight_g: null,
+      biomass_last_at: null,
       species_name: 'Aloe',
       botanical_name: null,
       cultivar: null,
@@ -155,7 +174,6 @@ describe('pages/PlantEdit', () => {
       light_level_id: null,
       pest_status_id: null,
       health_status_id: null,
-      recommended_water_threshold_pct: null,
       min_dry_weight_g: null,
       max_water_weight_g: null,
     })
@@ -249,7 +267,7 @@ describe('pages/PlantEdit', () => {
       http.get('/api/locations', () => HttpResponse.json({ message: 'fail' }, { status: 500 })),
     )
     renderWithRoute(['/plants/u3/edit'])
-    expect(await screen.findByText(/failed to load locations/i)).toBeInTheDocument()
+    expect(await screen.findByText(/failed to load reference data/i)).toBeInTheDocument()
   })
 
   test('load error shows generic error message when API fails', async () => {
@@ -378,15 +396,13 @@ describe('pages/PlantEdit', () => {
   })
 
   test('missing uuid on save alerts error', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     // Use a matching route but provide state without uuid to trigger branch inside onSave
     const init = { pathname: '/plants/any/edit', state: { plant: { name: 'NoId' } } }
     // locations
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
-    expect(alertSpy).toHaveBeenCalled()
-    alertSpy.mockRestore()
+    expect(await screen.findByText(/missing plant id/i)).toBeInTheDocument()
   })
 
   test('dark theme styles and tabs switch', async () => {
@@ -545,7 +561,6 @@ describe('pages/PlantEdit', () => {
   })
 
   test('save failure without error message alerts default and does not navigate', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
     // Mock update to throw an Error without message
     const updateSpy = vi.spyOn(plantsApi, 'update').mockImplementation(async () => {
       throw new Error('')
@@ -554,10 +569,9 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
-    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Failed to save'))
+    expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
     expect(mockNavigate).not.toHaveBeenCalled()
     updateSpy.mockRestore()
-    alertSpy.mockRestore()
   })
 
   test('buildUpdatePayload exhaustive coverage', () => {
@@ -614,7 +628,7 @@ describe('pages/PlantEdit', () => {
         plant: {
           uuid: 'uCalc',
           name: 'Calc',
-          location: 'loc-uuid', // triggers location_id fallback in normalize
+          location_id: 'loc-uuid', // directly provide location_id
           recommended_water_threshold_pct: 30,
           min_dry_weight_g: 150,
           max_water_weight_g: 80,
@@ -628,12 +642,14 @@ describe('pages/PlantEdit', () => {
 
     // Verify location fallback worked
     const select = await screen.findByLabelText(/location/i)
-    expect(select).toHaveValue('loc-uuid')
+    await waitFor(() => expect(select).toHaveValue('loc-uuid'))
+
+    const careTab = await screen.findByRole('tab', { name: /care/i })
+    fireEvent.click(careTab)
+    const thresh = await screen.findByLabelText(/recommended water threshold/i)
 
     const calcTab = await screen.findByRole('tab', { name: /calculated/i })
     fireEvent.click(calcTab)
-
-    const thresh = await screen.findByLabelText(/recommended water threshold/i)
     const minDry = screen.getByLabelText(/min dry weight/i)
     const maxWater = screen.getByLabelText(/max water weight/i)
 
@@ -641,14 +657,13 @@ describe('pages/PlantEdit', () => {
     expect(minDry).toHaveValue(150)
     expect(maxWater).toHaveValue(80)
 
-    // Type into these to exercise onChange
-    fireEvent.change(thresh, { target: { value: '35' } })
+    fireEvent.change(thresh, { target: { value: '35', name: 'recommended_water_threshold_pct' } })
     expect(thresh).toHaveValue(35)
 
-    fireEvent.change(minDry, { target: { value: '200' } })
+    fireEvent.change(minDry, { target: { value: '200', name: 'min_dry_weight_g' } })
     expect(minDry).toHaveValue(200)
 
-    fireEvent.change(maxWater, { target: { value: '100' } })
+    fireEvent.change(maxWater, { target: { value: '100', name: 'max_water_weight_g' } })
     expect(maxWater).toHaveValue(100)
   })
 
@@ -666,18 +681,22 @@ describe('pages/PlantEdit', () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     renderWithRoute([init])
 
-    // Check Calculated tab with empty values
+    // Check Care tab
+    const careTab = await screen.findByRole('tab', { name: /care/i })
+    fireEvent.click(careTab)
+    expect(await screen.findByLabelText(/recommended water threshold/i)).toHaveValue(null)
+
+    // Check Calculated tab
     const calcTab = await screen.findByRole('tab', { name: /calculated/i })
     fireEvent.click(calcTab)
-    expect(await screen.findByLabelText(/recommended water threshold/i)).toHaveValue(null)
     expect(screen.getByLabelText(/min dry weight/i)).toHaveValue(null)
     expect(screen.getByLabelText(/max water weight/i)).toHaveValue(null)
 
     // Check Health tab with empty values
     fireEvent.click(screen.getByRole('tab', { name: /health/i }))
-    expect(screen.getByLabelText(/light level id/i)).toHaveValue('')
-    expect(screen.getByLabelText(/pest status id/i)).toHaveValue('')
-    expect(screen.getByLabelText(/health status id/i)).toHaveValue('')
+    expect(screen.getByLabelText(/light level/i)).toHaveValue('')
+    expect(screen.getByLabelText(/pest status/i)).toHaveValue('')
+    expect(screen.getByLabelText(/health status/i)).toHaveValue('')
   })
 
   test('exercises unmount cleanup functions', async () => {
@@ -701,5 +720,110 @@ describe('pages/PlantEdit', () => {
 
     const nameInput = await screen.findByLabelText(/name/i)
     expect(nameInput).toHaveValue('')
+  })
+
+  test('PlantEdit: biomass_weight_g number conversion coverage', () => {
+    const p = { uuid: 'u', name: 'N', biomass_weight_g: '123' }
+    const built = buildUpdatePayload(p)
+    expect(built.payload.biomass_weight_g).toBe(123)
+  })
+
+  test('PlantEdit: coverage for onChange number fallback and onSave detailed errors', async () => {
+    const init = {
+      pathname: '/plants/u1/edit',
+      state: { plant: { uuid: 'u1', name: 'N', archive: 0 } },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    renderWithRoute([init])
+
+    // coverage for line 200: checkbox onChange (both branches)
+    const serviceTab = await screen.findByRole('tab', { name: /service/i })
+    fireEvent.click(serviceTab)
+    const archive = await screen.findByLabelText(/archive/i)
+    fireEvent.click(archive) // set to 1
+    expect(archive.checked).toBe(true)
+    fireEvent.click(archive) // set back to 0
+    expect(archive.checked).toBe(false)
+
+    // coverage for line 202: empty value for type="number" (both branches)
+    const care = await screen.findByRole('tab', { name: /care/i })
+    fireEvent.click(care)
+    const threshold = await screen.findByLabelText(/recommended water threshold/i)
+    fireEvent.change(threshold, {
+      target: { value: '42', name: 'recommended_water_threshold_pct', type: 'number' },
+    })
+    expect(threshold).toHaveValue(42)
+    fireEvent.change(threshold, {
+      target: { value: '', name: 'recommended_water_threshold_pct', type: 'number' },
+    })
+    expect(threshold).toHaveValue(null)
+
+    // coverage for lines 221-226: API error detail array
+    server.use(
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json(
+          {
+            detail: [
+              { loc: ['body', 'name'], msg: 'name too short' },
+              { loc: [] }, // coverage for line 222 false path
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    // Switch back to General tab to see field errors
+    fireEvent.click(screen.getByRole('tab', { name: /general/i }))
+    const nameInput = await screen.findByLabelText(/name/i)
+    expect(await screen.findByText(/name too short/i)).toBeInTheDocument()
+
+    // coverage for line 205: clearing field error on change
+    fireEvent.change(nameInput, { target: { value: 'Valid Name', name: 'name' } })
+    expect(screen.queryByText(/name too short/i)).not.toBeInTheDocument()
+
+    // Test for 'Invalid value' fallback
+    server.use(
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json(
+          {
+            detail: [
+              { loc: ['body', 'name'] }, // missing msg to hit 'Invalid value' fallback
+            ],
+          },
+          { status: 422 },
+        ),
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/invalid value/i)).toBeInTheDocument()
+
+    // coverage for lines 228-229: API error detail string
+    server.use(
+      http.put('/api/plants/:uuid', () =>
+        HttpResponse.json({ detail: 'Generic Error' }, { status: 400 }),
+      ),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/generic error/i)).toBeInTheDocument()
+  })
+
+  test('PlantEdit: buildUpdatePayload branch coverage', () => {
+    buildUpdatePayload({ uuid: 'u1', name: 'N', repotted: true, archive: true })
+    buildUpdatePayload({ uuid: 'u2', name: 'N', repotted: false, archive: false })
+  })
+
+  test('PlantEdit: coverage for non-array reference data responses', async () => {
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json({})),
+      http.get('/api/substrate-types', () => HttpResponse.json({})),
+      http.get('/api/light-levels', () => HttpResponse.json({})),
+      http.get('/api/pest-statuses', () => HttpResponse.json({})),
+      http.get('/api/health-statuses', () => HttpResponse.json({})),
+      http.get('/api/scales', () => HttpResponse.json({})),
+      http.get('/api/measurement-methods', () => HttpResponse.json({})),
+    )
+    renderWithRoute(['/plants/uRefs/edit'])
+    await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
   })
 })

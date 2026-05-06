@@ -8,16 +8,17 @@ define WORKFLOW_HINT
 	@echo ""
 	@echo "  Write code"
 	@echo "      ↓"
-	@echo "  make test-be    ← unit tests backend$(if $(filter test-be,$(MAKECMDGOALS)),                 ← you are here ←)"
-	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                ← you are here ←)"
-	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),         ← you are here ←)"
+	@echo "  make test-be    ← unit tests backend$(if $(filter test-be,$(MAKECMDGOALS)),                   ← you are here ←)"
+	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                  ← you are here ←)"
+	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),           ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make fe-fix     ← auto-fix formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),          ← you are here ←)"
+	@echo "  make be-fix     ← fix backend formatting + lint + mypy$(if $(filter be-fix,$(MAKECMDGOALS)),  ← you are here ←)"
+	@echo "  make fe-fix     ← fix frontend formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),        ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make be-cicd    ← verify: pre-commit checks pass$(if $(filter be-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
-	@echo "  make fe-cicd    ← verify: pre-commit checks pass$(if $(filter fe-cicd,$(MAKECMDGOALS)),     ← you are here ←)"
+	@echo "  make cicd-be    ← verify: pre-commit checks pass$(if $(filter cicd-be,$(MAKECMDGOALS)),       ← you are here ←)"
+	@echo "  make cicd-fe    ← verify: pre-commit checks pass$(if $(filter cicd-fe,$(MAKECMDGOALS)),       ← you are here ←)"
 	@echo "      ↓"
-	@echo "  git commit"
+	@echo "  git commit                                                                                  "
 	@echo ""
 endef
 
@@ -56,10 +57,10 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
-	@echo "  make fe-format         - Auto-fix frontend formatting with Prettier"
-	@echo "  make fe-lint           - Auto-fix frontend ESLint issues"
+	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
+	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
 	@echo "  make fe-fix            - Auto-fix formatting and lint"
-	@echo "  make fe-cicd           - Run CI/CD pipeline for FE"
+	@echo "  make cicd-fe           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
 	@echo "  make be-lint           - Run ruff"
@@ -67,8 +68,9 @@ help:
 	@echo "  make be-fmt            - Run black check"
 	@echo "  make be-fmt-fix        - Run black fix"
 	@echo "  make be-mypy           - Run mypy"
+	@echo "  make be-fix            - Auto-fix backend formatting, lint, and mypy"
 	@echo "  make be-pre-commit     - Run pre-commit (CI config)"
-	@echo "  make be-cicd           - Run CI/CD pipeline for BE"
+	@echo "  make cicd-be           - Run CI/CD pipeline for BE"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
@@ -231,6 +233,7 @@ test-fe-ci:
 	  -v "$(PWD)/frontend:/src" \
 	  node:24 \
 	  bash -lc "\
+		npm install -g npm@11.13.0 && \
 		cp -r /src /tmp/fe && \
 		cd /tmp/fe && \
 		npm ci --no-audit --no-fund && \
@@ -244,24 +247,24 @@ fe-sb:
 fe-sb-build:
 	npm run build-storybook --prefix frontend
 
-.PHONY: fe-format
-fe-format: ## Auto-fix frontend formatting with Prettier
+.PHONY: fe-fmt-fix
+fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
 	docker-compose run --rm frontend sh -c "npx prettier --write ."
 
-.PHONY: fe-lint
-fe-lint: ## Auto-fix frontend ESLint issues
+.PHONY: fe-lint-fix
+fe-lint-fix: ## Auto-fix frontend ESLint issues
 	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
 
 .PHONY: fe-fix
 fe-fix: ## Run all frontend auto-fixes
-	$(MAKE) fe-format
-	$(MAKE) fe-lint
+	$(MAKE) fe-fmt-fix
+	$(MAKE) fe-lint-fix
 	$(WORKFLOW_HINT)
 
-.PHONY: fe-cicd
-fe-cicd:
+.PHONY: cicd-fe
+cicd-fe:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files frontend)
 	$(WORKFLOW_HINT)
 
 # --- Utility ---
@@ -296,6 +299,13 @@ be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "mypy backend/app"
 
+.PHONY: be-fix
+be-fix: ## Run all frontend auto-fixes
+	$(MAKE) be-fmt-fix
+	$(MAKE) be-lint-fix
+	$(MAKE) be-mypy
+	$(WORKFLOW_HINT)
+
 .PHONY: be-pre-commit
 be-pre-commit:
 	docker compose -f $(TEST_COMPOSE) up -d runner
@@ -316,10 +326,17 @@ be-pre-commit:
 	  > .pre-commit-config.ci.yaml"
 	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
 
-.PHONY: be-cicd
-be-cicd:
+.PHONY: all-cicd
+al-cicd:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	$(WORKFLOW_HINT)
+
+
+.PHONY: cicd-be
+cicd-be:
+	docker compose -f $(TEST_COMPOSE) up -d runner
+	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files backend)
 	$(WORKFLOW_HINT)
 
 .PHONY: install-hooks

@@ -1,8 +1,8 @@
 import { apiClient, ApiError } from './client'
 
 export const plantsApi = {
-  list({ page = 1, limit = 20, search = '', signal } = {}) {
-    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+  list({ page = 1, limit = 20, search = '', status = 'active', signal } = {}) {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit), status })
     if (search && search.trim()) {
       params.append('search', search.trim())
     }

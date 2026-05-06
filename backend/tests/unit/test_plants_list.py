@@ -178,11 +178,12 @@ def make_row_full(
     measured_weight_g: float | None = 150.0,
     last_wet_weight_g: float | None = 200.0,
     water_loss_total_pct: float | None = 50.0,
+    archive: int = 0,
 ):
-    # Full shape (16 columns):
+    # Full shape (17 columns):
     # 0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
     # 7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct
+    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive
     return (
         pid_bytes,
         name,
@@ -200,6 +201,7 @@ def make_row_full(
         measured_weight_g,
         last_wet_weight_g,
         water_loss_total_pct,
+        archive,
     )
 
 
@@ -236,6 +238,28 @@ def test_fetch_all_full_row_mapping(monkeypatch):
     assert items[0]["max_water_weight_g"] == 200.0
     assert items[0]["recommended_water_threshold_pct"] == 0.4
     assert items[0]["identify_hint"] == "hint"
+    assert items[0]["archive"] == 0
+
+
+def test_fetch_all_full_row_mapping_archived(monkeypatch):
+    now = datetime.utcnow()
+    pid = bytes.fromhex("44" * 16)
+    loc = bytes.fromhex("bb" * 16)
+
+    row = make_row_full(
+        pid_bytes=pid,
+        name="Spider Plant",
+        archive=1,
+    )
+
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all(status="all")
+
+    assert items[0]["archive"] == 1
 
 
 def test_fetch_all_compute_frequency_exception(monkeypatch):
@@ -286,7 +310,7 @@ def test_fetch_all_db_params_exception_coverage(monkeypatch):
 
         @property
         def last_params(self):
-            raise AttributeError("no params")
+            raise RuntimeError("no params")
 
     class BadConn(FakeConnection):
         def __init__(self, rows):
@@ -589,3 +613,135 @@ def test_count_all_fetchone_none(monkeypatch):
 
     count = PlantsList.count_all()
     assert count == 0
+
+
+def test_fetch_all_status_archived(monkeypatch):
+    """Test fetch_all with status='archived' (line 63)."""
+    fake_conn = FakeConnection(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.fetch_all(status="archived")
+    assert "AND p.archive = 1" in fake_conn._cursor.last_query
+
+
+def test_count_all_status_archived(monkeypatch):
+    """Test count_all with status='archived' (lines 327-328)."""
+    fake_conn = FakeConnection(count_result=0)
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.count_all(status="archived")
+    assert "AND p.archive = 1" in fake_conn._cursor.last_query
+
+
+def test_count_all_status_all(monkeypatch):
+    """Test count_all with status not active/archived (line 327->329)."""
+    fake_conn = FakeConnection(count_result=1)
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.count_all(status="all")
+    # Verify neither archive=0 nor archive=1 was added
+    assert "AND p.archive = 0" not in fake_conn._cursor.last_query
+    assert "AND p.archive = 1" not in fake_conn._cursor.last_query
+
+
+def test_fetch_all_vacation_mode_full(monkeypatch):
+    """Test vacation mode and projection (lines 212-243)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("cc" * 16)
+    row = make_row(pid_bytes=pid, name="Vacation Plant", created_at=now)
+
+    # We want last_watering_at to be now - 2 days
+    last_watering = now - timedelta(days=2)
+
+    class MultiCursor(FakeCursor):
+        def __init__(self, rows):
+            super().__init__(rows)
+            self._call_count = 0
+
+        def fetchone(self):
+            self._call_count += 1
+            if self._call_count == 1:  # inner query for last_watering_at
+                return (last_watering,)
+            return (0,)
+
+    class MultiConn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = MultiCursor(rows)
+            self.closed = False
+
+    fake_conn = MultiConn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *args, **kwargs: (7, 1))
+
+    # Test vacation mode
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
+    assert items[0]["water_retained_pct"] is not None
+    assert items[0]["next_watering_at"] is not None
+
+
+def test_fetch_all_projection_exception(monkeypatch):
+    """Trigger exception in projection (line 240)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("dd" * 16)
+    row = make_row(pid_bytes=pid, name="Fail Plant", created_at=now)
+
+    class FailCursor(FakeCursor):
+        def fetchone(self):
+            # Returning something that will fail in subtraction or similar
+            return (object(),)
+
+    class MultiConn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = FailCursor(rows)
+            self.closed = False
+
+    fake_conn = MultiConn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *args, **kwargs: (7, 1))
+
+    items = PlantsList.fetch_all()
+    assert items[0]["next_watering_at"] is None
+
+
+def test_fetch_all_close_exception(monkeypatch):
+    """Test fetch_all handles close() exception (lines 298-299)."""
+
+    class BadCloseConn(FakeConnection):
+        def close(self):
+            raise RuntimeError("close failed")
+
+    fake_conn = BadCloseConn(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Should not raise
+    PlantsList.fetch_all()
+
+
+def test_fetch_all_no_cursor_attr(monkeypatch):
+    """Cover line 287->294 branch."""
+
+    class NoCursorConn:
+        def cursor(self):
+            return FakeCursor(rows=[])
+
+        def close(self):
+            pass
+
+    fake_conn = NoCursorConn()
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.fetch_all()

@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install dependencies for canvas or other native modules if needed
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
+    npm install -g npm@11.13.0 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
