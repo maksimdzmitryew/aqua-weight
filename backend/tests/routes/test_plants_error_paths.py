@@ -188,6 +188,30 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
 
 
 @pytest.mark.anyio
+async def test_update_plant_empty_payload_returns_ok(async_client: AsyncClient):
+    await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/plants", json={"name": "EmptyUpdate"})
+    assert r.status_code == 200
+    lst = await async_client.get("/api/plants")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "EmptyUpdate")
+    resp = await async_client.patch(f"/api/plants/{uid}", json={})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
+@pytest.mark.anyio
+async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncClient):
+    await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/plants", json={"name": "HexNone"})
+    assert r.status_code == 200
+    lst = await async_client.get("/api/plants")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "HexNone")
+    resp = await async_client.patch(f"/api/plants/{uid}", json={"location_id": None})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
+@pytest.mark.anyio
 async def test_validate_and_update_order_count_mismatch_hits_135(async_client: AsyncClient):
     # Ensure empty DB for plants
     await async_client.post("/api/test/reset")

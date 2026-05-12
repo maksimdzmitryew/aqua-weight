@@ -141,3 +141,31 @@ def test_normalize_measured_at_preserve():
     base_local = "2025-10-21T19:33:45.678"
     out_local = normalize_measured_at_local(base_local, fill_with="preserve")
     assert out_local == datetime(2025, 10, 21, 19, 33, 45, 678000)
+
+
+
+
+def test_normalize_measured_at_microseconds_clamp():
+    base = "2025-10-21T19:33"
+    # high clamped
+    out = normalize_measured_at(base, fill_with="zeros", fixed_microseconds=1000000)
+    assert out == datetime(2025, 10, 21, 19, 33, 0, 999999, tzinfo=timezone.utc)
+    # low clamped
+    out_neg = normalize_measured_at(base, fill_with="zeros", fixed_microseconds=-1)
+    assert out_neg == datetime(2025, 10, 21, 19, 33, 0, 0, tzinfo=timezone.utc)
+    # normal
+    out_norm = normalize_measured_at(base, fill_with="zeros", fixed_microseconds=123456)
+    assert out_norm == datetime(2025, 10, 21, 19, 33, 0, 123456, tzinfo=timezone.utc)
+
+
+def test_normalize_measured_at_local_microseconds_clamp():
+    base = "2025-10-21T19:33"
+    # high clamped
+    out = normalize_measured_at_local(base, fill_with="zeros", fixed_microseconds=1000000)
+    assert out == datetime(2025, 10, 21, 19, 33, 0, 999999)
+    # low clamped
+    out_neg = normalize_measured_at_local(base, fill_with="zeros", fixed_microseconds=-1)
+    assert out_neg == datetime(2025, 10, 21, 19, 33, 0, 0)
+    # normal
+    out_norm = normalize_measured_at_local(base, fill_with="zeros", fixed_microseconds=123456)
+    assert out_norm == datetime(2025, 10, 21, 19, 33, 0, 123456)
