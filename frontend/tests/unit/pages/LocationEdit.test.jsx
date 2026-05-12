@@ -160,14 +160,24 @@ describe('pages/LocationEdit', () => {
     expect(screen.getByText('5')).toBeInTheDocument()
   })
 
-  test('shows error when location is not found in list', async () => {
+  test('redirects to 404 when location is not found in list', async () => {
     server.use(http.get('/api/locations', () => HttpResponse.json([{ id: 7, name: 'Other' }])))
 
     renderWithRoute('/locations/:id/edit', <LocationEdit />, {
       initialEntries: ['/locations/10/edit'],
     })
 
-    expect(await screen.findByText(/location not found/i)).toBeInTheDocument()
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
+  })
+
+  test('redirects to 404 when locations list is not an array (Array.isArray false branch)', async () => {
+    server.use(http.get('/api/locations', () => HttpResponse.json({ not: 'an-array' })))
+
+    renderWithRoute('/locations/:id/edit', <LocationEdit />, {
+      initialEntries: ['/locations/101/edit'],
+    })
+
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
   })
 
   test('maps 409/400 update error to name field error; other errors go to general error', async () => {

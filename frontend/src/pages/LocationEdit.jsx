@@ -28,7 +28,10 @@ export default function LocationEdit() {
       try {
         const data = await locationsApi.list(controller.signal)
         const found = (Array.isArray(data) ? data : []).find((l) => l.id === numericId)
-        if (!found) throw new Error('Location not found')
+        if (!found) {
+          navigate('/404', { replace: true })
+          return
+        }
         setLoc(found)
         setOriginalName(found.name || '')
       } catch (e) {

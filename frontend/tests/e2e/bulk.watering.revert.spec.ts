@@ -17,11 +17,10 @@ test.describe('Bulk Watering – delete reverts water loss (covers revert logic)
     await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { name: /bulk watering/i })).toBeVisible()
 
-    // By default, only plants that "need water" are shown. Our seed is minimal, so toggle "Show all plants".
-    const showAllLabel = page.getByText('Show all plants')
-    await expect(showAllLabel).toBeVisible()
-    // Click the associated checkbox (wrapped in the label)
-    await showAllLabel.click()
+    // By default, only plants that "need water" are shown. Our seed is minimal, so switch to "All" tab.
+    const allTab = page.getByRole('button', { name: /all/i })
+    await expect(allTab).toBeVisible()
+    await allTab.click()
 
     // Find the seeded plant row (Seed Fern) and its input
     const row = page.getByRole('row', { name: /seed fern/i })

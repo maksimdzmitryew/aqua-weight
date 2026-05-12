@@ -18,29 +18,40 @@ from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 # --- Timestamp helpers -------------------------------------------------------
 
 
-def parse_timestamp_utc(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
+def parse_timestamp_utc(
+    raw: str, *, fixed_milliseconds: int | None = None, fixed_microseconds: int | None = None
+) -> datetime:
     """
     Parse FE ISO string and return tz-aware UTC datetime,
-    preserving seconds and milliseconds as provided by the frontend.
+    preserving seconds and fractional seconds as provided by the frontend.
     """
-    return normalize_measured_at(raw, fill_with="preserve", fixed_milliseconds=fixed_milliseconds)
+    return normalize_measured_at(
+        raw,
+        fill_with="preserve",
+        fixed_milliseconds=fixed_milliseconds,
+        fixed_microseconds=fixed_microseconds,
+    )
 
 
-def parse_timestamp_local(raw: str, *, fixed_milliseconds: int | None = None) -> datetime:
+def parse_timestamp_local(
+    raw: str, *, fixed_milliseconds: int | None = None, fixed_microseconds: int | None = None
+) -> datetime:
     """
     Parse FE ISO string and return a timezone-naive LOCAL datetime,
-    preserving seconds and milliseconds as provided by the frontend.
+    preserving seconds and fractional seconds as provided by the frontend.
     """
     return normalize_measured_at_local(
-        raw, fill_with="preserve", fixed_milliseconds=fixed_milliseconds
+        raw,
+        fill_with="preserve",
+        fixed_milliseconds=fixed_milliseconds,
+        fixed_microseconds=fixed_microseconds,
     )
 
 
 def ts_to_db_string(dt: datetime) -> str:
-    """Format datetime to 'YYYY-MM-DD HH:MM:SS.mmm' for DB usage."""
+    """Format datetime to 'YYYY-MM-DD HH:MM:SS.ffffff' for DB usage."""
     base = dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
-    ms = dt.microsecond // 1000
-    return f"{base}.{ms:03d}"
+    return f"{base}.{dt.microsecond:06d}"
 
 
 # --- Validation --------------------------------------------------------------

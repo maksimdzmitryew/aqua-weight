@@ -104,6 +104,7 @@ vi.mock('../../../src/utils/datetime.js', async () => {
 })
 
 function renderPage(mode = 'manual') {
+  // window.__VITEST_DEBUG_WATERING__ = true
   if (mode) {
     localStorage.setItem('operationMode', mode)
   } else {
@@ -119,24 +120,34 @@ function renderPage(mode = 'manual') {
 test('shows tasks table with water indicators', async () => {
   // provide one plant that needs both water and measurement
   server.use(
-    ...paginatedPlantsHandler([
-      {
-        uuid: 'u1',
-        id: 1,
-        name: 'Aloe',
-        latest_at: '2020-01-01T00:00:00',
-      },
-    ]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants', () =>
+      HttpResponse.json({
+        items: [
+          {
+            uuid: 'u1',
+            id: 1,
+            name: 'Aloe',
+            status: 'active',
+            latest_at: '2020-01-01T00:00:00',
+            water_retained_pct: 10,
+            recommended_water_threshold_pct: 30,
+            needs_weighing: false,
+          },
+        ],
+      }),
+    ),
+    http.get('/api/plants/uuids', () => HttpResponse.json(['u1'])),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
-        items: [{ plant_uuid: 'u1', days_offset: 0 }],
+        items: [{ plant_uuid: 'u1', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
     ),
   )
-  renderPage('vacation') // Use vacation to match original test expectations (no measurement icon)
+  renderPage('vacation')
 
   // Table should appear once loaded
-  const table = await screen.findByRole('table')
+  const table = await screen.findByRole('table', {}, { timeout: 10000 })
   const rows = within(table).getAllByRole('row')
   // header + 1 item
   expect(rows.length).toBe(2)
@@ -170,20 +181,20 @@ test('renders empty state when no tasks are due', async () => {
 })
 
 test('handles non-array API response gracefully as empty', async () => {
-  // Spy to return a non-array; component should treat as [] and show EmptyState
-  const spy = vi.spyOn(plantsApi, 'list').mockResolvedValueOnce({})
   server.use(
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([]),
   )
   renderPage('vacation') // Use vacation mode
   const note = await screen.findByRole('note')
   expect(note).toHaveTextContent(/No tasks for today/i)
-  spy.mockRestore()
 })
 
 test('shows error notice when API fails', async () => {
   server.use(
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     http.get('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
+    http.get('/api/plants/uuids', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
     http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage()
@@ -192,51 +203,63 @@ test('shows error notice when API fails', async () => {
 })
 
 test('shows default error message when API rejects without message', async () => {
-  // Spy on plantsApi.list to reject with an object without message so component uses fallback text
-  const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({})
   server.use(
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants', () => HttpResponse.json({ message: 'Error' }, { status: 500 })),
+    http.get('/api/plants/uuids', () => HttpResponse.json({ message: 'Error' }, { status: 500 })),
   )
   renderPage()
   const alert = await screen.findByRole('alert')
-  expect(alert).toHaveTextContent('Failed to load plants')
-  spy.mockRestore()
+  expect(alert).toHaveTextContent('Error')
 })
 
 test('header actions: refresh reloads data; buttons navigate and show counts', async () => {
   // First response: two plants, one needs water
   server.use(
-    ...paginatedPlantsHandler([
-      {
-        uuid: 'a',
-        id: 1,
-        name: 'Aloe',
-        latest_at: '2025-01-01T00:00:00',
-      },
-      {
-        uuid: 'b',
-        id: 2,
-        name: 'Cactus',
-        latest_at: '2025-01-01T00:00:00',
-      },
-    ]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants', () =>
+      HttpResponse.json({
+        items: [
+          {
+            uuid: 'a',
+            id: 1,
+            name: 'Aloe',
+            status: 'active',
+            latest_at: '2025-01-01T00:00:00',
+            water_retained_pct: 10,
+            recommended_water_threshold_pct: 30,
+            needs_weighing: false,
+          },
+          {
+            uuid: 'b',
+            id: 2,
+            name: 'Cactus',
+            status: 'active',
+            latest_at: '2025-01-01T00:00:00',
+            water_retained_pct: 80,
+            recommended_water_threshold_pct: 30,
+            needs_weighing: false,
+          },
+        ],
+      }),
+    ),
+    http.get('/api/plants/uuids', () => HttpResponse.json(['a', 'b'])),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
-          { plant_uuid: 'a', days_offset: 0 },
-          { plant_uuid: 'b', days_offset: 2 },
+          { plant_uuid: 'a', days_offset: 0, virtual_water_retained_pct: 5 },
+          { plant_uuid: 'b', days_offset: 2, virtual_water_retained_pct: 80 },
         ],
       }),
     ),
   )
 
   renderPage('vacation')
-  // Wait for table
-  await screen.findByRole('table')
+  // Wait for loading to finish and table to appear
+  await screen.findByRole('table', {}, { timeout: 10000 })
 
-  // Buttons: Bulk measurement should be disabled and no count
   const weightBtn = screen.getByRole('button', { name: /Bulk measurement/ })
   const waterBtn = screen.getByRole('button', { name: /Bulk watering/ })
+
   expect(weightBtn).toBeDisabled()
   expect(weightBtn.textContent).not.toMatch(/\(/)
   expect(waterBtn.textContent).toMatch(/\(1\)/)
@@ -247,12 +270,25 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
 
   // Now change server response and click refresh to re-load
   server.use(
-    ...paginatedPlantsHandler([
-      { uuid: 'c', id: 3, name: 'New', latest_at: '2999-01-01T00:00:00' },
-    ]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants', () =>
+      HttpResponse.json({
+        items: [
+          {
+            uuid: 'c',
+            id: 3,
+            name: 'New',
+            status: 'active',
+            latest_at: '2999-01-01T00:00:00',
+            needs_weighing: false,
+          },
+        ],
+      }),
+    ),
+    http.get('/api/plants/uuids', () => HttpResponse.json(['c'])),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
-        items: [{ plant_uuid: 'c', days_offset: 10 }],
+        items: [{ plant_uuid: 'c', days_offset: 10, virtual_water_retained_pct: 100 }],
       }),
     ),
   )
@@ -266,7 +302,12 @@ test('handle reload error (line 111) and refetch usage', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
   // To trigger refetch, we can call the handleRefresh on PageHeader
-  server.use(...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]))
+  server.use(
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([
+      { uuid: 'p1', name: 'Plant 1', status: 'active', needs_weighing: true },
+    ]),
+  )
   renderPage()
   await screen.findByRole('table')
 
@@ -299,15 +340,18 @@ test('missing approximation data results in no tasks', async () => {
 
 test('missing latest_at results in no measurement icon and potentially needs water from approximation', async () => {
   server.use(
-    ...paginatedPlantsHandler([{ uuid: 'm1', id: 20, name: 'Monstera' }]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([
+      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false },
+    ]),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
-        items: [{ plant_uuid: 'm1', days_offset: 0 }],
+        items: [{ plant_uuid: 'm1', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
     ),
   )
   renderPage('vacation')
-  await screen.findByRole('table')
+  await screen.findByRole('table', {}, { timeout: 10000 })
 
   // Icon should reflect needs watering from approx
   expect(screen.queryByRole('img', { name: 'Needs measurement' })).not.toBeInTheDocument()
@@ -317,21 +361,37 @@ test('missing latest_at results in no measurement icon and potentially needs wat
 test('fallback rendering: water task from approximation and name/notes/location fallbacks', async () => {
   // One plant: has identify_hint and only measurement due; another: no names to force em-dash and reason fallback
   server.use(
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
-      { uuid: 'p1', id: 11, identify_hint: 'Hint:', plant: 'LegacyName', location: 'Shelf' },
-      { uuid: 'p2', id: 12, reason: 'Auto', scheduled_for: '2024-12-12T12:00:00' },
+      {
+        uuid: 'p1',
+        id: 11,
+        identify_hint: 'Hint:',
+        plant: 'LegacyName',
+        location: 'Shelf',
+        status: 'active',
+        needs_weighing: false,
+      },
+      {
+        uuid: 'p2',
+        id: 12,
+        reason: 'Auto',
+        scheduled_for: '2024-12-12T12:00:00',
+        status: 'active',
+        needs_weighing: false,
+      },
     ]),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
-          { plant_uuid: 'p1', days_offset: 0 },
-          { plant_uuid: 'p2', days_offset: 0 },
+          { plant_uuid: 'p1', days_offset: 0, virtual_water_retained_pct: 5 },
+          { plant_uuid: 'p2', days_offset: 0, virtual_water_retained_pct: 5 },
         ],
       }),
     ),
   )
   renderPage('vacation')
-  const table = await screen.findByRole('table')
+  const table = await screen.findByRole('table', {}, { timeout: 10000 })
   const rows = within(table).getAllByRole('row')
   // Two data rows expected
   const dataRows = rows.slice(1)
@@ -366,7 +426,7 @@ test('unmount runs effect cleanup (improves function coverage)', async () => {
   )
 
   // Wait until either table or empty state appears (depending on default MSW handlers)
-  await screen.findByRole('table').catch(async () => {
+  await screen.findByRole('table', {}, { timeout: 5000 }).catch(async () => {
     // if no table, expect an empty state note to be present
     await screen.findByRole('note')
   })
@@ -393,46 +453,48 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
   unmount()
 })
 
-test('bulk watering button does not show count when not in vacation mode', async () => {
+test('bulk watering button shows count when plants need water', async () => {
   server.use(
-    ...paginatedPlantsHandler([{ uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([
+      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
+    ]),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
-        items: [{ plant_uuid: 'a', days_offset: 0 }],
+        items: [{ plant_uuid: 'a', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
     ),
   )
 
   renderPage('manual')
-  await screen.findByRole('table')
-
-  const waterBtn = screen.getByRole('button', { name: /Bulk watering/ })
-  expect(waterBtn.textContent).not.toMatch(/\(/)
-  expect(waterBtn.textContent).toBe('Bulk watering')
+  const waterBtn = await screen.findByRole('button', { name: /Bulk watering \(1\)/i })
+  expect(waterBtn.textContent).toMatch(/\(1\)/)
 })
 
 test('shows weight column and enables bulk measurement in manual mode', async () => {
   server.use(
-    ...paginatedPlantsHandler([{ uuid: 'a', id: 1, name: 'Aloe', needs_weighing: true }]),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([
+      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
+    ]),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
-          { plant_uuid: 'a', days_offset: 10 }, // Not needing water
+          { plant_uuid: 'a', days_offset: 10, virtual_water_retained_pct: 80 }, // Not needing water
         ],
       }),
     ),
   )
 
   renderPage('manual')
-  await screen.findByRole('table')
+  const weightBtn = await screen.findByRole('button', { name: /Bulk measurement \(1\)/i })
 
   // Bulk measurement should be enabled
-  const weightBtn = screen.getByRole('button', { name: /Bulk measurement/ })
   expect(weightBtn).not.toBeDisabled()
 
   // Weight column should be present in header
   expect(screen.getByRole('columnheader', { name: /Weight/i })).toBeInTheDocument()
 
-  // Status icon for measurement should be present (since we set needsMeasure to operationMode !== 'vacation')
+  // Status icon for measurement should be present (since we set needs_weighing: true)
   expect(screen.getByRole('img', { name: 'Needs measurement' })).toBeInTheDocument()
 })

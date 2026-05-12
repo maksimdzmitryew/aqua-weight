@@ -57,12 +57,14 @@ def normalize_measured_at(
     fill_with: str = "zeros",
     fixed_seconds: int | None = None,
     fixed_milliseconds: int | None = None,
+    fixed_microseconds: int | None = None,
 ) -> datetime:
     """
     Parse FE ISO datetime like "2025-10-21T19:33:00" and return a tz-aware UTC datetime.
-    - fill_with: "zeros" | "server" | "fixed"
+    - fill_with: "zeros" | "server" | "fixed" | "preserve"
     - fixed_seconds: integer 0..59 used when fill_with == "fixed" or when provided explicitly
-    - fixed_milliseconds: integer 0..999 used when fill_with == "fixed" or when provided explicitly
+    - fixed_milliseconds: integer 0..999 used when provided explicitly (stored as ms*1000)
+    - fixed_microseconds: integer 0..999999 used when provided explicitly (highest priority)
     """
     raw = raw.strip()
     s_norm = raw.replace("Z", "+00:00")
@@ -75,44 +77,42 @@ def normalize_measured_at(
 
     # helpers and normalization
     def clamp_ms(ms: int) -> int:
-        if ms < 0:
-            return 0
-        if ms > 999:
-            return 999
-        return ms
+        return max(0, min(999, ms))
+
+    def clamp_us(us: int) -> int:
+        return max(0, min(999999, us))
+
+    def get_usec(base_us: int) -> int:
+        if fixed_microseconds is not None:
+            return clamp_us(int(fixed_microseconds))
+        if fixed_milliseconds is not None:
+            return clamp_ms(int(fixed_milliseconds)) * 1000
+        return base_us
 
     if fill_with == "zeros":
         sec = 0 if fixed_seconds is None else int(fixed_seconds)
-        ms = 0 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(0)
+        return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "preserve":
         sec = dt.second if fixed_seconds is None else int(fixed_seconds)
-        usec = (
-            dt.microsecond
-            if fixed_milliseconds is None
-            else clamp_ms(int(fixed_milliseconds)) * 1000
-        )
+        usec = get_usec(dt.microsecond)
         return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "server":
         now = datetime.now(timezone.utc)
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
-        ms = (
-            now.microsecond // 1000
-            if fixed_milliseconds is None
-            else clamp_ms(int(fixed_milliseconds))
-        )
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(now.microsecond)
+        return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "fixed":
         if fixed_seconds is None:
             raise ValueError("fixed_seconds must be provided for fill_with='fixed'")
-        if fixed_milliseconds is None:
-            raise ValueError("fixed_milliseconds must be provided for fill_with='fixed'")
+        if fixed_milliseconds is None and fixed_microseconds is None:
+            raise ValueError("fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'")
         sec = int(fixed_seconds)
-        ms = clamp_ms(int(fixed_milliseconds))
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(0)  # Requires at least one of fixed_ms or fixed_us to be non-zero to be useful
+        return dt.replace(second=sec, microsecond=usec)
 
     raise ValueError("unsupported fill_with value")
 
@@ -123,6 +123,7 @@ def normalize_measured_at_local(
     fill_with: str = "zeros",
     fixed_seconds: int | None = None,
     fixed_milliseconds: int | None = None,
+    fixed_microseconds: int | None = None,
 ) -> datetime:
     """
     Parse FE ISO datetime like "2025-10-21T19:33" and return a timezone-naive datetime
@@ -133,7 +134,7 @@ def normalize_measured_at_local(
     - If the input has no timezone (e.g., from <input type="datetime-local">), keep values as-is.
     - If the input has a timezone or 'Z', convert to local time and then drop tzinfo.
     - Seconds default to 0 unless specified via fill_with/fixed_* arguments.
-    - Milliseconds can be set deterministically via fixed_milliseconds (0..999), stored as microseconds.
+    - Microseconds can be set via fixed_microseconds or fixed_milliseconds.
     """
     raw = raw.strip()
     s_norm = raw.replace("Z", "+00:00")
@@ -147,48 +148,46 @@ def normalize_measured_at_local(
 
     # helpers and normalization
     def clamp_ms(ms: int) -> int:
-        if ms < 0:
-            return 0
-        if ms > 999:
-            return 999
-        return ms
+        return max(0, min(999, ms))
+
+    def clamp_us(us: int) -> int:
+        return max(0, min(999999, us))
+
+    def get_usec(base_us: int) -> int:
+        if fixed_microseconds is not None:
+            return clamp_us(int(fixed_microseconds))
+        if fixed_milliseconds is not None:
+            return clamp_ms(int(fixed_milliseconds)) * 1000
+        return base_us
 
     if fill_with == "zeros":
         sec = 0 if fixed_seconds is None else int(fixed_seconds)
-        ms = 0 if fixed_milliseconds is None else clamp_ms(int(fixed_milliseconds))
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(0)
+        return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "preserve":
         sec = dt.second if fixed_seconds is None else int(fixed_seconds)
-        usec = (
-            dt.microsecond
-            if fixed_milliseconds is None
-            else clamp_ms(int(fixed_milliseconds)) * 1000
-        )
+        usec = get_usec(dt.microsecond)
         return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "server":
         now = datetime.now()  # local time
         sec = now.second if fixed_seconds is None else int(fixed_seconds)
-        ms = (
-            now.microsecond // 1000
-            if fixed_milliseconds is None
-            else clamp_ms(int(fixed_milliseconds))
-        )
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(now.microsecond)
+        return dt.replace(second=sec, microsecond=usec)
 
     if fill_with == "fixed":
         if fixed_seconds is None:
             raise ValueError("fixed_seconds must be provided for fill_with='fixed'")
-        if fixed_milliseconds is None:
-            raise ValueError("fixed_milliseconds must be provided for fill_with='fixed'")
+        if fixed_milliseconds is None and fixed_microseconds is None:
+            raise ValueError("fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'")
         sec = int(fixed_seconds)
-        ms = clamp_ms(int(fixed_milliseconds))
-        return dt.replace(second=sec, microsecond=ms * 1000)
+        usec = get_usec(0)
+        return dt.replace(second=sec, microsecond=usec)
 
     raise ValueError("unsupported fill_with value")
 
 
 def now_local_iso() -> str:
-    """Return current local time as ISO 8601 string with millisecond precision."""
-    return datetime.now().isoformat(sep="T", timespec="milliseconds")
+    """Return current local time as ISO 8601 string with microsecond precision."""
+    return datetime.now().isoformat(sep="T", timespec="microseconds")

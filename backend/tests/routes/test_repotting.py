@@ -104,7 +104,7 @@ def patch_services(monkeypatch):
 
     # parse_timestamp_local just echo the same string for simplicity
     monkeypatch.setattr(
-        repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s
+        repotting_mod, "parse_timestamp_local", lambda s, fixed_microseconds=None: s
     )
 
 

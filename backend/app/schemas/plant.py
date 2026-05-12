@@ -39,6 +39,7 @@ class PlantListItem(BaseModel):
     days_offset: Optional[int] = None
     needs_weighing: bool = False
     archive: int = 0
+    sort_order: int = 0
 
 
 class PlantDetail(BaseModel):

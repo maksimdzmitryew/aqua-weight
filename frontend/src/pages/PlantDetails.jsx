@@ -39,6 +39,10 @@ export default function PlantDetails() {
         setPlant(data)
         setLoading(false)
       } catch (e) {
+        if (e.status === 404 || (e.status === 400 && e.detail === 'Invalid plant id')) {
+          navigate('/404', { replace: true })
+          return
+        }
         if (controller.signal.aborted) return
         setLoading(false)
         const msg = e?.message || ''
@@ -107,11 +111,18 @@ export default function PlantDetails() {
     }
   }
 
+  const browserTitle = plant
+    ? plant.identify_hint
+      ? `${plant.identify_hint} ${plant.name}`
+      : plant.name
+    : 'Plant details'
+
   return (
-    <DashboardLayout title={plant ? plant.name : 'Plant details'}>
+    <DashboardLayout title={browserTitle}>
       <div>
         <PageHeader
           title={plant ? plant.name : 'Plants details'}
+          subtitle={plant?.identify_hint}
           onBack={() => navigate('/plants')}
           titleBack="Plants"
         />

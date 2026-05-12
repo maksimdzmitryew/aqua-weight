@@ -156,8 +156,12 @@ async def list_plants(
     limit: int = 20,
     search: str | None = None,
     status: str = "active",
-    operationMode: str | None = Cookie(None),
-    defaultThreshold: str | None = Cookie(None),
+    needs_weighing: bool | None = None,
+    uuids: str | None = None,
+    operationMode: str | None = None,  # Try query param first
+    defaultThreshold: str | None = None,  # Try query param first
+    operationModeCookie: str | None = Cookie(None, alias="operationMode"),
+    defaultThresholdCookie: str | None = Cookie(None, alias="defaultThreshold"),
 ) -> PaginatedPlantsResponse:
     # Validate and sanitize pagination parameters
     if page < 1:
@@ -165,13 +169,21 @@ async def list_plants(
     if limit < 1 or limit > 100:
         raise HTTPException(status_code=400, detail="limit must be between 1 and 100")
 
-    mode = operationMode or "manual"
-    def_thr = parse_default_threshold(defaultThreshold)
+    mode = operationMode or operationModeCookie or "manual"
+    def_thr = parse_default_threshold(defaultThreshold or defaultThresholdCookie)
     offset = (page - 1) * limit
+
+    uuid_list = [u.strip() for u in uuids.split(",")] if uuids else None
 
     def fetch():
         # Get filtered count for pagination
-        total = PlantsList.count_all(search=search, status=status)
+        total = PlantsList.count_all(
+            search=search,
+            status=status,
+            needs_weighing_filter=needs_weighing,
+            mode=mode,
+            uuids=uuid_list,
+        )
 
         # Get global count for drift detection (always without filters)
         global_total = PlantsList.count_all(search=None, status="active")
@@ -187,6 +199,8 @@ async def list_plants(
             limit=limit,
             search=search,
             status=status,
+            needs_weighing_filter=needs_weighing,
+            uuids=uuid_list,
         )
 
         return PaginatedPlantsResponse(
@@ -233,6 +247,64 @@ class PlantCreate(BaseModel):
     # Calculated
     min_dry_weight_g: int | None = None
     max_water_weight_g: int | None = None
+
+
+@app.get("/plants/uuids", response_model=list[str])
+async def list_plant_uuids(
+    status: str = "active",
+    needs_weighing: bool | None = None,
+    needs_watering: bool | None = None,
+    operationMode: str | None = None,  # Try query param first
+    defaultThreshold: str | None = None,  # Try query param first
+    operationModeCookie: str | None = Cookie(None, alias="operationMode"),
+    defaultThresholdCookie: str | None = Cookie(None, alias="defaultThreshold"),
+) -> list[str]:
+    mode = operationMode or operationModeCookie or "manual"
+    def_thr = parse_default_threshold(defaultThreshold or defaultThresholdCookie)
+
+    def fetch():
+        items = PlantsList.fetch_all(
+            status=status,
+            needs_weighing_filter=needs_weighing,
+            mode=mode,
+            default_threshold=def_thr,
+        )
+
+        if needs_watering is not None:
+
+            def check_needs_water(p):
+                if mode == "vacation":
+                    return p["days_offset"] is not None and p["days_offset"] <= 0
+
+                retained = p["water_retained_pct"]
+
+                # If the plant was just watered (signature: water_loss_total_pct is 0),
+                # it doesn't need water in manual/automatic mode.
+                if p["water_loss_total_pct"] == 0 and (retained is None or retained > 0):
+                    return False
+
+                if retained is not None:
+                    # Use default threshold if plant doesn't have one
+                    thresh = p["recommended_water_threshold_pct"]
+                    if thresh is None:
+                        thresh = def_thr
+
+                    return (
+                        thresh is not None
+                        and retained <= thresh
+                    )
+
+                # If we have no weight data, and no approximation, we assume it needs attention
+                # (weighing/watering) by default to avoid missing plants.
+                if p["days_offset"] is not None:
+                    return p["days_offset"] <= 0
+                return True
+
+            items = [item for item in items if check_needs_water(item) == needs_watering]
+
+        return [p["uuid"] for p in items]
+
+    return await run_in_threadpool(fetch)
 
 
 @app.post("/plants")
@@ -425,7 +497,7 @@ async def delete_plant(id_hex: str):
     return {"ok": True}
 
 
-@app.put("/plants/{id_hex}")
+@app.patch("/plants/{id_hex}")
 async def update_plant(id_hex: str, payload: PlantUpdateRequest):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
@@ -462,49 +534,39 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
                 if not exists:
                     raise HTTPException(status_code=404, detail="Plant not found")
 
-                sql = """
-                    UPDATE plants SET
-                        name=%s, plant_type=%s, identify_hint=%s, typical_action=%s,
-                        description=%s, notes=%s, location_id=%s, photo_url=%s,
-                        default_measurement_method_id=%s, scale_id=%s, sort_order=%s, repotted=%s, archive=%s,
-                        recommended_water_threshold_pct=%s, biomass_weight_g=%s, biomass_last_at=%s,
-                        species_name=%s, botanical_name=%s, cultivar=%s, substrate_type_id=%s,
-                        substrate_last_refresh_at=%s, fertilized_last_at=%s, fertilizer_ec_ms=%s,
-                        light_level_id=%s, pest_status_id=%s, health_status_id=%s,
-                        min_dry_weight_g=%s, max_water_weight_g=%s
-                    WHERE id=UNHEX(%s)
-                """
-                params = (
-                    (normalize(payload.name) if payload.name is not None else None),
-                    (payload.plant_type if payload.plant_type is not None else None),
-                    (payload.identify_hint if payload.identify_hint is not None else None),
-                    (payload.typical_action if payload.typical_action is not None else None),
-                    (payload.description if payload.description is not None else None),
-                    (payload.notes if payload.notes is not None else None),
-                    hex_to_bytes(payload.location_id),
-                    (payload.photo_url if payload.photo_url is not None else None),
-                    hex_to_bytes(payload.default_measurement_method_id),
-                    hex_to_bytes(payload.scale_id),
-                    (payload.sort_order if payload.sort_order is not None else 0),
-                    (payload.repotted if payload.repotted is not None else 0),
-                    (payload.archive if payload.archive is not None else 0),
-                    payload.recommended_water_threshold_pct,
-                    payload.biomass_weight_g,
-                    to_dt(payload.biomass_last_at),
-                    (payload.species_name if payload.species_name is not None else None),
-                    (payload.botanical_name if payload.botanical_name is not None else None),
-                    (payload.cultivar if payload.cultivar is not None else None),
-                    hex_to_bytes(payload.substrate_type_id),
-                    to_dt(payload.substrate_last_refresh_at),
-                    to_dt(payload.fertilized_last_at),
-                    payload.fertilizer_ec_ms,
-                    hex_to_bytes(payload.light_level_id),
-                    hex_to_bytes(payload.pest_status_id),
-                    hex_to_bytes(payload.health_status_id),
-                    payload.min_dry_weight_g,
-                    payload.max_water_weight_g,
-                    id_hex,
-                )
+                update_data = payload.model_dump(exclude_unset=True)
+                if not update_data:
+                    return {"ok": True}
+
+                fields = []
+                params = []
+
+                hex_fields = {
+                    "location_id",
+                    "default_measurement_method_id",
+                    "scale_id",
+                    "substrate_type_id",
+                    "light_level_id",
+                    "pest_status_id",
+                    "health_status_id",
+                }
+                dt_fields = {"biomass_last_at", "substrate_last_refresh_at", "fertilized_last_at"}
+
+                for field, value in update_data.items():
+                    if field == "name":
+                        val = normalize(value) if value is not None else None
+                    elif field in hex_fields:
+                        val = hex_to_bytes(value)
+                    elif field in dt_fields:
+                        val = to_dt(value)
+                    else:
+                        val = value
+
+                    fields.append(f"{field}=%s")
+                    params.append(val)
+
+                sql = f"UPDATE plants SET {', '.join(fields)} WHERE id=UNHEX(%s)"
+                params.append(id_hex)
                 cur.execute(sql, params)
             conn.commit()
         except Exception:

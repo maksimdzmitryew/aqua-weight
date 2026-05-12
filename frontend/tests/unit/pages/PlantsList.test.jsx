@@ -1157,7 +1157,7 @@ test('integrated: line 437 coverage - badge titles', async () => {
     )
 
     const { unmount } = renderPage()
-    const badge1 = await screen.findByTitle('Needs water based on threshold')
+    const badge1 = await screen.findByTitle(/needs water based on threshold/i)
     expect(badge1).toHaveTextContent(/needs water/i)
     unmount()
 
@@ -1178,13 +1178,20 @@ test('integrated: line 437 coverage - badge titles', async () => {
       ),
       http.get('/api/measurements/approximation/watering', () =>
         HttpResponse.json({
-          items: [{ plant_uuid: 'p2', virtual_water_retained_pct: 5 }],
+          items: [
+            {
+              plant_uuid: 'p2',
+              virtual_water_retained_pct: 5,
+              days_offset: -1,
+              next_watering_at: '2026-05-06T12:00:00Z',
+            },
+          ],
         }),
       ),
     )
 
     renderPage()
-    const badge2 = await screen.findByTitle('Needs water based on approximation')
+    const badge2 = await screen.findByTitle(/needs water based on approximation/i)
     expect(badge2).toHaveTextContent(/needs water/i)
   } finally {
     localStorage.removeItem('operationMode')

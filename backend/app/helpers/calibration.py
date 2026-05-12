@@ -132,7 +132,7 @@ def calibrate_by_max_water_retained(conn) -> Dict[str, List[dict]]:
                 {
                     "id": bin_to_hex(mid) if mid is not None else None,
                     "measured_at": (
-                        measured_at_dt.isoformat(sep=" ", timespec="seconds")
+                        measured_at_dt.isoformat(sep=" ", timespec="microseconds")
                         if isinstance(measured_at_dt, datetime)
                         else str(measured_at_dt) if measured_at_dt else None
                     ),

@@ -17,10 +17,10 @@ def test_parse_timestamp_local_zero_seconds():
 
 
 def test_ts_to_db_string_formats_seconds(monkeypatch):
-    # parse local then to string should keep seconds and milliseconds
+    # parse local then to string should keep seconds and microseconds
     dt = parse_timestamp_local("2025-01-02T03:04")
     s = ts_to_db_string(dt)
-    assert s.endswith(":00.000")
+    assert s.endswith(":00.000000")
 
 
 @pytest.mark.parametrize(

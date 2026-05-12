@@ -58,7 +58,7 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(
 
     # Attempt update with a valid hex for location_id; hex_to_bytes will catch the error and return None
     valid_hex = uuid.uuid4().hex
-    ur = await async_client.put(
+    ur = await async_client.patch(
         f"/api/plants/{uid}",
         json={
             "name": "Exc Update v2",

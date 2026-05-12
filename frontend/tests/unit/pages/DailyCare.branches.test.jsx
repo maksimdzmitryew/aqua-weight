@@ -68,7 +68,7 @@ describe('DailyCare branches', () => {
     )
 
     // Should still load plants and show them (since it's not a fatal error for the whole page)
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(consoleSpy).toHaveBeenCalledWith('Failed to load approximations', expect.any(Error))
     expect(internalError).toBeDefined()
 
@@ -95,7 +95,7 @@ describe('DailyCare branches', () => {
       </ThemeProvider>,
     )
 
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(internalFallback).toBe('—')
     delete window.__VITEST_STUB_FALLBACK__
   })
@@ -128,7 +128,7 @@ describe('DailyCare branches', () => {
       </ThemeProvider>,
     )
 
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(internalNotes).toBe('—')
     expect(internalLocation).toBe('—')
     expect(internalDateNow).toBe(true)
@@ -162,7 +162,7 @@ describe('DailyCare branches', () => {
       </ThemeProvider>,
     )
 
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     expect(internalReduce).toBeDefined()
     delete window.__VITEST_STUB_REDUCE__
   })
@@ -204,7 +204,7 @@ describe('DailyCare branches', () => {
       </ThemeProvider>,
     )
 
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     // When approxData is null, approxData?.items is undefined, so it falls through to the stub/[]
     expect(internalApproxItems).toBeDefined()
 
@@ -221,7 +221,7 @@ describe('DailyCare branches', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
 
     // Case 3: No stub, fallback to []
     delete window.__VITEST_STUB_APPROX_ITEMS__
@@ -237,7 +237,7 @@ describe('DailyCare branches', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
   })
 
   test('aria-label for measurement StatusIcon (line 140)', async () => {
@@ -281,7 +281,7 @@ describe('DailyCare branches', () => {
       </ThemeProvider>,
     )
 
-    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     expect((await screen.findAllByLabelText('No measurement needed')).length).toBeGreaterThan(0)
 
     delete window.__VITEST_STUB_NEEDS_MEASURE__

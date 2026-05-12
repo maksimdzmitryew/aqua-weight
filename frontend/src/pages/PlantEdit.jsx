@@ -6,7 +6,7 @@ import DateTimeText from '../components/DateTimeText.jsx'
 import { plantsApi } from '../api/plants'
 import { locationsApi } from '../api/locations'
 import { referenceApi } from '../api/reference'
-import { toLocalISOMinutes } from '../utils/datetime'
+import { toLocalISOFull } from '../utils/datetime'
 
 export function buildUpdatePayload(plant) {
   if (!plant) throw new Error('Missing plant')
@@ -96,14 +96,14 @@ export default function PlantEdit() {
       repotted: p.repotted ?? 0,
       archive: p.archive ?? 0,
       biomass_weight_g: p.biomass_weight_g ?? '',
-      biomass_last_at: toLocalISOMinutes(p.biomass_last_at),
+      biomass_last_at: toLocalISOFull(p.biomass_last_at),
       species_name: p.species_name ?? p.species ?? '',
       botanical_name: p.botanical_name ?? '',
       cultivar: p.cultivar ?? '',
       location_id: p.location_id ?? '',
       substrate_type_id: p.substrate_type_id ?? '',
-      substrate_last_refresh_at: toLocalISOMinutes(p.substrate_last_refresh_at),
-      fertilized_last_at: toLocalISOMinutes(p.fertilized_last_at),
+      substrate_last_refresh_at: toLocalISOFull(p.substrate_last_refresh_at),
+      fertilized_last_at: toLocalISOFull(p.fertilized_last_at),
       fertilizer_ec_ms: p.fertilizer_ec_ms ?? '',
       light_level_id: p.light_level_id ?? '',
       pest_status_id: p.pest_status_id ?? '',
@@ -130,21 +130,23 @@ export default function PlantEdit() {
   const [fieldErrors, setFieldErrors] = useState({})
 
   useEffect(() => {
-    if (initialPlant) return
-
     const controller = new AbortController()
     async function load() {
-      setLoading(true)
+      if (!initialPlant) setLoading(true)
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(normalize(data))
-        setLoading(false)
       } catch (e) {
+        if (e.status === 404 || (e.status === 400 && e.detail === 'Invalid plant id')) {
+          navigate('/404', { replace: true })
+          return
+        }
         /* c8 ignore next */
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
         if (isAbort) return
         setError('Failed to load plant')
+      } finally {
         setLoading(false)
       }
     }
@@ -200,6 +202,14 @@ export default function PlantEdit() {
       v = checked ? 1 : 0
     } else if (type === 'number') {
       v = value === '' ? '' : Number(value)
+    } else if (type === 'datetime-local') {
+      const previousValue = plant[name]
+      if (v && previousValue && !v.includes('.')) {
+        const match = previousValue.match(/\.(\d+)$/)
+        if (match) {
+          v = v + '.' + match[1]
+        }
+      }
     }
     setPlant((prev) => ({ ...prev, [name]: v }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: '' }))
@@ -605,6 +615,7 @@ export default function PlantEdit() {
                   id="biomass_last_at"
                   name="biomass_last_at"
                   type="datetime-local"
+                  step="1"
                   value={plant.biomass_last_at || ''}
                   onChange={onChange}
                   style={inputStyle}
@@ -687,6 +698,7 @@ export default function PlantEdit() {
                   id="substrate_last_refresh_at"
                   name="substrate_last_refresh_at"
                   type="datetime-local"
+                  step="1"
                   value={plant.substrate_last_refresh_at || ''}
                   onChange={onChange}
                   style={inputStyle}
@@ -702,6 +714,7 @@ export default function PlantEdit() {
                   id="fertilized_last_at"
                   name="fertilized_last_at"
                   type="datetime-local"
+                  step="1"
                   value={plant.fertilized_last_at || ''}
                   onChange={onChange}
                   style={inputStyle}

@@ -37,14 +37,24 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
       onCommitValue,
       onCommitVacationWatering,
       onDeleteVacationWatering,
+      todoUuids,
     }) => {
-      // Invoke onViewPlant with an object lacking uuid to exercise early-return branch
-      onViewPlant?.({ name: 'NoId' })
       // Defer delete invocation to effect to avoid setState during render
+      const didViewRef = React.useRef(false)
       const didDeleteRef = React.useRef(false)
       const didCommitRef = React.useRef(false)
       const lastWlRef = React.useRef(undefined)
+
       React.useEffect(() => {
+        if (!didViewRef.current && onViewPlant) {
+          didViewRef.current = true
+          onViewPlant({ name: 'NoId' })
+        }
+      }, [onViewPlant])
+
+      React.useEffect(() => {
+        // Wait for snapshots to be initialized in BulkWatering.jsx
+        if (todoUuids === null) return
         if (!plants || !plants.length) return
         const id = plants[0].uuid
         const wl = plants[0]?.water_loss_total_pct
@@ -129,6 +139,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
   })
 
   test('handleView returns early when plant has no uuid (no navigation)', async () => {
+    // Force a dummy plant so the table actually renders something and calls onViewPlant
+    server.use(...paginatedPlantsHandler([{ uuid: 'p-dummy', name: 'Dummy' }]))
+
     render(
       <ThemeProvider>
         <MemoryRouter>
@@ -139,7 +152,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     // The mock invoked onViewPlant with no uuid; ensure navigate was not called
     expect(mockNavigate).not.toHaveBeenCalled()
     // Mocked component rendered
-    expect(await screen.findByText('Mocked Table')).toBeInTheDocument()
+    expect(await screen.findByText('Mocked Table', {}, { timeout: 3000 })).toBeInTheDocument()
   })
 
   test('effect cleanup function executes on unmount (coverage of returned function)', async () => {

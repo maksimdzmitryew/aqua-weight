@@ -26,8 +26,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    const toggle = await screen.findByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
+    const allTab = await screen.findByRole('button', { name: /all/i })
+    fireEvent.click(allTab)
+    // Wait for the "All" tab content to load
+    await screen.findByText(/Showing all plants; some might not need attention/i)
   }
 
   test('committing vacation watering succeeds and updates plant state', async () => {
@@ -308,10 +310,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ),
     ).toBeInTheDocument()
 
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
+    const allTab = await screen.findByRole('button', { name: /all/i })
+    fireEvent.click(allTab)
     expect(
-      screen.getByText(/Showing all plants; those above threshold are deemphasized/i),
+      await screen.findByText(/Showing all plants; some might not need attention/i),
     ).toBeInTheDocument()
 
     // Switch to manual mode

@@ -1,5 +1,10 @@
 import React from 'react'
-import { formatDateTime, formatDayMonth } from '../utils/datetime.js'
+import {
+  formatDateTime,
+  formatDayMonth,
+  formatDateTimeWithSeconds,
+  formatShortDateTime,
+} from '../utils/datetime.js'
 
 // Reusable display component for consistent date/time formatting across the app.
 // Respects the user preference stored in localStorage (key: 'dtFormat').
@@ -16,9 +21,15 @@ export default function DateTimeText({
   showTooltip = true,
   ...rest
 }) {
-  const text = mode === 'daymonth' ? formatDayMonth(value) : formatDateTime(value)
+  const text =
+    mode === 'daymonth'
+      ? formatDayMonth(value)
+      : mode === 'shortdatetime'
+        ? formatShortDateTime(value)
+        : formatDateTime(value)
   const isEmpty = !value || !text || text === String(value)
-  const titleAttr = title !== undefined ? title : value ? String(value) : undefined
+  const titleAttr =
+    title !== undefined ? title : value ? formatDateTimeWithSeconds(value) : undefined
   return (
     <As className={className} title={showTooltip ? titleAttr : undefined} {...rest}>
       {isEmpty ? empty : text}

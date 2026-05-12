@@ -100,19 +100,19 @@ async def test_update_plant_happy_and_errors(async_client: AsyncClient):
     await async_client.post("/api/test/reset")
 
     # Invalid id -> 400
-    r = await async_client.put("/api/plants/xyz", json={"name": "X"})
+    r = await async_client.patch("/api/plants/xyz", json={"name": "X"})
     assert r.status_code == 400
     assert r.json()["detail"] == "Invalid id"
 
     # Non-existent valid id -> 404
     missing_id = "a" * 32
-    r = await async_client.put(f"/api/plants/{missing_id}", json={"description": "d"})
+    r = await async_client.patch(f"/api/plants/{missing_id}", json={"description": "d"})
     assert r.status_code == 404
     assert r.json()["detail"] == "Plant not found"
 
     # Empty name -> 400 (validation branch)
     uid = await _create_and_get_uuid(async_client, "Charlie")
-    r = await async_client.put(f"/api/plants/{uid}", json={"name": "   "})
+    r = await async_client.patch(f"/api/plants/{uid}", json={"name": "   "})
     assert r.status_code == 400
     assert r.json()["detail"] == "Name cannot be empty"
 
@@ -129,7 +129,7 @@ async def test_update_plant_happy_and_errors(async_client: AsyncClient):
         "fertilizer_ec_ms": 1.5,
         "photo_url": "http://example/image.jpg",
     }
-    r = await async_client.put(f"/api/plants/{uid}", json=payload)
+    r = await async_client.patch(f"/api/plants/{uid}", json=payload)
     assert r.status_code == 200
     assert r.json()["ok"] is True
 

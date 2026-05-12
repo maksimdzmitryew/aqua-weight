@@ -64,20 +64,25 @@ test.describe('Bulk Watering Styles', () => {
   })
 
   test('conditional styling in bulk watering show all mode', async ({ page }) => {
-    await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' })
-    await page.waitForLoadState('networkidle')
-    await page.getByLabel(/show all plants/i).check()
+    try {
+      await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' })
+      await page.waitForLoadState('networkidle')
+      await page.getByRole('button', { name: /all/i }).click()
 
-    const needsWaterRow = page.getByRole('row').filter({ hasText: /seed fern/i })
-    const satisfiedRow = page.getByRole('row').filter({ hasText: /satisfied plant/i })
+      const needsWaterRow = page.getByRole('row').filter({ hasText: /seed fern/i })
+      const satisfiedRow = page.getByRole('row').filter({ hasText: /satisfied plant/i })
 
-    await expect(needsWaterRow.getByText(/needs water/i)).toBeVisible()
+      await expect(needsWaterRow.getByText(/needs water/i)).toBeVisible()
 
-    // Check for opacity.
-    await expect(satisfiedRow).toBeVisible()
+      // Check for opacity.
+      await expect(satisfiedRow).toBeVisible()
 
-    // Check computed style for opacity
-    const opacity = await satisfiedRow.evaluate((el) => window.getComputedStyle(el).opacity)
-    expect(Number(opacity)).toBeCloseTo(0.55, 1)
+      // Check computed style for opacity
+      const opacity = await satisfiedRow.evaluate((el) => window.getComputedStyle(el).opacity)
+      expect(Number(opacity)).toBeCloseTo(0.55, 1)
+    } catch (e) {
+      console.log(await page.content())
+      throw e
+    }
   })
 })

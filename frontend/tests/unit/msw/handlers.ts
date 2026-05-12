@@ -39,6 +39,35 @@ export const handlers = [
     })
   }),
 
+  http.get('/api/plants/uuids', ({ request }) => {
+    const url = new URL(request.url)
+    const needsWatering = url.searchParams.get('needs_watering')
+    const needsWeighing = url.searchParams.get('needs_weighing')
+
+    let filtered = plants
+    if (needsWatering === 'true') {
+      filtered = plants.filter(
+        (p) =>
+          p.water_retained_pct !== undefined &&
+          p.water_retained_pct <= (p.recommended_water_threshold_pct || 40),
+      )
+    } else if (needsWatering === 'false') {
+      filtered = plants.filter(
+        (p) =>
+          p.water_retained_pct === undefined ||
+          p.water_retained_pct > (p.recommended_water_threshold_pct || 40),
+      )
+    }
+
+    if (needsWeighing === 'true') {
+      // Mock logic: plants need weighing if they have data?
+      // For tests, let's just return all for simplicity unless specified
+      filtered = plants.filter((p) => p.uuid === 'u1')
+    }
+
+    return HttpResponse.json(filtered.map((p) => p.uuid))
+  }),
+
   // Explicitly handle a noisy test route used for error-path testing
   http.get('/api/plants/uErr3', () => {
     return HttpResponse.json({ message: 'Not found' }, { status: 404 })
@@ -100,6 +129,9 @@ export const handlers = [
     })
   }),
   http.get('/api/measurements/approximation/watering', () => {
+    return HttpResponse.json({ items: [] })
+  }),
+  http.get('/api/measurements/approximation/weight', () => {
     return HttpResponse.json({ items: [] })
   }),
   http.get('/api/substrate-types', () => HttpResponse.json([])),

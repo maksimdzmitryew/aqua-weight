@@ -85,7 +85,7 @@ describe('BulkMeasurementTable', () => {
     const notesCell = screen.getByText('NN').closest('td')
     expect(notesCell).toBeTruthy()
     expect(notesCell).not.toHaveAttribute('title')
-    const wlCell = screen.getByText('42').closest('td')
+    const wlCell = screen.getByText('42%').closest('td')
     expect(wlCell).toBeTruthy()
     expect(wlCell).not.toHaveAttribute('title')
   })

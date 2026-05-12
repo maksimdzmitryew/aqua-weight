@@ -91,14 +91,21 @@ describe('pages/PlantDetails', () => {
     // After successful load, the Edit button should be visible (plant present)
     expect(await screen.findByRole('button', { name: /edit/i })).toBeInTheDocument()
 
-    // Error path
+    // Error path (non-404)
+    server.use(
+      http.get('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
+    )
+    renderWithRoute(['/plants/err500'])
+    expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load plant|boom/i)
+
+    // Not Found path (404)
     server.use(
       http.get('/api/plants/:uuid', () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 }),
       ),
     )
-    renderWithRoute(['/plants/err'])
-    expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load plant|not found/i)
+    renderWithRoute(['/plants/err404'])
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
   })
 
   test('missing uuid yields plant error immediately and does not fetch measurements', async () => {

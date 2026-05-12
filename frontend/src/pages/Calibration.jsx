@@ -4,6 +4,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { calibrationApi } from '../api/calibration'
+import DateTimeText from '../components/DateTimeText.jsx'
 
 export default function Calibration() {
   const [items, setItems] = useState([])
@@ -303,7 +304,9 @@ export default function Calibration() {
                                   : undefined
                               }
                             >
-                              <td>{it.measured_at || '—'}</td>
+                              <td>
+                                <DateTimeText value={it.measured_at} />
+                              </td>
                               <td style={{ textAlign: 'right' }}>{it.water_added_g ?? '—'}</td>
                               <td style={{ textAlign: 'right' }}>{it.last_wet_weight_g ?? '—'}</td>
                               <td style={{ textAlign: 'right' }}>

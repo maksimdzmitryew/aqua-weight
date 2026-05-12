@@ -162,7 +162,7 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(
 
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
-    resp = await async_client.put(f"/api/plants/{uid}", json={"description": "x"})
+    resp = await async_client.patch(f"/api/plants/{uid}", json={"description": "x"})
     assert resp.status_code >= 500
 
 
@@ -182,7 +182,7 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
         "substrate_last_refresh_at": "",
         "fertilized_last_at": "",
     }
-    resp = await async_client.put(f"/api/plants/{uid}", json=payload)
+    resp = await async_client.patch(f"/api/plants/{uid}", json=payload)
     # Even with empty strings, should be ok 200
     assert resp.status_code == 200
 

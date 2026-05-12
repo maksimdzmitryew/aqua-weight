@@ -270,7 +270,18 @@ describe('pages/PlantEdit', () => {
     expect(await screen.findByText(/failed to load reference data/i)).toBeInTheDocument()
   })
 
-  test('load error shows generic error message when API fails', async () => {
+  test('redirects to 404 when plant is not found (404)', async () => {
+    server.use(
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({ message: 'not found' }, { status: 404 }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json([])),
+    )
+    renderWithRoute(['/plants/u404/edit'])
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
+  })
+
+  test('load error shows generic error message when API fails (500)', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.text('nope', { status: 500 })),
       http.get('/api/locations', () => HttpResponse.json([])),

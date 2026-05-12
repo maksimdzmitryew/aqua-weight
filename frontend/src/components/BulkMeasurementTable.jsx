@@ -27,6 +27,7 @@ export default function BulkMeasurementTable({
   // Optional: deemphasize predicate to visually soften rows (e.g., above threshold)
   deemphasizePredicate,
   operationMode = 'manual',
+  defaultThreshold = 40,
   approximations = {},
   noPlantsMessage = 'No plants found',
 }) {
@@ -60,7 +61,7 @@ export default function BulkMeasurementTable({
 
   const renderRow = (p) => {
     const approx = approximations[p.uuid]
-    const needsWater = checkNeedsWater(p, operationMode, approx)
+    const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
     const needsMeasure = p.needs_weighing
 
     const retained = getWaterRetainedPct(p, operationMode, approx)
@@ -72,6 +73,8 @@ export default function BulkMeasurementTable({
         : p.water_loss_total_pct !== undefined && p.water_loss_total_pct !== null
           ? Math.round(p.water_loss_total_pct)
           : p.water_loss_total_pct
+
+    const displayWaterLossText = typeof displayWaterLoss === 'number' ? `${displayWaterLoss}%` : '—'
 
     const status = inputStatus[p.uuid]
     const mId = measurementIds[p.uuid]
@@ -88,19 +91,19 @@ export default function BulkMeasurementTable({
             {operationMode !== 'vacation' ? (
               <>
                 <input
-                    onKeyDown={(e) => {
-                      if (e.key === 'Tab') {
-                        const direction = e.shiftKey ? 'previousElementSibling' : 'nextElementSibling';
-                        const targetRow = e.currentTarget.closest('tr')[direction];
-                        const nextInput = targetRow?.querySelector('input');
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      const direction = e.shiftKey ? 'previousElementSibling' : 'nextElementSibling'
+                      const targetRow = e.currentTarget.closest('tr')[direction]
+                      const nextInput = targetRow?.querySelector('input')
 
-                        if (nextInput) {
-                          e.preventDefault();
-                          nextInput.focus();
-                          nextInput.select();
-                        }
+                      if (nextInput) {
+                        e.preventDefault()
+                        nextInput.focus()
+                        nextInput.select()
                       }
-                    }}
+                    }
+                  }}
                   type="number"
                   style={{ width: 80 }}
                   className={`input ${status === 'success' ? 'bg-success' : ''} ${
@@ -213,7 +216,11 @@ export default function BulkMeasurementTable({
             )}
           </div>
         </td>
-        <td className="td">{p.recommended_water_threshold_pct}%</td>
+        <td className="td">
+          {typeof p.recommended_water_threshold_pct === 'number'
+            ? `${p.recommended_water_threshold_pct}%`
+            : '—'}
+        </td>
         <td
           className="td"
           style={getWaterRetainCellStyle?.(retained)}
@@ -266,10 +273,10 @@ export default function BulkMeasurementTable({
               }}
               className="block-link"
             >
-              {displayWaterLoss}%
+              {displayWaterLossText}
             </a>
           ) : (
-            displayWaterLoss
+            displayWaterLossText
           )}
         </td>
         {showUpdatedColumn && (

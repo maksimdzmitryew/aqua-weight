@@ -25,7 +25,7 @@ def test_parse_timestamp_utc_calls_normalize_with_preserve(monkeypatch):
     # Arrange: patch normalize_measured_at in the measurements module directly
     calls = {}
 
-    def fake_normalize(raw, *, fill_with, fixed_milliseconds=None):
+    def fake_normalize(raw, *, fill_with, fixed_milliseconds=None, fixed_microseconds=None):
         # record args and return a recognizable value
         calls["raw"] = raw
         calls["fill_with"] = fill_with

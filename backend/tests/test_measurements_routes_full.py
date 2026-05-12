@@ -62,14 +62,36 @@ class _FakeCursor:
     def execute(self, sql, params=None):
         self._last = (sql, params)
         sql_norm = " ".join(sql.split()).lower()
-        if sql_norm.startswith("select") and "limit 1" in sql_norm:
-            # prepare fetchone
-            self._next_one = self.rows_one
-        elif sql_norm.startswith("select"):
+
+        # Default: next_one is None, next_all is empty
+        self._next_one = None
+        self._next_all = []
+
+        if sql_norm.startswith("select"):
             self._next_all = self.rows_all
-            # Detect plant info query and return rows_all[0] for fetchone
-            if " from plants " in sql_norm and " where " in sql_norm:
-                self._next_one = self.rows_all[0] if self.rows_all else None
+
+            if "limit 1" in sql_norm:
+                # Specialized mocks for common queries to avoid TypeError/AttributeError
+                if "from plants_measurements" in sql_norm and "last_dry_weight_g is not null" in sql_norm:
+                    # get_last_repotting_event expects 10 columns
+                    self._next_one = (
+                        b"\x66"*16, datetime(2025, 1, 1), 150, 100, None, 50, None, None, None, None
+                    )
+                elif "from plants " in sql_norm and "id = unhex" in sql_norm:
+                    # plant info query
+                    if self.rows_all is not None and len(self.rows_all) > 0:
+                        self._next_one = self.rows_all[0]
+                    else:
+                        self._next_one = self.rows_one
+                else:
+                    self._next_one = self.rows_one
+            elif "max(measured_at)" in sql_norm:
+                self._next_one = [datetime.utcnow()]
+            elif " from plants " in sql_norm and " where " in sql_norm:
+                if self.rows_all is not None and len(self.rows_all) > 0:
+                    self._next_one = self.rows_all[0]
+                else:
+                    self._next_one = self.rows_one
             else:
                 # default behavior for other SELECTs without LIMIT
                 if self.rows_one is not None:
@@ -224,7 +246,7 @@ async def test_create_reported_watering_invalid_and_success(
     data = r_ok.json()
     assert data["id"] == ("77" * 16)
     assert data["plant_id"] == ("aa" * 16)
-    assert data["measured_at"] == "2025-01-02 10:20:00.000"
+    assert data["measured_at"] == "2025-01-02 10:20:00.000000"
     assert data["note"].startswith("[reported] watering")
     assert "by Alice" in data["note"] and "top-up" in data["note"]
 
@@ -493,7 +515,9 @@ async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
         lambda **kwargs: _Calc(12.6),
     )
 
-    cur = _FakeCursor()  # rows_all empty -> SELECT from plants returns None
+    cur = _FakeCursor(rows_one=None)  # rows_all empty -> SELECT from plants returns None
+    # We must also ensure rows_all is empty or None
+    cur.rows_all = None
     pct = measurements_routes._compute_water_retained_for_plant(
         cur,
         "aa" * 16,

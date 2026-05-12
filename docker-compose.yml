@@ -70,6 +70,8 @@ services:
       - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb}
       - MARIADB_USER=${MARIADB_USER:-appuser}
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
+    ports:
+      - "33306:3306"
     volumes:
       - ./db/my.cnf:/etc/mysql/my.cnf
       - mariadb_data:/var/lib/mysql:consistent

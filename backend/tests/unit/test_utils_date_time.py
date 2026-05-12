@@ -124,7 +124,7 @@ def test_now_local_iso():
 
     iso_str = now_local_iso()
     # Format: YYYY-MM-DDTHH:MM:SS.mmm
-    assert len(iso_str) == 23
+    assert len(iso_str) == 26
     assert iso_str[10] == "T"
     # Try to parse it back
     dt = datetime.fromisoformat(iso_str)

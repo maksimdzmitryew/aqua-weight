@@ -13,7 +13,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { getWaterRetainCellStyle } from '../utils/water_retained_colors.js'
-import { getWaterRetainedPct } from '../utils/watering.js'
+import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
 import SearchField from '../components/SearchField.jsx'
@@ -24,7 +24,7 @@ export default function PlantsList() {
   // URL-based state management
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = parseInt(searchParams.get('limit') || '20', 10)
+  const limit = parseInt(searchParams.get('limit') || localStorage.getItem('pageSize') || '20', 10)
   const searchQuery = searchParams.get('search') || ''
   const status = searchParams.get('status') || 'active'
 
@@ -47,6 +47,7 @@ export default function PlantsList() {
   const [toDelete, setToDelete] = useState(null)
 
   const operationMode = useMemo(() => localStorage.getItem('operationMode') || 'manual', [])
+  const defaultThreshold = useMemo(() => localStorage.getItem('defaultThreshold') || '40', [])
 
   // Sync local search input with URL query param
   // This ensures the search field shows the current filter even after page loads/reloads
@@ -163,6 +164,7 @@ export default function PlantsList() {
   }
 
   const handlePageSizeChange = (newLimit) => {
+    localStorage.setItem('pageSize', String(newLimit))
     const newParams = new URLSearchParams(searchParams)
     newParams.set('limit', String(newLimit))
     newParams.set('page', '1') // Reset to first page when changing page size
@@ -474,12 +476,12 @@ export default function PlantsList() {
                       Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
                     <th className="th" scope="col" title="Watering frequency">
-                      Frequency <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                      Freq <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
                     <th className="th" scope="col" title="Next planned watering date">
-                      Next watering <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                      Next <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
-                    <th className="th" scope="col" title="Plant name">
+                    <th className="th" scope="col" title="Plant name" style={{ width: 180 }}>
                       Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
                     <th className="th" scope="col" title="Notes">
@@ -488,7 +490,12 @@ export default function PlantsList() {
                     <th className="th hide-column-phone" scope="col" title="Location">
                       Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
-                    <th className="th hide-column-tablet" scope="col" title="Last update time">
+                    <th
+                      className="th hide-column-tablet"
+                      scope="col"
+                      title="Last update time"
+                      style={{ width: 100 }}
+                    >
                       Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                     </th>
                     <th className="th right" scope="col" title="Row actions">
@@ -500,9 +507,12 @@ export default function PlantsList() {
                   {displayedPlants.map((p, idx) => {
                     const retained = getWaterRetainedPct(p, operationMode, p._approximation)
                     const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
-                    const thresh = Number(p.recommended_water_threshold_pct)
-                    const needsWater =
-                      typeof retained === 'number' && !Number.isNaN(thresh) && retained <= thresh
+                    const needsWater = checkNeedsWater(
+                      p,
+                      operationMode,
+                      p._approximation,
+                      defaultThreshold,
+                    )
                     // Disable drag/reorder when searching or not on page 1
                     const canReorder = !searchQuery && page === 1
                     return (
@@ -633,8 +643,8 @@ export default function PlantsList() {
                         <td className="td hide-column-phone" style={{ width: 100 }}>
                           {p.location || '—'}
                         </td>
-                        <td className="td hide-column-tablet">
-                          <DateTimeText value={p.latest_at} />
+                        <td className="td hide-column-tablet" style={{ width: 80 }}>
+                          <DateTimeText value={p.latest_at} mode="shortdatetime" />
                         </td>
                         <td className="td text-right nowrap">
                           <IconButton

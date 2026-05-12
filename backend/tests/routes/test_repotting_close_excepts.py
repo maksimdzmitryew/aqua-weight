@@ -80,7 +80,7 @@ def patch_services(monkeypatch):
 
     monkeypatch.setattr(repotting_mod, "compute_water_losses", lambda **kwargs: Loss())
     monkeypatch.setattr(
-        repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s
+        repotting_mod, "parse_timestamp_local", lambda s, fixed_microseconds=None: s
     )
 
 

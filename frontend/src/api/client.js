@@ -139,6 +139,9 @@ export class ApiClient {
   put(path, body, opts = {}) {
     return this.request(path, { ...opts, method: 'PUT', body })
   }
+  patch(path, body, opts = {}) {
+    return this.request(path, { ...opts, method: 'PATCH', body })
+  }
   delete(path, opts = {}) {
     return this.request(path, { ...opts, method: 'DELETE' })
   }

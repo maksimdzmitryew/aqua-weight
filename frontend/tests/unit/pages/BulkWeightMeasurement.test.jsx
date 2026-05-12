@@ -49,15 +49,23 @@ describe('pages/BulkWeightMeasurement', () => {
     mockNavigate.mockClear()
   })
   test('default shows all plants that need attention (all in manual mode)', async () => {
+    // Both plants have needs_weighing: true implicitly from paginatedPlantsHandler
+    // or we can set them explicitly if we suspect they default to false
+    server.use(
+      ...paginatedPlantsHandler([
+        { uuid: 'u1', name: 'Aloe', needs_weighing: true },
+        { uuid: 'u2', name: 'Monstera', needs_weighing: true },
+      ]),
+    )
     renderPage()
 
     // Default showAll = false -> initially shows all plants (Aloe and Monstera)
-    // because in manual mode plantNeedsAttention returns true for all
+    // because they are both in the To-Do snapshot
     expect(await screen.findByText('Aloe')).toBeInTheDocument()
-    expect(screen.getByText('Monstera')).toBeInTheDocument()
+    expect(await screen.findByText('Monstera')).toBeInTheDocument()
 
-    // Verify hint text correctly refers to weighing and is accurate
-    expect(screen.getByText(/Showing all plants that need weighing/i)).toBeInTheDocument()
+    // Verify buttons for tabs are present
+    expect(screen.getByRole('button', { name: /to-do/i })).toBeInTheDocument()
   })
 
   test('toggling "Show all plants" checkbox changes visibility', async () => {
@@ -70,22 +78,21 @@ describe('pages/BulkWeightMeasurement', () => {
     )
 
     renderPage()
+    // Wait for data to load
+    expect(await screen.findByText(/Needs Weighing/i)).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText(/Full Water/i)).not.toBeInTheDocument())
 
-    // Initially showAll = false -> only Needs Weighing
-    expect(await screen.findByText('Needs Weighing')).toBeInTheDocument()
-    expect(screen.queryByText('Full Water')).not.toBeInTheDocument()
-
-    // Toggle "Show all plants"
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
+    // Toggle "Show all plants" checkbox
+    const checkbox = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(checkbox)
 
     // Now both should be visible
     expect(await screen.findByText('Full Water')).toBeInTheDocument()
     expect(screen.getByText('Needs Weighing')).toBeInTheDocument()
 
     // Toggle back
-    fireEvent.click(toggle)
-    expect(screen.queryByText('Full Water')).not.toBeInTheDocument()
+    fireEvent.click(checkbox)
+    await waitFor(() => expect(screen.queryByText('Full Water')).not.toBeInTheDocument())
     expect(screen.getByText('Needs Weighing')).toBeInTheDocument()
   })
 
@@ -139,17 +146,17 @@ describe('pages/BulkWeightMeasurement', () => {
     fireEvent.click(input)
     fireEvent.change(input, { target: { value: '101' } })
     fireEvent.blur(input)
-    expect(await within(row).findByText(/37%/)).toBeInTheDocument()
+    await waitFor(() => expect(within(row).queryByText(/37%/)).toBeInTheDocument())
   })
 
   test('shows error when plants API fails', async () => {
     server.use(
-      http.get('/api/plants', () =>
+      http.get('/api/plants/uuids', () =>
         HttpResponse.json({ message: 'failed to load plants' }, { status: 500 }),
       ),
     )
     renderPage()
-    expect(await screen.findByText(/failed to load plants/i)).toBeInTheDocument()
+    expect(await screen.findByText(/failed to initialize plant lists/i)).toBeInTheDocument()
   })
 
   test('clicking plant name navigates using handleView', async () => {
