@@ -222,7 +222,7 @@ test-fe:
 		cd /tmp/fe && \
 		rm -rf node_modules && \
 		ln -s /app/node_modules node_modules && \
-		npm run test:unit:coverage && \
+		npm run test:unit:coverage -- --bail 1 && \
 		cp -r coverage /app/"
 		$(WORKFLOW_HINT)
 

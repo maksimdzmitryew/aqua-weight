@@ -46,7 +46,9 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
+  default: ({ value, empty = '—' }) => (
+    <span data-testid="datetime-text">{value ?? empty}</span>
+  ),
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({
@@ -565,12 +567,12 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
       max_water_retained: [
         {
           id: 'm0',
-          measured_at: null,
-          water_added_g: undefined,
-          last_wet_weight_g: undefined,
+          measured_at: undefined,
+          water_added_g: null,
+          last_wet_weight_g: null,
           target_weight_g: 150,
-          under_g: undefined,
-          under_pct: undefined,
+          under_g: null,
+          under_pct: null,
         },
       ],
     },

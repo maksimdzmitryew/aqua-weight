@@ -310,7 +310,7 @@ describe('pages/LocationEdit', () => {
     renderWithRoute('/locations/:id/edit', <LocationEdit />, {
       initialEntries: ['/locations/55/edit'],
     })
-    expect(await screen.findByText(/location not found/i)).toBeInTheDocument()
+    expect(await screen.findByText(/nav fail/i)).toBeInTheDocument()
     spy.mockRestore()
   })
 

@@ -26,10 +26,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    const allTab = await screen.findByRole('button', { name: /all/i })
-    fireEvent.click(allTab)
+    const checkbox = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(checkbox)
     // Wait for the "All" tab content to load
-    await screen.findByText(/Showing all plants; some might not need attention/i)
+    await screen.findByText(/Showing all plants; those above threshold are deemphasized/i)
   }
 
   test('committing vacation watering succeeds and updates plant state', async () => {
@@ -251,8 +251,8 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     // This exercises line 157 and 206
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'u1', name: 'Aloe' },
-        { uuid: 'u2', name: 'Other' },
+        { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+        { uuid: 'u2', name: 'Other', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
       http.post('/api/measurements/vacation/watering', () =>
@@ -310,10 +310,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ),
     ).toBeInTheDocument()
 
-    const allTab = await screen.findByRole('button', { name: /all/i })
-    fireEvent.click(allTab)
+    const checkbox = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(checkbox)
     expect(
-      await screen.findByText(/Showing all plants; some might not need attention/i),
+      await screen.findByText(/Showing all plants; those above threshold are deemphasized/i),
     ).toBeInTheDocument()
 
     // Switch to manual mode

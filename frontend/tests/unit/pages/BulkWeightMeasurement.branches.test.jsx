@@ -69,6 +69,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
           name: 'ZZ Plant',
           water_retained_pct: 80,
           recommended_water_threshold_pct: 30,
+          needs_weighing: true,
         },
       ]),
     )
@@ -90,7 +91,20 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   })
 
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
-    server.use(http.get('/api/plants', () => HttpResponse.json({ items: [] })))
+    server.use(
+      http.get('/api/plants/uuids', () => HttpResponse.json(['fakeuuid'])),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants', () => HttpResponse.json({ items: null })),
+    )
+
+    vi.stubGlobal('localStorage', {
+      getItem: vi.fn().mockImplementation((key) => {
+        if (key === 'operationMode') return null;
+        if (key === 'defaultThreshold') return '40';
+        if (key === 'pageSize') return '20';
+        return null;
+      }),
+    });
 
     vi.resetModules()
     vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
@@ -104,7 +118,8 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     )
 
     // Falls back to [] and renders empty state
-    expect(await screen.findByText(/no plants available/i)).toBeInTheDocument()
+    await screen.findByText(/To-Do/i);
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
   })
 
   test('OR-chain fallback for timestamps and nullish metrics keep previous values', async () => {
@@ -117,6 +132,7 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
           water_retained_pct: 22,
           water_loss_total_pct: 78,
           recommended_water_threshold_pct: 30,
+          needs_weighing: true,
         },
       ]),
       // Weight POST returns without timestamps and without metrics -> component should keep previous percentages

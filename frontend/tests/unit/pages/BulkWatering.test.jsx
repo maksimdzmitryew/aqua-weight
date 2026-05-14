@@ -111,15 +111,6 @@ describe.sequential('pages/BulkWatering', () => {
     try {
       // Mock plants and approximations
       server.use(
-        ...paginatedPlantsHandler([
-          { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-          {
-            uuid: 'u2',
-            name: 'Monstera',
-            water_retained_pct: 50,
-            recommended_water_threshold_pct: 30,
-          },
-        ]),
         http.get('/api/measurements/approximation/watering', () =>
           HttpResponse.json({
             items: [
@@ -128,6 +119,15 @@ describe.sequential('pages/BulkWatering', () => {
             ],
           }),
         ),
+          ...paginatedPlantsHandler([
+          { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+          {
+            uuid: 'u2',
+            name: 'Monstera',
+            water_retained_pct: 50,
+            recommended_water_threshold_pct: 30,
+          },
+        ]),
       )
 
       renderPage()
@@ -354,6 +354,10 @@ describe.sequential('pages/BulkWatering', () => {
   test('manual mode: deleting watering reverts plant data (Line 164)', async () => {
     localStorage.setItem('operationMode', 'manual')
     try {
+      server.use(
+        http.get('/api/measurements/approximation/watering', () => HttpResponse.json([])),
+        http.get('/api/measurements/approximation', () => HttpResponse.json([]))
+      )
       renderPage()
       const row = (await screen.findByText('Aloe')).closest('tr')
       const input = within(row).getByRole('spinbutton')
@@ -575,6 +579,8 @@ describe.sequential('pages/BulkWatering', () => {
     // First let POST create with metrics 40/60 as per default handler
     // Then make PUT omit both water_retained_pct and water_loss_total_pct
     server.use(
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/measurements/approximation', () => HttpResponse.json({ items: [] })),
       http.put('/api/measurements/watering/:id', async ({ request, params }) => {
         const payload = await request.json()
         return HttpResponse.json({

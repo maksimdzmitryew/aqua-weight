@@ -206,7 +206,7 @@ describe('pages/PlantEdit', () => {
     }
     let called = false
     server.use(
-      http.put('/api/plants/:uuid', async ({ params, request }) => {
+      http.patch('/api/plants/:uuid', async ({ params, request }) => {
         expect(params.uuid).toBe('u1')
         const body = await request.json()
         expect(body.name).toBe('New')
@@ -232,7 +232,7 @@ describe('pages/PlantEdit', () => {
     }
     let seen
     server.use(
-      http.put('/api/plants/:uuid', async ({ request }) => {
+      http.patch('/api/plants/:uuid', async ({ request }) => {
         seen = await request.json()
         return HttpResponse.json({ ok: true })
       }),
@@ -535,7 +535,7 @@ describe('pages/PlantEdit', () => {
     }
     let body
     server.use(
-      http.put('/api/plants/:uuid', async ({ request }) => {
+      http.patch('/api/plants/:uuid', async ({ request }) => {
         body = await request.json()
         return HttpResponse.json({ ok: true })
       }),
@@ -554,7 +554,7 @@ describe('pages/PlantEdit', () => {
     }
     let body
     server.use(
-      http.put('/api/plants/:uuid', async ({ request }) => {
+      http.patch('/api/plants/:uuid', async ({ request }) => {
         body = await request.json()
         return HttpResponse.json({ ok: true })
       }),
@@ -577,7 +577,10 @@ describe('pages/PlantEdit', () => {
       throw new Error('')
     })
     const init = { pathname: '/plants/u8/edit', state: { plant: { uuid: 'u8', name: 'Err' } } }
-    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    server.use(
+      http.get('/api/plants/:uuid', ({ params }) => HttpResponse.json({ uuid: params.uuid, name: 'Err' })),
+      http.get('/api/locations', () => HttpResponse.json([]))
+    )
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
     expect(await screen.findByText(/failed to save/i)).toBeInTheDocument()
@@ -771,7 +774,7 @@ describe('pages/PlantEdit', () => {
 
     // coverage for lines 221-226: API error detail array
     server.use(
-      http.put('/api/plants/:uuid', () =>
+      http.patch('/api/plants/:uuid', () =>
         HttpResponse.json(
           {
             detail: [
@@ -795,7 +798,7 @@ describe('pages/PlantEdit', () => {
 
     // Test for 'Invalid value' fallback
     server.use(
-      http.put('/api/plants/:uuid', () =>
+      http.patch('/api/plants/:uuid', () =>
         HttpResponse.json(
           {
             detail: [
@@ -811,7 +814,7 @@ describe('pages/PlantEdit', () => {
 
     // coverage for lines 228-229: API error detail string
     server.use(
-      http.put('/api/plants/:uuid', () =>
+      http.patch('/api/plants/:uuid', () =>
         HttpResponse.json({ detail: 'Generic Error' }, { status: 400 }),
       ),
     )

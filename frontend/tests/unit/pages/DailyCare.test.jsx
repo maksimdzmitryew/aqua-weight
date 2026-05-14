@@ -340,15 +340,15 @@ test('missing approximation data results in no tasks', async () => {
 
 test('missing latest_at results in no measurement icon and potentially needs water from approximation', async () => {
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
-    ...paginatedPlantsHandler([
-      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false },
-    ]),
     http.get('/api/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'm1', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
     ),
+    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    ...paginatedPlantsHandler([
+      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false },
+    ]),
   )
   renderPage('vacation')
   await screen.findByRole('table', {}, { timeout: 10000 })
@@ -361,6 +361,14 @@ test('missing latest_at results in no measurement icon and potentially needs wat
 test('fallback rendering: water task from approximation and name/notes/location fallbacks', async () => {
   // One plant: has identify_hint and only measurement due; another: no names to force em-dash and reason fallback
   server.use(
+    http.get('/api/measurements/approximation/watering', () =>
+      HttpResponse.json({
+        items: [
+          { plant_uuid: 'p1', days_offset: 0, virtual_water_retained_pct: 5 },
+          { plant_uuid: 'p2', days_offset: 0, virtual_water_retained_pct: 5 },
+        ],
+      }),
+    ),
     http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       {
@@ -381,14 +389,6 @@ test('fallback rendering: water task from approximation and name/notes/location 
         needs_weighing: false,
       },
     ]),
-    http.get('/api/measurements/approximation/watering', () =>
-      HttpResponse.json({
-        items: [
-          { plant_uuid: 'p1', days_offset: 0, virtual_water_retained_pct: 5 },
-          { plant_uuid: 'p2', days_offset: 0, virtual_water_retained_pct: 5 },
-        ],
-      }),
-    ),
   )
   renderPage('vacation')
   const table = await screen.findByRole('table', {}, { timeout: 10000 })

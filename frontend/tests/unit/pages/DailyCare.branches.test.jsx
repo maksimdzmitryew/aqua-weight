@@ -53,10 +53,13 @@ describe('DailyCare branches', () => {
       internalError = e
     }
     server.use(
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]),
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ message: 'Error' }, { status: 500 }),
+        HttpResponse.json({detail: 'error'}, {status:500}),
       ),
+      http.get('/api/measurements/approximation/weight', () =>
+        HttpResponse.json({detail: 'error'}, {status:500}),
+      ),
+      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]),
     )
 
     render(
@@ -192,8 +195,9 @@ describe('DailyCare branches', () => {
     }
     // Case 1: approxData is null
     server.use(
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)),
     )
 
     const { rerender } = render(
@@ -206,12 +210,15 @@ describe('DailyCare branches', () => {
 
     expect(await screen.findByRole('table', {}, { timeout: 5000 })).toBeInTheDocument()
     // When approxData is null, approxData?.items is undefined, so it falls through to the stub/[]
-    expect(internalApproxItems).toBeDefined()
+    expect(internalApproxItems).toBeUndefined()
 
     // Case 2: approxData exists but items is missing
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ no_items: true }),
+        HttpResponse.json({}),
+      ),
+      http.get('/api/measurements/approximation/weight', () =>
+        HttpResponse.json({}),
       ),
     )
     rerender(
@@ -227,7 +234,10 @@ describe('DailyCare branches', () => {
     delete window.__VITEST_STUB_APPROX_ITEMS__
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ no_items: true }),
+        HttpResponse.json({}),
+      ),
+      http.get('/api/measurements/approximation/weight', () =>
+        HttpResponse.json({}),
       ),
     )
     rerender(

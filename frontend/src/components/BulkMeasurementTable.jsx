@@ -284,7 +284,7 @@ export default function BulkMeasurementTable({
             {operationMode === 'vacation' ? (
               '—'
             ) : (
-              <DateTimeText value={p.latest_at || p.measured_at} />
+              <DateTimeText value={p.latest_at || p.measured_at} title={p.latest_at || p.measured_at} />
             )}
           </td>
         )}

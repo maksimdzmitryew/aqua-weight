@@ -129,7 +129,7 @@ export default function BulkWatering() {
         const response = await apiClient.get(url)
         setPlants(Array.isArray(response?.items) ? response.items : [])
       } catch (err) {
-        setError('Failed to load plants')
+        setError(err.body?.message || err.message || err.detail || 'Failed to load plants')
       } finally {
         setLoading(false)
       }
@@ -237,12 +237,15 @@ export default function BulkWatering() {
       }
 
       // Update progress buffer
+      const currentPlant = plants.find(p => p.uuid === plantId);
+      const prevMetrics = progressBuffer[plantId] ?? currentPlant ?? {};
+      const now = wateringTime.getCommitDateTime();
       const updatedData = {
         current_weight: numeric,
-        water_loss_total_pct: data?.water_loss_total_pct,
-        water_retained_pct: data?.water_retained_pct,
-        latest_at: data?.latest_at || data?.measured_at || wateringTime.getCommitDateTime(),
-        measured_at: data?.measured_at,
+        water_loss_total_pct: data?.water_loss_total_pct ?? prevMetrics.water_loss_total_pct,
+        water_retained_pct: data?.water_retained_pct ?? prevMetrics.water_retained_pct,
+        latest_at: data?.latest_at ?? data?.measured_at ?? now,
+        measured_at: data?.measured_at ?? now,
       }
 
       setProgressBuffer((prev) => ({
@@ -359,7 +362,7 @@ export default function BulkWatering() {
 
       // Refresh approximations
       try {
-        const approxData = await apiClient.get('/measurements/approximation')
+        const approxData = await apiClient.get('/measurements/approximation/watering')
         const approxItems = approxData?.items || []
         const approxMap = approxItems.reduce((acc, item) => {
           acc[item.plant_uuid] = item
