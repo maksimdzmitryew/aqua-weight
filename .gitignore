@@ -8,6 +8,7 @@ Thumbs.db
 *.swp
 *.swo
 .ai
+.claude/
 
 # Python
 __pycache__/

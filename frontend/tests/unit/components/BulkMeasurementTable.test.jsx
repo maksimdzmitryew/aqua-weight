@@ -390,4 +390,48 @@ describe('BulkMeasurementTable', () => {
     const dateSpan = screen.getByText(/\(-1d\)/).parentElement
     expect(dateSpan?.style.background).toBe('rgb(254, 202, 202)')
   })
+
+
+
+  test('supports Tab key navigation between weight input fields', () => {
+    const plants = [
+      makePlant({ uuid: 'p1', name: 'Plant 1' }),
+      makePlant({ uuid: 'p2', name: 'Plant 2' }),
+      makePlant({ uuid: 'p3', name: 'Plant 3' }),
+    ];
+    const onCommitValue = vi.fn();
+    render(React.createElement(BulkMeasurementTable, {
+      plants,
+      inputStatus: {},
+      onCommitValue
+    }));
+
+    const inputs = screen.getAllByRole('spinbutton');
+    expect(inputs).toHaveLength(3);
+
+    // Tab from 0 to 1
+    fireEvent.focus(inputs[0]);
+    fireEvent.keyDown(inputs[0], { key: 'Tab' });
+    expect(inputs[1]).toHaveFocus();
+
+    // Tab from 1 to 2
+    fireEvent.keyDown(inputs[1], { key: 'Tab' });
+    expect(inputs[2]).toHaveFocus();
+
+    // Tab from 2 stays
+    fireEvent.keyDown(inputs[2], { key: 'Tab' });
+    expect(inputs[2]).toHaveFocus();
+
+    // ShiftTab from 2 to 1
+    fireEvent.keyDown(inputs[2], { key: 'Tab', shiftKey: true });
+    expect(inputs[1]).toHaveFocus();
+
+    // ShiftTab from 1 to 0
+    fireEvent.keyDown(inputs[1], { key: 'Tab', shiftKey: true });
+    expect(inputs[0]).toHaveFocus();
+
+    // ShiftTab from 0 stays
+    fireEvent.keyDown(inputs[0], { key: 'Tab', shiftKey: true });
+    expect(inputs[0]).toHaveFocus();
+  })
 })
