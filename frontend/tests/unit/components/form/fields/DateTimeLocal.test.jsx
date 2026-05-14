@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '../../../../../src/ThemeContext.jsx'
 import DateTimeLocal from '../../../../../src/components/form/fields/DateTimeLocal.jsx'
@@ -9,8 +9,8 @@ function Wrapper({ children }) {
   return <ThemeProvider>{children}</ThemeProvider>
 }
 
-function FormWithDate({ validators = [], disabled = false, requiredProp = false }) {
-  const form = useForm({ dt: '' })
+function FormWithDate({ initialValue = '', validators = [], disabled = false, requiredProp = false }) {
+  const form = useForm({ dt: initialValue })
   return (
     <form>
       <DateTimeLocal
@@ -100,5 +100,35 @@ describe('DateTimeLocal field', () => {
     expect(input).toHaveStyle({ border: '1px solid crimson' })
 
     window.localStorage.removeItem('theme')
+  })
+
+  test('truncates fractional seconds in input display and preserves on change', async () => {
+    render(
+      <Wrapper>
+        <FormWithDate initialValue="2024-05-15T12:34.123" />
+      </Wrapper>,
+    )
+
+    const input = screen.getByLabelText(/date & time/i)
+    expect(input).toHaveValue('2024-05-15T12:34')
+
+    fireEvent.change(input, { target: { value: '2024-05-15T12:35' } })
+
+    expect(input).toHaveValue('2024-05-15T12:35')
+  })
+
+  test('handles change without fractional seconds in previous value', async () => {
+    render(
+      <Wrapper>
+        <FormWithDate initialValue="2024-05-15T12:34" />
+      </Wrapper>,
+    )
+
+    const input = screen.getByLabelText(/date & time/i)
+    expect(input).toHaveValue('2024-05-15T12:34')
+
+    fireEvent.change(input, { target: { value: '2024-05-15T12:35' } })
+
+    expect(input).toHaveValue('2024-05-15T12:35')
   })
 })
