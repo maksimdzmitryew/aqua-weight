@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import DailyCare from '../../../src/pages/DailyCare.jsx'
@@ -8,6 +8,33 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
+
+vi.mock('../../../src/components/PageHeader.jsx', () => ({
+  default: ({ onBack, onRefresh, title, actions }) => (
+    <div data-testid="mock-page-header">
+      <h1>{title}</h1>
+      <button onClick={onBack}>Dashboard</button>
+      {onRefresh && <button onClick={onRefresh}>Refresh</button>}
+      {actions}
+    </div>
+  ),
+}))
+
+vi.mock('../../../src/components/feedback/Loader.jsx', () => ({
+  default: ({ message }) => (
+    <div role="status" data-testid="loader">
+      {message || 'Loading...'}
+    </div>
+  ),
+}))
+
+vi.mock('../../../src/components/feedback/ErrorNotice.jsx', () => ({
+  default: ({ message }) => (
+    <div role="alert" data-testid="error-notice">
+      {message}
+    </div>
+  ),
+}))
 
 describe('DailyCare hoursSinceLocal', () => {
   test('hoursSinceLocal coverage', () => {
@@ -377,3 +404,90 @@ describe('DailyCare branches', () => {
     })
   })
 })
+
+describe('DailyCare load and aria-label branches', () => {
+  test('successful approximation reload covers line 142 and needsWater false (line 231 false)', async () => {
+    server.use(
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: null }),
+      ),
+      http.get('/api/measurements/approximation/weight', () =>
+        HttpResponse.json({ items: null }),
+      ),
+      ...paginatedPlantsHandler([{
+        uuid: 'p1',
+        name: 'Plant 1',
+        needs_weighing: true,
+        water_retained_pct: 60,
+        recommended_water_threshold_pct: 40,
+      }]),
+    );
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <DailyCare />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+
+    await screen.findByRole('table', {}, { timeout: 5000 });
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    fireEvent.click(refreshButton);
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+
+    expect(screen.queryByTestId('error-notice')).not.toBeInTheDocument();
+  });
+
+  test('needsWater true branch for line 231', async () => {
+
+    server.use(
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ 
+          items: [{
+            plant_uuid: 'p1',
+            days_offset: -1
+          }] 
+        }),
+      ),
+      http.get('/api/measurements/approximation/weight', () =>
+        HttpResponse.json({ items: null }),
+      ),
+      ...paginatedPlantsHandler([{
+        uuid: 'p1',
+        name: 'Plant 1',
+        needs_weighing: true
+      }]),
+    );
+
+    render(
+      <ThemeProvider>
+        <MemoryRouter>
+          <DailyCare />
+        </MemoryRouter>
+      </ThemeProvider>,
+    );
+
+    await screen.findByRole('table', {}, { timeout: 5000 });
+
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
+    fireEvent.click(refreshButton);
+
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+      },
+      { timeout: 3000 },
+    );
+
+    expect(screen.getAllByRole('row')).toHaveLength(2);
+
+  });
+});

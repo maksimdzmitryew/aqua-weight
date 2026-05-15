@@ -216,7 +216,7 @@ fe-dev:
 test-fe:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "\
 		mkdir -p /tmp/fe && \
 		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
 		cd /tmp/fe && \
