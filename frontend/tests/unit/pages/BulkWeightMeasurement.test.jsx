@@ -29,7 +29,7 @@ vi.mock('../../../src/components/feedback/EmptyState.jsx', () => ({
   ),
 }))
 
-function renderPage(mode = null) {
+function renderPage(mode = null, initialEntries = ['/'], componentProps = {}) {
   if (mode) {
     localStorage.setItem('operationMode', mode)
   } else {
@@ -37,8 +37,8 @@ function renderPage(mode = null) {
   }
   return render(
     <ThemeProvider>
-      <MemoryRouter>
-        <BulkWeightMeasurement />
+      <MemoryRouter initialEntries={initialEntries}>
+        <BulkWeightMeasurement {...componentProps} />
       </MemoryRouter>
     </ThemeProvider>,
   )
@@ -238,5 +238,200 @@ describe('pages/BulkWeightMeasurement', () => {
     fireEvent.blur(input)
     await waitFor(() => expect(errSpy).toHaveBeenCalled())
     errSpy.mockRestore()
+  })
+
+  test('covers tab switching, page change, limit change and empty messages', async () => {
+    server.use(
+      http.get('/api/plants/uuids', ({ request }) => {
+        const url = new URL(request.url)
+        if (url.searchParams.get('needs_weighing') === 'true') {
+          return HttpResponse.json(['u1', 'u2', 'u3'])
+        } else if (url.searchParams.get('needs_weighing') === 'false') {
+          return HttpResponse.json(['u4'])
+        }
+        return HttpResponse.json(['u1', 'u2', 'u3', 'u4'])
+      }),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [
+            { plant_uuid: 'u1', next_watering_at: '2025-01-01T00:00:00' },
+            { plant_uuid: 'u2', next_watering_at: '2025-01-02T00:00:00' },
+          ],
+        }),
+      ),
+      ...paginatedPlantsHandler([
+        { uuid: 'u1', name: 'Plant 1', needs_weighing: true },
+        { uuid: 'u2', name: 'Plant 2', needs_weighing: true },
+      ]),
+    )
+
+    renderPage()
+
+    // 1. handleTabChange and totalCount (lines 162-163, 169-173)
+    await screen.findByRole('button', { name: /to-do \(3\)/i })
+    
+    const upToDateTab = screen.getByRole('button', { name: /up to date/i })
+    fireEvent.click(upToDateTab)
+    await screen.findByRole('button', { name: /up to date \(1\)/i })
+
+    const allTab = screen.getByRole('button', { name: /all/i })
+    fireEvent.click(allTab)
+    await screen.findByRole('button', { name: /all \(4\)/i })
+
+    // 2. handlePageChange (lines 176-183)
+    // In All tab, we have 4 items, limit 20, but let's force pagination by setting limit small
+    fireEvent.click(screen.getByRole('button', { name: /to-do/i }))
+
+    // 3. handleLimitChange (lines 186-199)
+    // Find the pageSize select and change it
+    const limitSelect = screen.getByLabelText(/per page:/i)
+    fireEvent.change(limitSelect, { target: { value: '10' } })
+    expect(localStorage.getItem('pageSize')).toBe('10')
+
+    // Now test handlePageChange by clicking next page (if available)
+    // With 3 items and limit 10, we don't have next page. Let's use limit 2.
+    fireEvent.change(limitSelect, { target: { value: '2' } })
+    const nextBtn = screen.getByRole('button', { name: /next page/i })
+    fireEvent.click(nextBtn)
+
+    // 4. noPlantsMessage for Done/All (lines 372-374)
+    server.use(
+      http.get('/api/plants/uuids', () => HttpResponse.json([])),
+      ...paginatedPlantsHandler([]),
+    )
+    fireEvent.click(upToDateTab)
+    expect(await screen.findByText(/no plants to show/i)).toBeInTheDocument()
+
+    fireEvent.click(allTab)
+    expect(await screen.findByText(/no plants available/i)).toBeInTheDocument()
+  })
+
+  test('shows error when current page data request fails', async () => {
+    let plantsCalls = 0
+    server.use(
+      http.get('/api/plants/uuids', ({ request }) => {
+        const url = new URL(request.url)
+        if (url.searchParams.get('needs_weighing') === 'true') {
+          return HttpResponse.json(Array.from({ length: 11 }, (_, i) => `u${i + 1}`))
+        }
+        if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
+        return HttpResponse.json(Array.from({ length: 11 }, (_, i) => `u${i + 1}`))
+      }),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants', ({ request }) => {
+        plantsCalls += 1
+        if (plantsCalls >= 2) {
+          return HttpResponse.json({ message: 'forced fail' }, { status: 500 })
+        }
+
+        const url = new URL(request.url)
+        const uuids = (url.searchParams.get('uuids') || '').split(',').filter(Boolean)
+        return HttpResponse.json({
+          items: uuids.map((uuid) => ({ uuid, name: `Plant ${uuid}`, needs_weighing: true })),
+        })
+      }),
+    )
+
+    renderPage(null, ['/?limit=10&page_todo=1'])
+    await screen.findByText('Plant u1')
+    fireEvent.click(screen.getByRole('button', { name: /next page/i }))
+
+    expect(await screen.findByText(/failed to load page data/i)).toBeInTheDocument()
+  })
+
+  test('covers filteredPlants fallback on non-TODO tab before snapshots are ready', async () => {
+    server.use(
+      http.get('/api/plants/uuids', async ({ request }) => {
+        await new Promise((resolve) => setTimeout(resolve, 40))
+        const url = new URL(request.url)
+        if (url.searchParams.get('needs_weighing') === 'true') return HttpResponse.json(['u1'])
+        if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(['u2'])
+        return HttpResponse.json(['u1', 'u2'])
+      }),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants', () =>
+        HttpResponse.json({
+          items: [
+            { uuid: 'u1', name: 'Plant 1', needs_weighing: true },
+            { uuid: 'u2', name: 'Plant 2', needs_weighing: false },
+          ],
+        }),
+      ),
+    )
+
+    renderPage(null, ['/?tab=done'])
+    expect(await screen.findByRole('button', { name: /up to date \(1\)/i })).toBeInTheDocument()
+  })
+
+  test('handlePageChange uses done/all page keys', async () => {
+    const doneUuids = Array.from({ length: 11 }, (_, i) => `d${i + 1}`)
+    const allUuids = [...doneUuids]
+
+    server.use(
+      http.get('/api/plants/uuids', ({ request }) => {
+        const url = new URL(request.url)
+        if (url.searchParams.get('needs_weighing') === 'true') return HttpResponse.json([])
+        if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(doneUuids)
+        return HttpResponse.json(allUuids)
+      }),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants', ({ request }) => {
+        const url = new URL(request.url)
+        const uuids = (url.searchParams.get('uuids') || '').split(',').filter(Boolean)
+        return HttpResponse.json({
+          items: uuids.map((uuid) => ({ uuid, name: `Plant ${uuid}`, needs_weighing: false })),
+        })
+      }),
+    )
+
+    renderPage(null, ['/?tab=done&limit=10&page_done=1&page_all=1'])
+
+    expect(await screen.findByRole('button', { name: /up to date \(11\)/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /next page/i }))
+    expect(await screen.findByRole('button', { name: /page 2/i, current: 'page' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /all/i }))
+    expect(await screen.findByRole('button', { name: /all \(11\)/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /page 1/i, current: 'page' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /next page/i }))
+    expect(await screen.findByRole('button', { name: /page 2/i, current: 'page' })).toBeInTheDocument()
+  })
+
+  test('covers init fallback branches and ALL totalCount branch with injectable client', async () => {
+    const client = {
+      get: vi.fn(async (path) => {
+        if (path.startsWith('/plants/uuids?needs_weighing=true')) return null
+        if (path.startsWith('/plants/uuids?needs_weighing=false')) return null
+        if (path.startsWith('/plants/uuids?operationMode=')) return null
+        if (path === '/measurements/approximation/watering') return null
+        if (path.startsWith('/plants?')) return { items: [] }
+        return null
+      }),
+    }
+
+    renderPage(null, ['/?tab=all'], { client })
+
+    expect(await screen.findByRole('button', { name: /all/i })).toBeInTheDocument()
+    expect(screen.getByText(/no plants available/i)).toBeInTheDocument()
+  })
+
+  test('covers plants.items fallback to empty array for current page response', async () => {
+    server.use(
+      http.get('/api/plants/uuids', ({ request }) => {
+        const url = new URL(request.url)
+        if (url.searchParams.get('needs_weighing') === 'true') return HttpResponse.json(['u1'])
+        if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
+        return HttpResponse.json(['u1'])
+      }),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants', () => HttpResponse.json({})),
+    )
+
+    renderPage(null, ['/?page_todo=1&limit=20'])
+
+    expect(await screen.findByRole('button', { name: /to-do \(1\)/i })).toBeInTheDocument()
+    expect(await screen.findByText(/no plants need weighing/i)).toBeInTheDocument()
+    expect(screen.queryByText('u1')).not.toBeInTheDocument()
   })
 })

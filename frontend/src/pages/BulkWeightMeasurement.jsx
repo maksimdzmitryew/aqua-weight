@@ -16,7 +16,7 @@ const TAB_TODO = 'todo'
 const TAB_DONE = 'done'
 const TAB_ALL = 'all'
 
-export default function BulkWeightMeasurement() {
+export default function BulkWeightMeasurement({ client = apiClient } = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || TAB_TODO
   const pageTodo = parseInt(searchParams.get('page_todo') || '1', 10)
@@ -69,10 +69,10 @@ export default function BulkWeightMeasurement() {
       try {
         setLoading(true)
         const [todo, done, all, approxData] = await Promise.all([
-          apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
-          apiClient.get(`/plants/uuids?needs_weighing=false&${commonParams}`),
-          apiClient.get(`/plants/uuids?${commonParams}`),
-          apiClient.get('/measurements/approximation/watering'),
+          client.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
+          client.get(`/plants/uuids?needs_weighing=false&${commonParams}`),
+          client.get(`/plants/uuids?${commonParams}`),
+          client.get('/measurements/approximation/watering'),
         ])
         setTodoUuids(todo || [])
         setDoneUuids(done || [])
@@ -115,7 +115,7 @@ export default function BulkWeightMeasurement() {
           return
         }
 
-        const response = await apiClient.get(
+        const response = await client.get(
           `/plants?uuids=${pageUuids.join(',')}&limit=${currentLimit}&${commonParams}`,
         )
         setPlants(response.items || [])
@@ -126,7 +126,7 @@ export default function BulkWeightMeasurement() {
       }
     }
     fetchCurrentPage()
-  }, [activeTab, currentPage, todoUuids, doneUuids, allUuids, limit, operationMode])
+  }, [activeTab, currentPage, todoUuids, doneUuids, allUuids, limit, operationMode, client])
 
   // Merge server data with progress buffer
   const displayedPlants = useMemo(() => {
@@ -162,8 +162,8 @@ export default function BulkWeightMeasurement() {
   else if (activeTab === TAB_DONE) totalCount = doneUuids?.length || 0
   else if (activeTab === TAB_ALL) totalCount = allUuids?.length || 0
 
-  const currentLimit = limit
-  const totalPages = Math.ceil(totalCount / currentLimit)
+  const currentLimit = limit || 20
+  const totalPages = Math.ceil(totalCount / currentLimit) || 0
 
   function handleTabChange(tab) {
     setSearchParams((prev) => {
