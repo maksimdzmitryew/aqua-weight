@@ -611,4 +611,108 @@ describe.sequential('pages/BulkWatering', () => {
     await waitFor(() => expect(input.className).toMatch(/bg-success/))
     expect(await screen.findByText(/40%/)).toBeInTheDocument()
   })
+
+  test('fetchCurrentPage handles error (branch coverage for line 132)', async () => {
+    // Test err.detail branch
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ detail: 'Detail Error' }, { status: 500 })),
+    )
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderPage()
+    expect(await screen.findByText('Detail Error')).toBeInTheDocument()
+
+    // Test err.message branch (if body is empty)
+    server.use(
+      http.get('/api/plants', () => new HttpResponse(null, { status: 500 })),
+    )
+    renderPage()
+    expect(await screen.findByText(/500/)).toBeInTheDocument()
+    consoleSpy.mockRestore()
+  })
+
+  test('fetchCurrentPage handles error (branch coverage for line 132 - fallback)', async () => {
+    // Test branch where err.body is null, err.message is null, but err.detail is present
+    server.use(
+      http.get('/api/plants', () => HttpResponse.json({ detail: 'Detail only error' }, { status: 500 })),
+    )
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    renderPage()
+    expect(await screen.findByText('Detail only error')).toBeInTheDocument()
+    consoleSpy.mockRestore()
+  })
+
+  test('handleWateringCommit handles progressBuffer branch (branch coverage for line 241)', async () => {
+    server.use(
+      ...paginatedPlantsHandler([
+        { uuid: 'u1', name: 'Aloe', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
+      ]),
+      http.post('/api/measurements/watering', () =>
+        HttpResponse.json({
+          status: 'success',
+          data: { id: 1001, water_retained_pct: 50, water_loss_total_pct: 10 },
+        }),
+      ),
+      http.put('/api/measurements/watering/1001', () =>
+        HttpResponse.json({
+          status: 'success',
+          data: { id: 1001, water_retained_pct: 60, water_loss_total_pct: 5 },
+        }),
+      ),
+    )
+    renderPage()
+    const input = await screen.findByRole('spinbutton')
+    
+    // First commit sets progressBuffer['u1']
+    fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(screen.getByText(/50%/)).toBeInTheDocument())
+
+    // Second commit should use progressBuffer['u1'] as prevMetrics
+    fireEvent.click(input)
+    fireEvent.change(input, { target: { value: '110' } })
+    fireEvent.blur(input)
+    await waitFor(() => expect(screen.getByText(/60%/)).toBeInTheDocument())
+  })
 })
+
+describe('pagination', () => {
+  const generatePlants = (count, retainedPct = 20) => 
+    Array.from({length: count}, (_, i) => ({
+      uuid: `p${i}`,
+      name: `Plant ${i + 1}`,
+      water_retained_pct: retainedPct,
+      recommended_water_threshold_pct: 30,
+    }));
+
+  test('page change on To-Do tab', async () => {
+    server.use(...paginatedPlantsHandler(generatePlants(25)));
+    renderPage();
+    await screen.findByText('Plant 1');
+    fireEvent.click(screen.getByRole('button', { name: /page 2/i }));
+  });
+
+  test('page change on Up to Date tab', async () => {
+    server.use(...paginatedPlantsHandler(generatePlants(25, 50)));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /up to date/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /page 2/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /page 2/i }));
+  });
+
+  test('page change on All tab', async () => {
+    server.use(...paginatedPlantsHandler(generatePlants(25)));
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: /all/i }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /page 2/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /page 2/i }));
+  });
+
+  test('limit change', async () => {
+    server.use(...paginatedPlantsHandler(generatePlants(15)));
+    renderPage();
+    await screen.findByText('Plant 1');
+    const select = screen.getByRole('combobox');
+    fireEvent.change(select, { target: { value: '20' } });
+    expect(localStorage.getItem('pageSize')).toBe('20');
+  });
+});

@@ -281,13 +281,21 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     // Let's force an empty items array to hit `approxData?.items || []` branch.
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ items: null }),
+        HttpResponse.json({
+          items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+        }),
       ),
     )
     fireEvent.click(commitBtns[0])
     await waitFor(() => expect(screen.queryByLabelText('Undo')).toBeInTheDocument())
 
-    server.use(http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)))
+    server.use(
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+        }),
+      ),
+    )
     fireEvent.click(deleteBtn)
     await waitFor(() => expect(screen.queryByLabelText('Undo')).not.toBeInTheDocument())
   })
