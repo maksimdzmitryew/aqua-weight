@@ -11,7 +11,11 @@ import { measurementsApi } from '../../../src/api/measurements'
 import { plantsApi } from '../../../src/api/plants'
 
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
-  default: ({ children }) => <div data-testid="mock-dashboard-layout">{children}</div>,
+  default: ({ title, children }) => (
+    <div data-testid="mock-dashboard-layout" data-title={title}>
+      {children}
+    </div>
+  ),
 }))
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
@@ -65,6 +69,10 @@ describe('pages/PlantDetails', () => {
     }
     renderWithRoute([init])
 
+    // Verify title when no identify_hint (covers falsy branch at line 116)
+    const layout = await screen.findByTestId('mock-dashboard-layout')
+    expect(layout).toHaveAttribute('data-title', 'Aloe')
+
     // Wait for Edit action and click it
     const editBtn = await screen.findByRole('button', { name: /edit/i })
     fireEvent.click(editBtn)
@@ -72,6 +80,26 @@ describe('pages/PlantDetails', () => {
       '/plants/u1/edit',
       expect.objectContaining({ state: expect.any(Object) }),
     )
+  })
+
+  test('builds browser title from identify_hint and name when identify_hint exists', async () => {
+    const init = {
+      pathname: '/plants/uTitle',
+      state: {
+        plant: {
+          uuid: 'uTitle',
+          id: 2,
+          identify_hint: 'Living room',
+          name: 'Aloe',
+          created_at: '2025-01-01T00:00:00',
+        },
+      },
+    }
+
+    renderWithRoute([init])
+
+    const layout = await screen.findByTestId('mock-dashboard-layout')
+    expect(layout).toHaveAttribute('data-title', 'Living room Aloe')
   })
 
   test('loads plant by uuid via API when no state and handles error', async () => {
@@ -105,6 +133,16 @@ describe('pages/PlantDetails', () => {
       ),
     )
     renderWithRoute(['/plants/err404'])
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
+  })
+
+  test('navigates to 404 on 400 invalid plant id error', async () => {
+    server.use(
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({ detail: 'Invalid plant id' }, { status: 400 }),
+      ),
+    )
+    renderWithRoute(['/plants/invalid400'])
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
   })
 

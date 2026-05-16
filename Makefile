@@ -149,27 +149,27 @@ test-ps:
 .PHONY: test-be
 test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
+	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
 	$(WORKFLOW_HINT)
 
 .PHONY: test-full
 test-full:
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest
+	docker compose -f $(TEST_COMPOSE) exec runner pytest
 
 .PHONY: test-cov
 test-cov:
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q --cov=app --cov-report=term-missing
+	docker compose -f $(TEST_COMPOSE) exec runner pytest -q --cov=app --cov-report=term-missing
 
 # --- E2E ---
 .PHONY: e2e-deps
 e2e-deps:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
 
 .PHONY: test-e2e
 test-e2e:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
 	$(WORKFLOW_HINT)
 
 .PHONY: test-e2e-ci-wait
@@ -201,7 +201,7 @@ test-e2e-ci-wait:
 .PHONY: e2e-headed
 e2e-headed:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
 
 .PHONY: e2e-report
 e2e-report:
@@ -264,7 +264,7 @@ fe-fix: ## Run all frontend auto-fixes
 .PHONY: cicd-fe
 cicd-fe:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files frontend)
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files frontend)
 	$(WORKFLOW_HINT)
 
 # --- Utility ---
@@ -277,27 +277,27 @@ certs:
 .PHONY: be-lint
 be-lint:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend/app"
 
 .PHONY: be-lint-fix
 be-lint-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check --fix backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend/app"
 
 .PHONY: be-fmt
 be-fmt:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black --check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend/app"
 
 .PHONY: be-fmt-fix
 be-fmt-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend/app"
 
 .PHONY: be-mypy
 be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "mypy backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend/app"
 
 .PHONY: be-fix
 be-fix: ## Run all frontend auto-fixes
@@ -309,7 +309,7 @@ be-fix: ## Run all frontend auto-fixes
 .PHONY: be-pre-commit
 be-pre-commit:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "printf '%s\\n' \
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "printf '%s\\n' \
 	  'repos:' \
 	  '  - repo: https://github.com/pre-commit/pre-commit-hooks' \
 	  '    rev: v4.6.0' \
@@ -324,19 +324,19 @@ be-pre-commit:
 	  '        types_or: [python]' \
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
 
 .PHONY: all-cicd
 al-cicd:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --all-files
 	$(WORKFLOW_HINT)
 
 
 .PHONY: cicd-be
 cicd-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files backend)
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files backend)
 	$(WORKFLOW_HINT)
 
 .PHONY: install-hooks
