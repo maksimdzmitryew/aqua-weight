@@ -5,6 +5,11 @@ import {
   nowLocalISOMinutes,
   toLocalISOMinutes,
   formatDayMonth,
+  formatShortDateTime,
+  formatDateTimeWithSeconds,
+  nowLocalISOSeconds,
+  nowLocalISOFull,
+  toLocalISOFull,
 } from '../../../src/utils/datetime.js'
 
 describe('utils/datetime', () => {
@@ -215,6 +220,102 @@ describe('utils/datetime', () => {
     vi.stubGlobal('localStorage', undefined)
     try {
       expect(formatDayMonth('2024-01-02 03:04')).toBe('02/01')
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  test('formatShortDateTime formats correctly and handles errors (lines 65-66)', () => {
+    // Europe preference
+    window.localStorage.setItem('dtFormat', 'europe')
+    const s1 = formatShortDateTime('2024-01-02 03:04')
+    expect(s1).toMatch(/02\/01/)
+
+    // US preference
+    window.localStorage.setItem('dtFormat', 'us')
+    const s2 = formatShortDateTime('2024-01-02 03:04')
+    expect(s2).toMatch(/01\/02/)
+
+    // Null input early return
+    expect(formatShortDateTime(null)).toBe('')
+
+    // Catch block (lines 65-66)
+    const original = Date.prototype.toLocaleString
+    // @ts-ignore
+    Date.prototype.toLocaleString = function () {
+      throw new Error('short-boom')
+    }
+    try {
+      expect(formatShortDateTime('2024-01-02 03:04')).toBe('2024-01-02 03:04')
+    } finally {
+      Date.prototype.toLocaleString = original
+    }
+  })
+
+  test('formatDateTimeWithSeconds formats correctly and handles errors', () => {
+    // Europe preference
+    window.localStorage.setItem('dtFormat', 'europe')
+    const s1 = formatDateTimeWithSeconds('2024-01-02 03:04:05', true)
+    expect(s1).toMatch(/02\/01\/2024/)
+    expect(s1).toMatch(/:05/)
+
+    // Without seconds
+    const s2 = formatDateTimeWithSeconds('2024-01-02 03:04:05', false)
+    expect(s2).not.toMatch(/:05/)
+
+    // Null input
+    expect(formatDateTimeWithSeconds(null)).toBe('')
+
+    // Catch block
+    const original = Date.prototype.toLocaleString
+    // @ts-ignore
+    Date.prototype.toLocaleString = function () {
+      throw new Error('seconds-boom')
+    }
+    try {
+      expect(formatDateTimeWithSeconds('2024-01-02 03:04')).toBe('2024-01-02 03:04')
+    } finally {
+      Date.prototype.toLocaleString = original
+    }
+  })
+
+  test('nowLocalISOSeconds and nowLocalISOFull return correctly formatted strings', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2024-05-06T07:08:09.123Z'))
+
+    const s1 = nowLocalISOSeconds()
+    expect(s1).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+
+    const s2 = nowLocalISOFull()
+    expect(s2).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.123$/)
+  })
+
+  test('toLocalISOFull handles various formats including fractional seconds (lines 175-176)', () => {
+    // Invalid input
+    expect(toLocalISOFull(null)).toBe('')
+
+    // SQL with fractional (line 171)
+    expect(toLocalISOFull('2024-01-02 03:04:05.678')).toMatch(/2024-01-02T03:04:05.678/)
+
+    // ISO with fractional (lines 175-176)
+    expect(toLocalISOFull('2024-01-02T03:04:05.123Z')).toMatch(/\.123$/)
+    expect(toLocalISOFull('2024-01-02T03:04:05.999+02:00')).toMatch(/\.999$/)
+
+    // Regular Date object (line 180)
+    const d = new Date('2024-01-02T03:04:05.456Z')
+    expect(toLocalISOFull(d)).toMatch(/\.456$/)
+
+    // String without fractional
+    expect(toLocalISOFull('2024-01-02 03:04:05')).toMatch(/\.000$/)
+
+    // ISO string without fractional but with Z (should NOT match isoMatch[1] and fallback to .000)
+    expect(toLocalISOFull('2024-01-02T03:04:05Z')).toMatch(/\.000$/)
+  })
+
+  test('formatShortDateTime handles missing localStorage (line 51)', () => {
+    vi.stubGlobal('localStorage', undefined)
+    try {
+      expect(formatShortDateTime('2024-01-02 03:04')).toMatch(/02\/01/)
     } finally {
       vi.unstubAllGlobals()
     }
