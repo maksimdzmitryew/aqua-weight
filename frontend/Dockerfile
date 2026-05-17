@@ -17,7 +17,8 @@ COPY frontend/package.json frontend/package-lock.json ./
 # but for a "solid fix" we might want to do it here eventually.
 
 # Copy source
-COPY frontend .
+#TODO: remove if no flow is broken
+#COPY frontend .
 
 EXPOSE 5173
 

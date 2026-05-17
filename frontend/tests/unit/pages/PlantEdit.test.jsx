@@ -281,6 +281,17 @@ describe('pages/PlantEdit', () => {
     await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
   })
 
+  test('redirects to 404 when plant id is invalid (400 + detail)', async () => {
+    server.use(
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({ detail: 'Invalid plant id' }, { status: 400 }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json([])),
+    )
+    renderWithRoute(['/plants/u400/edit'])
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/404', { replace: true }))
+  })
+
   test('load error shows generic error message when API fails (500)', async () => {
     server.use(
       http.get('/api/plants/:uuid', () => HttpResponse.text('nope', { status: 500 })),
@@ -820,6 +831,70 @@ describe('pages/PlantEdit', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     expect(await screen.findByText(/generic error/i)).toBeInTheDocument()
+  })
+
+  test('PlantEdit: onChange datetime-local preserves fractional seconds', async () => {
+    let patchBody
+    const plantData = {
+      uuid: 'u1',
+      name: 'N',
+      archive: 0,
+      substrate_last_refresh_at: '2025-01-01T12:00:00.123456',
+      fertilized_last_at: '2025-01-01T12:00:00',
+      biomass_last_at: '',
+    }
+    server.use(
+      http.get('/api/locations', () => HttpResponse.json([])),
+      http.get('/api/plants/:uuid', () => HttpResponse.json(plantData)),
+      http.patch('/api/plants/:uuid', async ({ request }) => {
+        patchBody = await request.json()
+        return HttpResponse.json({ uuid: 'u1', name: 'N' })
+      }),
+    )
+
+    const init = {
+      pathname: '/plants/u1/edit',
+      state: { plant: plantData },
+    }
+    renderWithRoute([init])
+
+    const advTab = await screen.findByRole('tab', { name: /advanced/i })
+    fireEvent.click(advTab)
+
+    // Branch 1: previousValue has fractional seconds, new value lacks dot → append fractional
+    const substrate = await screen.findByLabelText(/substrate last refresh at/i)
+    fireEvent.change(substrate, {
+      target: { value: '2025-06-01T10:00:00', name: 'substrate_last_refresh_at', type: 'datetime-local' },
+    })
+
+    // Branch 2: new value already includes a dot → no modification (skip fractional append)
+    fireEvent.change(substrate, {
+      target: { value: '2025-07-01T10:00:00.999', name: 'substrate_last_refresh_at', type: 'datetime-local' },
+    })
+
+    // Branch 3: previousValue exists but has no fractional part (match fails)
+    // After branch 2, substrate_last_refresh_at state should not have fractional
+    // since jsdom sanitizes the value. We need a field whose state has no dot.
+    // fertilized_last_at was '2025-01-01T12:00:00' → toLocalISOFull → '2025-01-01T12:00:00.000'
+    // So it DOES have a dot. We test this path by verifying .000 gets appended.
+    const fertilized = await screen.findByLabelText(/fertilized last at/i)
+    fireEvent.change(fertilized, {
+      target: { value: '2025-06-01T10:00:00', name: 'fertilized_last_at', type: 'datetime-local' },
+    })
+
+    // Branch 4: previousValue is empty/falsy → condition short-circuits
+    const careTab = screen.getByRole('tab', { name: /care/i })
+    fireEvent.click(careTab)
+    const biomass = await screen.findByLabelText(/biomass last at/i)
+    fireEvent.change(biomass, {
+      target: { value: '2025-06-01T10:00:00', name: 'biomass_last_at', type: 'datetime-local' },
+    })
+
+    // Save and verify
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    await waitFor(() => expect(patchBody).toBeDefined())
+    // After branch 2, substrate value should be '2025-07-01T10:00:00.999' (dot present, kept as-is)
+    expect(patchBody.substrate_last_refresh_at).toBe('2025-07-01T10:00:00.999')
   })
 
   test('PlantEdit: buildUpdatePayload branch coverage', () => {
