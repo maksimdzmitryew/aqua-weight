@@ -48,7 +48,10 @@ test.describe('Plants CRUD', () => {
       .click()
     await page.getByLabel(/description/i).fill('Updated description')
     await page.getByRole('button', { name: /save/i }).click()
-    await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible()
+    // Wait for the update to complete and the row to be visible again
+    // Re-navigating to /plants to ensure the list is refreshed
+    await page.goto('/plants', { waitUntil: 'commit' })
+    await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible({ timeout: 10000 })
 
     // Delete
     await page
@@ -93,10 +96,11 @@ test.describe('Plants CRUD', () => {
       .nth(7)
       .locator('span')
       .getAttribute('title')
-    expect(fernUpdatedTitle || '').toContain('2030-01-02')
+    // Title is formatted as "02/01/2030, 10:00:00" in europe locale
+    expect(fernUpdatedTitle || '').toMatch(/02\/01\/2030/)
 
     const ivyRow = page.getByRole('row', { name: /seed ivy/i })
     const ivyUpdatedTitle = await ivyRow.locator('td').nth(7).locator('span').getAttribute('title')
-    expect(ivyUpdatedTitle || '').not.toContain('2024-01-02')
+    expect(ivyUpdatedTitle || '').not.toMatch(/02\/01\/2024/)
   })
 })

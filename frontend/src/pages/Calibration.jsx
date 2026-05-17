@@ -54,6 +54,10 @@ export default function Calibration() {
           typeof it?.last_wet_weight_g === 'number' && typeof it?.target_weight_g === 'number'
         if (!hasNums) continue
         const diff = it.last_wet_weight_g - it.target_weight_g
+        // Pick the entry that is most under-target (most negative diff)
+        // or if all are positive, the one with the biggest overfill?
+        // Usually correction is for under-filling, but if we are correcting overfill
+        // we might want a different logic.
         if (
           minDiffEntry == null ||
           diff < minDiffEntry.last_wet_weight_g - minDiffEntry.target_weight_g
@@ -173,7 +177,13 @@ export default function Calibration() {
             }
             // Apply additional legacy filter: when unchecked, hide rows with 0 under_g
             if (!showOnlyNonZero) {
-              filtered = filtered.filter((it) => it?.under_g !== 0)
+              filtered = filtered.filter((it) => {
+                const hasNums =
+                  typeof it?.target_weight_g === 'number' &&
+                  typeof it?.last_wet_weight_g === 'number'
+                const diff = hasNums ? it.last_wet_weight_g - it.target_weight_g : 0
+                return it?.under_g !== 0 || diff > 0
+              })
             }
             if (showLastWatering && entries.length > 0) {
               const last = entries[0]

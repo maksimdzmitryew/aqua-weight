@@ -47,6 +47,9 @@ export default function BulkWatering() {
   const [doneUuids, setDoneUuids] = useState(null)
   const [allUuids, setAllUuids] = useState(null)
 
+  const pendingRequests = React.useRef({})
+  const abortControllers = React.useRef({})
+
   // Current page data
   const [plants, setPlants] = useState([])
   const [isSnapshotBased, setIsSnapshotBased] = useState(false)
@@ -217,6 +220,26 @@ export default function BulkWatering() {
       return
     }
 
+    const requestId = (pendingRequests.current[plantId] || 0) + 1
+    pendingRequests.current[plantId] = requestId
+
+    // Abort previous request for this plant
+    if (abortControllers.current[plantId]) {
+      abortControllers.current[plantId].abort()
+    }
+    const controller = new AbortController()
+    abortControllers.current[plantId] = controller
+
+    // Optimistic status and buffer update
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
+    setProgressBuffer((prev) => ({
+      ...prev,
+      [plantId]: {
+        ...(prev[plantId] || {}),
+        current_weight: numeric,
+      },
+    }))
+
     try {
       const existingId = measurementIds[plantId]
       const payload = {
@@ -227,9 +250,14 @@ export default function BulkWatering() {
 
       let data
       if (existingId) {
-        data = await measurementsApi.watering.update(existingId, payload)
+        data = await measurementsApi.watering.update(existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.watering.create(payload)
+        data = await measurementsApi.watering.create(payload, controller.signal)
+      }
+
+      // If a newer request has been started for this plant, ignore this response
+      if (pendingRequests.current[plantId] !== requestId) {
+        return
       }
 
       if (data && data.status === 'success' && data.data) {

@@ -109,7 +109,7 @@ export class ApiClient {
           throw new ApiError(detail || `Request failed (HTTP ${res.status})`, {
             status: res.status,
             detail,
-            body: data,
+            body: typeof data === 'object' && data ? data : { detail: data },
           })
         }
         return data

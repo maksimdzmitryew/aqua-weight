@@ -46,18 +46,18 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
   const [todoUuids, setTodoUuids] = useState(null)
   const [doneUuids, setDoneUuids] = useState(null)
   const [allUuids, setAllUuids] = useState(null)
-
-  // Current page data
   const [plants, setPlants] = useState([])
-  const [approximations, setApproximations] = useState({})
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
+  const [approximations, setApproximations] = useState({})
 
   // Session progress buffer (persists across tab switches)
   const [progressBuffer, setProgressBuffer] = useState({})
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
+  const pendingRequests = React.useRef({})
+  const abortControllers = React.useRef({})
 
   const commonParams = `operationMode=${operationMode}&defaultThreshold=${defaultThreshold}`
 
@@ -205,6 +205,27 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
       return
     }
 
+    const requestId = (pendingRequests.current[plantId] || 0) + 1
+    pendingRequests.current[plantId] = requestId
+
+    // Abort previous request for this plant
+    if (abortControllers.current[plantId]) {
+      abortControllers.current[plantId].abort()
+    }
+    const controller = new AbortController()
+    abortControllers.current[plantId] = controller
+
+    // Optimistic status and buffer update
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
+    setProgressBuffer((prev) => ({
+      ...prev,
+      [plantId]: {
+        ...(prev[plantId] || {}),
+        current_weight: numeric,
+        needs_weighing: false,
+      },
+    }))
+
     try {
       const existingId = measurementIds[plantId]
       const payload = {
@@ -215,9 +236,19 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
 
       let data
       if (existingId) {
-        data = await measurementsApi.weight.update(existingId, payload, null, operationMode)
+        data = await measurementsApi.weight.update(
+          existingId,
+          payload,
+          controller.signal,
+          operationMode,
+        )
       } else {
-        data = await measurementsApi.weight.create(payload, null, operationMode)
+        data = await measurementsApi.weight.create(payload, controller.signal, operationMode)
+      }
+
+      // If a newer request has been started for this plant, ignore this response
+      if (pendingRequests.current[plantId] !== requestId) {
+        return
       }
 
       if (data && data.status === 'success' && data.data) {
@@ -231,7 +262,7 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
         water_retained_pct: data?.water_retained_pct,
         latest_at: data?.latest_at || data?.measured_at || wateringTime.getCommitDateTime(),
         measured_at: data?.measured_at,
-        needs_weighing: data?.needs_weighing,
+        needs_weighing: false, // Optimistically clear needs_weighing
       }
 
       setProgressBuffer((prev) => ({

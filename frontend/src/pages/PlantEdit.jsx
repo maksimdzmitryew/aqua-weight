@@ -132,7 +132,8 @@ export default function PlantEdit() {
   useEffect(() => {
     const controller = new AbortController()
     async function load() {
-      if (!initialPlant) setLoading(true)
+      if (initialPlant) return
+      setLoading(true)
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(normalize(data))
@@ -154,7 +155,7 @@ export default function PlantEdit() {
     return () => {
       controller.abort()
     }
-  }, [uuid, initialPlant])
+  }, [uuid, initialPlant, navigate])
 
   useEffect(() => {
     let cancelled = false
@@ -224,8 +225,8 @@ export default function PlantEdit() {
       // Navigate back to list; list will refresh from server
       navigate('/plants')
     } catch (err) {
-      if (err.body && err.body.detail) {
-        const errorData = err.body
+      const errorData = err.body || (err.detail ? { detail: err.detail } : null)
+      if (errorData && errorData.detail) {
         const errors = {}
         if (Array.isArray(errorData.detail)) {
           errorData.detail.forEach((e) => {
