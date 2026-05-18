@@ -131,3 +131,48 @@ async def test_cleanup_truncates_tables(async_client):
         "locations",
     ]:
         assert _count_rows(table) == 0
+
+
+@pytest.mark.anyio
+async def test_test_admin_import_fallback():
+    """Verify the import fallback in test_admin.py (lines 7-8).
+    This covers the case where the module is imported as a top-level module,
+    triggering the fallback to an absolute import.
+    """
+    import sys
+    import importlib
+
+    # Store original state
+    old_path = sys.path[:]
+    # We use the actual file path to find the routes directory
+    routes_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../app/routes"))
+
+    # Ensure it's in sys.path so we can import 'test_admin' directly
+    if routes_dir not in sys.path:
+        sys.path.insert(0, routes_dir)
+
+    # Track what we need to cleanup from sys.modules
+    to_delete = ["test_admin"]
+    original_modules = {name: sys.modules.get(name) for name in to_delete}
+
+    try:
+        for name in to_delete:
+            if name in sys.modules:
+                del sys.modules[name]
+
+        # This import should trigger the ImportError on the relative import line 6
+        # and then successfully use the fallback on line 8.
+        import test_admin
+        importlib.reload(test_admin)
+
+        assert hasattr(test_admin, "connect")
+        assert hasattr(test_admin, "cursor")
+    finally:
+        # Restore sys.path
+        sys.path[:] = old_path
+        # Restore sys.modules
+        for name in to_delete:
+            if original_modules[name] is not None:
+                sys.modules[name] = original_modules[name]
+            elif name in sys.modules:
+                del sys.modules[name]
