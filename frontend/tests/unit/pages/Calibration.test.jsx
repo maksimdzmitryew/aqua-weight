@@ -46,9 +46,7 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value, empty = '—' }) => (
-    <span data-testid="datetime-text">{value ?? empty}</span>
-  ),
+  default: ({ value, empty = '—' }) => <span data-testid="datetime-text">{value ?? empty}</span>,
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({

@@ -236,7 +236,9 @@ export default function BulkWatering() {
       [plantId]: {
         ...(prev[plantId] || {}),
         current_weight: numeric,
-        water_retained_pct: prev[plantId]?.water_retained_pct ?? plants.find((p) => (p.uuid || p.id) === plantId)?.water_retained_pct,
+        water_retained_pct:
+          prev[plantId]?.water_retained_pct ??
+          plants.find((p) => (p.uuid || p.id) === plantId)?.water_retained_pct,
       },
     }))
 
@@ -273,7 +275,8 @@ export default function BulkWatering() {
             ...prevData,
             ...responseData,
             current_weight: numeric,
-            latest_at: responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
+            latest_at:
+              responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
           },
         }

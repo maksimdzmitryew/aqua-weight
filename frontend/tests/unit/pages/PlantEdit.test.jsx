@@ -589,8 +589,10 @@ describe('pages/PlantEdit', () => {
     })
     const init = { pathname: '/plants/u8/edit', state: { plant: { uuid: 'u8', name: 'Err' } } }
     server.use(
-      http.get('/api/plants/:uuid', ({ params }) => HttpResponse.json({ uuid: params.uuid, name: 'Err' })),
-      http.get('/api/locations', () => HttpResponse.json([]))
+      http.get('/api/plants/:uuid', ({ params }) =>
+        HttpResponse.json({ uuid: params.uuid, name: 'Err' }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json([])),
     )
     renderWithRoute([init])
     fireEvent.click(await screen.findByRole('button', { name: /save/i }))
@@ -864,12 +866,20 @@ describe('pages/PlantEdit', () => {
     // Branch 1: previousValue has fractional seconds, new value lacks dot → append fractional
     const substrate = await screen.findByLabelText(/substrate last refresh at/i)
     fireEvent.change(substrate, {
-      target: { value: '2025-06-01T10:00:00', name: 'substrate_last_refresh_at', type: 'datetime-local' },
+      target: {
+        value: '2025-06-01T10:00:00',
+        name: 'substrate_last_refresh_at',
+        type: 'datetime-local',
+      },
     })
 
     // Branch 2: new value already includes a dot → no modification (skip fractional append)
     fireEvent.change(substrate, {
-      target: { value: '2025-07-01T10:00:00.999', name: 'substrate_last_refresh_at', type: 'datetime-local' },
+      target: {
+        value: '2025-07-01T10:00:00.999',
+        name: 'substrate_last_refresh_at',
+        type: 'datetime-local',
+      },
     })
 
     // Branch 3: previousValue exists but has no fractional part (match fails)

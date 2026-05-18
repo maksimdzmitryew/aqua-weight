@@ -36,7 +36,9 @@ describe('pages/Settings', () => {
     expect(screen.getByText('Default threshold must be between 0 and 100.')).toBeInTheDocument()
 
     fireEvent.change(threshold, { target: { value: '50' } })
-    expect(screen.queryByText('Default threshold must be between 0 and 100.')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Default threshold must be between 0 and 100.'),
+    ).not.toBeInTheDocument()
   })
 
   test('items per page selection is applied and persisted on save', async () => {
@@ -52,12 +54,12 @@ describe('pages/Settings', () => {
   test('sets cookies on save', async () => {
     // Mock document.cookie
     const cookieSpy = vi.spyOn(document, 'cookie', 'set')
-    
+
     renderPage()
-    
+
     const operation = screen.getByLabelText(/operation mode/i)
     fireEvent.change(operation, { target: { value: 'vacation' } })
-    
+
     const threshold = screen.getByLabelText(/default watering threshold/i)
     fireEvent.change(threshold, { target: { value: '45' } })
 
@@ -65,14 +67,14 @@ describe('pages/Settings', () => {
 
     expect(cookieSpy).toHaveBeenCalledWith(expect.stringContaining('operationMode=vacation'))
     expect(cookieSpy).toHaveBeenCalledWith(expect.stringContaining('defaultThreshold=45'))
-    
+
     cookieSpy.mockRestore()
   })
 
   test('applies dark theme styles when effective theme is dark', () => {
     window.localStorage.setItem('theme', 'dark')
     renderPage()
-    
+
     const nameInput = screen.getByLabelText(/display name/i)
     expect(nameInput).toHaveStyle({ background: '#111827' })
   })
@@ -80,7 +82,7 @@ describe('pages/Settings', () => {
   test('applies light theme styles when effective theme is light', () => {
     window.localStorage.setItem('theme', 'light')
     renderPage()
-    
+
     const nameInput = screen.getByLabelText(/display name/i)
     expect(nameInput).toHaveStyle({ background: '#ffffff' })
   })

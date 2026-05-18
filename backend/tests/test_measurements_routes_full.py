@@ -72,10 +72,22 @@ class _FakeCursor:
 
             if "limit 1" in sql_norm:
                 # Specialized mocks for common queries to avoid TypeError/AttributeError
-                if "from plants_measurements" in sql_norm and "last_dry_weight_g is not null" in sql_norm:
+                if (
+                    "from plants_measurements" in sql_norm
+                    and "last_dry_weight_g is not null" in sql_norm
+                ):
                     # get_last_repotting_event expects 10 columns
                     self._next_one = (
-                        b"\x66"*16, datetime(2025, 1, 1), 150, 100, None, 50, None, None, None, None
+                        b"\x66" * 16,
+                        datetime(2025, 1, 1),
+                        150,
+                        100,
+                        None,
+                        50,
+                        None,
+                        None,
+                        None,
+                        None,
                     )
                 elif "from plants " in sql_norm and "id = unhex" in sql_norm:
                     # plant info query

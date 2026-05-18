@@ -269,7 +269,7 @@ describe('pages/BulkWeightMeasurement', () => {
 
     // 1. handleTabChange and totalCount (lines 162-163, 169-173)
     await screen.findByRole('button', { name: /to-do \(3\)/i })
-    
+
     const upToDateTab = screen.getByRole('button', { name: /up to date/i })
     fireEvent.click(upToDateTab)
     await screen.findByRole('button', { name: /up to date \(1\)/i })
@@ -388,14 +388,20 @@ describe('pages/BulkWeightMeasurement', () => {
 
     expect(await screen.findByRole('button', { name: /up to date \(11\)/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /next page/i }))
-    expect(await screen.findByRole('button', { name: /page 2/i, current: 'page' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /page 2/i, current: 'page' }),
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /all/i }))
     expect(await screen.findByRole('button', { name: /all \(11\)/i })).toBeInTheDocument()
-    expect(await screen.findByRole('button', { name: /page 1/i, current: 'page' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /page 1/i, current: 'page' }),
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /next page/i }))
-    expect(await screen.findByRole('button', { name: /page 2/i, current: 'page' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /page 2/i, current: 'page' }),
+    ).toBeInTheDocument()
   })
 
   test('covers init fallback branches and ALL totalCount branch with injectable client', async () => {

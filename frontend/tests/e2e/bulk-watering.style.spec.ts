@@ -62,13 +62,13 @@ test.describe('Bulk Watering Styles', () => {
     // Navigate and show all
     await page.goto(`${ORIGIN}/measurements/bulk/watering`)
     await page.waitForLoadState('networkidle')
-    
+
     // Toggle "Show All"
     await page.getByRole('button', { name: /all/i }).click()
 
     // Find the row for Seed Ivy (which is satisfied)
     const satisfiedRow = page.locator('tr').filter({ hasText: /seed ivy/i })
-    
+
     // Ensure the row is visible
     await expect(satisfiedRow).toBeVisible()
 

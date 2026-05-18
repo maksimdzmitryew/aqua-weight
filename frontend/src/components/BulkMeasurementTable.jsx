@@ -111,7 +111,8 @@ export default function BulkMeasurementTable({
                   }`}
                   defaultValue={p.current_weight || ''}
                   onBlur={(e) => {
-                    if (e.target.value && (p.uuid || p.id)) onCommitValue(p.uuid || p.id, e.target.value)
+                    if (e.target.value && (p.uuid || p.id))
+                      onCommitValue(p.uuid || p.id, e.target.value)
                   }}
                 />
                 {mId && onDeleteWatering && (
@@ -284,7 +285,10 @@ export default function BulkMeasurementTable({
             {operationMode === 'vacation' ? (
               '—'
             ) : (
-              <DateTimeText value={p.latest_at || p.measured_at} title={p.latest_at || p.measured_at} />
+              <DateTimeText
+                value={p.latest_at || p.measured_at}
+                title={p.latest_at || p.measured_at}
+              />
             )}
           </td>
         )}

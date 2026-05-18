@@ -79,7 +79,9 @@ class PlantsList:
                     else:
                         threshold = datetime.utcnow() - timedelta(hours=18)
                         if needs_weighing_filter:
-                            query += " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            query += (
+                                " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            )
                         else:
                             query += " AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
                         params.append(threshold)
@@ -368,7 +370,9 @@ class PlantsList:
                     else:
                         threshold = datetime.utcnow() - timedelta(hours=18)
                         if needs_weighing_filter:
-                            query += " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            query += (
+                                " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            )
                         else:
                             query += " AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
                         params.append(threshold)

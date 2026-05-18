@@ -461,9 +461,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
 
   test('useEffect for operationMode from localStorage (lines 76-78 fallback)', async () => {
     localStorage.setItem('operationMode', 'vacation')
-    server.use(
-      http.get('/api/plants/uuids', () => HttpResponse.json(null)),
-    )
+    server.use(http.get('/api/plants/uuids', () => HttpResponse.json(null)))
     render(
       <ThemeProvider>
         <MemoryRouter>
@@ -481,7 +479,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         callCount++
         return HttpResponse.json(['u1'])
       }),
-      http.get('/api/plants', () => HttpResponse.json({ message: 'Body Message' }, { status: 400 })),
+      http.get('/api/plants', () =>
+        HttpResponse.json({ message: 'Body Message' }, { status: 400 }),
+      ),
     )
     render(
       <ThemeProvider>
@@ -527,7 +527,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         callCount++
         return HttpResponse.json(['u1'])
       }),
-      // MSW: returning a response with detail field. 
+      // MSW: returning a response with detail field.
       // ApiClient will set err.message = detail and err.detail = detail.
       http.get('/api/plants', () => HttpResponse.json({ detail: 'Detail Error' }, { status: 400 })),
     )
@@ -547,15 +547,15 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     // To hit the "Failed to load plants" fallback, we need an error object with no body, no message, and no detail.
     const clientModule = await import('../../../src/api/client.js')
     const getSpy = vi.spyOn(clientModule.apiClient, 'get')
-    
+
     // The first few calls (snapshots) should succeed to reach fetchCurrentPage
     getSpy.mockResolvedValueOnce(['u1']) // todo
-    getSpy.mockResolvedValueOnce([])     // done
+    getSpy.mockResolvedValueOnce([]) // done
     getSpy.mockResolvedValueOnce(['u1']) // all
     getSpy.mockResolvedValueOnce({ items: [] }) // approximations
-    
+
     // The next call (fetchCurrentPage) should fail with an empty object
-    getSpy.mockRejectedValueOnce({}) 
+    getSpy.mockRejectedValueOnce({})
 
     render(
       <ThemeProvider>
@@ -564,8 +564,10 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    
-    expect(await screen.findByText('Failed to load plants', {}, { timeout: 15000 })).toBeInTheDocument()
+
+    expect(
+      await screen.findByText('Failed to load plants', {}, { timeout: 15000 }),
+    ).toBeInTheDocument()
     getSpy.mockRestore()
   })
 
@@ -597,9 +599,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
   test('handleWateringCommit handles fallback metrics (line 241)', async () => {
     __commitUnknown = true
     server.use(
-      ...paginatedPlantsHandler([
-        { uuid: 'u-exists', name: 'Exists', water_retained_pct: 10 },
-      ]),
+      ...paginatedPlantsHandler([{ uuid: 'u-exists', name: 'Exists', water_retained_pct: 10 }]),
       http.post('/api/measurements/watering', () =>
         HttpResponse.json({
           status: 'success',
@@ -607,7 +607,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         }),
       ),
     )
-    
+
     render(
       <ThemeProvider>
         <MemoryRouter>
@@ -615,7 +615,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    
+
     await screen.findByText('Mocked Table')
     // Wait for the commit for unknown ID to be processed.
     // It should not crash even if plant is not found.

@@ -109,9 +109,13 @@ def normalize_measured_at(
         if fixed_seconds is None:
             raise ValueError("fixed_seconds must be provided for fill_with='fixed'")
         if fixed_milliseconds is None and fixed_microseconds is None:
-            raise ValueError("fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'")
+            raise ValueError(
+                "fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'"
+            )
         sec = int(fixed_seconds)
-        usec = get_usec(0)  # Requires at least one of fixed_ms or fixed_us to be non-zero to be useful
+        usec = get_usec(
+            0
+        )  # Requires at least one of fixed_ms or fixed_us to be non-zero to be useful
         return dt.replace(second=sec, microsecond=usec)
 
     raise ValueError("unsupported fill_with value")
@@ -180,7 +184,9 @@ def normalize_measured_at_local(
         if fixed_seconds is None:
             raise ValueError("fixed_seconds must be provided for fill_with='fixed'")
         if fixed_milliseconds is None and fixed_microseconds is None:
-            raise ValueError("fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'")
+            raise ValueError(
+                "fixed_milliseconds or fixed_microseconds must be provided for fill_with='fixed'"
+            )
         sec = int(fixed_seconds)
         usec = get_usec(0)
         return dt.replace(second=sec, microsecond=usec)

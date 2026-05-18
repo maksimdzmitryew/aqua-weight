@@ -81,10 +81,10 @@ describe('DailyCare branches', () => {
     }
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({detail: 'error'}, {status:500}),
+        HttpResponse.json({ detail: 'error' }, { status: 500 }),
       ),
       http.get('/api/measurements/approximation/weight', () =>
-        HttpResponse.json({detail: 'error'}, {status:500}),
+        HttpResponse.json({ detail: 'error' }, { status: 500 }),
       ),
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]),
     )
@@ -241,12 +241,8 @@ describe('DailyCare branches', () => {
 
     // Case 2: approxData exists but items is missing
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({}),
-      ),
-      http.get('/api/measurements/approximation/weight', () =>
-        HttpResponse.json({}),
-      ),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
     )
     rerender(
       <ThemeProvider>
@@ -260,12 +256,8 @@ describe('DailyCare branches', () => {
     // Case 3: No stub, fallback to []
     delete window.__VITEST_STUB_APPROX_ITEMS__
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({}),
-      ),
-      http.get('/api/measurements/approximation/weight', () =>
-        HttpResponse.json({}),
-      ),
+      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
     )
     rerender(
       <ThemeProvider>
@@ -411,17 +403,17 @@ describe('DailyCare load and aria-label branches', () => {
       http.get('/api/measurements/approximation/watering', () =>
         HttpResponse.json({ items: null }),
       ),
-      http.get('/api/measurements/approximation/weight', () =>
-        HttpResponse.json({ items: null }),
-      ),
-      ...paginatedPlantsHandler([{
-        uuid: 'p1',
-        name: 'Plant 1',
-        needs_weighing: true,
-        water_retained_pct: 60,
-        recommended_water_threshold_pct: 40,
-      }]),
-    );
+      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p1',
+          name: 'Plant 1',
+          needs_weighing: true,
+          water_retained_pct: 60,
+          recommended_water_threshold_pct: 40,
+        },
+      ]),
+    )
 
     render(
       <ThemeProvider>
@@ -429,43 +421,44 @@ describe('DailyCare load and aria-label branches', () => {
           <DailyCare />
         </MemoryRouter>
       </ThemeProvider>,
-    );
+    )
 
-    await screen.findByRole('table', {}, { timeout: 5000 });
+    await screen.findByRole('table', {}, { timeout: 5000 })
 
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    fireEvent.click(refreshButton);
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+    fireEvent.click(refreshButton)
 
     await waitFor(
       () => {
-        expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('loader')).not.toBeInTheDocument()
       },
       { timeout: 3000 },
-    );
+    )
 
-    expect(screen.queryByTestId('error-notice')).not.toBeInTheDocument();
-  });
+    expect(screen.queryByTestId('error-notice')).not.toBeInTheDocument()
+  })
 
   test('needsWater true branch for line 231', async () => {
-
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ 
-          items: [{
-            plant_uuid: 'p1',
-            days_offset: -1
-          }] 
+        HttpResponse.json({
+          items: [
+            {
+              plant_uuid: 'p1',
+              days_offset: -1,
+            },
+          ],
         }),
       ),
-      http.get('/api/measurements/approximation/weight', () =>
-        HttpResponse.json({ items: null }),
-      ),
-      ...paginatedPlantsHandler([{
-        uuid: 'p1',
-        name: 'Plant 1',
-        needs_weighing: true
-      }]),
-    );
+      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      ...paginatedPlantsHandler([
+        {
+          uuid: 'p1',
+          name: 'Plant 1',
+          needs_weighing: true,
+        },
+      ]),
+    )
 
     render(
       <ThemeProvider>
@@ -473,21 +466,20 @@ describe('DailyCare load and aria-label branches', () => {
           <DailyCare />
         </MemoryRouter>
       </ThemeProvider>,
-    );
+    )
 
-    await screen.findByRole('table', {}, { timeout: 5000 });
+    await screen.findByRole('table', {}, { timeout: 5000 })
 
-    const refreshButton = screen.getByRole('button', { name: 'Refresh' });
-    fireEvent.click(refreshButton);
+    const refreshButton = screen.getByRole('button', { name: 'Refresh' })
+    fireEvent.click(refreshButton)
 
     await waitFor(
       () => {
-        expect(screen.queryByTestId('loader')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('loader')).not.toBeInTheDocument()
       },
       { timeout: 3000 },
-    );
+    )
 
-    expect(screen.getAllByRole('row')).toHaveLength(2);
-
-  });
-});
+    expect(screen.getAllByRole('row')).toHaveLength(2)
+  })
+})

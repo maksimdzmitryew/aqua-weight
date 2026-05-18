@@ -99,12 +99,12 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
 
     vi.stubGlobal('localStorage', {
       getItem: vi.fn().mockImplementation((key) => {
-        if (key === 'operationMode') return null;
-        if (key === 'defaultThreshold') return '40';
-        if (key === 'pageSize') return '20';
-        return null;
+        if (key === 'operationMode') return null
+        if (key === 'defaultThreshold') return '40'
+        if (key === 'pageSize') return '20'
+        return null
       }),
-    });
+    })
 
     vi.resetModules()
     vi.doUnmock('../../../src/components/BulkMeasurementTable.jsx')
@@ -118,8 +118,8 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     )
 
     // Falls back to [] and renders empty state
-    await screen.findByText(/To-Do/i);
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    await screen.findByText(/To-Do/i)
+    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
   })
 
   test('OR-chain fallback for timestamps and nullish metrics keep previous values', async () => {

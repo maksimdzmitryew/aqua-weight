@@ -77,7 +77,7 @@ test.describe('Concurrency and Error Handling', () => {
         // Mock list response to include the updated description
         const response = await page.request.fetch(route.request())
         const json = await response.json()
-        const items = Array.isArray(json) ? json : (json.items || [])
+        const items = Array.isArray(json) ? json : json.items || []
 
         // Since description is not shown in list, we might need another way to verify.
         // But for this test, we can just check if navigation happened.
@@ -86,9 +86,7 @@ test.describe('Concurrency and Error Handling', () => {
           p.name === 'Seed Fern' ? { ...p, location: 'Slow Room' } : p,
         )
 
-        const finalBody = Array.isArray(json)
-          ? updatedItems
-          : { ...json, items: updatedItems }
+        const finalBody = Array.isArray(json) ? updatedItems : { ...json, items: updatedItems }
 
         await route.fulfill({ response, body: JSON.stringify(finalBody) })
       } else {

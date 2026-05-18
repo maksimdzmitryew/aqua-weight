@@ -143,8 +143,6 @@ def test_normalize_measured_at_preserve():
     assert out_local == datetime(2025, 10, 21, 19, 33, 45, 678000)
 
 
-
-
 def test_normalize_measured_at_microseconds_clamp():
     base = "2025-10-21T19:33"
     # high clamped

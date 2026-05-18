@@ -277,27 +277,27 @@ certs:
 .PHONY: be-lint
 be-lint:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend"
 
 .PHONY: be-lint-fix
 be-lint-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend"
 
 .PHONY: be-fmt
 be-fmt:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend"
 
 .PHONY: be-fmt-fix
 be-fmt-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend"
 
 .PHONY: be-mypy
 be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
 
 .PHONY: be-fix
 be-fix: ## Run all frontend auto-fixes

@@ -259,7 +259,8 @@ export default function BulkWeightMeasurement() {
             ...responseData,
             current_weight: numeric,
             needs_weighing: false,
-            latest_at: responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
+            latest_at:
+              responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
           },
         }

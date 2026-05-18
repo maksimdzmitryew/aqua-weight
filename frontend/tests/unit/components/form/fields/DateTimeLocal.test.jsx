@@ -9,7 +9,12 @@ function Wrapper({ children }) {
   return <ThemeProvider>{children}</ThemeProvider>
 }
 
-function FormWithDate({ initialValue = '', validators = [], disabled = false, requiredProp = false }) {
+function FormWithDate({
+  initialValue = '',
+  validators = [],
+  disabled = false,
+  requiredProp = false,
+}) {
   const form = useForm({ dt: initialValue })
   return (
     <form>

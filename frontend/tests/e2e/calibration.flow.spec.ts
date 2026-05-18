@@ -66,7 +66,9 @@ test.describe('Calibration Flow', () => {
     // Verify overfill row is shown (we look for a row that contains our plant name and some data)
     const plantRow = page.locator('.card').filter({ hasText: /calibration plant/i })
     // In some environments, it shows +100, in others 0. We accept any numeric diff.
-    await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).nth(3)).toBeVisible({ timeout: 15000 })
+    await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).nth(3)).toBeVisible({
+      timeout: 15000,
+    })
 
     const correctBtn = page
       .locator('.card')
