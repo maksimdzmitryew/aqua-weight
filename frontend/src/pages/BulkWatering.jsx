@@ -141,19 +141,18 @@ export default function BulkWatering() {
   }, [activeTab, currentPage, limit, operationMode, todoUuids, doneUuids, allUuids])
 
   // Merge server data with progress buffer
-  const displayedPlants = useMemo(() => {
-    return plants.map((p) => {
-      const buffered = progressBuffer[p.uuid]
-      if (buffered) {
-        return { ...p, ...buffered }
-      }
-      return p
-    })
-  }, [plants, progressBuffer])
+  const displayedPlants = plants.map((p) => {
+    const key = p.uuid || p.id
+    const buffered = progressBuffer[key]
+    if (buffered) {
+      return { ...p, ...buffered }
+    }
+    return p
+  })
 
   // Plants stay in the list until page refresh to provide stable UX.
   // We use the initial snapshots to keep the list stable even as plants are watered.
-  const filteredPlants = useMemo(() => {
+  const filteredPlants = (() => {
     if (showAll) return displayedPlants
 
     // Select stable snapshot for current tab
@@ -170,7 +169,7 @@ export default function BulkWatering() {
     // Once snapshots are available, we use them to ensure stability (so plants
     // don't disappear while watering until the next page refresh).
     return displayedPlants.filter((p) => snapshot.includes(p.uuid))
-  }, [displayedPlants, showAll, activeTab, todoUuids, doneUuids, allUuids])
+  })()
 
   let totalCount = 0
   if (activeTab === TAB_TODO) totalCount = todoUuids?.length || 0
@@ -237,6 +236,7 @@ export default function BulkWatering() {
       [plantId]: {
         ...(prev[plantId] || {}),
         current_weight: numeric,
+        water_retained_pct: prev[plantId]?.water_retained_pct ?? plants.find((p) => (p.uuid || p.id) === plantId)?.water_retained_pct,
       },
     }))
 
@@ -260,29 +260,27 @@ export default function BulkWatering() {
         return
       }
 
-      if (data && data.status === 'success' && data.data) {
-        data = data.data
-      }
+      const responseData = data?.status === 'success' && data?.data ? data.data : data
 
       // Update progress buffer
-      const currentPlant = plants.find(p => p.uuid === plantId);
-      const prevMetrics = progressBuffer[plantId] ?? currentPlant ?? {};
-      const now = wateringTime.getCommitDateTime();
-      const updatedData = {
-        current_weight: numeric,
-        water_loss_total_pct: data?.water_loss_total_pct ?? prevMetrics.water_loss_total_pct,
-        water_retained_pct: data?.water_retained_pct ?? prevMetrics.water_retained_pct,
-        latest_at: data?.latest_at ?? data?.measured_at ?? now,
-        measured_at: data?.measured_at ?? now,
-      }
+      setProgressBuffer((prev) => {
+        const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
+        const prevData = prev[plantId] || currentPlant || {}
+        const now = wateringTime.getCommitDateTime()
+        return {
+          ...prev,
+          [plantId]: {
+            ...prevData,
+            ...responseData,
+            current_weight: numeric,
+            latest_at: responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
+            measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
+          },
+        }
+      })
 
-      setProgressBuffer((prev) => ({
-        ...prev,
-        [plantId]: updatedData,
-      }))
-
-      if (data?.id && !existingId) {
-        setMeasurementIds((prev) => ({ ...prev, [plantId]: data.id }))
+      if (responseData?.id && !existingId) {
+        setMeasurementIds((prev) => ({ ...prev, [plantId]: responseData.id }))
       }
 
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))

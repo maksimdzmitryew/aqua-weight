@@ -16,7 +16,7 @@ const TAB_TODO = 'todo'
 const TAB_DONE = 'done'
 const TAB_ALL = 'all'
 
-export default function BulkWeightMeasurement({ client = apiClient } = {}) {
+export default function BulkWeightMeasurement() {
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab = searchParams.get('tab') || TAB_TODO
   const pageTodo = parseInt(searchParams.get('page_todo') || '1', 10)
@@ -69,10 +69,10 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
       try {
         setLoading(true)
         const [todo, done, all, approxData] = await Promise.all([
-          client.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
-          client.get(`/plants/uuids?needs_weighing=false&${commonParams}`),
-          client.get(`/plants/uuids?${commonParams}`),
-          client.get('/measurements/approximation/watering'),
+          apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
+          apiClient.get(`/plants/uuids?needs_weighing=false&${commonParams}`),
+          apiClient.get(`/plants/uuids?${commonParams}`),
+          apiClient.get('/measurements/approximation/watering'),
         ])
         setTodoUuids(todo || [])
         setDoneUuids(done || [])
@@ -115,7 +115,7 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
           return
         }
 
-        const response = await client.get(
+        const response = await apiClient.get(
           `/plants?uuids=${pageUuids.join(',')}&limit=${currentLimit}&${commonParams}`,
         )
         setPlants(response.items || [])
@@ -126,12 +126,13 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
       }
     }
     fetchCurrentPage()
-  }, [activeTab, currentPage, todoUuids, doneUuids, allUuids, limit, operationMode, client])
+  }, [activeTab, currentPage, todoUuids, doneUuids, allUuids, limit, operationMode])
 
   // Merge server data with progress buffer
   const displayedPlants = useMemo(() => {
     return plants.map((p) => {
-      const buffered = progressBuffer[p.uuid]
+      const key = p.uuid || p.id
+      const buffered = progressBuffer[key]
       if (buffered) {
         return { ...p, ...buffered }
       }
@@ -147,15 +148,12 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
     if (activeTab === TAB_DONE) snapshot = doneUuids
 
     if (snapshot === null) {
-      // If we're in TODO tab, we filter by needs_weighing property
       if (activeTab === TAB_TODO) return displayedPlants.filter((p) => p.needs_weighing)
       return displayedPlants
     }
 
-    // Once snapshots are available, we use them to ensure stability (so plants
-    // don't disappear while weighing until the next page refresh).
     return displayedPlants.filter((p) => snapshot.includes(p.uuid))
-  }, [displayedPlants, showAll, activeTab, todoUuids, doneUuids, allUuids])
+  }, [displayedPlants, showAll, activeTab, allUuids, todoUuids, doneUuids])
 
   let totalCount = 0
   if (activeTab === TAB_TODO) totalCount = todoUuids?.length || 0
@@ -215,14 +213,15 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
     const controller = new AbortController()
     abortControllers.current[plantId] = controller
 
-    // Optimistic status and buffer update
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     setProgressBuffer((prev) => ({
       ...prev,
       [plantId]: {
         ...(prev[plantId] || {}),
         current_weight: numeric,
-        needs_weighing: false,
+        water_retained_pct:
+          prev[plantId]?.water_retained_pct ??
+          plants.find((p) => String(p.uuid || p.id) === String(plantId))?.water_retained_pct,
       },
     }))
 
@@ -236,14 +235,9 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
 
       let data
       if (existingId) {
-        data = await measurementsApi.weight.update(
-          existingId,
-          payload,
-          controller.signal,
-          operationMode,
-        )
+        data = await measurementsApi.weight.update(existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.weight.create(payload, controller.signal, operationMode)
+        data = await measurementsApi.weight.create(payload, controller.signal)
       }
 
       // If a newer request has been started for this plant, ignore this response
@@ -251,27 +245,28 @@ export default function BulkWeightMeasurement({ client = apiClient } = {}) {
         return
       }
 
-      if (data && data.status === 'success' && data.data) {
-        data = data.data
-      }
+      const responseData = data?.status === 'success' && data?.data ? data.data : data
 
-      // Update progress buffer
-      const updatedData = {
-        current_weight: numeric,
-        water_loss_total_pct: data?.water_loss_total_pct,
-        water_retained_pct: data?.water_retained_pct,
-        latest_at: data?.latest_at || data?.measured_at || wateringTime.getCommitDateTime(),
-        measured_at: data?.measured_at,
-        needs_weighing: false, // Optimistically clear needs_weighing
-      }
+      // Update progress buffer using functional update for race condition safety
+      setProgressBuffer((prev) => {
+        const currentPlant = plants.find((p) => String(p.uuid || p.id) === String(plantId))
+        const prevData = prev[plantId] || currentPlant || {}
+        const now = wateringTime.getCommitDateTime()
+        return {
+          ...prev,
+          [plantId]: {
+            ...prevData,
+            ...responseData,
+            current_weight: numeric,
+            needs_weighing: false,
+            latest_at: responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
+            measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
+          },
+        }
+      })
 
-      setProgressBuffer((prev) => ({
-        ...prev,
-        [plantId]: updatedData,
-      }))
-
-      if (data?.id && !existingId) {
-        setMeasurementIds((prev) => ({ ...prev, [plantId]: data.id }))
+      if (responseData?.id && !existingId) {
+        setMeasurementIds((prev) => ({ ...prev, [plantId]: responseData.id }))
       }
 
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))

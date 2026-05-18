@@ -60,7 +60,7 @@ export default function BulkMeasurementTable({
   )
 
   const renderRow = (p) => {
-    const approx = approximations[p.uuid]
+    const approx = approximations[p.uuid || p.id]
     const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
     const needsMeasure = p.needs_weighing
 
@@ -76,8 +76,8 @@ export default function BulkMeasurementTable({
 
     const displayWaterLossText = typeof displayWaterLoss === 'number' ? `${displayWaterLoss}%` : '—'
 
-    const status = inputStatus[p.uuid]
-    const mId = measurementIds[p.uuid]
+    const status = inputStatus[p.uuid || p.id]
+    const mId = measurementIds[p.uuid || p.id]
     const isSaving = status === 'saving'
 
     let dropColor = '#3b82f6' // blue-500
@@ -111,7 +111,7 @@ export default function BulkMeasurementTable({
                   }`}
                   defaultValue={p.current_weight || ''}
                   onBlur={(e) => {
-                    if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                    if (e.target.value && (p.uuid || p.id)) onCommitValue(p.uuid || p.id, e.target.value)
                   }}
                 />
                 {mId && onDeleteWatering && (

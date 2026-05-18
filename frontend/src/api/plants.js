@@ -23,7 +23,7 @@ export const plantsApi = {
   },
   update(uuid, payload, signal) {
     if (!uuid) throw new ApiError('Missing plant id')
-    return apiClient.put(`/plants/${uuid}`, payload, {
+    return apiClient.patch(`/plants/${uuid}`, payload, {
       headers: { 'Content-Type': 'application/json' },
       signal,
     })
