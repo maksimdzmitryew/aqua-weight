@@ -25,7 +25,7 @@ class FakeConn:
 
 
 def test_get_measured_weights_without_repotting():
-    from app.helpers.weight_minimum import get_measured_weights_since_repotting
+    from backend.app.helpers.weight_minimum import get_measured_weights_since_repotting
 
     rows = [(100,), (None,), (95,), (110,)]
     conn = FakeConn(rows)
@@ -34,7 +34,7 @@ def test_get_measured_weights_without_repotting():
 
 
 def test_get_measured_weights_with_repotting():
-    from app.helpers.weight_minimum import get_measured_weights_since_repotting
+    from backend.app.helpers.weight_minimum import get_measured_weights_since_repotting
 
     class Rep:
         measured_at = "2025-02-01 00:00:00"
@@ -46,7 +46,7 @@ def test_get_measured_weights_with_repotting():
 
 
 def test_calculate_min_dry_weight_g_min_and_empty_and_exception():
-    from app.helpers.weight_minimum import calculate_min_dry_weight_g
+    from backend.app.helpers.weight_minimum import calculate_min_dry_weight_g
 
     class BoomConn(FakeConn):
         def cursor(self):
