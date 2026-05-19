@@ -228,4 +228,37 @@ describe('measurementsApi', () => {
     })
     expect(res).toBe(updated)
   })
+
+  it('weight.create with mode posts to url with ?mode param', async () => {
+    const created = { id: 'w-mode' }
+    const spy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce(created as any)
+
+    const ac = new AbortController()
+    const body = { plant_uuid: 'p1', grams: 123 }
+    const mode = 'bulk'
+    const res = await measurementsApi.weight.create(body, ac.signal, mode)
+
+    expect(spy).toHaveBeenCalledWith('/measurements/weight?mode=bulk', body, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: ac.signal,
+    })
+    expect(res).toBe(created)
+  })
+
+  it('weight.update with mode sends PUT to url with ?mode param', async () => {
+    const updated = { id: 'w-mode-2', grams: 200 }
+    const spy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce(updated as any)
+
+    const ac = new AbortController()
+    const body = { grams: 200 }
+    const id = 'w-mode-2'
+    const mode = 'bulk'
+    const res = await measurementsApi.weight.update(id, body, ac.signal, mode)
+
+    expect(spy).toHaveBeenCalledWith('/measurements/weight/w-mode-2?mode=bulk', body, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: ac.signal,
+    })
+    expect(res).toBe(updated)
+  })
 })

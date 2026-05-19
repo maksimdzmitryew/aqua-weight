@@ -83,17 +83,22 @@ export default function Calibration() {
     } catch (e) {
       // Format API errors that may carry object `detail` to avoid "[object Object]"
       let msg = 'Failed to apply corrections'
-      const detail = e && (e.detail ?? e.body ?? e.message)
-      if (typeof detail === 'string' && detail.trim()) {
-        msg = detail
-      } else if (detail && typeof detail === 'object') {
+      if (e?.detail && typeof e.detail === 'string' && e.detail.trim()) {
+        msg = e.detail
+      } else if (e?.message && typeof e.message === 'string' && e.message.trim() && e.message !== '[object Object]') {
+        msg = e.message
+      } else if (e?.detail && typeof e.detail === 'object' && Object.keys(e.detail).length > 0) {
         try {
-          msg = JSON.stringify(detail)
+          msg = JSON.stringify(e.detail)
         } catch {
           /* noop */
         }
-      } else if (e && typeof e.message === 'string' && e.message.trim()) {
-        msg = e.message
+      } else if (e?.body && typeof e.body === 'object' && Object.keys(e.body).length > 0) {
+        try {
+          msg = JSON.stringify(e.body)
+        } catch {
+          /* noop */
+        }
       }
       setError(msg)
     } finally {

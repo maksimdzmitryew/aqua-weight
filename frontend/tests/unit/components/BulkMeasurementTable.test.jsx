@@ -434,4 +434,153 @@ describe('BulkMeasurementTable', () => {
     fireEvent.keyDown(inputs[0], { key: 'Tab', shiftKey: true })
     expect(inputs[0]).toHaveFocus()
   })
+
+  test('additional coverage for BulkMeasurementTable', () => {
+    const p1 = makePlant({
+      uuid: 'u1',
+      water_loss_total_pct: undefined,
+      recommended_water_threshold_pct: undefined,
+      needs_weighing: true,
+    })
+    const approx = {
+      plant_uuid: 'u1',
+      next_watering_at: '2026-01-12 10:00',
+      days_offset: 1, // NOT overdue
+    }
+    const { rerender } = render(
+      <BulkMeasurementTable
+        plants={[p1]}
+        operationMode="vacation"
+        approximations={{ u1: approx }}
+        inputStatus={{ u1: 'saving' }}
+        showUpdatedColumn
+      />,
+    )
+
+    // Line 75: displayWaterLoss is undefined
+    const wlCell = screen.getAllByRole('cell')[5] // usually Water Loss is 6th column
+    expect(wlCell.textContent).toBe('—')
+
+    // Line 188: overdue style (color: #6b7280) when days_offset >= 0
+    const dateSpan = screen.getByText(/\(1d\)/).parentElement
+    expect(dateSpan?.style.color).toBe('rgb(107, 114, 128)')
+
+    // Line 213: needsMeasure badge
+    expect(screen.getByText(/Needs weight/i)).toBeInTheDocument()
+
+    // Line 223: recommended_water_threshold_pct is undefined
+    const cells = screen.getAllByRole('cell')
+    expect(cells[1].textContent).toBe('—')
+
+    // Line 286: vacation mode shows dash in updated column
+    expect(cells[6].textContent).toBe('—')
+
+    // Line 147, 149: vacation mode button with saving status and missing handlers
+    const dropBtn = screen.getByRole('button', { name: /Mark watered/i })
+    expect(dropBtn).toBeDisabled()
+    fireEvent.click(dropBtn) // should not crash even if handlers are missing
+
+    // Line 118: onDeleteWatering call
+    const onDeleteWatering = vi.fn()
+    rerender(
+      <BulkMeasurementTable
+        plants={[p1]}
+        operationMode="manual"
+        measurementIds={{ u1: 'm1' }}
+        onDeleteWatering={onDeleteWatering}
+        inputStatus={{}}
+      />,
+    )
+    const deleteBtn = screen.getByRole('button', { name: /Delete watering/i })
+    fireEvent.click(deleteBtn)
+    expect(onDeleteWatering).toHaveBeenCalledWith('u1', 'm1')
+
+    // Line 85: status === 'error' dropColor
+    rerender(
+      <BulkMeasurementTable
+        plants={[p1]}
+        operationMode="vacation"
+        inputStatus={{ u1: 'error' }}
+      />,
+    )
+
+    // Branch: plant.id instead of plant.uuid
+    const pId = makePlant({ uuid: undefined, id: 'id1', name: 'IdPlant' })
+    rerender(
+      <BulkMeasurementTable
+        plants={[pId]}
+        inputStatus={{ id1: 'success' }}
+        onCommitValue={vi.fn()}
+      />,
+    )
+    expect(screen.getByRole('spinbutton').className).toMatch(/bg-success/)
+
+    // Branch: e.target.value being empty string should not call onCommitValue
+    const onCommit = vi.fn()
+    rerender(
+      <BulkMeasurementTable
+        plants={[p1]}
+        onCommitValue={onCommit}
+        inputStatus={{}}
+      />,
+    )
+    const input = screen.getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.blur(input)
+    expect(onCommit).not.toHaveBeenCalled()
+
+    // Line 116: e.target.value is true, but (p.uuid || p.id) is false (not possible with current code)
+    // Actually we can hit the false side of the branch by providing a plant without uuid and id
+    const pNoId = makePlant({ uuid: undefined, id: undefined, name: 'NoId' })
+    rerender(
+      <BulkMeasurementTable
+        plants={[pNoId]}
+        onCommitValue={onCommit}
+        inputStatus={{}}
+      />,
+    )
+    const input2 = screen.getByRole('spinbutton')
+    fireEvent.change(input2, { target: { value: '123' } })
+    fireEvent.blur(input2)
+    expect(onCommit).not.toHaveBeenCalled()
+  })
+
+  test('onBlur commits value when uuid is missing but id exists (id fallback path)', () => {
+    const onCommitValue = vi.fn()
+    const pIdOnly = makePlant({ uuid: undefined, id: 'id-only-1', name: 'Id Only', current_weight: '' })
+
+    render(
+      <BulkMeasurementTable
+        plants={[pIdOnly]}
+        inputStatus={{}}
+        onCommitValue={onCommitValue}
+      />,
+    )
+
+    const input = screen.getByRole('spinbutton')
+    fireEvent.change(input, { target: { value: '321' } })
+    fireEvent.blur(input)
+
+    expect(onCommitValue).toHaveBeenCalledTimes(1)
+    expect(onCommitValue).toHaveBeenCalledWith('id-only-1', '321')
+  })
+
+  test('manual mode delete button reflects saving state when measurement exists', () => {
+    const p = makePlant({ uuid: 'u-save', name: 'Saving Plant' })
+    const onDeleteWatering = vi.fn()
+
+    render(
+      <BulkMeasurementTable
+        plants={[p]}
+        measurementIds={{ 'u-save': 'm-save' }}
+        inputStatus={{ 'u-save': 'saving' }}
+        onDeleteWatering={onDeleteWatering}
+        onCommitValue={vi.fn()}
+      />,
+    )
+
+    const deleteBtn = screen.getByRole('button', { name: /delete watering/i })
+    expect(deleteBtn).toBeDisabled()
+    expect(deleteBtn.style.cursor).toBe('wait')
+  })
 })
