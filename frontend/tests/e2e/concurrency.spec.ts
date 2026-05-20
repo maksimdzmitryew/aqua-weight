@@ -23,9 +23,9 @@ test.describe('Concurrency and Error Handling', () => {
     const descInput = page.getByLabel(/description/i)
     await descInput.fill('Conflicting Description')
 
-    // Mock 409 Conflict for PUT /api/plants/{uuid}
+    // Mock 409 Conflict for PATCH /api/plants/{uuid}
     await page.route('**/api/plants/*', async (route) => {
-      if (route.request().method() === 'PUT') {
+      if (route.request().method() === 'PATCH') {
         await route.fulfill({
           status: 409,
           contentType: 'application/json',
