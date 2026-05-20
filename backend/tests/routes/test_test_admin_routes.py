@@ -163,6 +163,7 @@ async def test_test_admin_import_fallback():
         # This import should trigger the ImportError on the relative import line 6
         # and then successfully use the fallback on line 8.
         import test_admin
+
         importlib.reload(test_admin)
 
         assert hasattr(test_admin, "connect")

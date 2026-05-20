@@ -179,7 +179,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
         if (needsWeighing === 'false') return HttpResponse.json([])
         return HttpResponse.json(['id-only-1'])
       }),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null })),
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: null }),
+      ),
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
@@ -421,9 +423,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     server.use(
       http.get('/api/plants/uuids', () => HttpResponse.json(['p1'])),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
-      http.get('/api/plants', () => HttpResponse.json({ items: [
-        { uuid: 'p1', name: 'Real Plant', needs_weighing: true }
-      ] })),
+      http.get('/api/plants', () =>
+        HttpResponse.json({ items: [{ uuid: 'p1', name: 'Real Plant', needs_weighing: true }] }),
+      ),
     )
 
     vi.resetModules()

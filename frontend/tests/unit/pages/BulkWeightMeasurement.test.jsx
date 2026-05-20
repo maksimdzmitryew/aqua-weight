@@ -155,29 +155,29 @@ describe('pages/BulkWeightMeasurement', () => {
     try {
       let callIndex = 0
       createSpy.mockImplementation(async (payload) => {
-          callIndex += 1
+        callIndex += 1
 
-          if (callIndex === 1) {
-            await new Promise((resolve) => setTimeout(resolve, 120))
-            return {
-              id: 4101,
-              plant_id: payload?.plant_id,
-              measured_at: payload?.measured_at || '2025-01-10T00:00:00',
-              latest_at: payload?.measured_at || '2025-01-10T00:00:00',
-              water_retained_pct: 10,
-              water_loss_total_pct: 90,
-            }
-          }
-
+        if (callIndex === 1) {
+          await new Promise((resolve) => setTimeout(resolve, 120))
           return {
-            id: 4102,
+            id: 4101,
             plant_id: payload?.plant_id,
-            measured_at: payload?.measured_at || '2025-01-10T00:00:01',
-            latest_at: payload?.measured_at || '2025-01-10T00:00:01',
-            water_retained_pct: 55,
-            water_loss_total_pct: 45,
+            measured_at: payload?.measured_at || '2025-01-10T00:00:00',
+            latest_at: payload?.measured_at || '2025-01-10T00:00:00',
+            water_retained_pct: 10,
+            water_loss_total_pct: 90,
           }
-        })
+        }
+
+        return {
+          id: 4102,
+          plant_id: payload?.plant_id,
+          measured_at: payload?.measured_at || '2025-01-10T00:00:01',
+          latest_at: payload?.measured_at || '2025-01-10T00:00:01',
+          water_retained_pct: 55,
+          water_loss_total_pct: 45,
+        }
+      })
 
       renderPage()
 
