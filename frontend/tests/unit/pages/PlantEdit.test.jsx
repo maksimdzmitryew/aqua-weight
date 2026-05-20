@@ -925,4 +925,29 @@ describe('pages/PlantEdit', () => {
     renderWithRoute(['/plants/uRefs/edit'])
     await waitFor(() => expect(screen.queryByText(/loading/i)).not.toBeInTheDocument())
   })
+
+  test('PlantEdit: line 228 error handling branches', async () => {
+    const init = {
+      pathname: '/plants/uErrBranch/edit',
+      state: { plant: { uuid: 'uErrBranch', name: 'N' } },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+
+    // Branch: err.body is falsy, err.detail is truthy
+    const updateSpy = vi.spyOn(plantsApi, 'update').mockRejectedValueOnce({
+      detail: 'Detail Only Error',
+    })
+
+    renderWithRoute([init])
+    fireEvent.click(await screen.findByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/detail only error/i)).toBeInTheDocument()
+    updateSpy.mockRestore()
+
+    // Branch: both err.body and err.detail are falsy
+    vi.spyOn(plantsApi, 'update').mockRejectedValueOnce({
+      message: 'Message Only Error',
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    expect(await screen.findByText(/message only error/i)).toBeInTheDocument()
+  })
 })
