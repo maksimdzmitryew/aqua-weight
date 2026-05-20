@@ -109,11 +109,11 @@ vi.mock('../../../src/components/BulkMeasurementTable.jsx', () => {
           // So the SECOND call to handleWateringCommit must happen AFTER the first one has at least started
           // the optimistic update.
           if (didCommitRef.current && !didDeleteRef.current) {
-             didDeleteRef.current = true
-             // Small timeout to ensure the first call's setProgressBuffer has been queued/processed
-             setTimeout(() => {
-                onCommitValue('p-id-only', '250')
-             }, 10)
+            didDeleteRef.current = true
+            // Small timeout to ensure the first call's setProgressBuffer has been queued/processed
+            setTimeout(() => {
+              onCommitValue('p-id-only', '250')
+            }, 10)
           }
         }
 

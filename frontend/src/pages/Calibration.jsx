@@ -85,7 +85,12 @@ export default function Calibration() {
       let msg = 'Failed to apply corrections'
       if (e?.detail && typeof e.detail === 'string' && e.detail.trim()) {
         msg = e.detail
-      } else if (e?.message && typeof e.message === 'string' && e.message.trim() && e.message !== '[object Object]') {
+      } else if (
+        e?.message &&
+        typeof e.message === 'string' &&
+        e.message.trim() &&
+        e.message !== '[object Object]'
+      ) {
         msg = e.message
       } else if (e?.detail && typeof e.detail === 'object' && Object.keys(e.detail).length > 0) {
         try {

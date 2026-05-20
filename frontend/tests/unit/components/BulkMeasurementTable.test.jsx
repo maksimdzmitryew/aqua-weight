@@ -497,11 +497,7 @@ describe('BulkMeasurementTable', () => {
 
     // Line 85: status === 'error' dropColor
     rerender(
-      <BulkMeasurementTable
-        plants={[p1]}
-        operationMode="vacation"
-        inputStatus={{ u1: 'error' }}
-      />,
+      <BulkMeasurementTable plants={[p1]} operationMode="vacation" inputStatus={{ u1: 'error' }} />,
     )
 
     // Branch: plant.id instead of plant.uuid
@@ -517,13 +513,7 @@ describe('BulkMeasurementTable', () => {
 
     // Branch: e.target.value being empty string should not call onCommitValue
     const onCommit = vi.fn()
-    rerender(
-      <BulkMeasurementTable
-        plants={[p1]}
-        onCommitValue={onCommit}
-        inputStatus={{}}
-      />,
-    )
+    rerender(<BulkMeasurementTable plants={[p1]} onCommitValue={onCommit} inputStatus={{}} />)
     const input = screen.getByRole('spinbutton')
     fireEvent.change(input, { target: { value: '' } })
     fireEvent.blur(input)
@@ -532,13 +522,7 @@ describe('BulkMeasurementTable', () => {
     // Line 116: e.target.value is true, but (p.uuid || p.id) is false (not possible with current code)
     // Actually we can hit the false side of the branch by providing a plant without uuid and id
     const pNoId = makePlant({ uuid: undefined, id: undefined, name: 'NoId' })
-    rerender(
-      <BulkMeasurementTable
-        plants={[pNoId]}
-        onCommitValue={onCommit}
-        inputStatus={{}}
-      />,
-    )
+    rerender(<BulkMeasurementTable plants={[pNoId]} onCommitValue={onCommit} inputStatus={{}} />)
     const input2 = screen.getByRole('spinbutton')
     fireEvent.change(input2, { target: { value: '123' } })
     fireEvent.blur(input2)
@@ -547,14 +531,15 @@ describe('BulkMeasurementTable', () => {
 
   test('onBlur commits value when uuid is missing but id exists (id fallback path)', () => {
     const onCommitValue = vi.fn()
-    const pIdOnly = makePlant({ uuid: undefined, id: 'id-only-1', name: 'Id Only', current_weight: '' })
+    const pIdOnly = makePlant({
+      uuid: undefined,
+      id: 'id-only-1',
+      name: 'Id Only',
+      current_weight: '',
+    })
 
     render(
-      <BulkMeasurementTable
-        plants={[pIdOnly]}
-        inputStatus={{}}
-        onCommitValue={onCommitValue}
-      />,
+      <BulkMeasurementTable plants={[pIdOnly]} inputStatus={{}} onCommitValue={onCommitValue} />,
     )
 
     const input = screen.getByRole('spinbutton')

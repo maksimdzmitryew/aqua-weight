@@ -8,6 +8,7 @@ import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
+import { measurementsApi } from '../../../src/api/measurements'
 
 // Mock navigation to verify handleView
 const mockNavigate = vi.fn()
@@ -147,6 +148,63 @@ describe('pages/BulkWeightMeasurement', () => {
     fireEvent.change(input, { target: { value: '101' } })
     fireEvent.blur(input)
     await waitFor(() => expect(within(row).queryByText(/37%/)).toBeInTheDocument())
+  })
+
+  test('ignores stale weight response when a newer commit was sent for the same plant', async () => {
+    const createSpy = vi.spyOn(measurementsApi.weight, 'create')
+    try {
+      let callIndex = 0
+      createSpy.mockImplementation(async (payload) => {
+          callIndex += 1
+
+          if (callIndex === 1) {
+            await new Promise((resolve) => setTimeout(resolve, 120))
+            return {
+              id: 4101,
+              plant_id: payload?.plant_id,
+              measured_at: payload?.measured_at || '2025-01-10T00:00:00',
+              latest_at: payload?.measured_at || '2025-01-10T00:00:00',
+              water_retained_pct: 10,
+              water_loss_total_pct: 90,
+            }
+          }
+
+          return {
+            id: 4102,
+            plant_id: payload?.plant_id,
+            measured_at: payload?.measured_at || '2025-01-10T00:00:01',
+            latest_at: payload?.measured_at || '2025-01-10T00:00:01',
+            water_retained_pct: 55,
+            water_loss_total_pct: 45,
+          }
+        })
+
+      renderPage()
+
+      const aloeCell = await screen.findByText('Aloe')
+      const row = aloeCell.closest('tr')
+      const input = within(row).getByRole('spinbutton')
+
+      fireEvent.change(input, { target: { value: '100' } })
+      fireEvent.blur(input)
+
+      fireEvent.click(input)
+      fireEvent.change(input, { target: { value: '101' } })
+      fireEvent.blur(input)
+
+      await waitFor(() => expect(within(row).queryByText(/55%/)).toBeInTheDocument())
+
+      // Wait until the slower stale response resolves and ensure it did not overwrite newer state
+      await waitFor(
+        () => {
+          expect(callIndex).toBe(2)
+          expect(within(row).queryByText(/10%/)).not.toBeInTheDocument()
+        },
+        { timeout: 1000 },
+      )
+    } finally {
+      createSpy.mockRestore()
+    }
   })
 
   test('shows error when plants API fails', async () => {
