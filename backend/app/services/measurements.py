@@ -71,6 +71,28 @@ def ensure_exclusive_water_vs_weight(
         raise ValueError("Provide either measured_weight_g or water_added_g, not both")
 
 
+def validate_water_loss(
+    loss_pct: float, current_weight: Optional[int], prev_weight: Optional[int]
+) -> None:
+    """
+    Validate that water loss total percentage does not exceed 100%.
+    If it does, raise a ValueError with a helpful message.
+    """
+    if loss_pct > 100:
+        if (
+            current_weight is not None
+            and prev_weight is not None
+            and current_weight > 0
+            and prev_weight > 0
+        ):
+            ratio = max(current_weight, prev_weight) / min(current_weight, prev_weight)
+            diff_type = "exceeds" if current_weight > prev_weight else "is lower than"
+            msg = f"The measured weight is incorrect because it {diff_type} the previous weight {ratio:.1f} times. Repotting can help if you want to continue with the current weight."
+        else:
+            msg = "The measured weight is incorrect. Repotting can help if you want to continue with the current weight."
+        raise ValueError(msg)
+
+
 # --- Derivations -------------------------------------------------------------
 
 

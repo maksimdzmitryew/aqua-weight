@@ -33,6 +33,7 @@ from ..services.measurements import (
     derive_weights,
     ensure_exclusive_water_vs_weight,
     parse_timestamp_local,
+    validate_water_loss,
 )
 from ..utils.settings_defaults import parse_default_threshold
 
@@ -762,6 +763,16 @@ async def create_measurement(
                     exclude_measurement_id=None,
                 )
 
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        loss_pct=loss_calc.water_loss_total_pct,
+                        current_weight=measured_weight,
+                        prev_weight=derived.prev_measured_weight,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+
                 last_dry_weight_local = derived.last_dry_weight_g
                 lw_local = derived.last_wet_weight_g
                 wa_local = derived.water_added_g
@@ -956,6 +967,16 @@ async def update_measurement(
                         derived=derived,
                         exclude_measurement_id=id_hex,
                     )
+
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        loss_pct=loss_calc.water_loss_total_pct,
+                        current_weight=mw_eff,
+                        prev_weight=derived.prev_measured_weight,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
                 mw_update = None if loss_calc.is_watering_event else mw_eff
                 wa_update = int(derived.water_added_g) if derived.water_added_g else 0

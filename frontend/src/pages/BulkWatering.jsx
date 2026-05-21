@@ -3,6 +3,7 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import useWateringTime from '../hooks/useWateringTime.js'
 import WateringTimeBar from '../components/WateringTimeBar.jsx'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
@@ -56,6 +57,7 @@ export default function BulkWatering() {
   const [approximations, setApproximations] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [validationError, setValidationError] = useState(null)
   const [showAll, setShowAll] = useState(false)
 
   // Session progress buffer (persists across tab switches)
@@ -289,6 +291,9 @@ export default function BulkWatering() {
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
     } catch (err) {
       console.error('Error saving watering measurement:', err)
+      if (err.message && err.message.toLowerCase().includes('measured weight is incorrect')) {
+        setValidationError({ message: err.message, plantId })
+      }
       setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
@@ -523,6 +528,20 @@ export default function BulkWatering() {
           />
         )}
       </>
+      <ConfirmDialog
+        open={!!validationError}
+        title="Incorrect Weight"
+        message={validationError?.message}
+        tone="warning"
+        confirmText="Repot Plant"
+        cancelText="Correct Weight"
+        onConfirm={() => {
+          const pid = validationError.plantId
+          setValidationError(null)
+          window.open(`/measurement/repotting?plant=${pid}`, '_blank')
+        }}
+        onCancel={() => setValidationError(null)}
+      />
     </DashboardLayout>
   )
 }

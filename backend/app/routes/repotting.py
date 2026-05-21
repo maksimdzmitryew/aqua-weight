@@ -13,7 +13,12 @@ from ..schemas.measurement import (
     RepottingResponse,
     RepottingUpdateRequest,
 )
-from ..services.measurements import DerivedWeights, compute_water_losses, parse_timestamp_local
+from ..services.measurements import (
+    DerivedWeights,
+    compute_water_losses,
+    parse_timestamp_local,
+    validate_water_loss,
+)
 
 app = APIRouter()
 
@@ -99,6 +104,16 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     derived=derived,
                     exclude_measurement_id=None,
                 )
+
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        loss_pct=loss_calc.water_loss_total_pct,
+                        current_weight=measured_weight_g,
+                        prev_weight=prev_measured_weight,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=200)
 
