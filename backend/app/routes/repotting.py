@@ -108,9 +108,10 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                 # Validate water loss
                 try:
                     validate_water_loss(
-                        loss_pct=loss_calc.water_loss_total_pct,
+                        cursor=cur,
+                        plant_id_hex=plant_id,
                         current_weight=measured_weight_g,
-                        prev_weight=prev_measured_weight,
+                        measured_at=measured_at,
                     )
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))

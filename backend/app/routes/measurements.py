@@ -766,9 +766,10 @@ async def create_measurement(
                 # Validate water loss
                 try:
                     validate_water_loss(
-                        loss_pct=loss_calc.water_loss_total_pct,
+                        cursor=cur,
+                        plant_id_hex=payload.plant_id,
                         current_weight=measured_weight,
-                        prev_weight=derived.prev_measured_weight,
+                        measured_at=measured_at,
                     )
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))
@@ -971,9 +972,11 @@ async def update_measurement(
                 # Validate water loss
                 try:
                     validate_water_loss(
-                        loss_pct=loss_calc.water_loss_total_pct,
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
                         current_weight=mw_eff,
-                        prev_weight=derived.prev_measured_weight,
+                        measured_at=measured_at_eff,
+                        exclude_measurement_id=id_hex,
                     )
                 except ValueError as e:
                     raise HTTPException(status_code=400, detail=str(e))

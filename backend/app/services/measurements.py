@@ -72,24 +72,51 @@ def ensure_exclusive_water_vs_weight(
 
 
 def validate_water_loss(
-    loss_pct: float, current_weight: Optional[int], prev_weight: Optional[int]
+    cursor: pymysql.cursors.Cursor,
+    plant_id_hex: str,
+    current_weight: Optional[int],
+    measured_at: str,
+    exclude_measurement_id: Optional[str] = None,
 ) -> None:
     """
-    Validate that water loss total percentage does not exceed 100%.
-    If it does, raise a ValueError with a helpful message.
+    Validate that the weight change is not suspiciously large.
+    Trigger if abs(current_weight - last_measured_weight) > abs(current_weight).
     """
-    if loss_pct > 100:
-        if (
-            current_weight is not None
-            and prev_weight is not None
-            and current_weight > 0
-            and prev_weight > 0
-        ):
-            ratio = max(current_weight, prev_weight) / min(current_weight, prev_weight)
-            diff_type = "exceeds" if current_weight > prev_weight else "is lower than"
-            msg = f"The measured weight is incorrect because it {diff_type} the previous weight {ratio:.1f} times. Repotting can help if you want to continue with the current weight."
-        else:
-            msg = "The measured weight is incorrect. Repotting can help if you want to continue with the current weight."
+    if current_weight is None:
+        return
+
+    # 1. Fetch last measured weight BEFORE this one
+    where_exclude = ""
+    params = [plant_id_hex, measured_at]
+    if exclude_measurement_id:
+        where_exclude = " AND id <> UNHEX(%s)"
+        params = [plant_id_hex, exclude_measurement_id, measured_at]
+
+    cursor.execute(
+        f"""
+        SELECT measured_weight_g
+        FROM plants_measurements
+        WHERE plant_id = UNHEX(%s)
+          AND measured_weight_g IS NOT NULL
+          {where_exclude}
+          AND measured_at < %s
+        ORDER BY measured_at DESC
+        LIMIT 1
+        """,
+        params,
+    )
+    row = cursor.fetchone()
+    prev_weight = row[0] if row else None
+
+    if prev_weight is None:
+        return
+
+    # 2. Apply formula: abs(current - prev) > abs(current)
+    diff = abs(current_weight - prev_weight)
+    threshold = abs(current_weight)
+
+    if diff > threshold:
+        msg = f"The measured weight is incorrect (change of {diff}g exceeds current weight {threshold}g). Repotting can help if you want to continue with the current weight."
         raise ValueError(msg)
 
 
