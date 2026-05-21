@@ -50,7 +50,8 @@ class PlantsList:
                            latest_pm.last_wet_weight_g,
                            latest_pm.water_loss_total_pct,
                            p.archive,
-                           p.sort_order
+                           p.sort_order,
+                           p.description
                     FROM plants p
                              LEFT JOIN locations l ON l.id = p.location_id
                              LEFT JOIN (SELECT measured_at, plant_id,
@@ -159,11 +160,13 @@ class PlantsList:
                         water_loss_total_pct = row[15]
                         archive = row[16]
                         sort_order = row[17]
+                        description = row[18] if len(row) >= 19 else row[2]
                     else:
                         # Fallback mapping for simplified rows used in tests
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
+                        description = row[2]  # Fallback to notes in simplified rows
                         species_name = row[3]
                         # No min/max/threshold/identify provided in this shape
                         min_dry_weight_g = None
@@ -276,7 +279,7 @@ class PlantsList:
                             "name": name,
                             # Keep both keys to satisfy existing API and unit tests
                             "notes": notes,
-                            "description": notes,
+                            "description": description,
                             "species": species_name,
                             "min_dry_weight_g": min_dry_weight_g,
                             "max_water_weight_g": max_water_weight_g,

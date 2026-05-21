@@ -77,6 +77,15 @@ export default function PlantEdit() {
   const [activeTab, setActiveTab] = useState('general')
 
   const initialPlant = useMemo(() => location.state?.plant || null, [location.state])
+  const isFromDetails = useMemo(() => {
+    if (location.state?.from === 'details') return true
+    // If no explicit 'from', try to guess from the plant object shape.
+    // PlantDetail (from details page) has 'created_at' but not 'latest_at' (added by list helper).
+    // PlantListItem (from list page) has 'latest_at'.
+    if (initialPlant && 'latest_at' in initialPlant) return false
+    if (initialPlant && 'created_at' in initialPlant) return true
+    return false
+  }, [initialPlant, location.state])
   const [loading, setLoading] = useState(!initialPlant)
   const [error, setError] = useState('')
 
@@ -222,8 +231,8 @@ export default function PlantEdit() {
       setFieldErrors({})
       const built = buildUpdatePayload(plant)
       await plantsApi.update(built.idHex, built.payload)
-      // Navigate back to list; list will refresh from server
-      navigate('/plants')
+      // Navigate to details page instead of list
+      navigate(`/plants/${uuid}`)
     } catch (err) {
       const errorData = err.body || (err.detail ? { detail: err.detail } : null)
       if (errorData && errorData.detail) {
@@ -247,7 +256,11 @@ export default function PlantEdit() {
 
   function onCancel(e) {
     e.preventDefault()
-    navigate('/plants')
+    if (isFromDetails) {
+      navigate(`/plants/${uuid}`)
+    } else {
+      navigate('/plants')
+    }
   }
 
   const labelStyle = { display: 'block', fontWeight: 600, marginBottom: 6 }
@@ -294,7 +307,9 @@ export default function PlantEdit() {
     <DashboardLayout title="Edit Plant">
       <h1 style={{ marginTop: 0 }}>Edit Plant</h1>
       <p>
-        <Link to="/plants">← Back to Plants</Link>
+        <Link to={isFromDetails ? `/plants/${uuid}` : '/plants'}>
+          ← {isFromDetails ? 'Back to Plant' : 'Back to Plants'}
+        </Link>
       </p>
 
       {loading && <div>Loading...</div>}

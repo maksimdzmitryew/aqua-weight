@@ -19,6 +19,7 @@ class PlantListItem(BaseModel):
     id: int
     uuid: Optional[HexID] = None
     name: str
+    description: Optional[str] = None
     notes: Optional[str] = None
     species: Optional[str] = None
     min_dry_weight_g: Optional[int] = None
