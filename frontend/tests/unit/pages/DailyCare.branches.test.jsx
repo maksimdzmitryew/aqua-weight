@@ -8,6 +8,7 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
+import {wait} from "@testing-library/user-event/dist/cjs/utils.js";
 
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
   default: ({ onBack, onRefresh, title, actions }) => (
@@ -349,7 +350,7 @@ describe('DailyCare branches', () => {
       )
       // If operationMode is null, Bulk measurement button should be enabled (since it's !== 'vacation')
       const weightBtn = await screen.findByRole('button', { name: /Bulk measurement/ })
-      expect(weightBtn).not.toBeDisabled()
+      wait waitFor(() => expect(weightBtn).not.toBeDisabled()
 
       // Case 2: typeof window === 'undefined' (simulated by nulling stub)
       // We can't easily simulate typeof window === 'undefined' in JSDOM,
