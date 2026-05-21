@@ -290,7 +290,7 @@ export default function BulkWatering() {
 
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
     } catch (err) {
-      if (err.name === 'AbortError') return; // Ignore if superseded
+      if (err.name === 'AbortError') return // Ignore if superseded
       console.error('Error saving watering measurement:', err)
       if (err.message && err.message.toLowerCase().includes('measured weight is incorrect')) {
         setValidationError({ message: err.message, plantId })

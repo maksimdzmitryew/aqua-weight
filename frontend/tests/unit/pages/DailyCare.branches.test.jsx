@@ -350,7 +350,7 @@ describe('DailyCare branches', () => {
       )
       // If operationMode is null, Bulk measurement button should be enabled (since it's !== 'vacation')
       const weightBtn = await screen.findByRole('button', { name: /Bulk measurement/ })
-      wait waitFor(() => expect(weightBtn).not.toBeDisabled()
+      wait waitFor(() => expect(weightBtn).not.toBeDisabled())
 
       // Case 2: typeof window === 'undefined' (simulated by nulling stub)
       // We can't easily simulate typeof window === 'undefined' in JSDOM,
