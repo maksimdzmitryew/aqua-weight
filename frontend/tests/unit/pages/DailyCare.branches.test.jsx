@@ -385,6 +385,9 @@ describe('DailyCare branches', () => {
 
     // 2. Bulk measurement onClick (line 109)
     const weightBtn = await screen.findByRole('button', { name: /Bulk measurement/i })
+
+    // Wait specifically for the loading state to resolve and the button to enable
+    await waitFor(() => expect(weightBtn).not.toBeDisabled())
     await act(async () => {
       weightBtn.click()
     })
