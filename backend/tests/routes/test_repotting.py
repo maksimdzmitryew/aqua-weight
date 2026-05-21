@@ -18,12 +18,16 @@ class DummyCursor:
         self.store = store
         self.lastrowid = 123  # deterministic id
         self.executed = []
+        self.store["cursor"] = self
 
     def execute(self, query, params=None):
         # record the call for assertions
         self.executed.append((query, params))
         # store last call params for convenience
         self.store["last_execute"] = (query, params)
+
+    def fetchone(self):
+        return None
 
     def __enter__(self):
         return self
@@ -127,18 +131,23 @@ async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, 
     assert data["measured_at"] == ISO_TIME
     assert data["measured_weight_g"] == 880
     assert data["last_wet_weight_g"] == 1200
+    assert data.get("note") == "repotted to bigger pot"
+    assert data.get("water_loss_total_g") == 100
 
     # Ensure the DB connection was closed by the route finally block
     assert dummy_db.get("closed") is True
 
-    # There should be 3 INSERT statements executed in sequence
-    executed = dummy_db.get("last_execute")  # last one
-    assert executed is not None
-    # Last insert includes note parameter
-    last_query, last_params = executed
-    assert "INSERT INTO plants_measurements" in last_query
-    # note is last param in that query
-    assert last_params[-1] in (None, "repotted to bigger pot")
+    # There should be 3 INSERT statements executed in sequence, plus some SELECTs from services
+    executed = dummy_db["cursor"].executed
+    inserts = [e for e in executed if "INSERT INTO plants_measurements" in e[0]]
+    assert len(inserts) == 3
+
+    # Check the third insert specifically (data integrity)
+    last_query, last_params = inserts[2]
+    # VALUES (%s, UNHEX(%s), %s, %s, %s, %s, %s, %s)
+    # params: (new_id, plant_id, measured_at_shift, repotted_weight_g, new_measured_weight_g, last_wet_weight_g, prev_last_water, note)
+    assert last_params[5] == 1200
+    assert last_params[7] == "repotted to bigger pot"
 
 
 @pytest.mark.asyncio

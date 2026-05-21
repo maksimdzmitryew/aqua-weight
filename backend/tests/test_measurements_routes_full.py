@@ -468,6 +468,7 @@ async def test_update_measurement_retained_block_executes_without_spy(
         "compute_water_losses",
         lambda **kwargs: _WaterLossObj(is_watering=False),
     )
+    monkeypatch.setattr(measurements_routes, "validate_water_loss", lambda **kwargs: None)
 
     mid = "66" * 16
     r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 150})
@@ -888,6 +889,7 @@ async def test_update_measurement_rollback_inner_except(
         "compute_water_losses",
         lambda **kwargs: _WaterLossObj(is_watering=False),
     )
+    monkeypatch.setattr(measurements_routes, "validate_water_loss", lambda **kwargs: None)
 
     mid = "33" * 16
     r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 111})
@@ -942,6 +944,7 @@ async def test_update_measurement_success_and_validation_and_rollback(
         "compute_water_losses",
         lambda **kwargs: _WaterLossObj(is_watering=False),
     )
+    monkeypatch.setattr(measurements_routes, "validate_water_loss", lambda **kwargs: None)
 
     pid = "ab" * 16
 

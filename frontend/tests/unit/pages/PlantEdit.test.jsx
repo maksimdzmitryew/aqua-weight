@@ -193,10 +193,10 @@ describe('pages/PlantEdit', () => {
     expect(built.payload.max_water_weight_g).toBe(100)
   })
 
-  test('buildUpdatePayload allows null original name when trimmed is empty (falls back to null)', () => {
+  test('buildUpdatePayload returns empty string when name is null', () => {
     const plant = { uuid: 'uN', name: null }
     const built = buildUpdatePayload(plant)
-    expect(built.payload.name).toBeNull()
+    expect(built.payload.name).toBe('')
   })
 
   test('prefills from router state, trims name on save, PUTs and navigates', async () => {
@@ -222,18 +222,18 @@ describe('pages/PlantEdit', () => {
     fireEvent.change(name, { target: { value: 'New' } })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
     await waitFor(() => expect(called).toBe(true))
-    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1')
   })
 
-  test('trim fallback keeps original when trimmed is empty', async () => {
+  test('prevents save when name is only whitespace', async () => {
     const init = {
       pathname: '/plants/u1b/edit',
       state: { plant: { uuid: 'u1b', name: 'Old' } },
     }
-    let seen
+    let called = false
     server.use(
-      http.patch('/api/plants/:uuid', async ({ request }) => {
-        seen = await request.json()
+      http.patch('/api/plants/:uuid', async () => {
+        called = true
         return HttpResponse.json({ ok: true })
       }),
       http.get('/api/locations', () => HttpResponse.json([])),
@@ -242,9 +242,9 @@ describe('pages/PlantEdit', () => {
     const name = await screen.findByLabelText(/name/i)
     fireEvent.change(name, { target: { value: '   ' } })
     fireEvent.click(screen.getByRole('button', { name: /save/i }))
-    // When trimmed is empty, code falls back to original value (spaces kept)
-    await waitFor(() => expect(seen).toBeDefined())
-    expect(seen.name).toBe('   ')
+    // Validation error should be shown, and API should not be called
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+    expect(called).toBe(false)
   })
 
   test('loads via API when no state provided; shows loading then form', async () => {
@@ -618,7 +618,7 @@ describe('pages/PlantEdit', () => {
       max_water_weight_g: undefined,
     }
     const b1 = buildUpdatePayload(p1)
-    expect(b1.payload.name).toBe(' ')
+    expect(b1.payload.name).toBe('')
     expect(b1.payload.description).toBeNull()
 
     // Test with values that don't need trimming/fallback

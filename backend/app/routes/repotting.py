@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pytz import timezone
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, get_conn
+from ..db import HEX_RE, bin_to_hex, get_conn
 from ..helpers.last_plant_event import LastPlantEvent
 from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..schemas.measurement import (
@@ -144,7 +144,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                 )
 
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=300)
-                new_measured_weight_g = repotted_weight_g - prev_last_water
+                new_measured_weight_g = repotted_weight_g - (prev_last_water or 0)
 
                 new_id = uuid.uuid4().bytes
 
@@ -159,20 +159,20 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                         measured_at_shift,
                         repotted_weight_g,
                         new_measured_weight_g,
-                        None,
+                        repotted_weight_g,
                         prev_last_water,
                         note,
                     ),
                 )
 
                 result = {
-                    "id": cur.lastrowid,
+                    "id": bin_to_hex(new_id),
                     "plant_id": plant_id,
                     "measured_at": measured_at,
                     "measured_weight_g": measured_weight_g,
                     "last_wet_weight_g": repotted_weight_g,
-                    #                    "water_loss_total_g": loss_calc.water_loss_total_g,
-                    #                    "note": note
+                    "water_loss_total_g": loss_calc.water_loss_total_g,
+                    "note": note,
                 }
                 return result
         finally:

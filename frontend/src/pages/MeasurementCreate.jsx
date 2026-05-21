@@ -102,7 +102,9 @@ export default function MeasurementCreate() {
   return (
     <DashboardLayout title={isEdit ? 'Edit Measurement' : 'New Measurement'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
-        {error && !validationError && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
+        {error && !validationError && (
+          <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <DateTimeLocal
             form={form}

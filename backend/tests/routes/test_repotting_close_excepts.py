@@ -19,6 +19,9 @@ class DummyCursor:
         self.executed.append((query, params))
         self.store["last_execute"] = (query, params)
 
+    def fetchone(self):
+        return None
+
     def __enter__(self):
         return self
 

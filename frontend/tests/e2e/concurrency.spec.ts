@@ -59,7 +59,7 @@ test.describe('Concurrency and Error Handling', () => {
     // Delay response and mock subsequent GET
     await page.route('**/api/plants/**', async (route) => {
       const request = route.request()
-      if (request.method() === 'PUT') {
+      if (request.method() === 'PATCH') {
         await new Promise((resolve) => setTimeout(resolve, 2000))
         await route.fulfill({
           status: 200,
@@ -103,10 +103,10 @@ test.describe('Concurrency and Error Handling', () => {
     // Trigger save and verify it eventually succeeds and navigates.
     await page.getByRole('button', { name: /save/i }).click()
 
-    // Should eventually navigate to /plants
-    await expect(page).toHaveURL(/\/plants/, { timeout: 10000 })
+    // Should eventually navigate to /plants/:uuid
+    await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}/, { timeout: 10000 })
     // Verify something that is visible. If we can't easily verify the change,
     // at least we verified the slow save didn't break navigation.
-    await expect(page.getByRole('row', { name: /seed fern/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /seed fern/i })).toBeVisible()
   })
 })

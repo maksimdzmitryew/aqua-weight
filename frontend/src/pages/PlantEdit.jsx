@@ -10,7 +10,7 @@ import { toLocalISOFull } from '../utils/datetime'
 
 export function buildUpdatePayload(plant) {
   if (!plant) throw new Error('Missing plant')
-  const trimmedName = (plant.name || '').trim() || plant.name
+  const trimmedName = (plant.name || '').trim()
   const payload = {
     // General
     name: trimmedName,
@@ -227,6 +227,12 @@ export default function PlantEdit() {
 
   async function onSave(e) {
     e.preventDefault()
+    const name = (plant.name || '').trim()
+    if (!name) {
+      setActiveTab('general')
+      setFieldErrors({ name: 'Name is required' })
+      return
+    }
     try {
       setFieldErrors({})
       const built = buildUpdatePayload(plant)
