@@ -21,6 +21,8 @@ test.describe('Bulk Watering – delete reverts water loss (covers revert logic)
     const allTab = page.getByRole('button', { name: /all/i })
     await expect(allTab).toBeVisible()
     await allTab.click()
+    // Wait for the loading indicator to disappear to ensure the table is stable
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     // Find the seeded plant row (Seed Fern) and its input
     const row = page.getByRole('row', { name: /seed fern/i })
