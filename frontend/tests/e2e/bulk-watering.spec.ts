@@ -21,6 +21,8 @@ test.describe('Bulk Watering', () => {
     // 2. Switch to "All" tab
     const allTab = page.getByRole('button', { name: /all/i })
     await allTab.click()
+    // Wait for the loading indicator to disappear to ensure the table is stable
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     // 3. Submit Watering
     // Find the input for "Seed Fern". It's in the same row.

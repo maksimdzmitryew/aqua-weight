@@ -65,6 +65,7 @@ test.describe('Bulk Watering Styles', () => {
 
     // Toggle "Show All"
     await page.getByRole('button', { name: /all/i }).click()
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     // Find the row for Seed Ivy (which is satisfied)
     const satisfiedRow = page.locator('tr').filter({ hasText: /seed ivy/i })

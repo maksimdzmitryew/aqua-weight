@@ -37,6 +37,7 @@ test.describe('Bulk Watering State', () => {
   test('immediate deemphasis styling after bulk watering', async ({ page }) => {
     await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' })
     await page.getByRole('button', { name: /all/i }).click()
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     const row = page.getByRole('row', { name: /seed fern/i })
 
