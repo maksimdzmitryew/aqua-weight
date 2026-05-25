@@ -19,6 +19,9 @@ export function checkNeedsWater(plant, mode, approximation = null, defaultThresh
             Number(plant?.recommended_water_threshold_pct || defaultThreshold)))
     )
   }
+  if (plant?.needs_watering_prediction) {
+    return true
+  }
 
   // If the plant was just watered (signature: water_loss_total_pct is 0),
   // it doesn't need water in manual/automatic mode, UNLESS it's already dry

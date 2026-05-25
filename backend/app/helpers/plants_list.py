@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 
 from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
+from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.water_retained import calculate_water_retained
 from ..helpers.weighing import needs_weighing
 
@@ -272,6 +273,30 @@ class PlantsList:
                             days_offset = None
                     # Ensure next_watering_at is returned as None if it couldn't be calculated
 
+                    # Prediction component
+                    needs_watering_prediction = False
+                    if mode != "vacation":
+                        standard_needs_water = False
+                        thresh_val = (
+                            recommended_water_threshold_pct
+                            if recommended_water_threshold_pct is not None
+                            else default_threshold
+                        )
+                        if water_retained_pct is not None and thresh_val is not None:
+                            standard_needs_water = water_retained_pct <= thresh_val
+                        elif water_retained_pct is None:
+                            standard_needs_water = True
+
+                        if water_loss_total_pct == 0 and (
+                            water_retained_pct is None or water_retained_pct > 0
+                        ):
+                            standard_needs_water = False
+
+                        if not standard_needs_water:
+                            needs_watering_prediction = PlantsList._check_watering_prediction(
+                                conn, uuid_hex
+                            )
+
                     results.append(
                         {
                             "id": idx,  # synthetic index for UI
@@ -308,6 +333,7 @@ class PlantsList:
                             "first_calculated_at": first_calculated_at,
                             "days_offset": days_offset,
                             "needs_weighing": needs_weighing_val,
+                            "needs_watering_prediction": needs_watering_prediction,
                             "archive": archive,
                             "sort_order": sort_order,
                         }
@@ -327,6 +353,114 @@ class PlantsList:
                 conn.close()
             except Exception:
                 pass
+
+    @staticmethod
+    def _check_watering_prediction(conn, plant_id_hex: str) -> bool:
+        """
+        Predicts if a plant needs watering based on weight loss trends
+        since the last repotting or watering event.
+        """
+        try:
+            last_repot = get_last_repotting_event(conn, plant_id_hex)
+            if not last_repot or not last_repot.measured_at:
+                return False
+
+            from datetime import datetime
+
+            # Convert ISO string to datetime
+            repot_at_str = last_repot.measured_at.replace(" ", "T")
+            repot_at = datetime.fromisoformat(repot_at_str)
+
+            # Get last watering event since repot
+            ref_at = repot_at
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT measured_at
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND measured_weight_g IS NULL
+                      AND water_loss_total_pct = 0
+                      AND water_added_g > 0
+                      AND measured_at > %s
+                    ORDER BY measured_at DESC
+                    LIMIT 1
+                """,
+                    (plant_id_hex, repot_at),
+                )
+                row = cur.fetchone()
+                if row:
+                    ref_at = row[0]
+
+            # Fetch numeric weight measurements since ref_at
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT measured_at, measured_weight_g
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND measured_at > %s
+                      AND measured_weight_g IS NOT NULL
+                    ORDER BY measured_at ASC
+                """,
+                    (plant_id_hex, ref_at),
+                )
+                rows = cur.fetchall()
+
+            if not rows or len(rows) < 2:
+                return False
+
+            # Calculate daily losses for each interval
+            losses = []
+            for i in range(len(rows) - 1):
+                m1_at, m1_w = rows[i]
+                m2_at, m2_w = rows[i + 1]
+
+                delta_w = float(m1_w) - float(m2_w)
+                delta_t = (m2_at - m1_at).total_seconds() / (24 * 3600)
+
+                if delta_t > 0:
+                    losses.append(delta_w / delta_t)
+
+            if not losses:
+                return False
+
+            # Check 1: losing < 2g/day for at least 2 consecutive intervals
+            consecutive_check1 = 0
+            for loss in losses:
+                if loss < 2:
+                    consecutive_check1 += 1
+                    if consecutive_check1 >= 2:
+                        return True
+                else:
+                    consecutive_check1 = 0
+
+            # Check 2: losing < 33% of average for more than 2 consecutive intervals
+            if len(rows) > 4:
+                sorted_losses = sorted(losses)
+                # Disregard biggest and lowest
+                remaining_losses = sorted_losses[1:-1]
+                if not remaining_losses:
+                    avg_loss = sum(losses) / len(losses)
+                else:
+                    avg_loss = sum(remaining_losses) / len(remaining_losses)
+            else:
+                avg_loss = sum(losses) / len(losses)
+
+            if avg_loss > 0:
+                threshold2 = 0.33 * avg_loss
+                consecutive_check2 = 0
+                for loss in losses:
+                    if loss < threshold2:
+                        consecutive_check2 += 1
+                        if consecutive_check2 > 2:  # More than 2
+                            return True
+                    else:
+                        consecutive_check2 = 0
+
+            return False
+        except Exception:
+            return False
 
     @staticmethod
     def count_all(
