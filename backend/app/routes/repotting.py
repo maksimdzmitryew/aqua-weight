@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pytz import timezone
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, get_conn
+from ..db import HEX_RE, bin_to_hex, get_conn
 from ..helpers.last_plant_event import LastPlantEvent
 from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..schemas.measurement import (
@@ -13,7 +13,12 @@ from ..schemas.measurement import (
     RepottingResponse,
     RepottingUpdateRequest,
 )
-from ..services.measurements import DerivedWeights, compute_water_losses, parse_timestamp_local
+from ..services.measurements import (
+    DerivedWeights,
+    compute_water_losses,
+    parse_timestamp_local,
+    validate_water_loss,
+)
 
 app = APIRouter()
 
@@ -63,7 +68,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     raise HTTPException(status_code=404, detail="Last Plant event not found")
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
-                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=1)
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
 
                 new_id = uuid.uuid4().bytes
 
@@ -100,7 +105,18 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     exclude_measurement_id=None,
                 )
 
-                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=2)
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        cursor=cur,
+                        plant_id_hex=plant_id,
+                        current_weight=measured_weight_g,
+                        measured_at=measured_at,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=200)
 
                 new_id = uuid.uuid4().bytes
 
@@ -127,8 +143,8 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     ),
                 )
 
-                measured_at_shift = parse_timestamp_local(measured_at, fixed_milliseconds=3)
-                new_measured_weight_g = repotted_weight_g - prev_last_water
+                measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=300)
+                new_measured_weight_g = repotted_weight_g - (prev_last_water or 0)
 
                 new_id = uuid.uuid4().bytes
 
@@ -143,20 +159,20 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                         measured_at_shift,
                         repotted_weight_g,
                         new_measured_weight_g,
-                        None,
+                        repotted_weight_g,
                         prev_last_water,
                         note,
                     ),
                 )
 
                 result = {
-                    "id": cur.lastrowid,
+                    "id": bin_to_hex(new_id),
                     "plant_id": plant_id,
                     "measured_at": measured_at,
                     "measured_weight_g": measured_weight_g,
                     "last_wet_weight_g": repotted_weight_g,
-                    #                    "water_loss_total_g": loss_calc.water_loss_total_g,
-                    #                    "note": note
+                    "water_loss_total_g": loss_calc.water_loss_total_g,
+                    "note": note,
                 }
                 return result
         finally:

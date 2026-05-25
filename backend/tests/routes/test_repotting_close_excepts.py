@@ -19,6 +19,9 @@ class DummyCursor:
         self.executed.append((query, params))
         self.store["last_execute"] = (query, params)
 
+    def fetchone(self):
+        return None
+
     def __enter__(self):
         return self
 
@@ -80,7 +83,7 @@ def patch_services(monkeypatch):
 
     monkeypatch.setattr(repotting_mod, "compute_water_losses", lambda **kwargs: Loss())
     monkeypatch.setattr(
-        repotting_mod, "parse_timestamp_local", lambda s, fixed_milliseconds=None: s
+        repotting_mod, "parse_timestamp_local", lambda s, fixed_microseconds=None: s
     )
 
 

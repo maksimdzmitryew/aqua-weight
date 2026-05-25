@@ -402,7 +402,7 @@ describe('pages/WateringCreate', () => {
   test('edit flow: measured_at maps via toLocalISOMinutes (truthy branch of OR)', async () => {
     // Return a measured_at that is truthy and toLocalISOMinutes returns a truthy value
     const dt = await import('../../../src/utils/datetime.js')
-    const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('2000-01-01T00:00')
+    const spy = vi.spyOn(dt, 'toLocalISOFull').mockReturnValue('2000-01-01T00:00')
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]),
       http.get('/api/measurements/:id', () =>
@@ -419,7 +419,7 @@ describe('pages/WateringCreate', () => {
     // Return a measured_at that is truthy but toLocalISOMinutes returns '' (falsy)
     // to exercise the second part of the ||: toLocalISOMinutes(data.measured_at) || form.values.measured_at
     const dt = await import('../../../src/utils/datetime.js')
-    const spy = vi.spyOn(dt, 'toLocalISOMinutes').mockReturnValue('')
+    const spy = vi.spyOn(dt, 'toLocalISOFull').mockReturnValue('')
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]),
       http.get('/api/measurements/:id', () =>

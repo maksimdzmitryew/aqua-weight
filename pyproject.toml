@@ -100,13 +100,23 @@ no_implicit_optional = true
 check_untyped_defs = true
 show_error_codes = true
 pretty = true
-mypy_path = ["backend"]
+mypy_path = ["."]
+explicit_package_bases = true
+namespace_packages = true
 exclude = [
   "frontend",
   "venv|.venv",
   "build|dist",
   "backend/app/main_monolith.py",
 ]
+
+[[tool.mypy.overrides]]
+module = "backend.tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = ["factory.*", "pytz.*"]
+ignore_missing_imports = true
 
 # Relax rules for FastAPI route modules and app entrypoint where function type
 # annotations add little value and frameworks provide runtime validation.

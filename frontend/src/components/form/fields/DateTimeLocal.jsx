@@ -15,6 +15,25 @@ export default function DateTimeLocal({
   const reg = form.register(name, { validators })
   const error = form.errors[name]
 
+  const originalOnChange = reg.onChange
+  const handleChange = (e) => {
+    const newValue = e.target.value
+    const previousValue = form.values[name]
+
+    let finalValue = newValue
+    if (newValue && previousValue && !newValue.includes('.')) {
+      const match = previousValue.match(/\.(\d+)$/)
+      if (match) {
+        finalValue = newValue + '.' + match[1]
+      }
+    }
+
+    return originalOnChange(finalValue)
+  }
+
+  const inputValue = reg.value ? String(reg.value).split('.')[0] : ''
+  const customReg = { ...reg, value: inputValue, onChange: handleChange }
+
   const inputStyle = {
     width: '100%',
     padding: '8px 10px',
@@ -40,7 +59,8 @@ export default function DateTimeLocal({
         aria-invalid={!!error}
         aria-describedby={error ? `${name}-error` : undefined}
         required={required}
-        {...reg}
+        step="1"
+        {...customReg}
         {...rest}
         style={inputStyle}
       />

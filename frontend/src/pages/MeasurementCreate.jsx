@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
-import { nowLocalISOMinutes, toLocalISOMinutes } from '../utils/datetime.js'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import { nowLocalISOFull, toLocalISOFull } from '../utils/datetime.js'
 import { useForm, required, minNumber, optionalHexLen } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
 import PlantSelect from '../components/PlantSelect.jsx'
@@ -18,12 +19,13 @@ export default function MeasurementCreate() {
   const navigate = useNavigate()
 
   const [error, setError] = useState('')
+  const [validationError, setValidationError] = useState(null)
   const [saving, setSaving] = useState(false)
   const isEdit = !!editId
 
   const form = useForm({
     plant_id: preselect || '',
-    measured_at: nowLocalISOMinutes(),
+    measured_at: nowLocalISOFull(),
     measured_weight_g: '',
     method_id: '',
     use_last_method: true,
@@ -44,7 +46,7 @@ export default function MeasurementCreate() {
         const data = await measurementsApi.getById(editId)
         if (cancelled) return
         const measured_at = data?.measured_at
-          ? toLocalISOMinutes(data.measured_at) || form.values.measured_at
+          ? toLocalISOFull(data.measured_at) || form.values.measured_at
           : form.values.measured_at
         form.setValues({
           ...form.values,
@@ -88,6 +90,9 @@ export default function MeasurementCreate() {
       if (from) navigate(from)
       else navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
+      if (e.message && e.message.toLowerCase().includes('measured weight is incorrect')) {
+        setValidationError({ message: e.message, plantId: vals.plant_id })
+      }
       setError(e.message || 'Failed to save')
     } finally {
       setSaving(false)
@@ -97,7 +102,9 @@ export default function MeasurementCreate() {
   return (
     <DashboardLayout title={isEdit ? 'Edit Measurement' : 'New Measurement'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
-        {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
+        {error && !validationError && (
+          <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <DateTimeLocal
             form={form}
@@ -164,6 +171,21 @@ export default function MeasurementCreate() {
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={!!validationError}
+        title="Incorrect Weight"
+        message={validationError?.message}
+        tone="warning"
+        confirmText="Repot Plant"
+        cancelText="Correct Weight"
+        onConfirm={() => {
+          const pid = validationError.plantId
+          setValidationError(null)
+          window.open(`/measurement/repotting?plant=${pid}`, '_blank')
+        }}
+        onCancel={() => setValidationError(null)}
+      />
     </DashboardLayout>
   )
 }

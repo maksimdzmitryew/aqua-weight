@@ -25,6 +25,8 @@ class PlantsList:
         limit: int | None = None,
         search: str | None = None,
         status: str = "active",
+        needs_weighing_filter: bool | None = None,
+        uuids: list[str] | None = None,
     ) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
@@ -47,7 +49,9 @@ class PlantsList:
                            latest_pm.measured_weight_g,
                            latest_pm.last_wet_weight_g,
                            latest_pm.water_loss_total_pct,
-                           p.archive
+                           p.archive,
+                           p.sort_order,
+                           p.description
                     FROM plants p
                              LEFT JOIN locations l ON l.id = p.location_id
                              LEFT JOIN (SELECT measured_at, plant_id,
@@ -66,6 +70,27 @@ class PlantsList:
                 if min_water_loss_total_pct is not None:
                     query += " AND latest_pm.water_loss_total_pct > %s"
                     params.append(min_water_loss_total_pct)
+
+                if needs_weighing_filter is not None:
+                    if mode == "vacation":
+                        if needs_weighing_filter:
+                            query += " AND 1=0"
+                        else:
+                            pass
+                    else:
+                        threshold = datetime.utcnow() - timedelta(hours=18)
+                        if needs_weighing_filter:
+                            query += (
+                                " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            )
+                        else:
+                            query += " AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
+                        params.append(threshold)
+
+                if uuids:
+                    placeholders = ", ".join(["UNHEX(%s)"] * len(uuids))
+                    query += f" AND p.id IN ({placeholders})"
+                    params.extend(uuids)
 
                 # Server-side search filtering
                 if search is not None and search.strip():
@@ -109,14 +134,14 @@ class PlantsList:
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
                     # Support both the full DB row and a simplified 9-column test row.
-                    # Full shape (17 columns):
+                    # Full shape (18 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
                     #   7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive
+                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive, 17 sort_order
                     # Simplified test shape (9 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 location_id, 5 location_name,
                     #   6 created_at, 7 measured_at, 8 water_loss_total_pct
-                    if len(row) >= 17:
+                    if len(row) >= 18:
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
@@ -134,11 +159,14 @@ class PlantsList:
                         last_wet_weight_g = row[14]
                         water_loss_total_pct = row[15]
                         archive = row[16]
+                        sort_order = row[17]
+                        description = row[18] if len(row) >= 19 else row[2]
                     else:
                         # Fallback mapping for simplified rows used in tests
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
+                        description = row[2]  # Fallback to notes in simplified rows
                         species_name = row[3]
                         # No min/max/threshold/identify provided in this shape
                         min_dry_weight_g = None
@@ -154,6 +182,7 @@ class PlantsList:
                         last_wet_weight_g = None
                         water_loss_total_pct = row[8]
                         archive = 0
+                        sort_order = 0
 
                     # Prefer the most recent of measured_at and plant updated_at; fallback to created_at then now
                     candidates = [dt for dt in (measured_at_db, updated_at_db) if dt]
@@ -250,7 +279,7 @@ class PlantsList:
                             "name": name,
                             # Keep both keys to satisfy existing API and unit tests
                             "notes": notes,
-                            "description": notes,
+                            "description": description,
                             "species": species_name,
                             "min_dry_weight_g": min_dry_weight_g,
                             "max_water_weight_g": max_water_weight_g,
@@ -280,6 +309,7 @@ class PlantsList:
                             "days_offset": days_offset,
                             "needs_weighing": needs_weighing_val,
                             "archive": archive,
+                            "sort_order": sort_order,
                         }
                     )
                 # Restore last_params of the main cursor when FakeConnection reuses the same cursor instance
@@ -303,6 +333,9 @@ class PlantsList:
         min_water_loss_total_pct: float = None,
         search: str | None = None,
         status: str = "active",
+        needs_weighing_filter: bool | None = None,
+        mode: str = "manual",
+        uuids: list[str] | None = None,
     ) -> int:
         """
         Count total plants matching the same filters as fetch_all.
@@ -330,6 +363,27 @@ class PlantsList:
                 if min_water_loss_total_pct is not None:
                     query += " AND latest_pm.water_loss_total_pct > %s"
                     params.append(min_water_loss_total_pct)
+
+                if needs_weighing_filter is not None:
+                    if mode == "vacation":
+                        if needs_weighing_filter:
+                            query += " AND 1=0"
+                        else:
+                            pass
+                    else:
+                        threshold = datetime.utcnow() - timedelta(hours=18)
+                        if needs_weighing_filter:
+                            query += (
+                                " AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+                            )
+                        else:
+                            query += " AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
+                        params.append(threshold)
+
+                if uuids:
+                    placeholders = ", ".join(["UNHEX(%s)"] * len(uuids))
+                    query += f" AND p.id IN ({placeholders})"
+                    params.extend(uuids)
 
                 # Apply same search filtering as fetch_all
                 if search is not None and search.strip():

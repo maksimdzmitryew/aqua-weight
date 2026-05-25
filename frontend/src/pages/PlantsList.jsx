@@ -13,18 +13,222 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { getWaterRetainCellStyle } from '../utils/water_retained_colors.js'
-import { getWaterRetainedPct } from '../utils/watering.js'
+import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
 import SearchField from '../components/SearchField.jsx'
 import Pagination from '../components/Pagination.jsx'
 import DriftNotification from '../components/DriftNotification.jsx'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+function SortablePlantRow({
+  p,
+  idx,
+  canReorder,
+  operationMode,
+  defaultThreshold,
+  handleView,
+  handleEdit,
+  handleDelete,
+  moveUp,
+  moveDown,
+  displayedPlantsCount,
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: p.uuid,
+    disabled: !canReorder || !p.uuid,
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  const retained = getWaterRetainedPct(p, operationMode, p._approximation)
+  const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
+  const needsWater = checkNeedsWater(p, operationMode, p._approximation, defaultThreshold)
+
+  return (
+    <tr ref={setNodeRef} style={style} className={isDragging ? 'plant-row-dragging' : ''}>
+      <td className="td" title={p.uuid ? 'View plant' : undefined}>
+        <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
+          {p.archive !== 1 && (
+            <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true} />
+          )}
+          {p.archive === 1 && (
+            <span title="Archived" style={{ fontSize: '1.2em' }}>
+              📦
+            </span>
+          )}
+          {p.archive !== 1 && displayRetained}
+          {p.archive === 1 ? (
+            <Badge tone="subtle" title="Plant is archived">
+              Archived
+            </Badge>
+          ) : (
+            needsWater && (
+              <Badge
+                tone="warning"
+                title={
+                  operationMode === 'vacation'
+                    ? 'Needs water based on approximation'
+                    : 'Needs water based on threshold'
+                }
+              >
+                Needs water
+              </Badge>
+            )
+          )}
+          {p.archive !== 1 && p.needs_weighing && (
+            <Badge tone="info" title="Needs weighing (>18h since last update)">
+              Needs weight
+            </Badge>
+          )}
+        </span>
+      </td>
+      <td className="td">{p.recommended_water_threshold_pct}%</td>
+      <td className="td">
+        {Number.isFinite(p?.frequency_days) ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {p.frequency_days} d
+            {p.frequency_confidence !== undefined && (
+              <span
+                title={`${p.frequency_confidence} watering events used for calculation`}
+                style={{
+                  fontSize: '0.8em',
+                  color: `rgba(var(--text-rgb, 107, 114, 128), ${Math.min(
+                    1,
+                    0.3 + p.frequency_confidence / 10,
+                  )})`,
+                }}
+              >
+                &nbsp;({p.frequency_confidence})
+              </span>
+            )}
+          </span>
+        ) : (
+          '—'
+        )}
+      </td>
+      <td
+        className="td"
+        style={operationMode === 'vacation' && p.days_offset < 0 ? { background: '#fecaca' } : {}}
+      >
+        <DateTimeText
+          value={p.first_calculated_at || p.next_watering_at}
+          mode="daymonth"
+          showTooltip={false}
+        />
+        {p.days_offset !== undefined && p.days_offset !== null && (
+          <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>({p.days_offset}d)</span>
+        )}
+      </td>
+      <td
+        className="td"
+        style={{ width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
+        title={p.uuid ? 'View plant' : undefined}
+      >
+        {p.uuid ? (
+          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+            {p.identify_hint} {p.name}
+          </Link>
+        ) : (
+          p.name
+        )}
+      </td>
+      <td className="td" title={p.uuid ? 'View plant' : undefined}>
+        {p.uuid ? (
+          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+            {p.notes || '—'}
+          </Link>
+        ) : (
+          p.notes || '—'
+        )}
+      </td>
+      <td className="td hide-column-phone" style={{ width: 100 }}>
+        {p.location || '—'}
+      </td>
+      <td className="td hide-column-tablet" style={{ width: 80 }}>
+        <DateTimeText value={p.latest_at} mode="shortdatetime" />
+      </td>
+      <td className="td text-right nowrap">
+        <IconButton
+          icon="view"
+          label={`View plant ${p.name}`}
+          onClick={() => handleView(p)}
+          variant="ghost"
+        />
+        <IconButton
+          icon="edit"
+          label={`Edit plant ${p.name}`}
+          onClick={() => handleEdit(p)}
+          variant="subtle"
+        />
+        <IconButton
+          icon="delete"
+          label={`Delete plant ${p.name}`}
+          onClick={() => handleDelete(p)}
+          variant="danger"
+        />
+        <button
+          type="button"
+          onClick={() => moveUp(idx)}
+          disabled={!canReorder || idx === 0}
+          aria-label={`Move ${p.name} up`}
+          title={canReorder ? 'Move up' : 'Reordering only available on page 1 without search'}
+          style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          onClick={() => moveDown(idx)}
+          disabled={!canReorder || idx === displayedPlantsCount - 1}
+          aria-label={`Move ${p.name} down`}
+          title={canReorder ? 'Move down' : 'Reordering only available on page 1 without search'}
+          style={{ padding: '2px 6px', borderRadius: 4 }}
+        >
+          ↓
+        </button>
+        <span
+          className="drag-handle"
+          {...attributes}
+          {...listeners}
+          title={
+            canReorder ? 'Drag to reorder' : 'Reordering only available on page 1 without search'
+          }
+          aria-label="Drag to reorder"
+          tabIndex={canReorder ? 0 : -1}
+          style={{ marginLeft: 8, opacity: canReorder ? 1 : 0.5 }}
+        >
+          ⋮⋮
+        </span>
+      </td>
+    </tr>
+  )
+}
 
 export default function PlantsList() {
   // URL-based state management
   const [searchParams, setSearchParams] = useSearchParams()
   const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = parseInt(searchParams.get('limit') || '20', 10)
+  const limit = parseInt(searchParams.get('limit') || localStorage.getItem('pageSize') || '20', 10)
   const searchQuery = searchParams.get('search') || ''
   const status = searchParams.get('status') || 'active'
 
@@ -35,8 +239,39 @@ export default function PlantsList() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
-  const [dragIndex, setDragIndex] = useState(null)
   const [showDriftNotification, setShowDriftNotification] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = plants.findIndex((i) => i.uuid === active.id)
+      const newIndex = plants.findIndex((i) => i.uuid === over.id)
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(plants, oldIndex, newIndex)
+        setPlants(newOrder)
+        persistOrder(newOrder)
+      }
+    }
+  }
 
   // Drift detection
   const previousTotalRef = useRef(null)
@@ -47,6 +282,7 @@ export default function PlantsList() {
   const [toDelete, setToDelete] = useState(null)
 
   const operationMode = useMemo(() => localStorage.getItem('operationMode') || 'manual', [])
+  const defaultThreshold = useMemo(() => localStorage.getItem('defaultThreshold') || '40', [])
 
   // Sync local search input with URL query param
   // This ensures the search field shows the current filter even after page loads/reloads
@@ -163,6 +399,7 @@ export default function PlantsList() {
   }
 
   const handlePageSizeChange = (newLimit) => {
+    localStorage.setItem('pageSize', String(newLimit))
     const newParams = new URLSearchParams(searchParams)
     newParams.set('limit', String(newLimit))
     newParams.set('page', '1') // Reset to first page when changing page size
@@ -226,29 +463,15 @@ export default function PlantsList() {
   async function persistOrder(newList) {
     setSaveError('')
     const orderedIds = newList.map((p) => p.uuid).filter(Boolean)
-    if (orderedIds.length !== newList.length) return
+    if (orderedIds.length !== newList.length) {
+      setSaveError('Cannot save order: some plants are missing identifiers')
+      return
+    }
     try {
       await plantsApi.reorder(orderedIds)
     } catch (e) {
       setSaveError(e?.message || 'Failed to save order')
     }
-  }
-
-  function onDragStart(index) {
-    setDragIndex(index)
-  }
-
-  function onDragOver(e, index) {
-    e.preventDefault()
-    if (dragIndex === null || dragIndex === index) return
-    setPlants((prev) => reorder(prev, dragIndex, index))
-    setDragIndex(index)
-  }
-
-  function onDragEnd() {
-    if (dragIndex === null) return
-    persistOrder(plants)
-    setDragIndex(null)
   }
 
   function moveItem(from, to) {
@@ -455,253 +678,82 @@ export default function PlantsList() {
                 disabled={loading}
               />
 
-              <table className="table plants-table">
-                <thead>
-                  <tr>
-                    <th
-                      className="th"
-                      scope="col"
-                      title="Current retained water percentage and quick actions"
-                    >
-                      Care, Water retained{' '}
-                      <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th
-                      className="th"
-                      scope="col"
-                      title="Watering threshold — water when retained ≤ value"
-                    >
-                      Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th" scope="col" title="Watering frequency">
-                      Frequency <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th" scope="col" title="Next planned watering date">
-                      Next watering <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th" scope="col" title="Plant name">
-                      Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th" scope="col" title="Notes">
-                      Notes <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th hide-column-phone" scope="col" title="Location">
-                      Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th hide-column-tablet" scope="col" title="Last update time">
-                      Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                    <th className="th right" scope="col" title="Row actions">
-                      Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedPlants.map((p, idx) => {
-                    const retained = getWaterRetainedPct(p, operationMode, p._approximation)
-                    const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
-                    const thresh = Number(p.recommended_water_threshold_pct)
-                    const needsWater =
-                      typeof retained === 'number' && !Number.isNaN(thresh) && retained <= thresh
-                    // Disable drag/reorder when searching or not on page 1
-                    const canReorder = !searchQuery && page === 1
-                    return (
-                      <tr
-                        key={p.uuid || idx}
-                        draggable={canReorder}
-                        onDragStart={canReorder ? () => onDragStart(idx) : undefined}
-                        onDragEnd={canReorder ? onDragEnd : undefined}
-                        onDragOver={canReorder ? (e) => onDragOver(e, idx) : undefined}
-                      >
-                        <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                          <span
-                            style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}
-                          >
-                            {p.archive !== 1 && (
-                              <QuickCreateButtons
-                                plantUuid={p.uuid}
-                                plantName={p.name}
-                                compact={true}
-                              />
-                            )}
-                            {p.archive === 1 && (
-                              <span title="Archived" style={{ fontSize: '1.2em' }}>
-                                📦
-                              </span>
-                            )}
-                            {p.archive !== 1 && displayRetained}
-                            {p.archive === 1 ? (
-                              <Badge tone="subtle" title="Plant is archived">
-                                Archived
-                              </Badge>
-                            ) : (
-                              needsWater && (
-                                <Badge
-                                  tone="warning"
-                                  title={
-                                    operationMode === 'vacation'
-                                      ? 'Needs water based on approximation'
-                                      : 'Needs water based on threshold'
-                                  }
-                                >
-                                  Needs water
-                                </Badge>
-                              )
-                            )}
-                            {p.archive !== 1 && p.needs_weighing && (
-                              <Badge tone="info" title="Needs weighing (>18h since last update)">
-                                Needs weight
-                              </Badge>
-                            )}
-                          </span>
-                        </td>
-                        <td className="td">{p.recommended_water_threshold_pct}%</td>
-                        {/* Frequency */}
-                        <td className="td">
-                          {Number.isFinite(p?.frequency_days) ? (
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              {p.frequency_days} d
-                              {p.frequency_confidence !== undefined && (
-                                <span
-                                  title={`${p.frequency_confidence} watering events used for calculation`}
-                                  style={{
-                                    fontSize: '0.8em',
-                                    color: `rgba(var(--text-rgb, 107, 114, 128), ${Math.min(
-                                      1,
-                                      0.3 + p.frequency_confidence / 10,
-                                    )})`,
-                                  }}
-                                >
-                                  &nbsp;({p.frequency_confidence})
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                        {/* Next watering (date only, DD/MM or MM/DD per user preference) */}
-                        <td
-                          className="td"
-                          style={
-                            operationMode === 'vacation' && p.days_offset < 0
-                              ? { background: '#fecaca' }
-                              : {}
-                          }
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={displayedPlants.map((p) => p.uuid).filter(Boolean)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <table className="table plants-table">
+                    <thead>
+                      <tr>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Current retained water percentage and quick actions"
                         >
-                          <DateTimeText
-                            value={p.first_calculated_at || p.next_watering_at}
-                            mode="daymonth"
-                            showTooltip={false}
-                          />
-                          {p.days_offset !== undefined && p.days_offset !== null && (
-                            <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>
-                              ({p.days_offset}d)
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className="td"
-                          style={{ width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
-                          title={p.uuid ? 'View plant' : undefined}
+                          Care, Water retained{' '}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Watering threshold — water when retained ≤ value"
                         >
-                          {p.uuid ? (
-                            <Link
-                              to={`/plants/${p.uuid}`}
-                              state={{ plant: p }}
-                              className="block-link"
-                            >
-                              {p.identify_hint} {p.name}
-                            </Link>
-                          ) : (
-                            p.name
-                          )}
-                        </td>
-                        <td className="td" title={p.uuid ? 'View plant' : undefined}>
-                          {p.uuid ? (
-                            <Link
-                              to={`/plants/${p.uuid}`}
-                              state={{ plant: p }}
-                              className="block-link"
-                            >
-                              {p.notes || '—'}
-                            </Link>
-                          ) : (
-                            p.notes || '—'
-                          )}
-                        </td>
-                        <td className="td hide-column-phone" style={{ width: 100 }}>
-                          {p.location || '—'}
-                        </td>
-                        <td className="td hide-column-tablet">
-                          <DateTimeText value={p.latest_at} />
-                        </td>
-                        <td className="td text-right nowrap">
-                          <IconButton
-                            icon="view"
-                            label={`View plant ${p.name}`}
-                            onClick={() => handleView(p)}
-                            variant="ghost"
-                          />
-                          <IconButton
-                            icon="edit"
-                            label={`Edit plant ${p.name}`}
-                            onClick={() => handleEdit(p)}
-                            variant="subtle"
-                          />
-                          <IconButton
-                            icon="delete"
-                            label={`Delete plant ${p.name}`}
-                            onClick={() => handleDelete(p)}
-                            variant="danger"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => moveUp(idx)}
-                            disabled={!canReorder || idx === 0}
-                            aria-label={`Move ${p.name} up`}
-                            title={
-                              canReorder
-                                ? 'Move up'
-                                : 'Reordering only available on page 1 without search'
-                            }
-                            style={{ padding: '2px 6px', marginRight: 4, borderRadius: 4 }}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => moveDown(idx)}
-                            disabled={!canReorder || idx === displayedPlants.length - 1}
-                            aria-label={`Move ${p.name} down`}
-                            title={
-                              canReorder
-                                ? 'Move down'
-                                : 'Reordering only available on page 1 without search'
-                            }
-                            style={{ padding: '2px 6px', borderRadius: 4 }}
-                          >
-                            ↓
-                          </button>
-                          <span
-                            className="drag-handle"
-                            title={
-                              canReorder
-                                ? 'Drag to reorder'
-                                : 'Reordering only available on page 1 without search'
-                            }
-                            aria-label="Drag to reorder"
-                            tabIndex={canReorder ? 0 : -1}
-                            style={{ marginLeft: 8, opacity: canReorder ? 1 : 0.5 }}
-                          >
-                            ⋮⋮
-                          </span>
-                        </td>
+                          Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th" scope="col" title="Watering frequency">
+                          Freq <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th" scope="col" title="Next planned watering date">
+                          Next <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th" scope="col" title="Plant name" style={{ width: 180 }}>
+                          Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th" scope="col" title="Notes">
+                          Notes <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th hide-column-phone" scope="col" title="Location">
+                          Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th
+                          className="th hide-column-tablet"
+                          scope="col"
+                          title="Last update time"
+                          style={{ width: 100 }}
+                        >
+                          Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th className="th right" scope="col" title="Row actions">
+                          Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {displayedPlants.map((p, idx) => (
+                        <SortablePlantRow
+                          key={p.uuid || idx}
+                          p={p}
+                          idx={idx}
+                          canReorder={!searchQuery && page === 1}
+                          operationMode={operationMode}
+                          defaultThreshold={defaultThreshold}
+                          handleView={handleView}
+                          handleEdit={handleEdit}
+                          handleDelete={handleDelete}
+                          moveUp={moveUp}
+                          moveDown={moveDown}
+                          displayedPlantsCount={displayedPlants.length}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </SortableContext>
+              </DndContext>
 
               {/* Pagination controls (bottom) */}
               <Pagination

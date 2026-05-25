@@ -321,6 +321,7 @@ def test_next_watering_vacation_mode_decay(monkeypatch):
             None,
             0.0,
             0,
+            0,
         )
     ]
     cursor = FakeCursor(rows=rows, last_watering_at=last_watering_at)

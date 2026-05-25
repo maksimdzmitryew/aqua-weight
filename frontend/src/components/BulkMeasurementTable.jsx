@@ -27,6 +27,7 @@ export default function BulkMeasurementTable({
   // Optional: deemphasize predicate to visually soften rows (e.g., above threshold)
   deemphasizePredicate,
   operationMode = 'manual',
+  defaultThreshold = 40,
   approximations = {},
   noPlantsMessage = 'No plants found',
 }) {
@@ -59,8 +60,8 @@ export default function BulkMeasurementTable({
   )
 
   const renderRow = (p) => {
-    const approx = approximations[p.uuid]
-    const needsWater = checkNeedsWater(p, operationMode, approx)
+    const approx = approximations[p.uuid || p.id]
+    const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
     const needsMeasure = p.needs_weighing
 
     const retained = getWaterRetainedPct(p, operationMode, approx)
@@ -73,8 +74,10 @@ export default function BulkMeasurementTable({
           ? Math.round(p.water_loss_total_pct)
           : p.water_loss_total_pct
 
-    const status = inputStatus[p.uuid]
-    const mId = measurementIds[p.uuid]
+    const displayWaterLossText = typeof displayWaterLoss === 'number' ? `${displayWaterLoss}%` : '—'
+
+    const status = inputStatus[p.uuid || p.id]
+    const mId = measurementIds[p.uuid || p.id]
     const isSaving = status === 'saving'
 
     let dropColor = '#3b82f6' // blue-500
@@ -88,14 +91,28 @@ export default function BulkMeasurementTable({
             {operationMode !== 'vacation' ? (
               <>
                 <input
+                  onKeyDown={(e) => {
+                    if (e.key === 'Tab') {
+                      const direction = e.shiftKey ? 'previousElementSibling' : 'nextElementSibling'
+                      const targetRow = e.currentTarget.closest('tr')[direction]
+                      const nextInput = targetRow?.querySelector('input')
+
+                      if (nextInput) {
+                        e.preventDefault()
+                        nextInput.focus()
+                        nextInput.select()
+                      }
+                    }
+                  }}
                   type="number"
-                  style={{ width: 60 }}
+                  style={{ width: 80 }}
                   className={`input ${status === 'success' ? 'bg-success' : ''} ${
                     status === 'error' ? 'bg-error' : ''
                   }`}
                   defaultValue={p.current_weight || ''}
                   onBlur={(e) => {
-                    if (e.target.value && p.uuid) onCommitValue(p.uuid, e.target.value)
+                    if (e.target.value && (p.uuid || p.id))
+                      onCommitValue(p.uuid || p.id, e.target.value)
                   }}
                 />
                 {mId && onDeleteWatering && (
@@ -200,7 +217,11 @@ export default function BulkMeasurementTable({
             )}
           </div>
         </td>
-        <td className="td">{p.recommended_water_threshold_pct}%</td>
+        <td className="td">
+          {typeof p.recommended_water_threshold_pct === 'number'
+            ? `${p.recommended_water_threshold_pct}%`
+            : '—'}
+        </td>
         <td
           className="td"
           style={getWaterRetainCellStyle?.(retained)}
@@ -253,10 +274,10 @@ export default function BulkMeasurementTable({
               }}
               className="block-link"
             >
-              {displayWaterLoss}%
+              {displayWaterLossText}
             </a>
           ) : (
-            displayWaterLoss
+            displayWaterLossText
           )}
         </td>
         {showUpdatedColumn && (
@@ -264,7 +285,10 @@ export default function BulkMeasurementTable({
             {operationMode === 'vacation' ? (
               '—'
             ) : (
-              <DateTimeText value={p.latest_at || p.measured_at} />
+              <DateTimeText
+                value={p.latest_at || p.measured_at}
+                title={p.latest_at || p.measured_at}
+              />
             )}
           </td>
         )}

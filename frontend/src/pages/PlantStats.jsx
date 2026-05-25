@@ -39,6 +39,10 @@ export default function PlantStats() {
         setPlant(data)
         setLoading(false)
       } catch (e) {
+        if (e.status === 404 || (e.status === 400 && e.detail === 'Invalid plant id')) {
+          navigate('/404', { replace: true })
+          return
+        }
         const msg = e?.message || ''
         const isAbort = e?.name === 'AbortError' || msg.toLowerCase().includes('abort')
         if (isAbort) return
@@ -109,10 +113,17 @@ export default function PlantStats() {
     loadMeasurements()
   }, [uuid])
 
+  const browserTitle = plant
+    ? plant.identify_hint
+      ? `${plant.identify_hint} ${plant.name} — Stats`
+      : `${plant.name} — Stats`
+    : 'Stats'
+
   return (
-    <DashboardLayout title={plant ? `${plant.name} — Stats` : 'Stats'}>
+    <DashboardLayout title={browserTitle}>
       <PageHeader
         title={plant ? plant.name : 'Stats'}
+        subtitle={plant?.identify_hint}
         onBack={() => navigate('/dashboard')}
         titleBack="Dashboard"
       />

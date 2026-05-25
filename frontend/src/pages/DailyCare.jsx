@@ -24,6 +24,8 @@ function hoursSinceLocal(tsString) {
 
 export default function DailyCare() {
   const navigate = useNavigate()
+  const defaultThreshold =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('defaultThreshold') : null) || '40'
   const operationMode =
     (typeof localStorage !== 'undefined'
       ? typeof window !== 'undefined' && window.__VITEST_STUB_OPERATION_MODE__
@@ -35,7 +37,7 @@ export default function DailyCare() {
   const { plants: allPlants, loading: plantsLoading, error: plantsError } = usePlants()
 
   const [tasks, setTasks] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [approxLoading, setApproxLoading] = useState(false)
   const [error, setError] = useState('')
   const [approximations, setApproximations] = useState([])
 
@@ -44,14 +46,21 @@ export default function DailyCare() {
     let cancelled = false
     async function loadApproximations() {
       try {
-        const approxData = await plantsApi.getApproximation()
-        if (approxData?.items) {
-          if (!cancelled) setApproximations(approxData.items)
-        } else if (typeof window !== 'undefined' && window.__VITEST_STUB_APPROX_ITEMS__) {
-          if (!cancelled) setApproximations(window.__VITEST_STUB_APPROX_ITEMS__(approxData))
+        setApproxLoading(true)
+        const [wateringData, weightData] = await Promise.all([
+          plantsApi.getApproximation(),
+          plantsApi.getWeightApproximation(),
+        ])
+
+        const combined = [...(wateringData?.items || []), ...(weightData?.items || [])]
+
+        if (!cancelled) {
+          setApproximations(combined)
+          setApproxLoading(false)
         }
       } catch (e) {
         console.error('Failed to load approximations', e)
+        if (!cancelled) setApproxLoading(false)
         if (typeof window !== 'undefined' && window.__VITEST_STUB_LOAD_APPROX_ERROR__) {
           window.__VITEST_STUB_LOAD_APPROX_ERROR__(e)
         }
@@ -60,22 +69,25 @@ export default function DailyCare() {
 
     if (allPlants.length) {
       loadApproximations()
+    } else if (!plantsLoading) {
+      // If no plants, nothing to approximate
+      setApproximations([])
+      setApproxLoading(false)
     }
     return () => {
       cancelled = true
     }
-  }, [allPlants])
+  }, [allPlants, plantsLoading])
 
   // Process plants into tasks when plants or approximations change
   useEffect(() => {
-    if (plantsLoading) {
-      setLoading(true)
+    if (plantsLoading || approxLoading) {
+      setError('')
       return
     }
 
     if (plantsError) {
       setError(plantsError)
-      setLoading(false)
       return
     }
 
@@ -91,7 +103,7 @@ export default function DailyCare() {
     const plantsWithTasks = allPlants
       .map((p) => {
         const approx = approxMap[p.uuid]
-        const needsWater = checkNeedsWater(p, operationMode, approx)
+        const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
 
         // Now we use the backend-provided needs_weighing property
         const needsMeasure = p.needs_weighing ?? false
@@ -110,20 +122,31 @@ export default function DailyCare() {
       .filter((p) => p.needsWater || p.needsMeasure)
 
     setTasks(plantsWithTasks)
-    setLoading(false)
-  }, [allPlants, approximations, operationMode, plantsLoading, plantsError])
+  }, [
+    allPlants,
+    approximations,
+    operationMode,
+    plantsLoading,
+    approxLoading,
+    plantsError,
+    defaultThreshold,
+  ])
 
   const load = useCallback(async () => {
     // Reload is handled by usePlants hook, just reload approximations
     try {
-      const approxData = await plantsApi.getApproximation()
-      if (approxData?.items) {
-        setApproximations(approxData.items)
-      }
+      const [wateringData, weightData] = await Promise.all([
+        plantsApi.getApproximation(),
+        plantsApi.getWeightApproximation(),
+      ])
+      const combined = [...(wateringData?.items || []), ...(weightData?.items || [])]
+      setApproximations(combined)
     } catch (e) {
       console.error('Failed to reload approximations', e)
     }
   }, [])
+
+  const isLoading = plantsLoading || approxLoading
 
   return (
     <DashboardLayout title="Daily care">
@@ -139,14 +162,18 @@ export default function DailyCare() {
       >
         <button
           className="btn btn-primary"
-          disabled={operationMode === 'vacation'}
+          disabled={operationMode === 'vacation' || isLoading}
           title={operationMode === 'vacation' ? 'Bulk measurement is currently disabled' : ''}
           onClick={() => navigate('/measurements/bulk/weight')}
         >
           Bulk measurement
+          {tasks.filter((t) => t.needsMeasure).length > 0
+            ? ` (${tasks.filter((t) => t.needsMeasure).length})`
+            : ''}
         </button>
         <button
           className="btn"
+          disabled={isLoading}
           style={{ background: '#2c4fff', color: 'white' }}
           onClick={() => navigate('/measurements/bulk/watering')}
         >
@@ -161,10 +188,10 @@ export default function DailyCare() {
         according to the approximation schedule.
       </p>
 
-      {loading && <Loader label="Loading tasks..." />}
-      {error && !loading && <ErrorNotice message={error} onRetry={load} />}
+      {isLoading && <Loader label="Loading tasks..." />}
+      {error && !isLoading && <ErrorNotice message={error} onRetry={load} />}
 
-      {!loading &&
+      {!isLoading &&
         !error &&
         (tasks.length === 0 ? (
           <EmptyState

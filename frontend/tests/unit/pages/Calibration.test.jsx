@@ -46,7 +46,7 @@ vi.mock('../../../src/components/PageHeader.jsx', () => ({
 }))
 
 vi.mock('../../../src/components/DateTimeText.jsx', () => ({
-  default: ({ value }) => <span data-testid="datetime-text">{value}</span>,
+  default: ({ value, empty = '—' }) => <span data-testid="datetime-text">{value ?? empty}</span>,
 }))
 
 vi.mock('../../../src/utils/datetime.js', () => ({
@@ -565,12 +565,12 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
       max_water_retained: [
         {
           id: 'm0',
-          measured_at: null,
-          water_added_g: undefined,
-          last_wet_weight_g: undefined,
+          measured_at: undefined,
+          water_added_g: null,
+          last_wet_weight_g: null,
           target_weight_g: 150,
-          under_g: undefined,
-          under_pct: undefined,
+          under_g: null,
+          under_pct: null,
         },
       ],
     },
@@ -1061,6 +1061,82 @@ test('correction error uses e.message when detail and body are absent (covers th
   fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
   const alert = await screen.findByRole('alert')
   expect(alert.textContent || '').toMatch(/only message path/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
+
+test('correction error uses stringified e.body when other fields are missing or invalid (covers lines 102-103)', async () => {
+  server.resetHandlers()
+  const plant = {
+    uuid: 'p-body-obj',
+    name: 'BodyObj',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'bo1',
+          measured_at: '2025-11-01 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const error = {
+    message: '[object Object]',
+    detail: null,
+    body: { custom_error: 'from body' },
+  }
+  const postSpy = vi.spyOn(calibrationApi, 'correct').mockRejectedValueOnce(error)
+
+  renderPage()
+  await screen.findByText('BodyObj')
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/{"custom_error":"from body"}/i)
+  postSpy.mockRestore()
+  listSpy.mockRestore()
+})
+
+test('correction error with circular body triggers stringify catch (covers lines 104-106)', async () => {
+  server.resetHandlers()
+  const plant = {
+    uuid: 'p-body-circ',
+    name: 'BodyCirc',
+    min_dry_weight_g: 1,
+    max_water_weight_g: 1,
+    calibration: {
+      max_water_retained: [
+        {
+          id: 'bc1',
+          measured_at: '2025-11-02 00:00:00',
+          last_wet_weight_g: 0,
+          target_weight_g: 1,
+          under_g: 1,
+          under_pct: 100,
+        },
+      ],
+    },
+  }
+  const listSpy = vi.spyOn(calibrationApi, 'list').mockResolvedValue([plant])
+  const circular = {}
+  circular.self = circular
+  const error = {
+    message: '[object Object]',
+    detail: null,
+    body: circular,
+  }
+  const postSpy = vi.spyOn(calibrationApi, 'correct').mockRejectedValueOnce(error)
+
+  renderPage()
+  await screen.findByText('BodyCirc')
+  fireEvent.click(screen.getByRole('button', { name: /correct overfill/i }))
+  const alert = await screen.findByRole('alert')
+  expect(alert.textContent || '').toMatch(/failed to apply corrections/i)
   postSpy.mockRestore()
   listSpy.mockRestore()
 })

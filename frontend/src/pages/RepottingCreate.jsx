@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
-import { nowLocalISOMinutes } from '../utils/datetime.js'
+import { nowLocalISOFull, toLocalISOFull } from '../utils/datetime.js'
 import { useForm, required, minNumber } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
 import PlantSelect from '../components/PlantSelect.jsx'
@@ -21,7 +21,7 @@ const RepottingCreate = () => {
 
   const form = useForm({
     plant_id: preselect || '',
-    measured_at: nowLocalISOMinutes(),
+    measured_at: nowLocalISOFull(),
     weight_before_repotting_g: '',
     last_wet_weight_g: '',
   })
@@ -35,7 +35,7 @@ const RepottingCreate = () => {
         if (cancelled) return
         form.setValues({
           plant_id: data.plant_id,
-          measured_at: data.measured_at,
+          measured_at: toLocalISOFull(data.measured_at),
           weight_before_repotting_g:
             data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
           last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',

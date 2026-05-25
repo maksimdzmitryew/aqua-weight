@@ -17,6 +17,7 @@ from ..helpers.water_retained import calculate_water_retained
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
 )
+from ..helpers.weighing import needs_weighing
 from ..schemas.measurement import (
     LastMeasurementResponse,
     MeasurementCreateRequest,
@@ -32,6 +33,7 @@ from ..services.measurements import (
     derive_weights,
     ensure_exclusive_water_vs_weight,
     parse_timestamp_local,
+    validate_water_loss,
 )
 from ..utils.settings_defaults import parse_default_threshold
 
@@ -202,7 +204,7 @@ async def create_vacation_watering(
                 return {
                     "id": bin_to_hex(new_id),
                     "plant_id": payload.plant_id,
-                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="milliseconds"),
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="microseconds"),
                     "water_loss_total_pct": 0.0,
                     "water_retained_pct": water_retained_pct,
                     "note": final_note,
@@ -318,7 +320,7 @@ async def create_reported_watering(
                 return {
                     "id": bin_to_hex(new_id),
                     "plant_id": payload.plant_id,
-                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="milliseconds"),
+                    "measured_at": measured_at_dt.isoformat(sep=" ", timespec="microseconds"),
                     "note": final_note,
                 }
         except Exception as e:
@@ -413,7 +415,7 @@ async def get_last_measurement(plant_id: str, get_conn_fn=Depends(get_conn_facto
                     return None
                 return {
                     "measured_at": (
-                        row[0].isoformat(sep=" ", timespec="milliseconds") if row[0] else None
+                        row[0].isoformat(sep=" ", timespec="microseconds") if row[0] else None
                     ),
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],
@@ -615,7 +617,7 @@ async def apply_measurements_corrections(
                             {
                                 "id": bin_to_hex(mid),
                                 "measured_at": (
-                                    measured_at.isoformat(sep=" ", timespec="milliseconds")
+                                    measured_at.isoformat(sep=" ", timespec="microseconds")
                                     if isinstance(measured_at, datetime)
                                     else str(measured_at)
                                 ),
@@ -677,7 +679,7 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
                         {
                             "id": bin_to_hex(_id),
                             "measured_at": (
-                                r[1].isoformat(sep=" ", timespec="milliseconds") if r[1] else None
+                                r[1].isoformat(sep=" ", timespec="microseconds") if r[1] else None
                             ),
                             "measured_weight_g": r[2],
                             "last_dry_weight_g": r[3],
@@ -699,7 +701,9 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
 @app.post("/measurements/watering")
 @app.post("/measurements/weight")
 async def create_measurement(
-    payload: MeasurementCreateRequest, get_conn_fn=Depends(get_conn_factory)
+    payload: MeasurementCreateRequest,
+    mode: str = "manual",
+    get_conn_fn=Depends(get_conn_factory),
 ):
     """
     Create a new measurement or watering event.
@@ -758,6 +762,17 @@ async def create_measurement(
                     derived=derived,
                     exclude_measurement_id=None,
                 )
+
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        cursor=cur,
+                        plant_id_hex=payload.plant_id,
+                        current_weight=measured_weight,
+                        measured_at=measured_at,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
 
                 last_dry_weight_local = derived.last_dry_weight_g
                 lw_local = derived.last_wet_weight_g
@@ -820,12 +835,21 @@ async def create_measurement(
                     water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
 
+                # Compute if plant needs weighing based on latest measurement
+                cur.execute(
+                    "SELECT MAX(measured_at) FROM plants_measurements WHERE plant_id = UNHEX(%s)",
+                    (payload.plant_id,),
+                )
+                latest_at = cur.fetchone()[0]
+                needs_weighing_val = needs_weighing(latest_at, mode)
+
                 return {
                     "status": "success",
                     "data": {
                         "id": new_id.hex(),
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
                         "water_retained_pct": water_retained_pct,
+                        "needs_weighing": needs_weighing_val,
                     },
                     "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
@@ -844,7 +868,10 @@ async def create_measurement(
 @app.put("/measurements/watering/{id_hex}")
 @app.put("/measurements/weight/{id_hex}")
 async def update_measurement(
-    id_hex: str, payload: MeasurementUpdateRequest, get_conn_fn=Depends(get_conn_factory)
+    id_hex: str,
+    payload: MeasurementUpdateRequest,
+    mode: str = "manual",
+    get_conn_fn=Depends(get_conn_factory),
 ):
     """
     Update an existing measurement or watering event.
@@ -942,6 +969,18 @@ async def update_measurement(
                         exclude_measurement_id=id_hex,
                     )
 
+                # Validate water loss
+                try:
+                    validate_water_loss(
+                        cursor=cur,
+                        plant_id_hex=plant_hex,
+                        current_weight=mw_eff,
+                        measured_at=measured_at_eff,
+                        exclude_measurement_id=id_hex,
+                    )
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+
                 mw_update = None if loss_calc.is_watering_event else mw_eff
                 wa_update = int(derived.water_added_g) if derived.water_added_g else 0
 
@@ -996,12 +1035,21 @@ async def update_measurement(
                     water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
 
+                # Compute if plant needs weighing based on latest measurement
+                cur.execute(
+                    "SELECT MAX(measured_at) FROM plants_measurements WHERE plant_id = UNHEX(%s)",
+                    (plant_hex,),
+                )
+                latest_at = cur.fetchone()[0]
+                needs_weighing_val = needs_weighing(latest_at, mode)
+
                 return {
                     "status": "success",
                     "data": {
                         "id": id_hex,
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
                         "water_retained_pct": water_retained_pct,
+                        "needs_weighing": needs_weighing_val,
                     },
                     "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
@@ -1049,7 +1097,7 @@ async def get_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
                     "id": bin_to_hex(row[0]),
                     "plant_id": bin_to_hex(row[1]),
                     "measured_at": (
-                        row[2].isoformat(sep=" ", timespec="milliseconds") if row[2] else None
+                        row[2].isoformat(sep=" ", timespec="microseconds") if row[2] else None
                     ),
                     "measured_weight_g": row[3],
                     "last_dry_weight_g": row[4],

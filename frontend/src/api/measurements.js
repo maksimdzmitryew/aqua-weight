@@ -14,23 +14,26 @@ export const measurementsApi = {
     return apiClient.delete(`/measurements/${id}`, { signal })
   },
   weight: {
-    create(payload, signal) {
-      return apiClient.post('/measurements/weight', payload, {
+    create(payload, signal, mode) {
+      const url = mode ? `/measurements/weight?mode=${mode}` : '/measurements/weight'
+      return apiClient.post(url, payload, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })
     },
-    update(id, payload, signal) {
+    update(id, payload, signal, mode) {
       if (!id) throw new ApiError('Missing measurement id')
-      return apiClient.put(`/measurements/weight/${id}`, payload, {
+      const url = mode ? `/measurements/weight/${id}?mode=${mode}` : `/measurements/weight/${id}`
+      return apiClient.put(url, payload, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })
     },
   },
   watering: {
-    create(payload, signal) {
-      return apiClient.post('/measurements/watering', payload, {
+    create(payload, signal, mode) {
+      const url = mode ? `/measurements/watering?mode=${mode}` : '/measurements/watering'
+      return apiClient.post(url, payload, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })
@@ -41,9 +44,12 @@ export const measurementsApi = {
         signal,
       })
     },
-    update(id, payload, signal) {
+    update(id, payload, signal, mode) {
       if (!id) throw new ApiError('Missing measurement id')
-      return apiClient.put(`/measurements/watering/${id}`, payload, {
+      const url = mode
+        ? `/measurements/watering/${id}?mode=${mode}`
+        : `/measurements/watering/${id}`
+      return apiClient.put(url, payload, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })

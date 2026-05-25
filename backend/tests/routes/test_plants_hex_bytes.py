@@ -79,7 +79,7 @@ async def test_update_plant_uses_hex_to_bytes_with_valid_location(async_client: 
         conn.close()
 
     # Update: provide location_id (valid hex) to exercise hex_to_bytes regex/convert path
-    ur = await async_client.put(
+    ur = await async_client.patch(
         f"/api/plants/{plant_uuid}",
         json={
             "name": "Updater v2",

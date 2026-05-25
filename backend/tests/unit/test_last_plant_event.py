@@ -78,7 +78,7 @@ def test_get_last_event_happy_path(monkeypatch):
     out = LastPlantEvent.get_last_event("0f" * 16)
 
     assert out == {
-        "measured_at": measured_at.isoformat(sep=" ", timespec="seconds"),
+        "measured_at": measured_at.isoformat(sep=" ", timespec="microseconds"),
         "measured_weight_g": 123.4,
         "last_dry_weight_g": 50.0,
         "last_wet_weight_g": 200.0,

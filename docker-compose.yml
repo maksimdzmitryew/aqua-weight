@@ -49,14 +49,27 @@ services:
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
-      - ./frontend/node_modules:/app/node_modules
+    # now we have modules pre-downloaded in image which allows for a fast container start
+      - /app/node_modules
     # Always install deps on startup to avoid partial node_modules issues when bind-mounting from host.
     # This ensures @vitejs/plugin-react-swc and other dev deps are present for the Vite dev server.
+    # This results in slower start time which is acceptable for dev but not for prod
+    #command:
+    #  - ./frontend/node_modules:/app/node_modules
+    #  [
+    #    "bash",
+    #    "-lc",
+    #    "cd /app && npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0",
+    #  ]
+
     command:
       [
-        "bash",
-        "-lc",
-        "cd /app && npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0",
+        "npm",
+        "run",
+        "dev",
+        "--",
+        "--host",
+        "0.0.0.0",
       ]
     security_opt:
       - no-new-privileges:true
@@ -70,6 +83,8 @@ services:
       - MARIADB_DATABASE=${MARIADB_DATABASE:-appdb}
       - MARIADB_USER=${MARIADB_USER:-appuser}
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-apppass}
+    ports:
+      - "33306:3306"
     volumes:
       - ./db/my.cnf:/etc/mysql/my.cnf
       - mariadb_data:/var/lib/mysql:consistent

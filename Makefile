@@ -12,8 +12,8 @@ define WORKFLOW_HINT
 	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                  ← you are here ←)"
 	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),           ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make be-fix     ← fix backend formatting + lint + mypy$(if $(filter be-fix,$(MAKECMDGOALS)),  ← you are here ←)"
-	@echo "  make fe-fix     ← fix frontend formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),        ← you are here ←)"
+	@echo "  make fix-be     ← fix backend formatting + lint + mypy$(if $(filter fix-be,$(MAKECMDGOALS)),  ← you are here ←)"
+	@echo "  make fix-fe     ← fix frontend formatting + lint$(if $(filter fix-fe,$(MAKECMDGOALS)),        ← you are here ←)"
 	@echo "      ↓"
 	@echo "  make cicd-be    ← verify: pre-commit checks pass$(if $(filter cicd-be,$(MAKECMDGOALS)),       ← you are here ←)"
 	@echo "  make cicd-fe    ← verify: pre-commit checks pass$(if $(filter cicd-fe,$(MAKECMDGOALS)),       ← you are here ←)"
@@ -59,7 +59,7 @@ help:
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
-	@echo "  make fe-fix            - Auto-fix formatting and lint"
+	@echo "  make fix-fe            - Auto-fix formatting and lint"
 	@echo "  make cicd-fe           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
@@ -68,7 +68,7 @@ help:
 	@echo "  make be-fmt            - Run black check"
 	@echo "  make be-fmt-fix        - Run black fix"
 	@echo "  make be-mypy           - Run mypy"
-	@echo "  make be-fix            - Auto-fix backend formatting, lint, and mypy"
+	@echo "  make fix-be            - Auto-fix backend formatting, lint, and mypy"
 	@echo "  make be-pre-commit     - Run pre-commit (CI config)"
 	@echo "  make cicd-be           - Run CI/CD pipeline for BE"
 	@echo ""
@@ -149,27 +149,27 @@ test-ps:
 .PHONY: test-be
 test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q
+	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
 	$(WORKFLOW_HINT)
 
 .PHONY: test-full
 test-full:
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest
+	docker compose -f $(TEST_COMPOSE) exec runner pytest
 
 .PHONY: test-cov
 test-cov:
-	docker compose -f $(TEST_COMPOSE) exec -T runner pytest -q --cov=app --cov-report=term-missing
+	docker compose -f $(TEST_COMPOSE) exec runner pytest -q --cov=app --cov-report=term-missing
 
 # --- E2E ---
 .PHONY: e2e-deps
 e2e-deps:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
 
 .PHONY: test-e2e
 test-e2e:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
 	$(WORKFLOW_HINT)
 
 .PHONY: test-e2e-ci-wait
@@ -201,7 +201,7 @@ test-e2e-ci-wait:
 .PHONY: e2e-headed
 e2e-headed:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
 
 .PHONY: e2e-report
 e2e-report:
@@ -216,13 +216,13 @@ fe-dev:
 test-fe:
 	docker compose -f $(TEST_COMPOSE) up -d e2e
 	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
-	docker compose -f $(TEST_COMPOSE) exec -T e2e bash -lc "\
+	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "\
 		mkdir -p /tmp/fe && \
 		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
 		cd /tmp/fe && \
 		rm -rf node_modules && \
 		ln -s /app/node_modules node_modules && \
-		npm run test:unit:coverage && \
+		npm run test:unit:coverage -- --bail 1 && \
 		cp -r coverage /app/"
 		$(WORKFLOW_HINT)
 
@@ -255,8 +255,8 @@ fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
 fe-lint-fix: ## Auto-fix frontend ESLint issues
 	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
 
-.PHONY: fe-fix
-fe-fix: ## Run all frontend auto-fixes
+.PHONY: fix-fe
+fix-fe: ## Run all frontend auto-fixes
 	$(MAKE) fe-fmt-fix
 	$(MAKE) fe-lint-fix
 	$(WORKFLOW_HINT)
@@ -264,7 +264,7 @@ fe-fix: ## Run all frontend auto-fixes
 .PHONY: cicd-fe
 cicd-fe:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files frontend)
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files frontend)
 	$(WORKFLOW_HINT)
 
 # --- Utility ---
@@ -277,30 +277,30 @@ certs:
 .PHONY: be-lint
 be-lint:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend"
 
 .PHONY: be-lint-fix
 be-lint-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "ruff check --fix backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend"
 
 .PHONY: be-fmt
 be-fmt:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black --check backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend"
 
 .PHONY: be-fmt-fix
 be-fmt-fix:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "black backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend"
 
 .PHONY: be-mypy
 be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "mypy backend/app"
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
 
-.PHONY: be-fix
-be-fix: ## Run all frontend auto-fixes
+.PHONY: fix-be
+fix-be: ## Run all frontend auto-fixes
 	$(MAKE) be-fmt-fix
 	$(MAKE) be-lint-fix
 	$(MAKE) be-mypy
@@ -309,7 +309,7 @@ be-fix: ## Run all frontend auto-fixes
 .PHONY: be-pre-commit
 be-pre-commit:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc "printf '%s\\n' \
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "printf '%s\\n' \
 	  'repos:' \
 	  '  - repo: https://github.com/pre-commit/pre-commit-hooks' \
 	  '    rev: v4.6.0' \
@@ -324,19 +324,19 @@ be-pre-commit:
 	  '        types_or: [python]' \
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
-	docker compose -f $(TEST_COMPOSE) exec -T runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
 
 .PHONY: all-cicd
 al-cicd:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --all-files
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --all-files
 	$(WORKFLOW_HINT)
 
 
 .PHONY: cicd-be
 cicd-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec -T runner pre-commit run --files $$(git ls-files backend)
+	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files backend)
 	$(WORKFLOW_HINT)
 
 .PHONY: install-hooks

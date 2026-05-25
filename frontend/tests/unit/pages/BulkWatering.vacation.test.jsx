@@ -26,8 +26,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
         </MemoryRouter>
       </ThemeProvider>,
     )
-    const toggle = await screen.findByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
+    const checkbox = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(checkbox)
+    // Wait for the "All" tab content to load
+    await screen.findByText(/Showing all plants; those above threshold are deemphasized/i)
   }
 
   test('committing vacation watering succeeds and updates plant state', async () => {
@@ -249,8 +251,8 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     // This exercises line 157 and 206
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'u1', name: 'Aloe' },
-        { uuid: 'u2', name: 'Other' },
+        { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+        { uuid: 'u2', name: 'Other', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
       http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
       http.post('/api/measurements/vacation/watering', () =>
@@ -279,13 +281,21 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     // Let's force an empty items array to hit `approxData?.items || []` branch.
     server.use(
       http.get('/api/measurements/approximation/watering', () =>
-        HttpResponse.json({ items: null }),
+        HttpResponse.json({
+          items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+        }),
       ),
     )
     fireEvent.click(commitBtns[0])
     await waitFor(() => expect(screen.queryByLabelText('Undo')).toBeInTheDocument())
 
-    server.use(http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)))
+    server.use(
+      http.get('/api/measurements/approximation/watering', () =>
+        HttpResponse.json({
+          items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
+        }),
+      ),
+    )
     fireEvent.click(deleteBtn)
     await waitFor(() => expect(screen.queryByLabelText('Undo')).not.toBeInTheDocument())
   })
@@ -308,10 +318,10 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ),
     ).toBeInTheDocument()
 
-    const toggle = screen.getByRole('checkbox', { name: /show all plants/i })
-    fireEvent.click(toggle)
+    const checkbox = screen.getByRole('checkbox', { name: /show all plants/i })
+    fireEvent.click(checkbox)
     expect(
-      screen.getByText(/Showing all plants; those above threshold are deemphasized/i),
+      await screen.findByText(/Showing all plants; those above threshold are deemphasized/i),
     ).toBeInTheDocument()
 
     // Switch to manual mode

@@ -23,9 +23,9 @@ test.describe('Concurrency and Error Handling', () => {
     const descInput = page.getByLabel(/description/i)
     await descInput.fill('Conflicting Description')
 
-    // Mock 409 Conflict for PUT /api/plants/{uuid}
+    // Mock 409 Conflict for PATCH /api/plants/{uuid}
     await page.route('**/api/plants/*', async (route) => {
-      if (route.request().method() === 'PUT') {
+      if (route.request().method() === 'PATCH') {
         await route.fulfill({
           status: 409,
           contentType: 'application/json',
@@ -57,30 +57,38 @@ test.describe('Concurrency and Error Handling', () => {
     await descInput.fill('Slow Update')
 
     // Delay response and mock subsequent GET
-    await page.route('**/api/plants*', async (route) => {
+    await page.route('**/api/plants/**', async (route) => {
       const request = route.request()
-      if (request.method() === 'PUT') {
+      if (request.method() === 'PATCH') {
         await new Promise((resolve) => setTimeout(resolve, 2000))
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({ ok: true }),
         })
-      } else if (request.method() === 'GET' && request.url().endsWith('/api/plants')) {
+      } else {
+        await route.continue()
+      }
+    })
+
+    await page.route('**/api/plants', async (route) => {
+      const request = route.request()
+      if (request.method() === 'GET') {
         // Mock list response to include the updated description
         const response = await page.request.fetch(route.request())
         const json = await response.json()
-        if (Array.isArray(json)) {
-          // Since description is not shown in list, we might need another way to verify.
-          // But for this test, we can just check if navigation happened.
-          // Or we could mock a field that IS shown, like location.
-          const updated = json.map((p) =>
-            p.name === 'Seed Fern' ? { ...p, location: 'Slow Room' } : p,
-          )
-          await route.fulfill({ response, body: JSON.stringify(updated) })
-        } else {
-          await route.continue()
-        }
+        const items = Array.isArray(json) ? json : json.items || []
+
+        // Since description is not shown in list, we might need another way to verify.
+        // But for this test, we can just check if navigation happened.
+        // Or we could mock a field that IS shown, like location.
+        const updatedItems = items.map((p) =>
+          p.name === 'Seed Fern' ? { ...p, location: 'Slow Room' } : p,
+        )
+
+        const finalBody = Array.isArray(json) ? updatedItems : { ...json, items: updatedItems }
+
+        await route.fulfill({ response, body: JSON.stringify(finalBody) })
       } else {
         await route.continue()
       }
@@ -95,10 +103,10 @@ test.describe('Concurrency and Error Handling', () => {
     // Trigger save and verify it eventually succeeds and navigates.
     await page.getByRole('button', { name: /save/i }).click()
 
-    // Should eventually navigate to /plants
-    await expect(page).toHaveURL(/\/plants/, { timeout: 10000 })
+    // Should eventually navigate to /plants/:uuid
+    await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}/, { timeout: 10000 })
     // Verify something that is visible. If we can't easily verify the change,
     // at least we verified the slow save didn't break navigation.
-    await expect(page.getByRole('row', { name: /seed fern/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /seed fern/i })).toBeVisible()
   })
 })

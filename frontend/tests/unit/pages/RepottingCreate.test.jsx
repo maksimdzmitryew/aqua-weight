@@ -192,14 +192,12 @@ describe('pages/RepottingCreate', () => {
       http.put('/api/measurements/repotting/:id', async ({ params, request }) => {
         expect(params.id).toBe('77')
         const body = await request.json()
-        expect(body).toEqual(
-          expect.objectContaining({
-            plant_id: 'p1',
-            measured_at: '2025-01-01T10:00',
-            measured_weight_g: 123,
-            last_wet_weight_g: 456,
-          }),
-        )
+        expect(body).toMatchObject({
+          plant_id: 'p1',
+          measured_at: '2025-01-01T10:00:00.000',
+          measured_weight_g: 123,
+          last_wet_weight_g: 456,
+        })
         return HttpResponse.json({ ok: true })
       }),
     )

@@ -179,11 +179,12 @@ def make_row_full(
     last_wet_weight_g: float | None = 200.0,
     water_loss_total_pct: float | None = 50.0,
     archive: int = 0,
+    sort_order: int = 0,
 ):
-    # Full shape (17 columns):
+    # Full shape (18 columns):
     # 0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
     # 7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive
+    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive, 17 sort_order
     return (
         pid_bytes,
         name,
@@ -202,6 +203,7 @@ def make_row_full(
         last_wet_weight_g,
         water_loss_total_pct,
         archive,
+        sort_order,
     )
 
 
@@ -745,3 +747,107 @@ def test_fetch_all_no_cursor_attr(monkeypatch):
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
 
     PlantsList.fetch_all()
+
+
+def test_fetch_all_needs_weighing_vacation(monkeypatch):
+    """Test needs_weighing_filter in vacation mode (lines 73-77)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(rows=[])
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Case: needs_weighing_filter=True, mode="vacation"
+    PlantsList.fetch_all(needs_weighing_filter=True, mode="vacation")
+    assert "AND 1=0" in fake_conn._cursor.last_query
+
+    # Case: needs_weighing_filter=False, mode="vacation"
+    PlantsList.fetch_all(needs_weighing_filter=False, mode="vacation")
+    assert "AND 1=0" not in fake_conn._cursor.last_query
+
+
+def test_fetch_all_needs_weighing_manual(monkeypatch):
+    """Test needs_weighing_filter in manual mode (lines 78-84)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(rows=[])
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Case: needs_weighing_filter=True, mode="manual"
+    PlantsList.fetch_all(needs_weighing_filter=True, mode="manual")
+    assert (
+        "AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+        in fake_conn._cursor.last_query
+    )
+
+    # Case: needs_weighing_filter=False, mode="manual"
+    PlantsList.fetch_all(needs_weighing_filter=False, mode="manual")
+    assert (
+        "AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
+        in fake_conn._cursor.last_query
+    )
+
+
+def test_fetch_all_uuids(monkeypatch):
+    """Test uuids filter (lines 87-89)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(rows=[])
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    uuids = ["1234567890abcdef1234567890abcdef", "abcdef1234567890abcdef1234567890"]
+    PlantsList.fetch_all(uuids=uuids)
+    assert "AND p.id IN (UNHEX(%s), UNHEX(%s))" in fake_conn._cursor.last_query
+    assert uuids[0] in fake_conn._cursor.last_params
+    assert uuids[1] in fake_conn._cursor.last_params
+
+
+def test_count_all_needs_weighing_vacation(monkeypatch):
+    """Test count_all with needs_weighing_filter in vacation mode (lines 359-363)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(count_result=0)
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Case: needs_weighing_filter=True, mode="vacation"
+    PlantsList.count_all(needs_weighing_filter=True, mode="vacation")
+    assert "AND 1=0" in fake_conn._cursor.last_query
+
+    # Case: needs_weighing_filter=False, mode="vacation"
+    PlantsList.count_all(needs_weighing_filter=False, mode="vacation")
+    assert "AND 1=0" not in fake_conn._cursor.last_query
+
+
+def test_count_all_needs_weighing_manual(monkeypatch):
+    """Test count_all with needs_weighing_filter in manual mode (lines 364-370)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(count_result=0)
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    # Case: needs_weighing_filter=True, mode="manual"
+    PlantsList.count_all(needs_weighing_filter=True, mode="manual")
+    assert (
+        "AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)"
+        in fake_conn._cursor.last_query
+    )
+
+    # Case: needs_weighing_filter=False, mode="manual"
+    PlantsList.count_all(needs_weighing_filter=False, mode="manual")
+    assert (
+        "AND (latest_pm.measured_at IS NOT NULL AND latest_pm.measured_at >= %s)"
+        in fake_conn._cursor.last_query
+    )
+
+
+def test_count_all_uuids(monkeypatch):
+    """Test count_all with uuids filter (lines 373-375)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(count_result=0)
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    uuids = ["1234567890abcdef1234567890abcdef", "abcdef1234567890abcdef1234567890"]
+    PlantsList.count_all(uuids=uuids)
+    assert "AND p.id IN (UNHEX(%s), UNHEX(%s))" in fake_conn._cursor.last_query
+    assert uuids[0] in fake_conn._cursor.last_params
+    assert uuids[1] in fake_conn._cursor.last_params

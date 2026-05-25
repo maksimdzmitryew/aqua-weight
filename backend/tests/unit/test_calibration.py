@@ -104,7 +104,7 @@ def test_calibrate_by_max_water_retained_without_repot_filters_all():
     assert list(result.keys()) == [p2]
     item = result[p2][0]
     assert item["id"] == m1.hex()
-    assert item["measured_at"] == dt1.isoformat(sep=" ", timespec="seconds")
+    assert item["measured_at"] == dt1.isoformat(sep=" ", timespec="microseconds")
     assert item["water_added_g"] == 15
     assert item["last_wet_weight_g"] == 95
     assert item["target_weight_g"] == 100  # 80 + 20

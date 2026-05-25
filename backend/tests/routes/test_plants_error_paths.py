@@ -162,7 +162,7 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(
 
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
-    resp = await async_client.put(f"/api/plants/{uid}", json={"description": "x"})
+    resp = await async_client.patch(f"/api/plants/{uid}", json={"description": "x"})
     assert resp.status_code >= 500
 
 
@@ -182,9 +182,33 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
         "substrate_last_refresh_at": "",
         "fertilized_last_at": "",
     }
-    resp = await async_client.put(f"/api/plants/{uid}", json=payload)
+    resp = await async_client.patch(f"/api/plants/{uid}", json=payload)
     # Even with empty strings, should be ok 200
     assert resp.status_code == 200
+
+
+@pytest.mark.anyio
+async def test_update_plant_empty_payload_returns_ok(async_client: AsyncClient):
+    await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/plants", json={"name": "EmptyUpdate"})
+    assert r.status_code == 200
+    lst = await async_client.get("/api/plants")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "EmptyUpdate")
+    resp = await async_client.patch(f"/api/plants/{uid}", json={})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
+
+
+@pytest.mark.anyio
+async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncClient):
+    await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/plants", json={"name": "HexNone"})
+    assert r.status_code == 200
+    lst = await async_client.get("/api/plants")
+    uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "HexNone")
+    resp = await async_client.patch(f"/api/plants/{uid}", json={"location_id": None})
+    assert resp.status_code == 200
+    assert resp.json() == {"ok": True}
 
 
 @pytest.mark.anyio

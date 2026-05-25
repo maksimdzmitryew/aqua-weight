@@ -63,6 +63,8 @@ test.describe('Data Integrity during Rapid Input', () => {
     // Wait for first to show success
     await expect(firstInput).toHaveClass(/bg-success/)
 
+    await page.waitForTimeout(500) // Give it a moment to update rows
+
     // Check if the data is correctly mapped to the rows
     const rows = page.locator('table tbody tr')
 
@@ -121,6 +123,8 @@ test.describe('Data Integrity during Rapid Input', () => {
     // Wait for both to show success
     await expect(secondInput).toHaveClass(/bg-success/)
     await expect(firstInput).toHaveClass(/bg-success/)
+
+    await page.waitForTimeout(500) // Give it a moment to update rows
 
     // Check if the data is correctly mapped to the rows
     const rows = page.locator('table tbody tr')

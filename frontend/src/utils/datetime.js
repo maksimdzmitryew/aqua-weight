@@ -12,13 +12,14 @@ export function parseAPIDate(v) {
   const s = v.trim()
   if (!s) return null
 
-  // Detect SQL format: YYYY-MM-DD HH:MM[:SS[.ms]]
+  // Detect SQL format: YYYY-MM-DD HH:MM[:SS[.fractional]]
   const sqlMatch = s.match(
-    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/,
+    /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/,
   )
   if (sqlMatch && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
-    const [, y, mo, d, h, mi, se = '0', msRaw = '0'] = sqlMatch
-    const ms = Math.round(Number(`0.${msRaw}`) * 1000)
+    const [, y, mo, d, h, mi, se = '0', fracRaw = '0'] = sqlMatch
+    // Date only supports milliseconds.
+    const ms = Math.round(Number(`0.${fracRaw.slice(0, 9)}`) * 1000)
     const date = new Date(
       Number(y),
       Number(mo) - 1,
@@ -37,11 +38,39 @@ export function parseAPIDate(v) {
 }
 
 export function formatDateTime(v) {
+  return formatDateTimeWithSeconds(v, false)
+}
+
+// Format date and time without the year (DD/MM HH:MM or MM/DD HH:MM).
+export function formatShortDateTime(v) {
   try {
     const d = parseAPIDate(v)
     if (!d) return String(v ?? '')
 
-    // Read preference; default to 'europe'
+    const pref =
+      (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
+
+    const isEurope = pref === 'europe'
+    const locale = isEurope ? 'en-GB' : 'en-US'
+    const opts = {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: !isEurope,
+    }
+
+    return d.toLocaleString(locale, opts)
+  } catch {
+    return String(v)
+  }
+}
+
+export function formatDateTimeWithSeconds(v, includeSeconds = true) {
+  try {
+    const d = parseAPIDate(v)
+    if (!d) return String(v ?? '')
+
     const pref =
       (typeof localStorage !== 'undefined' && localStorage.getItem('dtFormat')) || 'europe'
 
@@ -55,12 +84,12 @@ export function formatDateTime(v) {
       minute: '2-digit',
       hour12: !isEurope,
     }
+    if (includeSeconds) {
+      opts.second = '2-digit'
+    }
 
     return d.toLocaleString(locale, opts)
   } catch {
-    // In case of any unexpected error (e.g., reading preferences or formatting),
-    // return a safe string representation of the original value.
-    // Use String(v) (branchless) to avoid additional branches for coverage purposes.
     return String(v)
   }
 }
@@ -103,6 +132,15 @@ export function nowLocalISOSeconds() {
   )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
+export function nowLocalISOFull() {
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const ms = String(d.getMilliseconds()).padStart(3, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${ms}`
+}
+
 // Convert API date (SQL or ISO, with/without tz) to value for input[type=datetime-local] (local, minutes precision).
 export function toLocalISOMinutes(utcOrSqlString) {
   const d = parseAPIDate(utcOrSqlString)
@@ -114,4 +152,30 @@ export function toLocalISOMinutes(utcOrSqlString) {
   const hh = pad(d.getHours())
   const mm = pad(d.getMinutes())
   return `${y}-${m}-${day}T${hh}:${mm}`
+}
+
+export function toLocalISOFull(v) {
+  const d = parseAPIDate(v)
+  if (!d) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  const base = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours(),
+  )}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+
+  if (typeof v === 'string') {
+    const s = v.trim()
+    const sqlMatch = s.match(
+      /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,9}))?)?$/,
+    )
+    if (sqlMatch && sqlMatch[7]) {
+      return base + '.' + sqlMatch[7]
+    }
+    const isoMatch = s.match(/\.(\d+)([zZ]|[+-]\d{2}:?\d{2})?$/)
+    if (isoMatch && isoMatch[1]) {
+      return base + '.' + isoMatch[1]
+    }
+  }
+
+  const ms = String(d.getMilliseconds()).padStart(3, '0')
+  return base + '.' + ms
 }

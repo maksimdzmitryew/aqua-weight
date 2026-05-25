@@ -31,7 +31,7 @@ class LastPlantEvent:
                     return None
                 return {
                     "measured_at": (
-                        row[0].isoformat(sep=" ", timespec="seconds") if row[0] else None
+                        row[0].isoformat(sep=" ", timespec="microseconds") if row[0] else None
                     ),
                     "measured_weight_g": row[1],
                     "last_dry_weight_g": row[2],

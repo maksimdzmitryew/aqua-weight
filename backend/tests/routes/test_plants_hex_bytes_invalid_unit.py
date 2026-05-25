@@ -72,6 +72,16 @@ class DummyUpdate:
         self.biomass_weight_g = None
         self.biomass_last_at = None
 
+    def dict(self, **kwargs) -> dict:
+        exclude_unset = kwargs.get("exclude_unset", False)
+        d = vars(self)
+        if exclude_unset:
+            return {k: v for k, v in d.items() if v is not None}
+        return d
+
+    def model_dump(self, exclude_unset: bool = False, **kwargs) -> dict:
+        return self.dict(exclude_unset=exclude_unset)
+
 
 @pytest.mark.anyio
 async def test_hex_to_bytes_invalid_paths_unit(async_client):

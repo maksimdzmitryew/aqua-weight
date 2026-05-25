@@ -85,11 +85,12 @@ class MeasurementsListResponse(BaseModel):
 
 
 class RepottingResponse(BaseModel):
-    id: Optional[int] = None
+    id: Optional[HexID] = None
     plant_id: HexID
     measured_at: str
     measured_weight_g: Optional[int] = None
     last_wet_weight_g: Optional[int] = None
+    water_loss_total_g: Optional[int] = None
     note: Optional[str] = None
 
 

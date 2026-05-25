@@ -12,6 +12,7 @@ export default function Settings() {
   const [defaultThreshold, setDefaultThreshold] = useState(
     () => localStorage.getItem('defaultThreshold') || '40',
   )
+  const [pageSize, setPageSize] = useState(() => localStorage.getItem('pageSize') || '20')
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
 
@@ -47,6 +48,7 @@ export default function Settings() {
     localStorage.setItem('dtFormat', dtFormat)
     localStorage.setItem('operationMode', operationMode)
     localStorage.setItem('defaultThreshold', normalizedThreshold)
+    localStorage.setItem('pageSize', pageSize)
     // Set cookie for backend visibility (temporary solution as per task requirements)
     document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
     document.cookie = `defaultThreshold=${normalizedThreshold}; path=/; max-age=31536000; SameSite=Lax`
@@ -120,6 +122,22 @@ export default function Settings() {
           >
             <option value="europe">Europe (DD/MM/YYYY 24h)</option>
             <option value="usa">USA (MM/DD/YYYY 12h)</option>
+          </select>
+        </div>
+        <div style={fieldRow}>
+          <label style={label} htmlFor="page_size">
+            Items per page
+          </label>
+          <select
+            id="page_size"
+            value={pageSize}
+            onChange={(e) => setPageSize(e.target.value)}
+            style={styles.input}
+          >
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
           </select>
         </div>
         <div style={fieldRow}>

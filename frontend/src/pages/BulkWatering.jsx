@@ -1,118 +1,220 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
-import { useNavigate } from 'react-router-dom'
-import { plantsApi } from '../api/plants'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import useWateringTime from '../hooks/useWateringTime.js'
 import WateringTimeBar from '../components/WateringTimeBar.jsx'
 import BulkMeasurementTable from '../components/BulkMeasurementTable.jsx'
 import { waterLossCellStyle } from '../utils/waterLoss.js'
 import { checkNeedsWater } from '../utils/watering'
-import usePlants from '../hooks/usePlants.js'
+import Pagination from '../components/Pagination.jsx'
+import { apiClient } from '../api/client'
+import '../styles/plants-list.css'
+
+const TAB_TODO = 'todo'
+const TAB_DONE = 'done'
+const TAB_ALL = 'all'
 
 export default function BulkWatering() {
-  // Use shared usePlants hook for consistent data fetching
-  const { plants: plantsFromHook, loading, error } = usePlants()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || TAB_TODO
+  const pageTodo = parseInt(searchParams.get('page_todo') || '1', 10)
+  const pageDone = parseInt(searchParams.get('page_done') || '1', 10)
+  const pageAll = parseInt(searchParams.get('page_all') || '1', 10)
+
+  let currentPage = pageTodo
+  if (activeTab === TAB_DONE) currentPage = pageDone
+  if (activeTab === TAB_ALL) currentPage = pageAll
+
+  const limit = parseInt(
+    searchParams.get('limit') ||
+      (typeof localStorage !== 'undefined' ? localStorage.getItem('pageSize') : null) ||
+      '20',
+    10,
+  )
+
+  const operationMode =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
+  const defaultThreshold =
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('defaultThreshold') : null) || '40'
 
   const navigate = useNavigate()
   const wateringTime = useWateringTime()
-  // Local plants state that can be updated when watering events are created
-  const [plants, setPlants] = useState(null)
+
+  // Snapshots of UUIDs for stable tabs
+  const [todoUuids, setTodoUuids] = useState(null)
+  const [doneUuids, setDoneUuids] = useState(null)
+  const [allUuids, setAllUuids] = useState(null)
+
+  const pendingRequests = React.useRef({})
+  const abortControllers = React.useRef({})
+
+  // Current page data
+  const [plants, setPlants] = useState([])
+  const [isSnapshotBased, setIsSnapshotBased] = useState(false)
+  const [approximations, setApproximations] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [validationError, setValidationError] = useState(null)
+  const [showAll, setShowAll] = useState(false)
+
+  // Session progress buffer (persists across tab switches)
+  const [progressBuffer, setProgressBuffer] = useState({})
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
-  const [originalWaterLoss, setOriginalWaterLoss] = useState({})
-  // Toggle to switch between only-needs-water vs all plants
-  const [showAll, setShowAll] = useState(false)
-  // Snapshot of plants that needed watering on initial load
-  const [initialNeedsWaterIds, setInitialNeedsWaterIds] = useState(null)
-  const [approximations, setApproximations] = useState({})
-  const operationMode =
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null) || 'manual'
 
-  // Sync local plants state from hook
+  const commonParams = `operationMode=${operationMode}&defaultThreshold=${defaultThreshold}`
+
+  // 1. Initial Load: Fetch stable UUID lists for both tabs and approximations
   useEffect(() => {
-    // Only update local plants if we have actual data from the hook
-    // or if the hook has finished its first load.
-    // This prevents setting local plants to [] on mount while loading is still true.
-    if (plantsFromHook.length > 0 || !loading) {
-      setPlants(plantsFromHook)
-    }
-  }, [plantsFromHook, loading])
-
-  // Effective plants list: use local state if initialized, fallback to hook data
-  const currentPlants = plants !== null ? plants : plantsFromHook
-
-  // Load approximations separately when plants are loaded
-  useEffect(() => {
-    let cancelled = false
-    async function loadApproximations() {
-      if (operationMode !== 'vacation' || initialNeedsWaterIds !== null) return
-
-      // If plants have loaded and list is empty, stop waiting for approximations
-      if (!loading && (!currentPlants || currentPlants.length === 0)) {
-        setInitialNeedsWaterIds([])
-        return
-      }
-
-      if (!currentPlants || !currentPlants.length) return
-
+    async function init() {
       try {
-        const approxData = await plantsApi.getApproximation()
+        setLoading(true)
+        const [todo, done, all, approxData] = await Promise.all([
+          apiClient.get(`/plants/uuids?needs_watering=true&${commonParams}`),
+          apiClient.get(`/plants/uuids?needs_watering=false&${commonParams}`),
+          apiClient.get(`/plants/uuids?${commonParams}`),
+          apiClient.get('/measurements/approximation/watering'),
+        ])
+        setTodoUuids(todo || [])
+        setDoneUuids(done || [])
+        setAllUuids(all || [])
+
         const approxItems = approxData?.items || []
         const approxMap = approxItems.reduce((acc, item) => {
           acc[item.plant_uuid] = item
           return acc
         }, {})
-
-        if (!cancelled) {
-          setApproximations(approxMap)
-          // Snapshot which plants needed watering at the moment of initial page load
-          // Only set the snapshot once to keep watered plants visible for undo
-          setInitialNeedsWaterIds(
-            currentPlants
-              .filter((p) => checkNeedsWater(p, operationMode, approxMap[p.uuid]))
-              .map((p) => p.uuid),
-          )
-        }
-      } catch (e) {
-        console.error('Failed to load approximations', e)
-        if (!cancelled) {
-          // Unblock the UI even if approximations fail to load
-          setInitialNeedsWaterIds([])
-        }
+        setApproximations(approxMap)
+      } catch (err) {
+        console.error('Failed to load approximations', err)
+        // If snapshot fetching fails, initialize with empty arrays to allow fallback logic to proceed
+        setTodoUuids((prev) => prev ?? [])
+        setDoneUuids((prev) => prev ?? [])
+        setAllUuids((prev) => prev ?? [])
+      } finally {
+        setLoading(false)
       }
     }
+    init()
+  }, [operationMode, commonParams])
 
-    loadApproximations()
-    return () => {
-      cancelled = true
-    }
-  }, [currentPlants, operationMode, initialNeedsWaterIds])
-
-  // For manual mode, set initial needs water IDs when plants load
+  // 2. Data Fetching: Load full objects directly (server paginates). Keep it simple and stable for UX/tests.
   useEffect(() => {
-    if (operationMode === 'manual' && initialNeedsWaterIds === null) {
-      if (!loading && (!currentPlants || currentPlants.length === 0)) {
-        setInitialNeedsWaterIds([])
-        return
-      }
-      if (currentPlants && currentPlants.length) {
-        setInitialNeedsWaterIds(
-          currentPlants.filter((p) => checkNeedsWater(p, operationMode, null)).map((p) => p.uuid),
-        )
+    async function fetchCurrentPage() {
+      const hasSnapshots = todoUuids !== null && doneUuids !== null && allUuids !== null
+
+      // Wait for snapshots to ensure stability and avoid logic duplication with BE
+      if (!hasSnapshots) return
+
+      try {
+        setLoading(true)
+
+        let url = `/plants?limit=${limit}&${commonParams}`
+
+        if (hasSnapshots) {
+          let currentUuids = allUuids
+          if (activeTab === TAB_TODO) currentUuids = todoUuids
+          if (activeTab === TAB_DONE) currentUuids = doneUuids
+
+          if (currentUuids.length === 0) {
+            setPlants([])
+            setLoading(false)
+            return
+          }
+
+          const currentLimit = limit
+          const start = (currentPage - 1) * currentLimit
+          const pageUuids = currentUuids.slice(start, start + currentLimit)
+          url = `/plants?uuids=${pageUuids.join(',')}&page=1&limit=${currentLimit}&${commonParams}`
+        }
+
+        const response = await apiClient.get(url)
+        setPlants(Array.isArray(response?.items) ? response.items : [])
+      } catch (err) {
+        setError(err.body?.message || err.message || err.detail || 'Failed to load plants')
+      } finally {
+        setLoading(false)
       }
     }
-  }, [currentPlants, operationMode, initialNeedsWaterIds, loading])
+    fetchCurrentPage()
+  }, [activeTab, currentPage, limit, operationMode, todoUuids, doneUuids, allUuids])
 
-  // Helper: determine if a plant needs water based on per-plant threshold
-  function plantNeedsWater(p) {
-    return checkNeedsWater(p, operationMode, approximations[p.uuid])
+  // Merge server data with progress buffer
+  const displayedPlants = plants.map((p) => {
+    const key = p.uuid || p.id
+    const buffered = progressBuffer[key]
+    if (buffered) {
+      return { ...p, ...buffered }
+    }
+    return p
+  })
+
+  // Plants stay in the list until page refresh to provide stable UX.
+  // We use the initial snapshots to keep the list stable even as plants are watered.
+  const filteredPlants = (() => {
+    if (showAll) return displayedPlants
+
+    // Select stable snapshot for current tab
+    let snapshot = allUuids
+    if (activeTab === TAB_TODO) snapshot = todoUuids
+    if (activeTab === TAB_DONE) snapshot = doneUuids
+
+    // If snapshots are not available yet (initial fetch or tests), we trust the
+    // server-side filtering performed in fetchCurrentPage.
+    if (snapshot === null) {
+      return displayedPlants
+    }
+
+    // Once snapshots are available, we use them to ensure stability (so plants
+    // don't disappear while watering until the next page refresh).
+    return displayedPlants.filter((p) => snapshot.includes(p.uuid))
+  })()
+
+  let totalCount = 0
+  if (activeTab === TAB_TODO) totalCount = todoUuids?.length || 0
+  else if (activeTab === TAB_DONE) totalCount = doneUuids?.length || 0
+  else if (activeTab === TAB_ALL) totalCount = allUuids?.length || 0
+
+  const currentLimit = limit
+  const totalPages = Math.ceil(totalCount / currentLimit)
+
+  function handleTabChange(tab) {
+    if (tab !== activeTab) setLoading(true)
+    setSearchParams((prev) => {
+      prev.set('tab', tab)
+      return prev
+    })
   }
 
-  function handleView(p) {
-    if (!p?.uuid) return
-    navigate(`/plants/${p.uuid}`, { state: { plant: p } })
+  function handlePageChange(newPage) {
+    setLoading(true)
+    setSearchParams((prev) => {
+      let key = 'page_todo'
+      if (activeTab === TAB_DONE) key = 'page_done'
+      if (activeTab === TAB_ALL) key = 'page_all'
+      prev.set(key, String(newPage))
+      return prev
+    })
+  }
+
+  function handleLimitChange(newLimit) {
+    setLoading(true)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('pageSize', String(newLimit))
+    }
+    setSearchParams((prev) => {
+      // If we're on the All tab, the pageSize shown to the user is already doubled.
+      // To keep it consistent when switching back to other tabs, we store the base limit.
+      const baseLimit = newLimit
+      prev.set('limit', String(baseLimit))
+      prev.set('page_todo', '1')
+      prev.set('page_done', '1')
+      prev.set('page_all', '1')
+      return prev
+    })
   }
 
   async function handleWateringCommit(plantId, newWeightValue) {
@@ -122,61 +224,81 @@ export default function BulkWatering() {
       return
     }
 
-    const plant = currentPlants.find((p) => p.uuid === plantId)
-    if (plant && !measurementIds[plantId]) {
-      setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
-    }
+    const requestId = (pendingRequests.current[plantId] || 0) + 1
+    pendingRequests.current[plantId] = requestId
 
-    setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
+    // Abort previous request for this plant
+    if (abortControllers.current[plantId]) {
+      abortControllers.current[plantId].abort()
+    }
+    const controller = new AbortController()
+    abortControllers.current[plantId] = controller
+
+    // Optimistic status and buffer update
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
+    setProgressBuffer((prev) => ({
+      ...prev,
+      [plantId]: {
+        ...(prev[plantId] || {}),
+        current_weight: numeric,
+        water_retained_pct:
+          prev[plantId]?.water_retained_pct ??
+          plants.find((p) => (p.uuid || p.id) === plantId)?.water_retained_pct,
+      },
+    }))
 
     try {
       const existingId = measurementIds[plantId]
-
-      let data
       const payload = {
         plant_id: plantId,
-        // Entered value is the new total weight after watering
         last_wet_weight_g: numeric,
         measured_at: wateringTime.getCommitDateTime(),
       }
 
+      let data
       if (existingId) {
-        data = await measurementsApi.watering.update(existingId, payload)
+        data = await measurementsApi.watering.update(existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.watering.create(payload)
+        data = await measurementsApi.watering.create(payload, controller.signal)
       }
 
-      if (data && data.status === 'success' && data.data) {
-        data = data.data
+      // If a newer request has been started for this plant, ignore this response
+      if (pendingRequests.current[plantId] !== requestId) {
+        return
       }
 
-      setPlants((prev) =>
-        (prev || []).map((p) => {
-          if (p.uuid === plantId) {
-            return {
-              ...p,
-              current_weight: numeric,
-              water_loss_total_pct: data?.water_loss_total_pct ?? p.water_loss_total_pct,
-              water_retained_pct: data?.water_retained_pct ?? p.water_retained_pct,
-              // Update timestamps so the UI can reflect the latest change
-              latest_at:
-                data?.latest_at ||
-                data?.measured_at ||
-                p.latest_at ||
-                wateringTime.getCommitDateTime(),
-              measured_at: data?.measured_at || p.measured_at,
-            }
-          }
-          return p
-        }),
-      )
+      const responseData = data?.status === 'success' && data?.data ? data.data : data
 
-      if (data?.id && !existingId) {
-        setMeasurementIds((prev) => ({ ...prev, [plantId]: data.id }))
+      // Update progress buffer
+      setProgressBuffer((prev) => {
+        const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
+        const prevData = prev[plantId] || currentPlant || {}
+        const now = wateringTime.getCommitDateTime()
+        return {
+          ...prev,
+          [plantId]: {
+            ...prevData,
+            ...responseData,
+            current_weight: numeric,
+            latest_at:
+              responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
+            measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
+          },
+        }
+      })
+
+      if (responseData?.id && !existingId) {
+        setMeasurementIds((prev) => ({ ...prev, [plantId]: responseData.id }))
       }
+
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
     } catch (err) {
+      if (err.name === 'AbortError') return // Ignore if superseded
       console.error('Error saving watering measurement:', err)
-      // Keep optimistic success to allow retry UX
+      if (err.message && err.message.toLowerCase().includes('measured weight is incorrect')) {
+        setValidationError({ message: err.message, plantId })
+      }
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
 
@@ -184,39 +306,20 @@ export default function BulkWatering() {
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       await measurementsApi.delete(measurementId)
+
+      // Remove from progress buffer (or set to null to revert to original)
+      setProgressBuffer((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
       setMeasurementIds((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
       })
       setInputStatus((prev) => {
-        const next = { ...prev }
-        delete next[plantId]
-        return next
-      })
-
-      // Revert plant data in list to previous state (approximate)
-      setPlants((prev) =>
-        (prev || []).map((p) => {
-          if (p.uuid === plantId) {
-            // Use explicit if/else to help coverage tools register both branches
-            let revertedLoss
-            if (Object.prototype.hasOwnProperty.call(originalWaterLoss, plantId)) {
-              revertedLoss = originalWaterLoss[plantId]
-            } else {
-              revertedLoss = p.water_loss_total_pct
-            }
-            return {
-              ...p,
-              water_loss_total_pct: revertedLoss,
-              water_retained_pct: null,
-              latest_at: p.latest_at,
-            }
-          }
-          return p
-        }),
-      )
-      setOriginalWaterLoss((prev) => {
         const next = { ...prev }
         delete next[plantId]
         return next
@@ -228,10 +331,6 @@ export default function BulkWatering() {
   }
 
   async function handleVacationWateringCommit(plantId) {
-    const plant = currentPlants.find((p) => p.uuid === plantId)
-    if (plant) {
-      setOriginalWaterLoss((prev) => ({ ...prev, [plantId]: plant.water_loss_total_pct }))
-    }
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       const data = await measurementsApi.watering.createVacation({
@@ -243,25 +342,22 @@ export default function BulkWatering() {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: measurement.id }))
         setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
 
-        // Update plant data in list
-        setPlants((prev) =>
-          (prev || []).map((p) => {
-            if (p.uuid === plantId) {
-              return {
-                ...p,
-                water_loss_total_pct: measurement.water_loss_total_pct ?? p.water_loss_total_pct,
-                water_retained_pct: measurement.water_retained_pct ?? p.water_retained_pct,
-                latest_at: measurement.latest_at || measurement.measured_at || p.latest_at,
-                measured_at: measurement.measured_at || p.measured_at,
-              }
-            }
-            return p
-          }),
-        )
+        const updatedData = {
+          water_loss_total_pct: measurement.water_loss_total_pct,
+          water_retained_pct: measurement.water_retained_pct,
+          latest_at:
+            measurement.latest_at || measurement.measured_at || wateringTime.getCommitDateTime(),
+          measured_at: measurement.measured_at,
+        }
 
-        // Refresh approximations to update days_offset and next_watering_at
+        setProgressBuffer((prev) => ({
+          ...prev,
+          [plantId]: updatedData,
+        }))
+
+        // Refresh approximations for this plant
         try {
-          const approxData = await plantsApi.getApproximation()
+          const approxData = await apiClient.get('/measurements/approximation/watering')
           const approxItems = approxData?.items || []
           const approxMap = approxItems.reduce((acc, item) => {
             acc[item.plant_uuid] = item
@@ -284,6 +380,13 @@ export default function BulkWatering() {
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
       await measurementsApi.delete(measurementId)
+
+      setProgressBuffer((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
       setMeasurementIds((prev) => {
         const next = { ...prev }
         delete next[plantId]
@@ -295,32 +398,9 @@ export default function BulkWatering() {
         return next
       })
 
-      // Revert plant data in list to previous state (approximate)
-      setPlants((prev) =>
-        (prev || []).map((p) => {
-          if (p.uuid === plantId) {
-            return {
-              ...p,
-              water_loss_total_pct:
-                originalWaterLoss[plantId] !== undefined
-                  ? originalWaterLoss[plantId]
-                  : p.water_loss_total_pct,
-              water_retained_pct: null,
-              latest_at: p.latest_at, // Keep it for now, list will refresh if navigated back
-            }
-          }
-          return p
-        }),
-      )
-      setOriginalWaterLoss((prev) => {
-        const next = { ...prev }
-        delete next[plantId]
-        return next
-      })
-
-      // Refresh approximations to update days_offset and next_watering_at
+      // Refresh approximations
       try {
-        const approxData = await plantsApi.getApproximation()
+        const approxData = await apiClient.get('/measurements/approximation/watering')
         const approxItems = approxData?.items || []
         const approxMap = approxItems.reduce((acc, item) => {
           acc[item.plant_uuid] = item
@@ -336,35 +416,28 @@ export default function BulkWatering() {
     }
   }
 
-  // Derived list depending on toggle
-  const displayedPlants = useMemo(() => {
-    if (showAll) return currentPlants
-    // When showing only those that need watering, use the snapshot captured at page load
-    if (initialNeedsWaterIds === null) {
-      // While initializing snapshot, we can either show nothing or do a live calculation
-      // to avoid flickering empty table. Live calculation is better for UX and tests.
-      return currentPlants.filter((p) =>
-        checkNeedsWater(p, operationMode, approximations[p.uuid] || null),
-      )
-    }
-    const initialSet = new Set(initialNeedsWaterIds)
-    return currentPlants.filter((p) => initialSet.has(p.uuid))
-  }, [currentPlants, showAll, initialNeedsWaterIds, operationMode, approximations])
+  const deemphasizePredicate = (p) => {
+    const approx = approximations[p.uuid]
+    return !checkNeedsWater(p, operationMode, approx, defaultThreshold)
+  }
 
-  // Deemphasis predicate for rows above threshold (only when showAll is true)
-  const deemphasizePredicate = useMemo(() => {
-    if (!showAll) return undefined
-    return (p) => !plantNeedsWater(p)
-  }, [showAll])
-
-  const isSyncing =
-    operationMode !== 'manual' &&
-    initialNeedsWaterIds === null &&
-    !error &&
-    !loading &&
-    currentPlants &&
-    currentPlants.length > 0
-  const showLoading = loading || isSyncing
+  // Styles for tabs
+  const tabContainerStyle = {
+    display: 'flex',
+    borderBottom: '1px solid #e5e7eb',
+    marginBottom: '20px',
+  }
+  const getTabStyle = (active) => ({
+    padding: '10px 20px',
+    cursor: 'pointer',
+    borderBottom: active ? '2px solid #3b82f6' : 'none',
+    color: active ? '#3b82f6' : '#6b7280',
+    fontWeight: active ? '600' : '400',
+    background: 'none',
+    borderTop: 'none',
+    borderLeft: 'none',
+    borderRight: 'none',
+  })
 
   return (
     <DashboardLayout title="Bulk watering">
@@ -381,11 +454,15 @@ export default function BulkWatering() {
           : 'By default, we show only plants that need water (retained ≤ threshold).'}
       </p>
 
-      {/* Toggle to switch visibility mode */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-          <span>Show all plants</span>
+          <input
+            type="checkbox"
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
+            aria-label="Show all plants"
+          />
+          Show all plants
         </label>
         <span style={{ fontSize: 12, color: 'var(--muted-fg, #6b7280)' }}>
           {showAll
@@ -396,29 +473,79 @@ export default function BulkWatering() {
         </span>
       </div>
 
-      {showLoading && <div>Loading...</div>}
-      {error && !showLoading && <div className="text-danger">{error}</div>}
+      <>
+        <div style={tabContainerStyle}>
+          <button
+            style={getTabStyle(activeTab === TAB_TODO)}
+            onClick={() => handleTabChange(TAB_TODO)}
+          >
+            To-Do {todoUuids && `(${todoUuids.length})`}
+          </button>
+          <button
+            style={getTabStyle(activeTab === TAB_DONE)}
+            onClick={() => handleTabChange(TAB_DONE)}
+          >
+            Up to Date {doneUuids && `(${doneUuids.length})`}
+          </button>
+          <button
+            style={getTabStyle(activeTab === TAB_ALL)}
+            onClick={() => handleTabChange(TAB_ALL)}
+          >
+            All {allUuids && `(${allUuids.length})`}
+          </button>
+        </div>
 
-      {!showLoading && !error && (
-        <BulkMeasurementTable
-          plants={displayedPlants}
-          inputStatus={inputStatus}
-          onCommitValue={handleWateringCommit}
-          onDeleteWatering={handleWateringDelete}
-          onCommitVacationWatering={handleVacationWateringCommit}
-          onDeleteVacationWatering={handleVacationWateringDelete}
-          measurementIds={measurementIds}
-          onViewPlant={handleView}
-          firstColumnLabel="Water: Retained %, Next date"
-          firstColumnTooltip="Manual/Automatic: Enter weight in grams. Vacation: Record watering icon. Column also shows water retained (%) and next scheduled watering."
-          waterLossCellStyle={waterLossCellStyle}
-          showUpdatedColumn={true}
-          deemphasizePredicate={deemphasizePredicate}
-          operationMode={operationMode}
-          approximations={approximations}
-          noPlantsMessage="No plants need watering"
-        />
-      )}
+        <div style={{ marginBottom: 20 }}>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            pageSize={currentLimit}
+            onPageSizeChange={handleLimitChange}
+            total={totalCount}
+            disabled={loading}
+          />
+        </div>
+
+        {loading && <div>Loading...</div>}
+        {error && !loading && <div className="text-danger">{error}</div>}
+
+        {!loading && !error && (
+          <BulkMeasurementTable
+            plants={filteredPlants}
+            inputStatus={inputStatus}
+            onCommitValue={handleWateringCommit}
+            onDeleteWatering={handleWateringDelete}
+            onCommitVacationWatering={handleVacationWateringCommit}
+            onDeleteVacationWatering={handleVacationWateringDelete}
+            measurementIds={measurementIds}
+            onViewPlant={(p) => navigate(`/plants/${p.uuid}`, { state: { plant: p } })}
+            firstColumnLabel="Water: Retained %, Next date"
+            firstColumnTooltip="Manual/Automatic: Enter weight in grams. Vacation: Record watering icon. Column also shows water retained (%) and next scheduled watering."
+            waterLossCellStyle={waterLossCellStyle}
+            showUpdatedColumn={true}
+            operationMode={operationMode}
+            defaultThreshold={defaultThreshold}
+            approximations={approximations}
+            deemphasizePredicate={deemphasizePredicate}
+            noPlantsMessage={showAll ? 'No plants available' : 'No plants need watering'}
+          />
+        )}
+      </>
+      <ConfirmDialog
+        open={!!validationError}
+        title="Incorrect Weight"
+        message={validationError?.message}
+        tone="warning"
+        confirmText="Repot Plant"
+        cancelText="Correct Weight"
+        onConfirm={() => {
+          const pid = validationError.plantId
+          setValidationError(null)
+          window.open(`/measurement/repotting?plant=${pid}`, '_blank')
+        }}
+        onCancel={() => setValidationError(null)}
+      />
     </DashboardLayout>
   )
 }

@@ -30,7 +30,7 @@ class FakeConn:
 
 
 def test_get_added_waterings_without_repotting_branch():
-    from app.helpers.watering_maximum import get_added_waterings_since_repotting
+    from backend.app.helpers.watering_maximum import get_added_waterings_since_repotting
 
     rows = [(10,), (None,), (20,)]
     conn = FakeConn(rows)
@@ -39,7 +39,7 @@ def test_get_added_waterings_without_repotting_branch():
 
 
 def test_get_added_waterings_with_repotting_branch_filters_and_orders():
-    from app.helpers.watering_maximum import get_added_waterings_since_repotting
+    from backend.app.helpers.watering_maximum import get_added_waterings_since_repotting
 
     class Rep:
         measured_at = "2025-01-02 10:00:00"
@@ -56,7 +56,7 @@ def test_get_added_waterings_with_repotting_branch_filters_and_orders():
 
 
 def test_calculate_max_watering_added_g_returns_none_on_empty_and_error():
-    from app.helpers.watering_maximum import calculate_max_watering_added_g
+    from backend.app.helpers.watering_maximum import calculate_max_watering_added_g
 
     class BoomConn(FakeConn):
         def cursor(self):  # force exception in helper

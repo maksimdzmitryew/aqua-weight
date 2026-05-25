@@ -80,9 +80,9 @@ describe('plantsApi', () => {
     }
   })
 
-  it('update sends PUT with payload, headers and signal', async () => {
+  it('update sends PATCH with payload, headers and signal', async () => {
     const updated = { ok: true }
-    const spy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce(updated as any)
+    const spy = vi.spyOn(apiClient, 'patch').mockResolvedValueOnce(updated as any)
 
     const ac = new AbortController()
     const res = await plantsApi.update('abc', { name: 'New' }, ac.signal)

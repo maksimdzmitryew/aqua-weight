@@ -4,6 +4,7 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import EmptyState from '../components/feedback/EmptyState.jsx'
 import { calibrationApi } from '../api/calibration'
+import DateTimeText from '../components/DateTimeText.jsx'
 
 export default function Calibration() {
   const [items, setItems] = useState([])
@@ -53,6 +54,10 @@ export default function Calibration() {
           typeof it?.last_wet_weight_g === 'number' && typeof it?.target_weight_g === 'number'
         if (!hasNums) continue
         const diff = it.last_wet_weight_g - it.target_weight_g
+        // Pick the entry that is most under-target (most negative diff)
+        // or if all are positive, the one with the biggest overfill?
+        // Usually correction is for under-filling, but if we are correcting overfill
+        // we might want a different logic.
         if (
           minDiffEntry == null ||
           diff < minDiffEntry.last_wet_weight_g - minDiffEntry.target_weight_g
@@ -78,17 +83,27 @@ export default function Calibration() {
     } catch (e) {
       // Format API errors that may carry object `detail` to avoid "[object Object]"
       let msg = 'Failed to apply corrections'
-      const detail = e && (e.detail ?? e.body ?? e.message)
-      if (typeof detail === 'string' && detail.trim()) {
-        msg = detail
-      } else if (detail && typeof detail === 'object') {
+      if (e?.detail && typeof e.detail === 'string' && e.detail.trim()) {
+        msg = e.detail
+      } else if (
+        e?.message &&
+        typeof e.message === 'string' &&
+        e.message.trim() &&
+        e.message !== '[object Object]'
+      ) {
+        msg = e.message
+      } else if (e?.detail && typeof e.detail === 'object' && Object.keys(e.detail).length > 0) {
         try {
-          msg = JSON.stringify(detail)
+          msg = JSON.stringify(e.detail)
         } catch {
           /* noop */
         }
-      } else if (e && typeof e.message === 'string' && e.message.trim()) {
-        msg = e.message
+      } else if (e?.body && typeof e.body === 'object' && Object.keys(e.body).length > 0) {
+        try {
+          msg = JSON.stringify(e.body)
+        } catch {
+          /* noop */
+        }
       }
       setError(msg)
     } finally {
@@ -172,7 +187,13 @@ export default function Calibration() {
             }
             // Apply additional legacy filter: when unchecked, hide rows with 0 under_g
             if (!showOnlyNonZero) {
-              filtered = filtered.filter((it) => it?.under_g !== 0)
+              filtered = filtered.filter((it) => {
+                const hasNums =
+                  typeof it?.target_weight_g === 'number' &&
+                  typeof it?.last_wet_weight_g === 'number'
+                const diff = hasNums ? it.last_wet_weight_g - it.target_weight_g : 0
+                return it?.under_g !== 0 || diff > 0
+              })
             }
             if (showLastWatering && entries.length > 0) {
               const last = entries[0]
@@ -303,7 +324,9 @@ export default function Calibration() {
                                   : undefined
                               }
                             >
-                              <td>{it.measured_at || '—'}</td>
+                              <td>
+                                <DateTimeText value={it.measured_at} />
+                              </td>
                               <td style={{ textAlign: 'right' }}>{it.water_added_g ?? '—'}</td>
                               <td style={{ textAlign: 'right' }}>{it.last_wet_weight_g ?? '—'}</td>
                               <td style={{ textAlign: 'right' }}>

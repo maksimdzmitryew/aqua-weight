@@ -18,11 +18,14 @@ test.describe('Bulk Watering', () => {
     // 1. Initial State: "Seed Fern" should be visible because it needs water (retained NaN/0)
     await expect(page.getByRole('row', { name: /seed fern/i })).toBeVisible()
 
-    // 2. Toggle "Show all plants"
-    const showAllCheckbox = page.getByLabel(/show all plants/i)
-    await expect(showAllCheckbox).not.toBeChecked()
-    await showAllCheckbox.check()
-    await expect(showAllCheckbox).toBeChecked()
+    // 2. Switch to "All" tab
+    const allTab = page.getByRole('button', { name: /all/i })
+    const responsePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/plants?uuids=') && resp.status() === 200,
+    )
+    await allTab.click()
+    await responsePromise
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     // 3. Submit Watering
     // Find the input for "Seed Fern". It's in the same row.

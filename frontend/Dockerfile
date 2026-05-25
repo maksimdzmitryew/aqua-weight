@@ -13,11 +13,10 @@ WORKDIR /app
 
 # Copy package files first for better caching
 COPY frontend/package.json frontend/package-lock.json ./
-# We skip npm ci here because we do it in docker-compose for dev flexibility,
+# For dev, we skip npm ci here because we do it in docker-compose for dev flexibility,
 # but for a "solid fix" we might want to do it here eventually.
-
-# Copy source
-COPY frontend .
+# As it is here, we have a faster container start
+RUN npm ci --no-audit --no-fund
 
 EXPOSE 5173
 

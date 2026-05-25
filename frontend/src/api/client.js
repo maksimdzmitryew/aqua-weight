@@ -109,7 +109,7 @@ export class ApiClient {
           throw new ApiError(detail || `Request failed (HTTP ${res.status})`, {
             status: res.status,
             detail,
-            body: data,
+            body: typeof data === 'object' && data ? data : { detail: data },
           })
         }
         return data
@@ -138,6 +138,9 @@ export class ApiClient {
   }
   put(path, body, opts = {}) {
     return this.request(path, { ...opts, method: 'PUT', body })
+  }
+  patch(path, body, opts = {}) {
+    return this.request(path, { ...opts, method: 'PATCH', body })
   }
   delete(path, opts = {}) {
     return this.request(path, { ...opts, method: 'DELETE' })
