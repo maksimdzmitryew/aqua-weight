@@ -182,6 +182,7 @@ export default function BulkWatering() {
   const totalPages = Math.ceil(totalCount / currentLimit)
 
   function handleTabChange(tab) {
+    if (tab !== activeTab) setLoading(true)
     setSearchParams((prev) => {
       prev.set('tab', tab)
       return prev
@@ -189,6 +190,7 @@ export default function BulkWatering() {
   }
 
   function handlePageChange(newPage) {
+    setLoading(true)
     setSearchParams((prev) => {
       let key = 'page_todo'
       if (activeTab === TAB_DONE) key = 'page_done'
@@ -199,6 +201,7 @@ export default function BulkWatering() {
   }
 
   function handleLimitChange(newLimit) {
+    setLoading(true)
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('pageSize', String(newLimit))
     }

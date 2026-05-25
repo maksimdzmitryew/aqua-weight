@@ -20,8 +20,11 @@ test.describe('Bulk Watering', () => {
 
     // 2. Switch to "All" tab
     const allTab = page.getByRole('button', { name: /all/i })
+    const responsePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/plants?uuids=') && resp.status() === 200,
+    )
     await allTab.click()
-    // Wait for the loading indicator to disappear to ensure the table is stable
+    await responsePromise
     await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     // 3. Submit Watering
