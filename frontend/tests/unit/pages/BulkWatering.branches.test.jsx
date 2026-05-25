@@ -578,6 +578,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     getSpy.mockResolvedValueOnce([]) // done
     getSpy.mockResolvedValueOnce(['u1']) // all
     getSpy.mockResolvedValueOnce({ items: [] }) // approximations
+    getSpy.mockResolvedValueOnce([]) // weighing
 
     // The next call (fetchCurrentPage) should fail with an empty object
     getSpy.mockRejectedValueOnce({})

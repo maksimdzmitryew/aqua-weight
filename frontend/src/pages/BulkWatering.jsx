@@ -47,6 +47,7 @@ export default function BulkWatering() {
   const [todoUuids, setTodoUuids] = useState(null)
   const [doneUuids, setDoneUuids] = useState(null)
   const [allUuids, setAllUuids] = useState(null)
+  const [weighingUuids, setWeighingUuids] = useState(null)
 
   const pendingRequests = React.useRef({})
   const abortControllers = React.useRef({})
@@ -72,15 +73,18 @@ export default function BulkWatering() {
     async function init() {
       try {
         setLoading(true)
-        const [todo, done, all, approxData] = await Promise.all([
+        const [todo, done, all, approxData, weighing] = await Promise.all([
           apiClient.get(`/plants/uuids?needs_watering=true&${commonParams}`),
           apiClient.get(`/plants/uuids?needs_watering=false&${commonParams}`),
           apiClient.get(`/plants/uuids?${commonParams}`),
           apiClient.get('/measurements/approximation/watering'),
+          apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
         ])
         setTodoUuids(todo || [])
         setDoneUuids(done || [])
         setAllUuids(all || [])
+        setWeighingUuids(weighing || [])
+        setError('')
 
         const approxItems = approxData?.items || []
         const approxMap = approxItems.reduce((acc, item) => {
@@ -90,10 +94,12 @@ export default function BulkWatering() {
         setApproximations(approxMap)
       } catch (err) {
         console.error('Failed to load approximations', err)
+        setError(err.body?.message || err.message || err.detail || 'Failed to load plants')
         // If snapshot fetching fails, initialize with empty arrays to allow fallback logic to proceed
         setTodoUuids((prev) => prev ?? [])
         setDoneUuids((prev) => prev ?? [])
         setAllUuids((prev) => prev ?? [])
+        setWeighingUuids((prev) => prev ?? [])
       } finally {
         setLoading(false)
       }
@@ -133,6 +139,7 @@ export default function BulkWatering() {
 
         const response = await apiClient.get(url)
         setPlants(Array.isArray(response?.items) ? response.items : [])
+        setError('')
       } catch (err) {
         setError(err.body?.message || err.message || err.detail || 'Failed to load plants')
       } finally {
@@ -443,6 +450,27 @@ export default function BulkWatering() {
     <DashboardLayout title="Bulk watering">
       <PageHeader title="Bulk watering" onBack={() => navigate('/daily')} titleBack="Daily Care" />
 
+      <div
+        className="actions"
+        style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}
+      >
+        <button
+          className="btn btn-primary"
+          disabled={operationMode === 'vacation' || loading}
+          title={operationMode === 'vacation' ? 'Bulk measurement is currently disabled' : ''}
+          onClick={() => navigate('/measurements/bulk/weight')}
+        >
+          Bulk measurement
+          {weighingUuids && weighingUuids.length > 0 ? ` (${weighingUuids.length})` : ''}
+        </button>
+        <button className="btn" disabled={true} style={{ background: '#2c4fff', color: 'white' }}>
+          Bulk watering
+          {todoUuids && todoUuids.filter((id) => !measurementIds[id]).length > 0
+            ? ` (${todoUuids.filter((id) => !measurementIds[id]).length})`
+            : ''}
+        </button>
+      </div>
+
       <WateringTimeBar wateringTime={wateringTime} />
 
       <p>
@@ -479,7 +507,7 @@ export default function BulkWatering() {
             style={getTabStyle(activeTab === TAB_TODO)}
             onClick={() => handleTabChange(TAB_TODO)}
           >
-            To-Do {todoUuids && `(${todoUuids.length})`}
+            To-Do {todoUuids && `(${todoUuids.filter((id) => !measurementIds[id]).length})`}
           </button>
           <button
             style={getTabStyle(activeTab === TAB_DONE)}

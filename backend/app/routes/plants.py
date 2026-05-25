@@ -289,7 +289,9 @@ async def list_plant_uuids(
                     if thresh is None:
                         thresh = def_thr
 
-                    return (thresh is not None and retained <= thresh) or p.get("needs_watering_prediction", False)
+                    return (thresh is not None and retained <= thresh) or p.get(
+                        "needs_watering_prediction", False
+                    )
 
                 # If we have no weight data, and no approximation, we assume it needs attention
                 # (weighing/watering) by default to avoid missing plants.
