@@ -21,6 +21,10 @@ export const plantsApi = {
       signal,
     })
   },
+  duplicate(uuid, signal) {
+    if (!uuid) throw new ApiError('Missing plant id')
+    return apiClient.post(`/plants/${uuid}/duplicate`, null, { signal })
+  },
   update(uuid, payload, signal) {
     if (!uuid) throw new ApiError('Missing plant id')
     return apiClient.patch(`/plants/${uuid}`, payload, {

@@ -409,6 +409,81 @@ async def create_plant(payload: PlantCreateRequest):
 
 
 # Reordering endpoints
+
+@app.post("/plants/{id_hex}/duplicate")
+async def duplicate_plant(id_hex: str):
+    def do_duplicate():
+        if not HEX_RE.match(id_hex or ""):
+            raise HTTPException(status_code=400, detail="Invalid plant id")
+        conn = get_conn()
+        try:
+            conn.autocommit(False)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                        name, plant_type, identify_hint, typical_action,
+                        description, notes, location_id,
+                        default_measurement_method_id, scale_id, sort_order, archive,
+                        recommended_water_threshold_pct,
+                        species_name, botanical_name, cultivar, substrate_type_id,
+                        fertilizer_ec_ms, light_level_id, pest_status_id, health_status_id
+                    FROM plants
+                    WHERE id = %s
+                    """,
+                    (hex_to_bin(id_hex),),
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Plant not found")
+
+                new_name = f"{row[0]} copy"
+                new_id = uuid.uuid4().bytes
+
+                sql = """
+                    INSERT INTO plants (
+                        id, name, plant_type, identify_hint, typical_action,
+                        description, notes, location_id, photo_url,
+                        default_measurement_method_id, scale_id, sort_order, repotted, archive,
+                        recommended_water_threshold_pct,
+                        species_name, botanical_name, cultivar, substrate_type_id,
+                        fertilizer_ec_ms, light_level_id, pest_status_id, health_status_id,
+                        biomass_weight_g, biomass_last_at, substrate_last_refresh_at, 
+                        fertilized_last_at, min_dry_weight_g, max_water_weight_g
+                    ) VALUES (
+                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s,
+                        %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s, %s,
+                        %s, %s, %s,
+                        %s, %s, %s
+                    )
+                """
+                params = (
+                    new_id, new_name, row[1], row[2], row[3],
+                    row[4], row[5], row[6], None,
+                    row[7], row[8], row[9], 0, row[10],
+                    row[11],
+                    row[12], row[13], row[14], row[15],
+                    row[16], row[17], row[18], row[19],
+                    None, None, None,
+                    None, None, None
+                )
+                cur.execute(sql, params)
+                conn.commit()
+                return {"ok": True, "uuid": new_id.hex(), "name": new_name}
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
+
+    return await run_in_threadpool(do_duplicate)
 class ReorderPayload(BaseModel):
     ordered_ids: list[str]
 

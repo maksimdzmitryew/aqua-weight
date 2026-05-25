@@ -25,6 +25,8 @@ export default function PlantDetails() {
   const [measError, setMeasError] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toDeleteMeas, setToDeleteMeas] = useState(null)
+  const [duplicateLoading, setDuplicateLoading] = useState(false)
+  const [duplicateError, setDuplicateError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -34,6 +36,8 @@ export default function PlantDetails() {
         setLoading(false)
         return
       }
+      setLoading(true)
+      setPlant(null)
       try {
         const data = await plantsApi.getByUuid(uuid, controller.signal)
         setPlant(data)
@@ -51,15 +55,24 @@ export default function PlantDetails() {
         setError(msg || 'Failed to load plant')
       }
     }
-    if (!plant) load()
+
+    const statePlant = routerLocation.state?.plant
+    if (statePlant && statePlant.uuid === uuid) {
+      setPlant(statePlant)
+      setLoading(false)
+    } else if (!plant || plant.uuid !== uuid) {
+      load()
+    }
+
     return () => {
       controller.abort()
     }
-  }, [uuid])
+  }, [uuid, routerLocation.state?.plant])
 
   const fetchMeasurements = useCallback(async () => {
     if (!uuid) return
     setMeasLoading(true)
+    setMeasurements([])
     setMeasError('')
     try {
       const data = await measurementsApi.listByPlant(uuid)
@@ -111,7 +124,24 @@ export default function PlantDetails() {
     }
   }
 
-  const browserTitle = plant
+  
+  async function handleDuplicate() {
+    if (!plant?.uuid) return
+    setDuplicateLoading(true)
+    setDuplicateError('')
+    try {
+      const res = await plantsApi.duplicate(plant.uuid)
+      if (res.uuid) {
+        navigate(`/plants/${res.uuid}`)
+      }
+    } catch (e) {
+      setDuplicateError(e?.message || 'Failed to duplicate plant')
+    } finally {
+      setDuplicateLoading(false)
+    }
+  }
+
+const browserTitle = plant
     ? plant.identify_hint
       ? `${plant.identify_hint} ${plant.name}`
       : plant.name
@@ -137,6 +167,15 @@ export default function PlantDetails() {
               >
                 Edit
               </button>
+
+              <button
+                type="button"
+                onClick={handleDuplicate}
+                disabled={duplicateLoading}
+                className="btn btn-secondary"
+              >
+                {duplicateLoading ? 'Duplicating...' : 'Duplicate'}
+              </button>
               <QuickCreateButtons plantUuid={plant.uuid} plantName={plant.name} />
             </>
           )}
@@ -145,6 +184,7 @@ export default function PlantDetails() {
 
       {loading && <Loader label="Loading plant..." />}
       {error && !loading && <ErrorNotice message={error} />}
+      {duplicateError && <div className="mt-4"><ErrorNotice message={duplicateError} /></div>}
 
       {plant && !loading && !error && (
         <>
