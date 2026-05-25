@@ -12,8 +12,8 @@ define WORKFLOW_HINT
 	@echo "  make test-fe    ← unit tests frontend$(if $(filter test-fe,$(MAKECMDGOALS)),                  ← you are here ←)"
 	@echo "  make test-e2e   ← end-to-end tests frontend$(if $(filter test-e2e,$(MAKECMDGOALS)),           ← you are here ←)"
 	@echo "      ↓"
-	@echo "  make be-fix     ← fix backend formatting + lint + mypy$(if $(filter be-fix,$(MAKECMDGOALS)),  ← you are here ←)"
-	@echo "  make fe-fix     ← fix frontend formatting + lint$(if $(filter fe-fix,$(MAKECMDGOALS)),        ← you are here ←)"
+	@echo "  make fix-be     ← fix backend formatting + lint + mypy$(if $(filter fix-be,$(MAKECMDGOALS)),  ← you are here ←)"
+	@echo "  make fix-fe     ← fix frontend formatting + lint$(if $(filter fix-fe,$(MAKECMDGOALS)),        ← you are here ←)"
 	@echo "      ↓"
 	@echo "  make cicd-be    ← verify: pre-commit checks pass$(if $(filter cicd-be,$(MAKECMDGOALS)),       ← you are here ←)"
 	@echo "  make cicd-fe    ← verify: pre-commit checks pass$(if $(filter cicd-fe,$(MAKECMDGOALS)),       ← you are here ←)"
@@ -59,7 +59,7 @@ help:
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
-	@echo "  make fe-fix            - Auto-fix formatting and lint"
+	@echo "  make fix-fe            - Auto-fix formatting and lint"
 	@echo "  make cicd-fe           - Run CI/CD pipeline for FE"
 	@echo ""
 	@echo "Backend tooling (in Docker):"
@@ -68,7 +68,7 @@ help:
 	@echo "  make be-fmt            - Run black check"
 	@echo "  make be-fmt-fix        - Run black fix"
 	@echo "  make be-mypy           - Run mypy"
-	@echo "  make be-fix            - Auto-fix backend formatting, lint, and mypy"
+	@echo "  make fix-be            - Auto-fix backend formatting, lint, and mypy"
 	@echo "  make be-pre-commit     - Run pre-commit (CI config)"
 	@echo "  make cicd-be           - Run CI/CD pipeline for BE"
 	@echo ""
@@ -255,8 +255,8 @@ fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
 fe-lint-fix: ## Auto-fix frontend ESLint issues
 	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
 
-.PHONY: fe-fix
-fe-fix: ## Run all frontend auto-fixes
+.PHONY: fix-fe
+fix-fe: ## Run all frontend auto-fixes
 	$(MAKE) fe-fmt-fix
 	$(MAKE) fe-lint-fix
 	$(WORKFLOW_HINT)
@@ -299,8 +299,8 @@ be-mypy:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
 
-.PHONY: be-fix
-be-fix: ## Run all frontend auto-fixes
+.PHONY: fix-be
+fix-be: ## Run all frontend auto-fixes
 	$(MAKE) be-fmt-fix
 	$(MAKE) be-lint-fix
 	$(MAKE) be-mypy
