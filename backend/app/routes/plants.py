@@ -410,6 +410,7 @@ async def create_plant(payload: PlantCreateRequest):
 
 # Reordering endpoints
 
+
 @app.post("/plants/{id_hex}/duplicate")
 async def duplicate_plant(id_hex: str):
     def do_duplicate():
@@ -448,7 +449,7 @@ async def duplicate_plant(id_hex: str):
                         recommended_water_threshold_pct,
                         species_name, botanical_name, cultivar, substrate_type_id,
                         fertilizer_ec_ms, light_level_id, pest_status_id, health_status_id,
-                        biomass_weight_g, biomass_last_at, substrate_last_refresh_at, 
+                        biomass_weight_g, biomass_last_at, substrate_last_refresh_at,
                         fertilized_last_at, min_dry_weight_g, max_water_weight_g
                     ) VALUES (
                         %s, %s, %s, %s, %s,
@@ -462,14 +463,35 @@ async def duplicate_plant(id_hex: str):
                     )
                 """
                 params = (
-                    new_id, new_name, row[1], row[2], row[3],
-                    row[4], row[5], row[6], None,
-                    row[7], row[8], row[9], 0, row[10],
+                    new_id,
+                    new_name,
+                    row[1],
+                    row[2],
+                    row[3],
+                    row[4],
+                    row[5],
+                    row[6],
+                    None,
+                    row[7],
+                    row[8],
+                    row[9],
+                    0,
+                    row[10],
                     row[11],
-                    row[12], row[13], row[14], row[15],
-                    row[16], row[17], row[18], row[19],
-                    None, None, None,
-                    None, None, None
+                    row[12],
+                    row[13],
+                    row[14],
+                    row[15],
+                    row[16],
+                    row[17],
+                    row[18],
+                    row[19],
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
                 )
                 cur.execute(sql, params)
                 conn.commit()
@@ -484,6 +506,8 @@ async def duplicate_plant(id_hex: str):
             conn.close()
 
     return await run_in_threadpool(do_duplicate)
+
+
 class ReorderPayload(BaseModel):
     ordered_ids: list[str]
 

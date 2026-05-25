@@ -124,7 +124,6 @@ export default function PlantDetails() {
     }
   }
 
-  
   async function handleDuplicate() {
     if (!plant?.uuid) return
     setDuplicateLoading(true)
@@ -141,7 +140,7 @@ export default function PlantDetails() {
     }
   }
 
-const browserTitle = plant
+  const browserTitle = plant
     ? plant.identify_hint
       ? `${plant.identify_hint} ${plant.name}`
       : plant.name
@@ -184,7 +183,11 @@ const browserTitle = plant
 
       {loading && <Loader label="Loading plant..." />}
       {error && !loading && <ErrorNotice message={error} />}
-      {duplicateError && <div className="mt-4"><ErrorNotice message={duplicateError} /></div>}
+      {duplicateError && (
+        <div className="mt-4">
+          <ErrorNotice message={duplicateError} />
+        </div>
+      )}
 
       {plant && !loading && !error && (
         <>
