@@ -48,22 +48,29 @@ async def enforce_body_size(request: Request, call_next):
     return await call_next(request)
 
 
-# Mount all routers under /api
-api_router = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
-api_router.include_router(repotting_app)
-api_router.include_router(health_app)
-api_router.include_router(plants_app)
-api_router.include_router(locations_app)
-api_router.include_router(measurements_app)
+# Infrastructure routes (public)
+infrastructure_router = APIRouter()
+infrastructure_router.include_router(health_app)
+
+# Domain routes (protected)
+internal_auth_router = APIRouter(dependencies=[Depends(require_api_key)])
+internal_auth_router.include_router(repotting_app)
+internal_auth_router.include_router(plants_app)
+internal_auth_router.include_router(locations_app)
+internal_auth_router.include_router(measurements_app)
 
 # Conditionally include test admin endpoints when TEST_MODE=1
 if _os.getenv("TEST_MODE") == "1":
-    api_router.include_router(test_admin_app)
+    internal_auth_router.include_router(test_admin_app)
 
-app.include_router(api_router)
+# Versioned router (v1)
+v1 = APIRouter()
+v1.include_router(infrastructure_router)
+v1.include_router(internal_auth_router)
 
+# Mount v1 under both /api/v1 and /api alias (Double Mount)
+app.include_router(v1, prefix="/api/v1")
+app.include_router(v1, prefix="/api")
 
-# Top-level health endpoint for container health checks and uptime probes
-@app.get("/health")
-async def health_root():
-    return {"status": "ok"}
+# Also mount infrastructure routes at root for top-level /health consolidation
+app.include_router(infrastructure_router)
