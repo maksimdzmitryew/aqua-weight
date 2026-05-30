@@ -84,6 +84,95 @@ CREATE TABLE IF NOT EXISTS scales (
   UNIQUE KEY uq_scales_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
+-- Users and Identity
+CREATE TABLE IF NOT EXISTS users (
+  id BINARY(16) NOT NULL,
+  username VARCHAR(255) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  global_role VARCHAR(20) NOT NULL,
+  settings_json JSON NOT NULL DEFAULT '{}',
+  settings_schema_version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_users_username (username),
+  CONSTRAINT chk_users_role CHECK (global_role IN ('admin', 'customer')),
+  CONSTRAINT chk_users_settings_json CHECK (JSON_VALID(settings_json))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS invite_tokens (
+  token_hash BINARY(32) NOT NULL,
+  user_id BINARY(16) NOT NULL,
+  expires_at DATETIME(6) NOT NULL,
+  activated_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (token_hash),
+  KEY idx_invite_user (user_id),
+  CONSTRAINT fk_invite_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS user_totp_secrets (
+  user_id BINARY(16) NOT NULL,
+  secret VARCHAR(32) NOT NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (user_id),
+  CONSTRAINT fk_totp_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS user_recovery_codes (
+  code_hash BINARY(32) NOT NULL,
+  user_id BINARY(16) NOT NULL,
+  sort_order TINYINT UNSIGNED NOT NULL,
+  used_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (code_hash),
+  UNIQUE KEY uq_user_recovery_order (user_id, sort_order),
+  KEY idx_recovery_user (user_id),
+  CONSTRAINT fk_recovery_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- Devices and Sessions
+CREATE TABLE IF NOT EXISTS devices (
+  id BINARY(16) NOT NULL,
+  device_id VARCHAR(255) NOT NULL,
+  user_agent VARCHAR(512) NULL,
+  first_seen_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  last_seen_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_devices_device_id (device_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS user_devices (
+  user_id BINARY(16) NOT NULL,
+  device_id BINARY(16) NOT NULL,
+  trusted TINYINT(1) NOT NULL DEFAULT 0,
+  trusted_at DATETIME(6) NULL,
+  device_name VARCHAR(255) NULL,
+  last_login_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (user_id, device_id),
+  CONSTRAINT fk_user_devices_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_user_devices_device FOREIGN KEY (device_id) REFERENCES devices(id) ON UPDATE CASCADE ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+CREATE TABLE IF NOT EXISTS auth_refresh_tokens (
+  id BINARY(16) NOT NULL,
+  token_hash BINARY(32) NOT NULL,
+  user_id BINARY(16) NOT NULL,
+  device_id BINARY(16) NOT NULL,
+  expires_at DATETIME(6) NOT NULL,
+  rotated_from_id BINARY(16) NULL,
+  revoked_at DATETIME(6) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_auth_refresh_token_hash (token_hash),
+  KEY idx_auth_refresh_user (user_id),
+  KEY idx_auth_refresh_device (device_id),
+  CONSTRAINT fk_auth_refresh_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_auth_refresh_device FOREIGN KEY (device_id) REFERENCES devices(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_auth_refresh_rotated_from FOREIGN KEY (rotated_from_id) REFERENCES auth_refresh_tokens(id) ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 -- Locations
 CREATE TABLE IF NOT EXISTS locations (
   id BINARY(16) NOT NULL,
@@ -95,6 +184,20 @@ CREATE TABLE IF NOT EXISTS locations (
   PRIMARY KEY (id),
   UNIQUE KEY uq_locations_name (name),
   KEY idx_locations_sort (sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- Access Control
+CREATE TABLE IF NOT EXISTS user_location_acl (
+  user_id BINARY(16) NOT NULL,
+  location_id BINARY(16) NOT NULL,
+  role VARCHAR(20) NOT NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (user_id, location_id),
+  KEY idx_user_location_acl_location (location_id),
+  CONSTRAINT fk_user_location_acl_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT fk_user_location_acl_location FOREIGN KEY (location_id) REFERENCES locations(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  CONSTRAINT chk_user_location_acl_role CHECK (role IN ('owner', 'helper'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Plants master
