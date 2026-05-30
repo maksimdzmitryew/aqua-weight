@@ -16,6 +16,7 @@ from .security import require_api_key
 APP_ENV = _os.getenv("APP_ENV", "development").lower()
 TEST_MODE = _os.getenv("TEST_MODE") == "1"
 MAX_BODY_BYTES = int(_os.getenv("MAX_BODY_BYTES", "1048576"))
+API_VERSION = _os.getenv("API_VERSION", "1.0.0")
 
 if TEST_MODE and APP_ENV not in {"test", "development", "local"}:
     raise RuntimeError("TEST_MODE=1 is only allowed in test/dev environments")
@@ -51,6 +52,11 @@ async def enforce_body_size(request: Request, call_next):
 # Infrastructure routes (public)
 infrastructure_router = APIRouter()
 infrastructure_router.include_router(health_app)
+
+
+@infrastructure_router.get("/bootstrap")
+async def bootstrap():
+    return {"version": API_VERSION}
 
 # Domain routes (protected)
 internal_auth_router = APIRouter(dependencies=[Depends(require_api_key)])
