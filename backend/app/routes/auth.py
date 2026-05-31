@@ -1,6 +1,6 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from ..services.auth_service import AuthService
 from ..schemas.auth import (
@@ -47,6 +47,7 @@ async def login(
 async def invite_complete(
     payload: InviteCompleteRequest,
     request: Request,
+    response: Response,
     db: Annotated[Any, Depends(get_db)],
 ):
     """
@@ -82,15 +83,67 @@ async def invite_complete(
             trust_device=payload.trust_device,
         )
 
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,  # Should be True in production (HTTPS)
+            samesite="strict",
+        )
+
         return {
             "access_token": access_token,
-            "refresh_token": refresh_token,
             "token_type": "bearer",
             "recovery_codes": recovery_codes,
         }
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post("/refresh")
+async def refresh(
+    request: Request,
+    response: Response,
+    device_id: Annotated[str, Depends(get_device_id)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    """
+    Exchange a valid refresh token cookie for a new access token and a rotated refresh token.
+    Implements strict rotation and reuse detection.
+    """
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing",
+        )
+
+    auth_service = AuthService(db)
+    try:
+        access_token, new_refresh_token = auth_service.rotate_tokens(
+            refresh_token=refresh_token,
+            device_id_str=device_id,
+        )
+
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+    except ValueError as e:
+        # Map rotation/expiration errors to 401
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
         )
 
@@ -126,10 +179,18 @@ async def mfa_enroll(
 )
 async def logout(
     payload: LogoutRequest,
-    device_id: Annotated[str, Depends(get_device_id)],
+    request: Request,
+    response: Response,
+    db: Annotated[Any, Depends(get_db)],
 ):
     """
     Revoke the current session and refresh token for the specified device.
+    Clears the refresh token cookie.
     """
-    # Business logic to be implemented in Milestone 4.2
-    return {"detail": "Not implemented"}
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        auth_service = AuthService(db)
+        auth_service.revoke_session(refresh_token)
+
+    response.delete_cookie(key="refresh_token")
+    return {"detail": "Logged out"}
