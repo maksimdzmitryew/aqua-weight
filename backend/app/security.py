@@ -1,6 +1,10 @@
+import base64
+import hashlib
+import hmac
 import os
 import secrets
 import string
+import time
 from typing import Annotated, Any
 
 import jwt
@@ -14,6 +18,9 @@ from .db import get_conn, hex_to_bin
 # Constants from environment
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-default-secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+NONCE_SECRET_KEY = os.getenv("NONCE_SECRET_KEY", "insecure-nonce-default")
+NONCE_MIN_AGE_SECONDS = 5
+NONCE_MAX_AGE_SECONDS = 900  # 15 minutes
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -64,6 +71,64 @@ def hash_recovery_code(code: str) -> str:
 def verify_recovery_code(code: str, hashed_code: str) -> bool:
     """Verify a recovery code against an Argon2 hash."""
     return verify_password(code, hashed_code)
+
+
+def generate_page_nonce(request: Request) -> str:
+    """
+    Generate a server-signed nonce containing a timestamp and bound to the client context.
+    Context binding uses User-Agent to prevent simple replay across different browsers.
+    """
+    timestamp = int(time.time())
+    user_agent = request.headers.get("user-agent", "")
+    message = f"{timestamp}|{user_agent}".encode()
+    signature = hmac.new(NONCE_SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()
+    payload = f"{timestamp}:{signature}"
+    return base64.b64encode(payload.encode()).decode()
+
+
+def verify_page_nonce(nonce_b64: str, request: Request) -> bool:
+    """
+    Verify a server-signed nonce.
+    Checks:
+    1. Signature integrity using NONCE_SECRET_KEY.
+    2. Context binding (User-Agent).
+    3. Minimum age (5s) to deter automated bot submissions.
+    4. Maximum age (15m) to prevent long-term replay.
+    """
+    try:
+        payload = base64.b64decode(nonce_b64.encode()).decode()
+        timestamp_str, signature = payload.split(":", 1)
+        timestamp = int(timestamp_str)
+    except Exception:
+        return False
+
+    # 1. Temporal validation
+    now = int(time.time())
+    age = now - timestamp
+    if age < NONCE_MIN_AGE_SECONDS or age > NONCE_MAX_AGE_SECONDS:
+        return False
+
+    # 2. Context & Signature validation
+    user_agent = request.headers.get("user-agent", "")
+    message = f"{timestamp}|{user_agent}".encode()
+    expected_signature = hmac.new(NONCE_SECRET_KEY.encode(), message, hashlib.sha256).hexdigest()
+
+    return hmac.compare_digest(signature, expected_signature)
+
+
+async def get_device_id(
+    request: Request,
+    x_device_id: Annotated[str | None, Header(alias="X-Device-ID")] = None,
+) -> str:
+    """
+    FastAPI dependency to resolve device_id from headers or cookies.
+    X-Device-ID header takes precedence over device_id cookie.
+    Ensures no IP-based tracking is used for device resolution.
+    """
+    if x_device_id:
+        return x_device_id
+
+    return request.cookies.get("device_id", "")
 
 
 async def get_db():
