@@ -1,9 +1,13 @@
 import os
+import secrets
+import string
 from typing import Annotated, Any
 
 import jwt
+import pyotp
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from passlib.context import CryptContext
 
 from .db import get_conn, hex_to_bin
 
@@ -12,6 +16,54 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-default-secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+# Password and Recovery Code hashing context using Argon2
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    """Hash a password using Argon2."""
+    return pwd_context.hash(password)
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verify a password against an Argon2 hash."""
+    return pwd_context.verify(password, hashed_password)
+
+
+def generate_totp_secret() -> str:
+    """Generate a new random Base32 TOTP secret."""
+    return pyotp.random_base32()
+
+
+def verify_totp_code(secret: str, code: str) -> bool:
+    """Verify a 6-digit TOTP code against a secret."""
+    totp = pyotp.TOTP(secret)
+    return totp.verify(code)
+
+
+def generate_recovery_codes(count: int = 10) -> list[str]:
+    """
+    Generate a list of random recovery codes in XXXX-XXXX format.
+    Uses alphanumeric characters for better readability and secrets module for security.
+    """
+    codes = []
+    chars = string.ascii_uppercase + string.digits
+    for _ in range(count):
+        part1 = "".join(secrets.choice(chars) for _ in range(4))
+        part2 = "".join(secrets.choice(chars) for _ in range(4))
+        codes.append(f"{part1}-{part2}")
+    return codes
+
+
+def hash_recovery_code(code: str) -> str:
+    """Hash a recovery code using Argon2 (same as password)."""
+    return hash_password(code)
+
+
+def verify_recovery_code(code: str, hashed_code: str) -> bool:
+    """Verify a recovery code against an Argon2 hash."""
+    return verify_password(code, hashed_code)
 
 
 async def get_db():
