@@ -11,7 +11,7 @@ from .routes.measurements import app as measurements_app
 from .routes.plants import app as plants_app
 from .routes.repotting import app as repotting_app
 from .routes.test_admin import app as test_admin_app
-from .security import require_api_key
+from .security import require_authenticated_user
 
 APP_ENV = _os.getenv("APP_ENV", "development").lower()
 TEST_MODE = _os.getenv("TEST_MODE") == "1"
@@ -59,7 +59,7 @@ async def bootstrap():
     return {"version": API_VERSION}
 
 # Domain routes (protected)
-internal_auth_router = APIRouter(dependencies=[Depends(require_api_key)])
+internal_auth_router = APIRouter(dependencies=[Depends(require_authenticated_user)])
 internal_auth_router.include_router(repotting_app)
 internal_auth_router.include_router(plants_app)
 internal_auth_router.include_router(locations_app)

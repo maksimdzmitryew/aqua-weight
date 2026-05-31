@@ -3,3 +3,4 @@ uvicorn[standard]==0.30.6
 PyMySQL==1.1.0
 python-dotenv==1.0.0
 pytz==2023.3
+PyJWT==2.9.0
