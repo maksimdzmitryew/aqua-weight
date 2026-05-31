@@ -30,6 +30,7 @@ class InviteCompleteRequest(AuthBase):
     device_id: DeviceIDStr
     page_nonce: Annotated[str, StringConstraints(strip_whitespace=True)]
     totp_code: TOTPCodeStr
+    totp_secret: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
     trust_device: bool = False
     email: Annotated[
         Optional[str],

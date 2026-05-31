@@ -1,7 +1,8 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from ..services.auth_service import AuthService
 from ..schemas.auth import (
     InviteCompleteRequest,
     LoginRequest,
@@ -11,6 +12,7 @@ from ..schemas.auth import (
 )
 from ..security import (
     generate_page_nonce,
+    get_db,
     get_device_id,
     require_authenticated_user,
     verify_page_nonce,
@@ -45,12 +47,13 @@ async def login(
 async def invite_complete(
     payload: InviteCompleteRequest,
     request: Request,
+    db: Annotated[Any, Depends(get_db)],
 ):
     """
     Complete the invitation flow, set a password, and enroll in MFA.
     Enforces honeypot and page nonce verification.
     """
-    # Honeypot check (Milestone 4.3 requirement, but surface check here is appropriate)
+    # 1. Honeypot check
     if payload.email:
         # Silently fail or return generic error to deter bots
         raise HTTPException(
@@ -58,15 +61,38 @@ async def invite_complete(
             detail="Invalid request",
         )
 
-    # Page nonce check
+    # 2. Page nonce check (Anti-bot minimum time-on-page)
     if not verify_page_nonce(payload.page_nonce, request):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid or expired page nonce",
         )
 
-    # Business logic to be implemented in Milestone 4.2/4.3
-    return {"detail": "Not implemented"}
+    # 3. Process invite completion
+    auth_service = AuthService(db)
+    try:
+        user_agent = request.headers.get("user-agent")
+        access_token, refresh_token, recovery_codes = auth_service.complete_invite(
+            token=payload.token,
+            password=payload.password,
+            totp_secret=payload.totp_secret,
+            totp_code=payload.totp_code,
+            device_id_str=payload.device_id,
+            user_agent=user_agent,
+            trust_device=payload.trust_device,
+        )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "recovery_codes": recovery_codes,
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.post("/mfa/verify")

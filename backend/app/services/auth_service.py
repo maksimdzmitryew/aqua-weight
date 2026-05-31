@@ -9,7 +9,13 @@ import jwt
 import pymysql
 
 from ..db import bin_to_hex, cursor
-from ..security import JWT_ALGORITHM, JWT_SECRET_KEY
+from ..security import (
+    JWT_ALGORITHM,
+    JWT_SECRET_KEY,
+    generate_recovery_codes,
+    hash_password,
+    verify_totp_code,
+)
 
 # Constants for token expiration
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
@@ -262,9 +268,10 @@ class AuthService:
         Verify and consume a recovery code. Mark as used if valid.
         Returns True if the code was valid and consumed.
         """
-        from ..security import verify_recovery_code
-
         now = self._get_now_utc()
+        # We use SHA-256 to match the storage in complete_invite and schema.sql
+        code_hash_attempt = hashlib.sha256(code.encode()).digest()
+
         with cursor(self.db) as cur:
             cur.execute(
                 "SELECT code_hash FROM user_recovery_codes WHERE user_id = %s AND used_at IS NULL",
@@ -273,10 +280,109 @@ class AuthService:
             rows = cur.fetchall()
 
             for (code_hash,) in rows:
-                if verify_recovery_code(code, code_hash):
+                if code_hash == code_hash_attempt:
                     cur.execute(
                         "UPDATE user_recovery_codes SET used_at = %s WHERE code_hash = %s",
                         (now, code_hash),
                     )
                     return True
         return False
+
+    def complete_invite(
+        self,
+        token: str,
+        password: str,
+        totp_secret: str,
+        totp_code: str,
+        device_id_str: str,
+        user_agent: Optional[str] = None,
+        trust_device: bool = False,
+    ) -> Tuple[str, str, list[str]]:
+        """
+        Complete an invitation: verify token, verify first TOTP, set password,
+        enroll MFA, and issue first tokens.
+        Returns (access_token, refresh_token, recovery_codes).
+        """
+        token_hash = hashlib.sha256(token.encode()).digest()
+        now = self._get_now_utc()
+
+        with cursor(self.db) as cur:
+            # 1. Validate invite token
+            cur.execute(
+                "SELECT user_id, expires_at, activated_at FROM invite_tokens WHERE token_hash = %s",
+                (token_hash,),
+            )
+            invite_row = cur.fetchone()
+
+            if not invite_row:
+                raise ValueError("Invalid or expired invite token")
+
+            user_id, expires_at, activated_at = invite_row
+            if activated_at:
+                raise ValueError("Invite has already been activated")
+            if expires_at.replace(tzinfo=timezone.utc) < now:
+                raise ValueError("Invite token has expired")
+
+            # 2. Verify TOTP code against the secret provided for enrollment
+            if not verify_totp_code(totp_secret, totp_code):
+                raise ValueError("Invalid TOTP verification code")
+
+            # 3. Perform activation in transaction
+            try:
+                self.db.autocommit(False)
+
+                # Update user password
+                pwd_hash = hash_password(password)
+                cur.execute(
+                    "UPDATE users SET password_hash = %s WHERE id = %s",
+                    (pwd_hash, user_id),
+                )
+
+                # Mark invite as activated
+                cur.execute(
+                    "UPDATE invite_tokens SET activated_at = %s WHERE token_hash = %s",
+                    (now, token_hash),
+                )
+
+                # Store TOTP secret
+                cur.execute(
+                    "INSERT INTO user_totp_secrets (user_id, secret) VALUES (%s, %s)",
+                    (user_id, totp_secret),
+                )
+
+                # Generate and store recovery codes
+                recovery_codes_plain = generate_recovery_codes(10)
+                for i, code in enumerate(recovery_codes_plain):
+                    # We use SHA-256 for the code_hash to fit in BINARY(32) as defined in schema.sql,
+                    # despite AUTH.md suggesting Argon2 (which requires VARCHAR).
+                    # This ensures compatibility with the existing database schema.
+                    code_hash = hashlib.sha256(code.encode()).digest()
+                    cur.execute(
+                        "INSERT INTO user_recovery_codes (code_hash, user_id, sort_order) VALUES (%s, %s, %s)",
+                        (code_hash, user_id, i),
+                    )
+
+                # 4. Issue first token pair
+                access_token, refresh_token = self.issue_tokens(
+                    user_id=user_id,
+                    device_id_str=device_id_str,
+                    user_agent=user_agent,
+                )
+
+                # 5. Handle trusted device if requested
+                if trust_device:
+                    # Note: issue_tokens already updated user_devices, so we just set trust here
+                    internal_device_id = self._resolve_device(device_id_str)
+                    cur.execute(
+                        "UPDATE user_devices SET trusted = 1, trusted_at = %s WHERE user_id = %s AND device_id = %s",
+                        (now, user_id, internal_device_id),
+                    )
+
+                self.db.commit()
+                return access_token, refresh_token, recovery_codes_plain
+
+            except Exception:
+                self.db.rollback()
+                raise
+            finally:
+                self.db.autocommit(True)
