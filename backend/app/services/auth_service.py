@@ -67,6 +67,7 @@ class AuthService:
         device_id_str: str,
         user_agent: Optional[str] = None,
         rotated_from_id: Optional[bytes] = None,
+        device_name: Optional[str] = None,
     ) -> Tuple[str, str]:
         """
         Issue a new Access Token (JWT) and Refresh Token pair.
@@ -96,14 +97,24 @@ class AuthService:
                 self.db.autocommit(False)
 
                 # Register/Update user_device relationship
-                cur.execute(
-                    """
-                    INSERT INTO user_devices (user_id, device_id, last_login_at)
-                    VALUES (%s, %s, %s)
-                    ON DUPLICATE KEY UPDATE last_login_at = %s
-                    """,
-                    (user_id, internal_device_id, now, now),
-                )
+                if device_name:
+                    cur.execute(
+                        """
+                        INSERT INTO user_devices (user_id, device_id, last_login_at, device_name)
+                        VALUES (%s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE last_login_at = %s, device_name = %s
+                        """,
+                        (user_id, internal_device_id, now, device_name, now, device_name),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO user_devices (user_id, device_id, last_login_at)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE last_login_at = %s
+                        """,
+                        (user_id, internal_device_id, now, now),
+                    )
 
                 # Store refresh token
                 cur.execute(
@@ -166,6 +177,7 @@ class AuthService:
         device_id_str: str,
         user_agent: Optional[str] = None,
         trust_device: bool = False,
+        device_name: Optional[str] = None,
     ) -> dict:
         """
         Verify user credentials and handle MFA challenge if required.
@@ -224,10 +236,11 @@ class AuthService:
                 user_id=user_id,
                 device_id_str=device_id_str,
                 user_agent=user_agent,
+                device_name=device_name,
             )
 
             if trust_device:
-                self.set_device_trusted(user_id, device_id_str, True)
+                self.set_device_trusted(user_id, device_id_str, True, device_name)
 
             return {
                 "access_token": access_token,
@@ -314,7 +327,13 @@ class AuthService:
                 (now, user_id),
             )
 
-    def set_device_trusted(self, user_id: bytes, device_id_str: str, trusted: bool = True) -> None:
+    def set_device_trusted(
+        self,
+        user_id: bytes,
+        device_id_str: str,
+        trusted: bool = True,
+        device_name: Optional[str] = None,
+    ) -> None:
         """Update the trust status of a device for a specific user. Untrusting revokes sessions."""
         now = self._get_now_utc()
         internal_device_id = self._resolve_device(device_id_str)
@@ -322,14 +341,17 @@ class AuthService:
         with cursor(self.db) as cur:
             try:
                 self.db.autocommit(False)
-                cur.execute(
-                    """
-                    UPDATE user_devices
-                    SET trusted = %s, trusted_at = %s
-                    WHERE user_id = %s AND device_id = %s
-                    """,
-                    (1 if trusted else 0, trusted_at, user_id, internal_device_id),
-                )
+
+                # Update trusted status and name if provided
+                sql = "UPDATE user_devices SET trusted = %s, trusted_at = %s"
+                params = [1 if trusted else 0, trusted_at]
+                if device_name:
+                    sql += ", device_name = %s"
+                    params.append(device_name)
+                sql += " WHERE user_id = %s AND device_id = %s"
+                params.extend([user_id, internal_device_id])
+
+                cur.execute(sql, tuple(params))
                 if not trusted:
                     cur.execute(
                         """
@@ -378,6 +400,7 @@ class AuthService:
         totp_code: str,
         user_agent: Optional[str] = None,
         trust_device: bool = False,
+        device_name: Optional[str] = None,
     ) -> Tuple[str, str, dict]:
         """
         Verify MFA challenge and issue final tokens.
@@ -427,10 +450,11 @@ class AuthService:
                 user_id=user_id,
                 device_id_str=device_id_str,
                 user_agent=user_agent,
+                device_name=device_name,
             )
 
             if trust_device:
-                self.set_device_trusted(user_id, device_id_str, True)
+                self.set_device_trusted(user_id, device_id_str, True, device_name)
 
             user_data = {
                 "id": user_id_hex,
@@ -628,6 +652,7 @@ class AuthService:
         device_id_str: str,
         user_agent: Optional[str] = None,
         trust_device: bool = False,
+        device_name: Optional[str] = None,
     ) -> Tuple[str, str, list[str]]:
         """
         Complete an invitation: verify token, verify first TOTP, set password,
@@ -695,16 +720,12 @@ class AuthService:
                     user_id=user_id,
                     device_id_str=device_id_str,
                     user_agent=user_agent,
+                    device_name=device_name,
                 )
 
                 # 5. Handle trusted device if requested
                 if trust_device:
-                    # Note: issue_tokens already updated user_devices, so we just set trust here
-                    internal_device_id = self._resolve_device(device_id_str)
-                    cur.execute(
-                        "UPDATE user_devices SET trusted = 1, trusted_at = %s WHERE user_id = %s AND device_id = %s",
-                        (now, user_id, internal_device_id),
-                    )
+                    self.set_device_trusted(user_id, device_id_str, True, device_name)
 
                 self.db.commit()
                 return access_token, refresh_token, recovery_codes_plain

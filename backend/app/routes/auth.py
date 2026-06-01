@@ -53,6 +53,7 @@ async def login(
             device_id_str=payload.device_id,
             user_agent=user_agent,
             trust_device=payload.trust_device,
+            device_name=payload.device_name,
         )
 
         if result.get("mfa_required"):
@@ -117,6 +118,7 @@ async def invite_complete(
             device_id_str=payload.device_id,
             user_agent=user_agent,
             trust_device=payload.trust_device,
+            device_name=payload.device_name,
         )
 
         response.set_cookie(
@@ -202,6 +204,7 @@ async def mfa_verify(
             totp_code=payload.code,
             user_agent=user_agent,
             trust_device=payload.trust_device,
+            device_name=payload.device_name,
         )
 
         response.set_cookie(

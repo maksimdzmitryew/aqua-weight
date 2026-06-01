@@ -26,19 +26,21 @@ export default function Login() {
   const loginForm = useForm({
     username: '',
     password: '',
-    trust_device: false
+    trust_device: false,
+    device_name: ''
   });
 
   const mfaForm = useForm({
     code: '',
-    trust_device: false
+    trust_device: false,
+    device_name: ''
   });
 
   const onLoginSubmit = async (values) => {
     setError('');
     setLoading(true);
     try {
-      const res = await login(values.username, values.password, values.trust_device);
+      const res = await login(values.username, values.password, values.trust_device, values.device_name);
       if (res.mfa_required) {
         setMfaData(res);
       }
@@ -53,7 +55,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await verifyMfa(mfaData.mfa_token, values.code, values.trust_device);
+      await verifyMfa(mfaData.mfa_token, values.code, values.trust_device, values.device_name);
     } catch (err) {
       setError(err.detail || err.message || 'MFA verification failed');
     } finally {
@@ -93,6 +95,14 @@ export default function Login() {
           name="trust_device"
           label="Trust this device"
         />
+        <div style={{ height: 16 }} />
+        <TextInput
+          form={loginForm}
+          name="device_name"
+          label="Device Name"
+          placeholder="e.g. My MacBook Pro"
+          disabled={!loginForm.values.trust_device}
+        />
         <div style={{ height: 24 }} />
         <button
           type="submit"
@@ -129,6 +139,14 @@ export default function Login() {
           form={mfaForm}
           name="trust_device"
           label="Trust this device"
+        />
+        <div style={{ height: 16 }} />
+        <TextInput
+          form={mfaForm}
+          name="device_name"
+          label="Device Name"
+          placeholder="e.g. My MacBook Pro"
+          disabled={!mfaForm.values.trust_device}
         />
         <div style={{ height: 24 }} />
         <button

@@ -105,12 +105,13 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // 5. Auth Actions
-  const login = useCallback(async (username, password, trustDevice = false) => {
+  const login = useCallback(async (username, password, trustDevice = false, deviceName = null) => {
     try {
       const data = await apiClient.post('/auth/login', {
         username,
         password,
         device_id: deviceId,
+        device_name: deviceName,
         trust_device: trustDevice,
       });
 
@@ -126,11 +127,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, [deviceId]);
 
-  const verifyMfa = useCallback(async (mfaToken, code, trustDevice = false) => {
+  const verifyMfa = useCallback(async (mfaToken, code, trustDevice = false, deviceName = null) => {
     try {
       const data = await apiClient.post('/auth/mfa/verify', {
         mfa_token: mfaToken,
         code,
+        device_name: deviceName,
         trust_device: trustDevice,
       });
 
