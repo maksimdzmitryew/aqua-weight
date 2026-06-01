@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .errors import register_exception_handlers
+from .routes.admin import router as admin_router
 from .routes.auth import router as auth_router
 from .routes.health import app as health_app
 from .routes.locations import app as locations_app
@@ -74,6 +75,7 @@ if _os.getenv("TEST_MODE") == "1":
 v1 = APIRouter()
 v1.include_router(infrastructure_router)
 v1.include_router(auth_router, prefix="/auth", tags=["auth"])
+v1.include_router(admin_router)
 v1.include_router(internal_auth_router)
 
 # Mount v1 under both /api/v1 and /api alias (Double Mount)
