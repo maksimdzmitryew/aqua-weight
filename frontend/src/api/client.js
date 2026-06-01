@@ -110,6 +110,12 @@ export class ApiClient {
           ...this.getHeaders(),
           ...headers,
         }
+        if (this.getDeviceId) {
+          const dId = await this.getDeviceId()
+          if (dId && !('X-Device-ID' in mergedHeaders)) {
+            mergedHeaders['X-Device-ID'] = dId
+          }
+        }
         if (this.getAccessToken) {
           const token = await this.getAccessToken()
           if (token && !('Authorization' in mergedHeaders)) {
@@ -130,6 +136,7 @@ export class ApiClient {
           headers: mergedHeaders,
           body: body != null ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
           signal: normalizedSignal,
+          credentials: 'include',
         }
         let res
         try {

@@ -8,12 +8,13 @@ from typing import Optional, Tuple
 import jwt
 import pymysql
 
-from ..db import bin_to_hex, cursor
+from ..db import bin_to_hex, cursor, hex_to_bin
 from ..security import (
     JWT_ALGORITHM,
     JWT_SECRET_KEY,
     generate_recovery_codes,
     hash_password,
+    verify_password,
     verify_totp_code,
 )
 
@@ -156,6 +157,86 @@ class AuthService:
             )
             return new_id
 
+    def login(
+        self,
+        username: str,
+        password: str,
+        device_id_str: str,
+        user_agent: Optional[str] = None,
+        trust_device: bool = False,
+    ) -> dict:
+        """
+        Verify user credentials and handle MFA challenge if required.
+        Returns a dict with tokens or an MFA challenge.
+        """
+        with cursor(self.db) as cur:
+            cur.execute(
+                "SELECT id, username, password_hash, global_role FROM users WHERE username = %s",
+                (username,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise ValueError("Invalid username or password")
+
+            user_id, uname, pwd_hash, role = row
+            if not verify_password(password, pwd_hash):
+                raise ValueError("Invalid username or password")
+
+            # Check if MFA is enabled
+            cur.execute("SELECT 1 FROM user_totp_secrets WHERE user_id = %s", (user_id,))
+            mfa_enabled = cur.fetchone() is not None
+
+            if mfa_enabled:
+                # Check if device is trusted
+                internal_device_id = self._resolve_device(device_id_str, user_agent)
+                cur.execute(
+                    "SELECT trusted FROM user_devices WHERE user_id = %s AND device_id = %s",
+                    (user_id, internal_device_id),
+                )
+                device_row = cur.fetchone()
+                is_trusted = device_row and device_row[0]
+
+                if not is_trusted:
+                    # Generate temporary MFA token (5 min expiry)
+                    mfa_token = jwt.encode(
+                        {
+                            "sub": bin_to_hex(user_id),
+                            "device_id": device_id_str,
+                            "type": "mfa_challenge",
+                            "exp": int((self._get_now_utc() + timedelta(minutes=5)).timestamp()),
+                        },
+                        JWT_SECRET_KEY,
+                        algorithm=JWT_ALGORITHM,
+                    )
+                    return {
+                        "mfa_required": True,
+                        "mfa_token": mfa_token,
+                        "user": {
+                            "id": bin_to_hex(user_id),
+                            "username": uname,
+                        },
+                    }
+
+            # If not MFA or device trusted, issue tokens
+            access_token, refresh_token = self.issue_tokens(
+                user_id=user_id,
+                device_id_str=device_id_str,
+                user_agent=user_agent,
+            )
+
+            if trust_device:
+                self.set_device_trusted(user_id, device_id_str, True)
+
+            return {
+                "access_token": access_token,
+                "refresh_token": refresh_token,
+                "user": {
+                    "id": bin_to_hex(user_id),
+                    "username": uname,
+                    "global_role": role,
+                },
+            }
+
     def rotate_tokens(self, refresh_token: str, device_id_str: str) -> Tuple[str, str]:
         """
         Rotate an existing refresh token for a new pair.
@@ -263,30 +344,72 @@ class AuthService:
             finally:
                 self.db.autocommit(True)
 
-    def consume_recovery_code(self, user_id: bytes, code: str) -> bool:
+    def verify_mfa(
+        self,
+        mfa_token: str,
+        totp_code: str,
+        user_agent: Optional[str] = None,
+        trust_device: bool = False,
+    ) -> Tuple[str, str, dict]:
         """
-        Verify and consume a recovery code. Mark as used if valid.
-        Returns True if the code was valid and consumed.
+        Verify MFA challenge and issue final tokens.
+        Accepts either a 6-digit TOTP code or a recovery code (XXXX-XXXX).
         """
-        now = self._get_now_utc()
-        # We use SHA-256 to match the storage in complete_invite and schema.sql
-        code_hash_attempt = hashlib.sha256(code.encode()).digest()
+        try:
+            payload = jwt.decode(mfa_token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+            if payload.get("type") != "mfa_challenge":
+                raise ValueError("Invalid token type")
+            user_id_hex = payload["sub"]
+            device_id_str = payload["device_id"]
+        except jwt.ExpiredSignatureError:
+            raise ValueError("MFA challenge expired")
+        except Exception:
+            raise ValueError("Invalid MFA token")
+
+        user_id = hex_to_bin(user_id_hex)
 
         with cursor(self.db) as cur:
+            # 1. Fetch user data
             cur.execute(
-                "SELECT code_hash FROM user_recovery_codes WHERE user_id = %s AND used_at IS NULL",
+                "SELECT username, global_role FROM users WHERE id = %s",
                 (user_id,),
             )
-            rows = cur.fetchall()
+            user_row = cur.fetchone()
+            if not user_row:
+                raise ValueError("User not found")
+            uname, role = user_row
 
-            for (code_hash,) in rows:
-                if code_hash == code_hash_attempt:
-                    cur.execute(
-                        "UPDATE user_recovery_codes SET used_at = %s WHERE code_hash = %s",
-                        (now, code_hash),
-                    )
-                    return True
-        return False
+            # 2. Verify TOTP or Recovery Code
+            is_valid = False
+            # Check if it looks like a recovery code (XXXX-XXXX)
+            if len(totp_code) == 9 and "-" in totp_code:
+                is_valid = self.consume_recovery_code(user_id, totp_code)
+            else:
+                # Standard TOTP code
+                cur.execute("SELECT secret FROM user_totp_secrets WHERE user_id = %s", (user_id,))
+                secret_row = cur.fetchone()
+                if secret_row and verify_totp_code(secret_row[0], totp_code):
+                    is_valid = True
+
+            if not is_valid:
+                raise ValueError("Invalid verification code")
+
+            # 3. Issue tokens
+            access_token, refresh_token = self.issue_tokens(
+                user_id=user_id,
+                device_id_str=device_id_str,
+                user_agent=user_agent,
+            )
+
+            if trust_device:
+                self.set_device_trusted(user_id, device_id_str, True)
+
+            user_data = {
+                "id": user_id_hex,
+                "username": uname,
+                "global_role": role,
+            }
+            return access_token, refresh_token, user_data
 
     def complete_invite(
         self,

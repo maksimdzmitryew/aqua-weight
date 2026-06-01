@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { apiClient } from '../api/client';
 import Loader from '../components/feedback/Loader.jsx';
 
@@ -13,19 +13,33 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
   const [status, setStatus] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+  
+  const accessTokenRef = useRef(accessToken);
+  const deviceIdRef = useRef(null);
+
   const [deviceId, setDeviceId] = useState(() => {
     try {
       let id = localStorage.getItem('aw_device_id');
       if (!id) {
-        id = crypto.randomUUID();
+        id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null;
+        if (!id) {
+          id = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        }
         localStorage.setItem('aw_device_id', id);
       }
       return id;
     } catch {
-      // Fallback for private modes or storage issues
-      return crypto.randomUUID();
+      return Math.random().toString(36).substring(2) + Date.now().toString(36);
     }
   });
+
+  useEffect(() => {
+    accessTokenRef.current = accessToken;
+  }, [accessToken]);
+
+  useEffect(() => {
+    deviceIdRef.current = deviceId;
+  }, [deviceId]);
 
   // 1. Sync deviceId to state if it was somehow changed elsewhere (unlikely but safe)
   useEffect(() => {
@@ -40,12 +54,14 @@ export const AuthProvider = ({ children }) => {
 
   // 2. Define auth lifecycle callbacks for the ApiClient.
   const handleUnauthenticated = useCallback(() => {
+    accessTokenRef.current = null;
     setUser(null);
     setAccessToken(null);
     setStatus('unauthenticated');
   }, []);
 
   const handleAccessTokenUpdated = useCallback((token) => {
+    accessTokenRef.current = token;
     setAccessToken(token);
     setStatus('authenticated');
   }, []);
@@ -53,12 +69,12 @@ export const AuthProvider = ({ children }) => {
   // 3. Keep ApiClient in sync with our state/callbacks.
   useEffect(() => {
     apiClient.setAuthHooks({
-      getAccessToken: () => accessToken,
-      getDeviceId: () => deviceId,
+      getAccessToken: () => accessTokenRef.current,
+      getDeviceId: () => deviceIdRef.current,
       onAccessTokenUpdated: handleAccessTokenUpdated,
       onUnauthenticated: handleUnauthenticated,
     });
-  }, [accessToken, deviceId, handleAccessTokenUpdated, handleUnauthenticated]);
+  }, [handleAccessTokenUpdated, handleUnauthenticated]);
 
   // 4. Initial authentication check (attempt to re-hydrate session via refresh token).
   useEffect(() => {
@@ -99,6 +115,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (data.access_token) {
+        accessTokenRef.current = data.access_token;
         setAccessToken(data.access_token);
         if (data.user) setUser(data.user);
         setStatus('authenticated');
@@ -108,6 +125,26 @@ export const AuthProvider = ({ children }) => {
       throw err;
     }
   }, [deviceId]);
+
+  const verifyMfa = useCallback(async (mfaToken, code, trustDevice = false) => {
+    try {
+      const data = await apiClient.post('/auth/mfa/verify', {
+        mfa_token: mfaToken,
+        code,
+        trust_device: trustDevice,
+      });
+
+      if (data.access_token) {
+        accessTokenRef.current = data.access_token;
+        setAccessToken(data.access_token);
+        if (data.user) setUser(data.user);
+        setStatus('authenticated');
+      }
+      return data;
+    } catch (err) {
+      throw err;
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     try {
@@ -130,8 +167,9 @@ export const AuthProvider = ({ children }) => {
     isLoading: status === 'loading',
     deviceId,
     login,
+    verifyMfa,
     logout,
-  }), [user, accessToken, status, deviceId, login, logout]);
+  }), [user, accessToken, status, deviceId, login, verifyMfa, logout]);
 
   // Prevent flicker by showing a loader during the initial session check.
   if (status === 'loading') {

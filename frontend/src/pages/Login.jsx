@@ -1,29 +1,47 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate, Link } from 'react-router-dom';
-import TextInput from '../components/form/fields/TextInput';
-import Checkbox from '../components/form/fields/Checkbox';
+import { useAuth } from '../context/AuthContext.jsx';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import TextInput from '../components/form/fields/TextInput.jsx';
+import Checkbox from '../components/form/fields/Checkbox.jsx';
 import { useForm, required } from '../components/form/useForm';
-import ErrorNotice from '../components/feedback/ErrorNotice';
+import ErrorNotice from '../components/feedback/ErrorNotice.jsx';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, verifyMfa, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [mfaData, setMfaData] = useState(null);
 
-  const form = useForm({
+  const from = location.state?.from?.pathname || '/dashboard';
+
+  // Redirect if already authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
+
+  const loginForm = useForm({
     username: '',
     password: '',
     trust_device: false
   });
 
-  const onSubmit = async (values) => {
+  const mfaForm = useForm({
+    code: '',
+    trust_device: false
+  });
+
+  const onLoginSubmit = async (values) => {
     setError('');
     setLoading(true);
     try {
-      await login(values.username, values.password, values.trust_device);
-      navigate('/dashboard');
+      const res = await login(values.username, values.password, values.trust_device);
+      if (res.mfa_required) {
+        setMfaData(res);
+      }
     } catch (err) {
       setError(err.detail || err.message || 'Login failed');
     } finally {
@@ -31,49 +49,114 @@ export default function Login() {
     }
   };
 
+  const onMfaSubmit = async (values) => {
+    setError('');
+    setLoading(true);
+    try {
+      await verifyMfa(mfaData.mfa_token, values.code, values.trust_device);
+    } catch (err) {
+      setError(err.detail || err.message || 'MFA verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderLoginForm = () => (
+    <>
+      <h1 className="mt-0">Login</h1>
+      <p className="text-muted" style={{ marginBottom: 24 }}>
+        Enter your credentials to access your plants.
+      </p>
+      
+      {error && <ErrorNotice message={error} />}
+      
+      <form onSubmit={loginForm.handleSubmit(onLoginSubmit)}>
+        <TextInput
+          form={loginForm}
+          name="username"
+          label="Username"
+          placeholder="e.g. jdoe"
+          validators={[required()]}
+        />
+        <div style={{ height: 16 }} />
+        <TextInput
+          form={loginForm}
+          name="password"
+          label="Password"
+          type="password"
+          placeholder="••••••••"
+          validators={[required()]}
+        />
+        <div style={{ height: 16 }} />
+        <Checkbox
+          form={loginForm}
+          name="trust_device"
+          label="Trust this device"
+        />
+        <div style={{ height: 24 }} />
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn btn-primary"
+          style={buttonStyle}
+        >
+          {loading ? 'Signing in...' : 'Sign In'}
+        </button>
+      </form>
+    </>
+  );
+
+  const renderMfaForm = () => (
+    <>
+      <h1 className="mt-0">Two-Factor Auth</h1>
+      <p className="text-muted" style={{ marginBottom: 24 }}>
+        Please enter the 6-digit code from your authenticator app or a recovery code.
+      </p>
+      
+      {error && <ErrorNotice message={error} />}
+      
+      <form onSubmit={mfaForm.handleSubmit(onMfaSubmit)}>
+        <TextInput
+          form={mfaForm}
+          name="code"
+          label="Verification Code"
+          placeholder="e.g. 123456 or XXXX-XXXX"
+          validators={[required()]}
+          autoFocus
+        />
+        <div style={{ height: 16 }} />
+        <Checkbox
+          form={mfaForm}
+          name="trust_device"
+          label="Trust this device"
+        />
+        <div style={{ height: 24 }} />
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn btn-primary"
+          style={buttonStyle}
+        >
+          {loading ? 'Verifying...' : 'Verify'}
+        </button>
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+            <button 
+                type="button" 
+                className="btn btn-link" 
+                onClick={() => setMfaData(null)}
+                style={{ fontSize: 14, color: 'var(--text-muted)' }}
+            >
+                Back to login
+            </button>
+        </div>
+      </form>
+    </>
+  );
+
   return (
     <div className="layout" style={containerStyle}>
       <div className="card" style={cardStyle}>
-        <h1 className="mt-0">Login</h1>
-        <p className="text-muted" style={{ marginBottom: 24 }}>
-          Enter your credentials to access your plants.
-        </p>
-        
-        {error && <ErrorNotice message={error} />}
-        
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <TextInput
-            form={form}
-            name="username"
-            label="Username"
-            placeholder="e.g. jdoe"
-            validators={[required()]}
-          />
-          <div style={{ height: 16 }} />
-          <TextInput
-            form={form}
-            name="password"
-            label="Password"
-            type="password"
-            placeholder="••••••••"
-            validators={[required()]}
-          />
-          <div style={{ height: 16 }} />
-          <Checkbox
-            form={form}
-            name="trust_device"
-            label="Trust this device"
-          />
-          <div style={{ height: 24 }} />
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn btn-primary"
-            style={buttonStyle}
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        {mfaData ? renderMfaForm() : renderLoginForm()}
         
         <div style={{ marginTop: 24, textAlign: 'center', fontSize: 14 }}>
           <Link to="/" className="back-link" style={{ textDecoration: 'none' }}>

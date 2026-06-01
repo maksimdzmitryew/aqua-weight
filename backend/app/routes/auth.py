@@ -33,14 +33,47 @@ async def get_invite_page_nonce(request: Request):
 @router.post("/login")
 async def login(
     payload: LoginRequest,
-    device_id: Annotated[str, Depends(get_device_id)],
+    request: Request,
+    response: Response,
+    db: Annotated[Any, Depends(get_db)],
 ):
     """
     Authenticate a user and initiate a session.
     If MFA is enabled, this may return a challenge instead of full tokens.
     """
-    # Business logic to be implemented in Milestone 4.2
-    return {"detail": "Not implemented"}
+    auth_service = AuthService(db)
+    try:
+        user_agent = request.headers.get("user-agent")
+        result = auth_service.login(
+            username=payload.username,
+            password=payload.password,
+            device_id_str=payload.device_id,
+            user_agent=user_agent,
+            trust_device=payload.trust_device,
+        )
+
+        if result.get("mfa_required"):
+            return result
+
+        refresh_token = result.get("refresh_token")
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+        )
+
+        return {
+            "access_token": result.get("access_token"),
+            "token_type": "bearer",
+            "user": result.get("user"),
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
 
 
 @router.post("/invite/complete")
@@ -151,12 +184,41 @@ async def refresh(
 @router.post("/mfa/verify")
 async def mfa_verify(
     payload: MFAVerifyRequest,
+    request: Request,
+    response: Response,
+    db: Annotated[Any, Depends(get_db)],
 ):
     """
     Verify a TOTP code during the login flow.
     """
-    # Business logic to be implemented in Milestone 4.2
-    return {"detail": "Not implemented"}
+    auth_service = AuthService(db)
+    try:
+        user_agent = request.headers.get("user-agent")
+        access_token, refresh_token, user_data = auth_service.verify_mfa(
+            mfa_token=payload.mfa_token,
+            totp_code=payload.code,
+            user_agent=user_agent,
+            trust_device=payload.trust_device,
+        )
+
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+        )
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": user_data,
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
 
 
 @router.post(

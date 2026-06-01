@@ -58,5 +58,6 @@ class MFAEnrollRequest(AuthBase):
 class MFAVerifyRequest(AuthBase):
     """Payload for MFA verification during login flow."""
 
-    code: TOTPCodeStr
+    mfa_token: Annotated[str, StringConstraints(strip_whitespace=True)]
+    code: str  # Can be TOTP or Recovery Code
     trust_device: bool = False

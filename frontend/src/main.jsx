@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import App from './App.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import PlantsList from './pages/PlantsList.jsx'
@@ -10,6 +10,7 @@ import { ThemeProvider } from './ThemeContext.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import InviteComplete from './pages/InviteComplete.jsx'
+import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
 import Loader from './components/feedback/Loader.jsx'
 import PlantEdit from './pages/PlantEdit.jsx'
 import LocationEdit from './pages/LocationEdit.jsx'
@@ -47,33 +48,66 @@ const Logout = () => {
   )
 }
 
+/**
+ * SessionManager component
+ * 
+ * Provides a central listener for authentication state changes.
+ * If the user becomes unauthenticated while on a restricted page,
+ * they are redirected to the login page.
+ */
+const SessionManager = () => {
+  const { status } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    const path = location.pathname.replace(/\/$/, '') || '/'
+    if (status === 'unauthenticated') {
+      const publicPaths = ['/', '/login', '/logout', '/invite/complete']
+      const isPublic = publicPaths.includes(path) || path.startsWith('/invite/')
+      if (!isPublic) {
+        navigate('/login', { state: { from: location }, replace: true })
+      }
+    } else if (status === 'authenticated' && path === '/login') {
+      const from = location.state?.from?.pathname || '/dashboard'
+      navigate(from, { replace: true })
+    }
+  }, [status, navigate, location])
+
+  return null
+}
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <SessionManager />
           <Routes>
             <Route path="/" element={<App />} />
             <Route path="/login" element={<Login />} />
             <Route path="/logout" element={<Logout />} />
             <Route path="/invite/complete" element={<InviteComplete />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/daily" element={<DailyCare />} />
-            <Route path="/plants" element={<PlantsList />} />
-            <Route path="/plants/new" element={<PlantCreate />} />
-            <Route path="/plants/:uuid" element={<PlantDetails />} />
-            <Route path="/stats/:uuid" element={<PlantStats />} />
-            <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
-            <Route path="/locations" element={<LocationsList />} />
-            <Route path="/locations/new" element={<LocationCreate />} />
-            <Route path="/locations/:id/edit" element={<LocationEdit />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/calibration" element={<Calibration />} />
-            <Route path="/measurement/weight" element={<MeasurementCreate />} />
-            <Route path="/measurement/watering" element={<WateringCreate />} />
-            <Route path="/measurement/repotting" element={<RepottingCreate />} />
-            <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
-            <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
+
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/daily" element={<DailyCare />} />
+              <Route path="/plants" element={<PlantsList />} />
+              <Route path="/plants/new" element={<PlantCreate />} />
+              <Route path="/plants/:uuid" element={<PlantDetails />} />
+              <Route path="/stats/:uuid" element={<PlantStats />} />
+              <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
+              <Route path="/locations" element={<LocationsList />} />
+              <Route path="/locations/new" element={<LocationCreate />} />
+              <Route path="/locations/:id/edit" element={<LocationEdit />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/calibration" element={<Calibration />} />
+              <Route path="/measurement/weight" element={<MeasurementCreate />} />
+              <Route path="/measurement/watering" element={<WateringCreate />} />
+              <Route path="/measurement/repotting" element={<RepottingCreate />} />
+              <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
+              <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
+            </Route>
             <Route
               path="*"
               element={
