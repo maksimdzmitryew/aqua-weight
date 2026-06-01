@@ -35,6 +35,11 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
           })}
         </nav>
         <div className="mt-4">
+          <Link to="/logout" className="nav-link">
+            Logout
+          </Link>
+        </div>
+        <div className="mt-4">
           <Link to="/" className="back-link">
             ← Back to Home
           </Link>
