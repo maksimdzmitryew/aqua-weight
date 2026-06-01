@@ -12,6 +12,7 @@ from .routes.locations import app as locations_app
 from .routes.measurements import app as measurements_app
 from .routes.plants import app as plants_app
 from .routes.repotting import app as repotting_app
+from .routes.settings import router as settings_router
 from .routes.test_admin import app as test_admin_app
 from .security import require_authenticated_user
 
@@ -66,6 +67,7 @@ internal_auth_router.include_router(repotting_app)
 internal_auth_router.include_router(plants_app)
 internal_auth_router.include_router(locations_app)
 internal_auth_router.include_router(measurements_app)
+internal_auth_router.include_router(settings_router)
 
 # Conditionally include test admin endpoints when TEST_MODE=1
 if _os.getenv("TEST_MODE") == "1":
