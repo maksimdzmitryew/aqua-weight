@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Annotated, Optional
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -67,3 +68,22 @@ class RecoveryCodesRegenerateRequest(AuthBase):
     """Payload for regenerating recovery codes, requires password verification."""
 
     password: PasswordStr
+
+
+class DeviceResponse(BaseModel):
+    """Response model for a single device associated with a user."""
+
+    device_id: str
+    device_name: Optional[str] = None
+    trusted: bool
+    last_login_at: datetime
+    user_agent: Optional[str] = None
+    recognized: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DeviceListResponse(BaseModel):
+    """Response model for a list of devices."""
+
+    devices: list[DeviceResponse]

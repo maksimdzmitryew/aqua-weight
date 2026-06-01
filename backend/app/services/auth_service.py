@@ -346,6 +346,32 @@ class AuthService:
             finally:
                 self.db.autocommit(True)
 
+    def get_user_devices(self, user_id: bytes) -> list[dict]:
+        """Fetch all recognized devices for a specific user."""
+        with cursor(self.db) as cur:
+            cur.execute(
+                """
+                SELECT d.device_id, ud.device_name, ud.trusted, ud.last_login_at, d.user_agent
+                FROM user_devices ud
+                JOIN devices d ON ud.device_id = d.id
+                WHERE ud.user_id = %s
+                ORDER BY ud.last_login_at DESC
+                """,
+                (user_id,),
+            )
+            rows = cur.fetchall()
+            return [
+                {
+                    "device_id": row[0],
+                    "device_name": row[1],
+                    "trusted": bool(row[2]),
+                    "last_login_at": row[3],
+                    "user_agent": row[4],
+                    "recognized": True,
+                }
+                for row in rows
+            ]
+
     def verify_mfa(
         self,
         mfa_token: str,

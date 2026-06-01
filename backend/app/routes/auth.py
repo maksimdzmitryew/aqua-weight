@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from ..services.auth_service import AuthService
 from ..schemas.auth import (
+    DeviceListResponse,
     InviteCompleteRequest,
     LoginRequest,
     LogoutRequest,
@@ -287,6 +288,49 @@ async def mfa_enroll(
             "token_type": "bearer",
         }
     except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.get(
+    "/devices",
+    response_model=DeviceListResponse,
+)
+async def get_devices(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    """
+    List all devices that have accessed the authenticated user's account.
+    Exposes recognized/trusted markers and last login metadata.
+    """
+    auth_service = AuthService(db)
+    devices = auth_service.get_user_devices(current_user["id"])
+    return {"devices": devices}
+
+
+@router.post(
+    "/devices/{device_id}/untrust",
+)
+async def untrust_device(
+    device_id: str,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    """
+    Remove trust from a device and revoke all associated refresh tokens.
+    """
+    auth_service = AuthService(db)
+    try:
+        auth_service.set_device_trusted(
+            user_id=current_user["id"],
+            device_id_str=device_id,
+            trusted=False,
+        )
+        return {"message": f"Device {device_id} untrusted and sessions revoked"}
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
