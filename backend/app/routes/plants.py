@@ -17,6 +17,7 @@ from ..schemas.plant import (
     ReferenceItem,
 )
 from ..security import get_db, require_authenticated_user
+from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
@@ -420,7 +421,7 @@ async def create_plant(
                     if not cur.fetchone():
                         raise HTTPException(status_code=403, detail="Access to location denied")
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
                 sql = """
                     INSERT INTO plants (
                         id, owner_id, name, plant_type, identify_hint, typical_action,
@@ -533,7 +534,7 @@ async def duplicate_plant(
                     raise HTTPException(status_code=404, detail="Plant not found")
 
                 new_name = f"{row[0]} copy"
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 sql = """
                     INSERT INTO plants (

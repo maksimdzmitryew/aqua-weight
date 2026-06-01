@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from ..db import HEX_RE
 from ..security import get_db, require_authenticated_user
+from ..services.auth_service import generate_ulid_bytes
 from ..schemas.location import (
     LocationCreateRequest,
     LocationListItem,
@@ -89,7 +90,7 @@ def create_location(
             cur.execute("SELECT 1 FROM locations WHERE name=%s LIMIT 1", (name,))
             if cur.fetchone():
                 raise pymysql.err.IntegrityError(1062, "Duplicate entry")
-            new_id = uuid.uuid4().bytes
+            new_id = generate_ulid_bytes()
             cur.execute(
                 "INSERT INTO locations (id, name, description, sort_order) VALUES (%s, %s, %s, %s)",
                 (new_id, name, payload.description, int(payload.sort_order or 0)),
@@ -179,7 +180,7 @@ def update_location_by_name(
                     # Can't create because new name already exists
                     raise pymysql.err.IntegrityError(1062, "Duplicate entry")
                 # Insert new row with the new (normalized) name
-                new_id = uuid.uuid4().bytes  # 16 bytes for BINARY(16)
+                new_id = generate_ulid_bytes()
                 cur.execute(
                     "INSERT INTO locations (id, name) VALUES (%s, %s)",
                     (new_id, new_name),
