@@ -28,6 +28,7 @@ class PlantsList:
         status: str = "active",
         needs_weighing_filter: bool | None = None,
         uuids: list[str] | None = None,
+        current_user: dict | None = None,
     ) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
@@ -68,6 +69,16 @@ class PlantsList:
                     query += " AND p.archive = 1"
                 # WHERE measured_weight_g IS NOT NULL AND water_loss_total_pct IS NOT NULL
                 params = []
+
+                if current_user and current_user.get("global_role") != "admin":
+                    query += """ AND (
+                        p.owner_id = %s
+                        OR p.location_id IN (
+                            SELECT location_id FROM user_location_acl WHERE user_id = %s
+                        )
+                    )"""
+                    params.extend([current_user["id"], current_user["id"]])
+
                 if min_water_loss_total_pct is not None:
                     query += " AND latest_pm.water_loss_total_pct > %s"
                     params.append(min_water_loss_total_pct)
@@ -470,6 +481,7 @@ class PlantsList:
         needs_weighing_filter: bool | None = None,
         mode: str = "manual",
         uuids: list[str] | None = None,
+        current_user: dict | None = None,
     ) -> int:
         """
         Count total plants matching the same filters as fetch_all.
@@ -494,6 +506,16 @@ class PlantsList:
                 elif status == "archived":
                     query += " AND p.archive = 1"
                 params = []
+
+                if current_user and current_user.get("global_role") != "admin":
+                    query += """ AND (
+                        p.owner_id = %s
+                        OR p.location_id IN (
+                            SELECT location_id FROM user_location_acl WHERE user_id = %s
+                        )
+                    )"""
+                    params.extend([current_user["id"], current_user["id"]])
+
                 if min_water_loss_total_pct is not None:
                     query += " AND latest_pm.water_loss_total_pct > %s"
                     params.append(min_water_loss_total_pct)

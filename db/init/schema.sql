@@ -211,6 +211,7 @@ CREATE TABLE IF NOT EXISTS plants (
   description VARCHAR(255) NULL,
   notes TEXT NULL,
   location_id BINARY(16) NULL,
+  owner_id BINARY(16) NULL,
   photo_url VARCHAR(255) NULL,
   -- Service
   default_measurement_method_id BINARY(16) NULL,
@@ -250,6 +251,7 @@ CREATE TABLE IF NOT EXISTS plants (
   KEY idx_plants_repotted (repotted),
   KEY idx_plants_default_method (default_measurement_method_id),
   CONSTRAINT fk_plants_location FOREIGN KEY (location_id) REFERENCES locations(id) ON UPDATE CASCADE ON DELETE SET NULL,
+  CONSTRAINT fk_plants_owner FOREIGN KEY (owner_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT fk_plants_substrate FOREIGN KEY (substrate_type_id) REFERENCES substrate_types(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT fk_plants_light FOREIGN KEY (light_level_id) REFERENCES light_levels(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT fk_plants_pest FOREIGN KEY (pest_status_id) REFERENCES pest_statuses(id) ON UPDATE CASCADE ON DELETE SET NULL,
