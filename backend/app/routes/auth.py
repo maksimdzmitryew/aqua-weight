@@ -1,4 +1,5 @@
-from typing import Annotated, Any
+from datetime import datetime, timedelta, timezone
+from typing import Annotated, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
@@ -222,18 +223,74 @@ async def mfa_verify(
         )
 
 
-@router.post(
+@router.get(
     "/mfa/enroll",
     dependencies=[Depends(require_authenticated_user)],
 )
+async def mfa_enroll_get(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    """
+    Get a new TOTP secret for MFA setup.
+    """
+    auth_service = AuthService(db)
+    try:
+        secret = auth_service.generate_mfa_setup(current_user["id"])
+        return {"secret": secret}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@router.post(
+    "/mfa/enroll",
+)
 async def mfa_enroll(
     payload: MFAEnrollRequest,
+    request: Request,
+    response: Response,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    device_id: Annotated[str, Depends(get_device_id)],
+    db: Annotated[Any, Depends(get_db)],
 ):
     """
     Set up MFA for an already authenticated user.
+    Verifies the first code and issues new tokens.
     """
-    # Business logic to be implemented in Milestone 4.2
-    return {"detail": "Not implemented"}
+    auth_service = AuthService(db)
+    try:
+        user_agent = request.headers.get("user-agent")
+        access_token, refresh_token, recovery_codes = auth_service.enroll_mfa(
+            user_id=current_user["id"],
+            secret=payload.secret,
+            code=payload.code,
+            device_id_str=device_id,
+            user_agent=user_agent,
+        )
+
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite="strict",
+        )
+
+        return {
+            "message": "MFA enrollment successful",
+            "enrolled_at": datetime.now(timezone.utc).isoformat(),
+            "recovery_codes": recovery_codes,
+            "access_token": access_token,
+            "token_type": "bearer",
+        }
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
 
 
 @router.post(

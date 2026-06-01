@@ -519,6 +519,80 @@ class AuthService:
             finally:
                 self.db.autocommit(True)
 
+    def generate_mfa_setup(self, user_id: bytes) -> str:
+        """
+        Generate a new TOTP secret for MFA setup.
+        Checks if the user is already enrolled and blocks if they are.
+        """
+        from ..security import generate_totp_secret
+
+        with cursor(self.db) as cur:
+            cur.execute("SELECT 1 FROM user_totp_secrets WHERE user_id = %s", (user_id,))
+            if cur.fetchone():
+                raise ValueError("User is already enrolled in MFA")
+
+            return generate_totp_secret()
+
+    def enroll_mfa(
+        self,
+        user_id: bytes,
+        secret: str,
+        code: str,
+        device_id_str: str,
+        user_agent: Optional[str] = None,
+    ) -> Tuple[str, str, list[str]]:
+        """
+        Verify the first TOTP code, enroll the user in MFA,
+        generate recovery codes, and issue new tokens.
+        Returns (access_token, refresh_token, recovery_codes).
+        """
+        now = self._get_now_utc()
+
+        with cursor(self.db) as cur:
+            # 1. Check if already enrolled
+            cur.execute("SELECT 1 FROM user_totp_secrets WHERE user_id = %s", (user_id,))
+            if cur.fetchone():
+                raise ValueError("User is already enrolled in MFA")
+
+            # 2. Verify TOTP code against the provided secret
+            if not verify_totp_code(secret, code):
+                raise ValueError("Invalid TOTP verification code")
+
+            # 3. Perform enrollment in transaction
+            try:
+                self.db.autocommit(False)
+
+                # Store TOTP secret
+                cur.execute(
+                    "INSERT INTO user_totp_secrets (user_id, secret) VALUES (%s, %s)",
+                    (user_id, secret),
+                )
+
+                # Generate and store recovery codes
+                recovery_codes_plain = generate_recovery_codes(10)
+                for i, code_val in enumerate(recovery_codes_plain):
+                    code_hash = hash_recovery_code(code_val)
+                    cur.execute(
+                        "INSERT INTO user_recovery_codes (code_hash, user_id, sort_order) VALUES (%s, %s, %s)",
+                        (code_hash, user_id, i),
+                    )
+
+                # 4. Issue new token pair (refreshing session with MFA active)
+                access_token, refresh_token = self.issue_tokens(
+                    user_id=user_id,
+                    device_id_str=device_id_str,
+                    user_agent=user_agent,
+                )
+
+                self.db.commit()
+                return access_token, refresh_token, recovery_codes_plain
+
+            except Exception:
+                self.db.rollback()
+                raise
+            finally:
+                self.db.autocommit(True)
+
     def complete_invite(
         self,
         token: str,
