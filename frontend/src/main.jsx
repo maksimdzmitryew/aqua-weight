@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx'
 import PlantsList from './pages/PlantsList.jsx'
 import LocationsList from './pages/LocationsList.jsx'
 import Settings from './pages/Settings.jsx'
+import Devices from './pages/Devices.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import { SettingsProvider } from './context/SettingsContext.jsx'
@@ -103,6 +104,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path="/locations/new" element={<LocationCreate />} />
                 <Route path="/locations/:id/edit" element={<LocationEdit />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/devices" element={<Devices />} />
                 <Route path="/calibration" element={<Calibration />} />
                 <Route path="/measurement/weight" element={<MeasurementCreate />} />
                 <Route path="/measurement/watering" element={<WateringCreate />} />

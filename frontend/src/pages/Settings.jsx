@@ -5,6 +5,7 @@ import { useSettings } from '../context/SettingsContext.jsx'
 import SudoMode from '../components/auth/SudoMode.jsx'
 import { apiClient } from '../api/client.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
+import { Link } from 'react-router-dom'
 
 export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
@@ -255,6 +256,24 @@ export default function Settings() {
         {error && (
           <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>
         )}
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #ef4444' }}>
+          <h3 style={{ marginTop: 0, color: '#ef4444' }}>Device Management</h3>
+          <p style={{ fontSize: '0.9em', marginBottom: 12 }}>
+            View and manage devices that have access to your account.
+          </p>
+          <Link
+            to="/devices"
+            style={{
+              ...styles.button,
+              display: 'inline-block',
+              textDecoration: 'none',
+              textAlign: 'center',
+            }}
+          >
+            Manage Devices
+          </Link>
+        </div>
       </div>
 
       <SudoMode
