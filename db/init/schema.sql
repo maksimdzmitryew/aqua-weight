@@ -121,13 +121,13 @@ CREATE TABLE IF NOT EXISTS user_totp_secrets (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 CREATE TABLE IF NOT EXISTS user_recovery_codes (
-  code_hash BINARY(32) NOT NULL,
+  code_hash VARCHAR(255) NOT NULL,
   user_id BINARY(16) NOT NULL,
   sort_order TINYINT UNSIGNED NOT NULL,
   used_at DATETIME(6) NULL,
   created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (code_hash),
-  UNIQUE KEY uq_user_recovery_order (user_id, sort_order),
+  UNIQUE KEY uq_user_recovery_order (user_id, sort_order, created_at),
   KEY idx_recovery_user (user_id),
   CONSTRAINT fk_recovery_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

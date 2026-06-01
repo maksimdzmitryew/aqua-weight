@@ -14,7 +14,9 @@ from ..security import (
     JWT_SECRET_KEY,
     generate_recovery_codes,
     hash_password,
+    hash_recovery_code,
     verify_password,
+    verify_recovery_code,
     verify_totp_code,
 )
 
@@ -411,6 +413,112 @@ class AuthService:
             }
             return access_token, refresh_token, user_data
 
+    def regenerate_recovery_codes(self, user_id: bytes, password: str) -> list[str]:
+        """
+        Regenerate 10 recovery codes for the user.
+        Enforces 24-hour rate limit and requires password verification.
+        """
+        now = self._get_now_utc()
+
+        with cursor(self.db) as cur:
+            # 1. Verify password
+            cur.execute("SELECT password_hash FROM users WHERE id = %s", (user_id,))
+            row = cur.fetchone()
+            if not row or not verify_password(password, row[0]):
+                raise ValueError("Invalid password")
+
+            # 2. Check 24h rate limit
+            cur.execute(
+                "SELECT MAX(created_at) FROM user_recovery_codes WHERE user_id = %s",
+                (user_id,),
+            )
+            max_created = cur.fetchone()[0]
+            if max_created:
+                if max_created.tzinfo is None:
+                    max_created = max_created.replace(tzinfo=timezone.utc)
+                if now - max_created < timedelta(hours=24):
+                    raise ValueError("Recovery codes can only be regenerated once every 24 hours")
+
+            # 3. Generate and store new codes in transaction
+            new_codes_plain = generate_recovery_codes(10)
+            try:
+                self.db.autocommit(False)
+
+                # Inactivate existing codes
+                cur.execute(
+                    "UPDATE user_recovery_codes SET used_at = %s WHERE user_id = %s AND used_at IS NULL",
+                    (now, user_id),
+                )
+
+                # Insert new codes
+                for i, code in enumerate(new_codes_plain):
+                    code_hash = hash_recovery_code(code)
+                    cur.execute(
+                        "INSERT INTO user_recovery_codes (code_hash, user_id, sort_order) VALUES (%s, %s, %s)",
+                        (code_hash, user_id, i),
+                    )
+
+                self.db.commit()
+                return new_codes_plain
+            except Exception as e:
+                self.db.rollback()
+                raise e
+            finally:
+                self.db.autocommit(True)
+
+    def consume_recovery_code(self, user_id: bytes, plain_code: str) -> bool:
+        """
+        Verify a recovery code and consume it if valid.
+        Revokes all existing sessions for the user upon successful consumption.
+        """
+        now = self._get_now_utc()
+
+        with cursor(self.db) as cur:
+            # 1. Fetch all unused codes for user
+            cur.execute(
+                "SELECT code_hash FROM user_recovery_codes WHERE user_id = %s AND used_at IS NULL",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+
+            matched_hash = None
+            for (code_hash,) in rows:
+                try:
+                    # verify_recovery_code handles Argon2 strings.
+                    # Legacy binary hashes or invalid formats will fail gracefully.
+                    if verify_recovery_code(plain_code, code_hash):
+                        matched_hash = code_hash
+                        break
+                except Exception:
+                    continue
+
+            if not matched_hash:
+                return False
+
+            # 2. Consume code and revoke sessions in transaction
+            try:
+                self.db.autocommit(False)
+
+                # Mark code as used
+                cur.execute(
+                    "UPDATE user_recovery_codes SET used_at = %s WHERE code_hash = %s",
+                    (now, matched_hash),
+                )
+
+                # Revoke all existing sessions for this user (security requirement)
+                cur.execute(
+                    "UPDATE auth_refresh_tokens SET revoked_at = %s WHERE user_id = %s AND revoked_at IS NULL",
+                    (now, user_id),
+                )
+
+                self.db.commit()
+                return True
+            except Exception:
+                self.db.rollback()
+                return False
+            finally:
+                self.db.autocommit(True)
+
     def complete_invite(
         self,
         token: str,
@@ -476,10 +584,7 @@ class AuthService:
                 # Generate and store recovery codes
                 recovery_codes_plain = generate_recovery_codes(10)
                 for i, code in enumerate(recovery_codes_plain):
-                    # We use SHA-256 for the code_hash to fit in BINARY(32) as defined in schema.sql,
-                    # despite AUTH.md suggesting Argon2 (which requires VARCHAR).
-                    # This ensures compatibility with the existing database schema.
-                    code_hash = hashlib.sha256(code.encode()).digest()
+                    code_hash = hash_recovery_code(code)
                     cur.execute(
                         "INSERT INTO user_recovery_codes (code_hash, user_id, sort_order) VALUES (%s, %s, %s)",
                         (code_hash, user_id, i),

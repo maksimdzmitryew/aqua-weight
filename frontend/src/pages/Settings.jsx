@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import SudoMode from '../components/auth/SudoMode.jsx'
+import { apiClient } from '../api/client.js'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
@@ -15,6 +18,10 @@ export default function Settings() {
   const [pageSize, setPageSize] = useState(() => localStorage.getItem('pageSize') || '20')
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
+
+  const [showSudo, setShowSudo] = useState(false)
+  const [newCodes, setNewCodes] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     const t = setTimeout(() => setSaved(''), 1500)
@@ -53,6 +60,17 @@ export default function Settings() {
     document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
     document.cookie = `defaultThreshold=${normalizedThreshold}; path=/; max-age=31536000; SameSite=Lax`
     setSaved('Saved!')
+  }
+
+  async function handleRegenerate(password) {
+    setError('')
+    setShowSudo(false)
+    try {
+      const data = await apiClient.post('/auth/recovery-codes/regenerate', { password })
+      setNewCodes(data.recovery_codes)
+    } catch (err) {
+      setError(err.detail || 'Failed to regenerate recovery codes')
+    }
   }
 
   const styles = useMemo(() => {
@@ -185,6 +203,81 @@ export default function Settings() {
           {saved && <span style={{ marginLeft: 12, color: 'seagreen' }}>{saved}</span>}
         </div>
       </form>
+
+      {/* Security Section */}
+      <h2 style={{ marginTop: 32 }}>Security</h2>
+      <div
+        style={{
+          padding: 16,
+          border: '1px solid #ef4444',
+          borderRadius: 8,
+          background: effectiveTheme === 'dark' ? '#111827' : '#fef2f2',
+          maxWidth: 520,
+        }}
+      >
+        <h3 style={{ marginTop: 0, color: '#ef4444' }}>Regenerate Recovery Codes</h3>
+        <p style={{ fontSize: '0.9em', marginBottom: 16 }}>
+          Generating new recovery codes will invalidate all of your current codes and log you out fromm all other devices except for the current one. You can only do
+          this once every 24 hours.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setError('')
+            setShowSudo(true)
+          }}
+          style={{ ...styles.button, background: '#ef4444' }}
+        >
+          Regenerate Codes
+        </button>
+        {error && (
+          <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>
+        )}
+      </div>
+
+      <SudoMode
+        open={showSudo}
+        onConfirm={handleRegenerate}
+        onCancel={() => setShowSudo(false)}
+        message="Enter your password to regenerate your TOTP recovery codes."
+      />
+
+      <ConfirmDialog
+        open={!!newCodes}
+        title="New Recovery Codes"
+        onCancel={() => setNewCodes(null)}
+        buttons={[
+          {
+            key: 'close',
+            text: 'I have saved these codes',
+            onClick: () => setNewCodes(null),
+            style: styles.button,
+          },
+        ]}
+        icon="success"
+        message={
+          <div style={{ textAlign: 'left', marginTop: 16 }}>
+            <p style={{ fontWeight: 600, color: '#ef4444', marginBottom: 12 }}>
+              WARNING: These codes will only be shown once. Please save them in a secure location.
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 8,
+                fontFamily: 'monospace',
+                background: effectiveTheme === 'dark' ? '#000' : '#f3f4f6',
+                padding: 12,
+                borderRadius: 6,
+              }}
+            >
+              {newCodes?.map((code) => (
+                <div key={code}>{code}</div>
+              ))}
+            </div>
+          </div>
+        }
+      />
     </DashboardLayout>
   )
 }

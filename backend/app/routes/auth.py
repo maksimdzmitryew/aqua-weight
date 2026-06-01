@@ -9,6 +9,7 @@ from ..schemas.auth import (
     LogoutRequest,
     MFAEnrollRequest,
     MFAVerifyRequest,
+    RecoveryCodesRegenerateRequest,
 )
 from ..security import (
     generate_page_nonce,
@@ -256,3 +257,29 @@ async def logout(
 
     response.delete_cookie(key="refresh_token")
     return {"detail": "Logged out"}
+
+
+@router.post(
+    "/recovery-codes/regenerate",
+)
+async def regenerate_recovery_codes(
+    payload: RecoveryCodesRegenerateRequest,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
+    """
+    Regenerate recovery codes for the authenticated user.
+    Requires password re-verification and enforces a 24-hour rate limit.
+    """
+    auth_service = AuthService(db)
+    try:
+        new_codes = auth_service.regenerate_recovery_codes(
+            user_id=current_user["id"],
+            password=payload.password,
+        )
+        return {"recovery_codes": new_codes}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
