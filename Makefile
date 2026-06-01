@@ -57,6 +57,7 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make fe-clean          - Clear Vite cache and restart frontend container"
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
 	@echo "  make fix-fe            - Auto-fix formatting and lint"
@@ -246,6 +247,11 @@ fe-sb:
 .PHONY: fe-sb-build
 fe-sb-build:
 	npm run build-storybook --prefix frontend
+
+.PHONY: fe-clean
+fe-clean: ## Clear Vite cache and restart frontend container
+	rm -rf frontend/node_modules/.vite
+	docker compose restart frontend
 
 .PHONY: fe-fmt-fix
 fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
