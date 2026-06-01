@@ -20,7 +20,7 @@ class LoginRequest(AuthBase):
     username: Annotated[str, StringConstraints(strip_whitespace=True, max_length=255)]
     password: PasswordStr
     device_id: DeviceIDStr
-    device_name: Annotated[Optional[str], StringConstraints(max_length=50)] = None
+    device_name: Annotated[Optional[str], StringConstraints(max_length=255)] = None
     trust_device: bool = False
 
 
@@ -30,7 +30,7 @@ class InviteCompleteRequest(AuthBase):
     token: Annotated[str, StringConstraints(strip_whitespace=True)]
     password: PasswordStr
     device_id: DeviceIDStr
-    device_name: Annotated[Optional[str], StringConstraints(max_length=50)] = None
+    device_name: Annotated[Optional[str], StringConstraints(max_length=255)] = None
     page_nonce: Annotated[str, StringConstraints(strip_whitespace=True)]
     totp_code: TOTPCodeStr
     totp_secret: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
@@ -63,7 +63,7 @@ class MFAVerifyRequest(AuthBase):
 
     mfa_token: Annotated[str, StringConstraints(strip_whitespace=True)]
     code: str  # Can be TOTP or Recovery Code
-    device_name: Annotated[Optional[str], StringConstraints(max_length=50)] = None
+    device_name: Annotated[Optional[str], StringConstraints(max_length=255)] = None
     trust_device: bool = False
 
 

@@ -204,11 +204,12 @@ class AuthService:
                 # Check if device is trusted
                 internal_device_id = self._resolve_device(device_id_str, user_agent)
                 cur.execute(
-                    "SELECT trusted FROM user_devices WHERE user_id = %s AND device_id = %s",
+                    "SELECT trusted, device_name FROM user_devices WHERE user_id = %s AND device_id = %s",
                     (user_id, internal_device_id),
                 )
                 device_row = cur.fetchone()
-                is_trusted = device_row and device_row[0]
+                is_trusted = device_row and device_row[0] if device_row else False
+                existing_device_name = device_row[1] if device_row else None
 
                 if not is_trusted:
                     # Generate temporary MFA token (5 min expiry)
@@ -225,6 +226,7 @@ class AuthService:
                     return {
                         "mfa_required": True,
                         "mfa_token": mfa_token,
+                        "device_name": existing_device_name,
                         "user": {
                             "id": bin_to_hex(user_id),
                             "username": uname,
