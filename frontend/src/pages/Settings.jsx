@@ -1,23 +1,33 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import { useSettings } from '../context/SettingsContext.jsx'
 import SudoMode from '../components/auth/SudoMode.jsx'
 import { apiClient } from '../api/client.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
-  const [name, setName] = useState(() => localStorage.getItem('displayName') || '')
-  const [dtFormat, setDtFormat] = useState(() => localStorage.getItem('dtFormat') || 'europe')
-  const [operationMode, setOperationMode] = useState(
-    () => localStorage.getItem('operationMode') || 'manual',
-  )
-  const [defaultThreshold, setDefaultThreshold] = useState(
-    () => localStorage.getItem('defaultThreshold') || '40',
-  )
-  const [pageSize, setPageSize] = useState(() => localStorage.getItem('pageSize') || '20')
+  const { settings, loading, updateSettings } = useSettings()
+
+  const [name, setName] = useState('')
+  const [dtFormat, setDtFormat] = useState('europe')
+  const [operationMode, setOperationMode] = useState('manual')
+  const [defaultThreshold, setDefaultThreshold] = useState('40')
+  const [pageSize, setPageSize] = useState('20')
+  
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
+
+  useEffect(() => {
+    if (settings) {
+      setName(settings.displayName || '')
+      setDtFormat(settings.dtFormat || 'europe')
+      setOperationMode(settings.operationMode || 'manual')
+      setDefaultThreshold(settings.defaultThreshold || '40')
+      setPageSize(settings.pageSize || '20')
+    }
+  }, [settings])
 
   const [showSudo, setShowSudo] = useState(false)
   const [newCodes, setNewCodes] = useState(null)
@@ -42,7 +52,7 @@ export default function Settings() {
     return { value: String(parsed), error: '' }
   }
 
-  function save(e) {
+  async function save(e) {
     e.preventDefault()
     const { value: normalizedThreshold, error } = normalizeThreshold(defaultThreshold)
     if (error) {
@@ -50,16 +60,20 @@ export default function Settings() {
       return
     }
     setThresholdError('')
-    // Theme is persisted by ThemeProvider on change; only persist other fields here
-    localStorage.setItem('displayName', name)
-    localStorage.setItem('dtFormat', dtFormat)
-    localStorage.setItem('operationMode', operationMode)
-    localStorage.setItem('defaultThreshold', normalizedThreshold)
-    localStorage.setItem('pageSize', pageSize)
-    // Set cookie for backend visibility (temporary solution as per task requirements)
-    document.cookie = `operationMode=${operationMode}; path=/; max-age=31536000; SameSite=Lax`
-    document.cookie = `defaultThreshold=${normalizedThreshold}; path=/; max-age=31536000; SameSite=Lax`
-    setSaved('Saved!')
+    
+    try {
+      await updateSettings({
+        displayName: name,
+        dtFormat,
+        operationMode,
+        defaultThreshold: normalizedThreshold,
+        pageSize,
+        theme, // include theme in sync
+      })
+      setSaved('Saved!')
+    } catch (err) {
+      setError(err.detail || 'Failed to save settings')
+    }
   }
 
   async function handleRegenerate(password) {
@@ -94,10 +108,18 @@ export default function Settings() {
     }
   }, [effectiveTheme])
 
+  if (loading) {
+    return (
+      <DashboardLayout title="Settings">
+        <p>Loading...</p>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout title="Settings">
       <h1 style={{ marginTop: 0 }}>Settings</h1>
-      <p>Update your local preferences. These settings are stored in your browser only.</p>
+      <p>Update your preferences. These settings are synced to your account.</p>
 
       <form onSubmit={save} style={{ maxWidth: 520 }}>
         <div style={fieldRow}>

@@ -8,6 +8,7 @@ import LocationsList from './pages/LocationsList.jsx'
 import Settings from './pages/Settings.jsx'
 import { ThemeProvider } from './ThemeContext.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
+import { SettingsProvider } from './context/SettingsContext.jsx'
 import Login from './pages/Login.jsx'
 import InviteComplete from './pages/InviteComplete.jsx'
 import ProtectedRoute from './components/auth/ProtectedRoute.jsx'
@@ -81,45 +82,47 @@ createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <SessionManager />
-          <Routes>
-            <Route path="/" element={<App />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/logout" element={<Logout />} />
-            <Route path="/invite/complete" element={<InviteComplete />} />
+        <SettingsProvider>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <SessionManager />
+            <Routes>
+              <Route path="/" element={<App />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/logout" element={<Logout />} />
+              <Route path="/invite/complete" element={<InviteComplete />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/daily" element={<DailyCare />} />
-              <Route path="/plants" element={<PlantsList />} />
-              <Route path="/plants/new" element={<PlantCreate />} />
-              <Route path="/plants/:uuid" element={<PlantDetails />} />
-              <Route path="/stats/:uuid" element={<PlantStats />} />
-              <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
-              <Route path="/locations" element={<LocationsList />} />
-              <Route path="/locations/new" element={<LocationCreate />} />
-              <Route path="/locations/:id/edit" element={<LocationEdit />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/calibration" element={<Calibration />} />
-              <Route path="/measurement/weight" element={<MeasurementCreate />} />
-              <Route path="/measurement/watering" element={<WateringCreate />} />
-              <Route path="/measurement/repotting" element={<RepottingCreate />} />
-              <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
-              <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
-            </Route>
-            <Route
-              path="*"
-              element={
-                <div style={{ padding: 24 }}>
-                  <h1>404: Page Not Found</h1>
-                  <p>Sorry, the page you are looking for does not exist.</p>
-                  <a href="/dashboard">Go to Dashboard</a>
-                </div>
-              }
-            />
-          </Routes>
-        </BrowserRouter>
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/daily" element={<DailyCare />} />
+                <Route path="/plants" element={<PlantsList />} />
+                <Route path="/plants/new" element={<PlantCreate />} />
+                <Route path="/plants/:uuid" element={<PlantDetails />} />
+                <Route path="/stats/:uuid" element={<PlantStats />} />
+                <Route path="/plants/:uuid/edit" element={<PlantEdit />} />
+                <Route path="/locations" element={<LocationsList />} />
+                <Route path="/locations/new" element={<LocationCreate />} />
+                <Route path="/locations/:id/edit" element={<LocationEdit />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/calibration" element={<Calibration />} />
+                <Route path="/measurement/weight" element={<MeasurementCreate />} />
+                <Route path="/measurement/watering" element={<WateringCreate />} />
+                <Route path="/measurement/repotting" element={<RepottingCreate />} />
+                <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
+                <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
+              </Route>
+              <Route
+                path="*"
+                element={
+                  <div style={{ padding: 24 }}>
+                    <h1>404: Page Not Found</h1>
+                    <p>Sorry, the page you are looking for does not exist.</p>
+                    <a href="/dashboard">Go to Dashboard</a>
+                  </div>
+                }
+              />
+            </Routes>
+          </BrowserRouter>
+        </SettingsProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>,
