@@ -27,6 +27,9 @@ import DailyCare from './pages/DailyCare.jsx'
 import BulkWeightMeasurement from './pages/BulkWeightMeasurement.jsx'
 import BulkWatering from './pages/BulkWatering.jsx'
 import Calibration from './pages/Calibration.jsx'
+import AdminDashboard from './pages/AdminDashboard.jsx'
+import MFASetup from './pages/MFASetup.jsx'
+import { Navigate, Outlet } from 'react-router-dom'
 import './styles/theme.css'
 
 const Logout = () => {
@@ -79,6 +82,40 @@ const SessionManager = () => {
   return null
 }
 
+const RequireAdmin = ({ children }) => {
+  const { user, isAuthenticated } = useAuth()
+  const location = useLocation()
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  if (user?.global_role !== 'admin') {
+    return (
+      <div
+        className="layout"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          textAlign: 'center',
+          padding: 24,
+        }}
+      >
+        <h1>403: Forbidden</h1>
+        <p>You do not have permission to access this page.</p>
+        <a href="/dashboard" className="nav-link" style={{ marginTop: 16 }}>
+          Go to Dashboard
+        </a>
+      </div>
+    )
+  }
+
+  return children ? children : <Outlet />
+}
+
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
@@ -111,6 +148,11 @@ createRoot(document.getElementById('root')).render(
                 <Route path="/measurement/repotting" element={<RepottingCreate />} />
                 <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
                 <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
+                <Route path="/mfa/setup" element={<MFASetup />} />
+
+                <Route element={<RequireAdmin />}>
+                  <Route path="/admin" element={<AdminDashboard />} />
+                </Route>
               </Route>
               <Route
                 path="*"
