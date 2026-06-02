@@ -1,9 +1,9 @@
-import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
+from typing import Annotated
 
 from ..db import HEX_RE, bin_to_hex, get_conn_factory, hex_to_bin
 from ..helpers.calibration import (
@@ -27,6 +27,12 @@ from ..schemas.measurement import (
     WateringApproximationResponse,
 )
 from ..schemas.plant import PlantCalibrationItem
+from ..security import (
+    require_authenticated_user,
+    require_plant_access,
+    require_measurement_access,
+)
+from ..services.auth_service import generate_ulid_bytes
 from ..services.measurements import (
     DerivedWeights,
     compute_water_losses,
@@ -92,13 +98,14 @@ def _post_delete_recalculate_and_commit(conn, plant_id_hex: str, measured_weight
 
 # --- New: Simple endpoint to record a delegated/reported watering (no weights) ---
 class VacationWateringCreateRequest(BaseModel):
-    plant_id: str
     measured_at: str | None = None
 
 
-@app.post("/measurements/vacation/watering")
+@app.post("/plants/{plant_id}/measurements/vacation/watering")
 async def create_vacation_watering(
-    payload: VacationWateringCreateRequest, get_conn_fn=Depends(get_conn_factory)
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    payload: VacationWateringCreateRequest,
+    get_conn_fn=Depends(get_conn_factory),
 ):
     """
     Create a watering event for Vacation mode by collecting the latest water_added_g.
@@ -118,7 +125,7 @@ async def create_vacation_watering(
     (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
     are NULL.
     """
-    if not HEX_RE.match(payload.plant_id or ""):
+    if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     from ..utils.date_time import now_local_iso
@@ -143,7 +150,7 @@ async def create_vacation_watering(
                     ORDER BY measured_at DESC
                     LIMIT 1
                     """,
-                    (payload.plant_id,),
+                    (plant_id,),
                 )
                 row = cur.fetchone()
                 water_added_g = row[0] if row else 0
@@ -158,13 +165,13 @@ async def create_vacation_watering(
                     ORDER BY measured_at DESC
                     LIMIT 1
                     """,
-                    (payload.plant_id,),
+                    (plant_id,),
                 )
                 row = cur.fetchone()
                 method_id_bin = row[0] if row and row[0] else None
                 scale_id_bin = row[1] if row and row[1] else None
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
                 final_note = "[vacation] watering"
 
                 cur.execute(
@@ -178,7 +185,7 @@ async def create_vacation_watering(
                     """,
                     (
                         new_id,
-                        payload.plant_id,
+                        plant_id,
                         measured_at_dt,
                         None,  # measured_weight_g
                         None,  # last_dry_weight_g
@@ -195,7 +202,7 @@ async def create_vacation_watering(
                 # Compute water retained percentage for response
                 water_retained_pct = _compute_water_retained_for_plant(
                     cur,
-                    payload.plant_id,
+                    plant_id,
                     measured_weight_g=None,
                     last_wet_weight_g=None,
                     water_loss_total_pct=0,
@@ -203,7 +210,7 @@ async def create_vacation_watering(
 
                 return {
                     "id": bin_to_hex(new_id),
-                    "plant_id": payload.plant_id,
+                    "plant_id": plant_id,
                     "measured_at": measured_at_dt.isoformat(sep=" ", timespec="microseconds"),
                     "water_loss_total_pct": 0.0,
                     "water_retained_pct": water_retained_pct,
@@ -222,7 +229,6 @@ async def create_vacation_watering(
 
 
 class ReportedWateringCreateRequest(BaseModel):
-    plant_id: str
     # Optional local timestamp string (e.g., from input type=datetime-local). If omitted, uses now.
     measured_at: str | None = None
     # Optional free text; we will prefix with "[reported]" marker when storing.
@@ -231,9 +237,11 @@ class ReportedWateringCreateRequest(BaseModel):
     reporter: str | None = None
 
 
-@app.post("/measurements/reported-watering")
+@app.post("/plants/{plant_id}/measurements/reported-watering")
 async def create_reported_watering(
-    payload: ReportedWateringCreateRequest, get_conn_fn=Depends(get_conn_factory)
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    payload: ReportedWateringCreateRequest,
+    get_conn_fn=Depends(get_conn_factory),
 ):
     """
     Create a lightweight watering marker when a delegate reports watering without measurements.
@@ -254,7 +262,7 @@ async def create_reported_watering(
     (see compute_frequency_days) because last_dry_weight_g and last_wet_weight_g
     are NULL.
     """
-    if not HEX_RE.match(payload.plant_id or ""):
+    if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     # Parse/normalize timestamp using existing utility to match other endpoints
@@ -288,12 +296,12 @@ async def create_reported_watering(
                     ORDER BY measured_at DESC
                     LIMIT 1
                     """,
-                    (payload.plant_id,),
+                    (plant_id,),
                 )
                 row = cur.fetchone()
                 water_added_g = row[0] if row else 0
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
                 cur.execute(
                     (
                         """
@@ -306,7 +314,7 @@ async def create_reported_watering(
                     ),
                     (
                         new_id,
-                        payload.plant_id,
+                        plant_id,
                         measured_at_dt,
                         None,  # measured_weight_g
                         None,  # last_dry_weight_g
@@ -319,7 +327,7 @@ async def create_reported_watering(
                 conn.commit()
                 return {
                     "id": bin_to_hex(new_id),
-                    "plant_id": payload.plant_id,
+                    "plant_id": plant_id,
                     "measured_at": measured_at_dt.isoformat(sep=" ", timespec="microseconds"),
                     "note": final_note,
                 }
@@ -346,7 +354,9 @@ def _to_dt_string(s: str | None):
 
 @app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
 async def get_watering_approximation(
-    operationMode: str | None = Cookie(None), defaultThreshold: str | None = Cookie(None)
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    operationMode: str | None = Cookie(None),
+    defaultThreshold: str | None = Cookie(None),
 ):
     """
     Calculate virtual water retained, frequency, and next watering date for all active plants.
@@ -358,7 +368,9 @@ async def get_watering_approximation(
     def_thr = parse_default_threshold(defaultThreshold)
 
     def fetch():
-        plants = PlantsList.fetch_all(mode=mode, default_threshold=def_thr)
+        plants = PlantsList.fetch_all(
+            mode=mode, default_threshold=def_thr, current_user=current_user
+        )
         items = []
         for p in plants:
             next_at = p.get("next_watering_at")
@@ -389,8 +401,11 @@ async def get_watering_approximation(
     return await run_in_threadpool(fetch)
 
 
-@app.get("/measurements/last", response_model=LastMeasurementResponse | None)
-async def get_last_measurement(plant_id: str, get_conn_fn=Depends(get_conn_factory)):
+@app.get("/plants/{plant_id}/measurements/last", response_model=LastMeasurementResponse | None)
+async def get_last_measurement(
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    get_conn_fn=Depends(get_conn_factory),
+):
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -432,12 +447,15 @@ async def get_last_measurement(plant_id: str, get_conn_fn=Depends(get_conn_facto
 
 
 @app.get("/measurements/calibrating", response_model=list[PlantCalibrationItem])
-async def list_plants_for_calibration(get_conn_fn=Depends(get_conn_factory)):
+async def list_plants_for_calibration(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    get_conn_fn=Depends(get_conn_factory),
+):
     """Returns plants enriched with calibration data (underwatering after repotting)."""
 
     def fetch():
         # Use the same base list and ordering as the Plants list page
-        base = PlantsList.fetch_all()
+        base = PlantsList.fetch_all(current_user=current_user)
 
         # Compute calibration data
         conn = get_conn_fn()
@@ -469,7 +487,6 @@ async def list_plants_for_calibration(get_conn_fn=Depends(get_conn_factory)):
 
 
 class CorrectionsRequest(BaseModel):
-    plant_id: str
     from_ts: str | None = None  # ISO local, optional
     to_ts: str | None = None  # ISO local, optional
     cap: str | None = None  # 'capacity' | 'retained_ratio'
@@ -479,9 +496,11 @@ class CorrectionsRequest(BaseModel):
     start_diff_to_max_g: int | None = None
 
 
-@app.post("/measurements/corrections")
+@app.post("/plants/{plant_id}/measurements/corrections")
 async def apply_measurements_corrections(
-    payload: CorrectionsRequest, get_conn_fn=Depends(get_conn_factory)
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    payload: CorrectionsRequest,
+    get_conn_fn=Depends(get_conn_factory),
 ):
     """
     Deterministically correct past over-watering events for a plant.
@@ -496,7 +515,7 @@ async def apply_measurements_corrections(
       If edit_last_wet = true, also set last_wet_weight_g = LEAST(last_wet_weight_g, target).
     Returns a summary with counts and totals per plant.
     """
-    plant_hex = (payload.plant_id or "").strip()
+    plant_hex = (plant_id or "").strip()
     if not HEX_RE.match(plant_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
@@ -651,7 +670,10 @@ async def apply_measurements_corrections(
 
 
 @app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
-async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
+async def list_measurements_for_plant(
+    id_hex: Annotated[str, Depends(require_plant_access)],
+    get_conn_fn=Depends(get_conn_factory),
+):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid plant id")
 
@@ -698,9 +720,10 @@ async def list_measurements_for_plant(id_hex: str, get_conn_fn=Depends(get_conn_
     return await run_in_threadpool(do_fetch)
 
 
-@app.post("/measurements/watering")
-@app.post("/measurements/weight")
+@app.post("/plants/{plant_id}/measurements/watering")
+@app.post("/plants/{plant_id}/measurements/weight")
 async def create_measurement(
+    plant_id: Annotated[str, Depends(require_plant_access)],
     payload: MeasurementCreateRequest,
     mode: str = "manual",
     get_conn_fn=Depends(get_conn_factory),
@@ -718,7 +741,7 @@ async def create_measurement(
       - water_loss_day_pct = NULL
       - water_loss_day_g = NULL
     """
-    if not HEX_RE.match(payload.plant_id or ""):
+    if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
     # Normalize inputs using services
@@ -744,7 +767,7 @@ async def create_measurement(
                 # Derive effective weights and water_added
                 derived = derive_weights(
                     cursor=cur,
-                    plant_id_hex=payload.plant_id,
+                    plant_id_hex=plant_id,
                     measured_at_db=measured_at,
                     measured_weight_g=measured_weight,
                     last_dry_weight_g=last_dry_weight,
@@ -756,7 +779,7 @@ async def create_measurement(
                 # Calculate water loss using shared service
                 loss_calc = compute_water_losses(
                     cursor=cur,
-                    plant_id_hex=payload.plant_id,
+                    plant_id_hex=plant_id,
                     measured_at_db=measured_at,
                     measured_weight_g=measured_weight,
                     derived=derived,
@@ -767,7 +790,7 @@ async def create_measurement(
                 try:
                     validate_water_loss(
                         cursor=cur,
-                        plant_id_hex=payload.plant_id,
+                        plant_id_hex=plant_id,
                         current_weight=measured_weight,
                         measured_at=measured_at,
                     )
@@ -784,7 +807,7 @@ async def create_measurement(
                 # Store the water_added_g value
                 wa_insert = int(wa_local) if wa_local else 0
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
                 cur.execute(
                     (
                         "INSERT INTO plants_measurements (id, plant_id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g, water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g, method_id, use_last_method, scale_id, note) "
@@ -792,7 +815,7 @@ async def create_measurement(
                     ),
                     (
                         new_id,
-                        payload.plant_id,
+                        plant_id,
                         measured_at,
                         mw_insert,
                         last_dry_weight_local,
@@ -820,7 +843,7 @@ async def create_measurement(
                     check_max_water = wa_local
 
                 update_min_dry_weight_and_max_watering_added_g(
-                    conn, payload.plant_id, check_min_weight, check_max_water
+                    conn, plant_id, check_min_weight, check_max_water
                 )
 
                 # Commit transaction after all statements succeed
@@ -829,7 +852,7 @@ async def create_measurement(
                 # Compute water retained percentage using the helper
                 water_retained_pct = _compute_water_retained_for_plant(
                     cur,
-                    payload.plant_id,
+                    plant_id,
                     measured_weight_g=mw_insert,
                     last_wet_weight_g=lw_local,
                     water_loss_total_pct=loss_calc.water_loss_total_pct,
@@ -838,7 +861,7 @@ async def create_measurement(
                 # Compute if plant needs weighing based on latest measurement
                 cur.execute(
                     "SELECT MAX(measured_at) FROM plants_measurements WHERE plant_id = UNHEX(%s)",
-                    (payload.plant_id,),
+                    (plant_id,),
                 )
                 latest_at = cur.fetchone()[0]
                 needs_weighing_val = needs_weighing(latest_at, mode)
@@ -868,7 +891,7 @@ async def create_measurement(
 @app.put("/measurements/watering/{id_hex}")
 @app.put("/measurements/weight/{id_hex}")
 async def update_measurement(
-    id_hex: str,
+    id_hex: Annotated[str, Depends(require_measurement_access)],
     payload: MeasurementUpdateRequest,
     mode: str = "manual",
     get_conn_fn=Depends(get_conn_factory),
@@ -1070,7 +1093,10 @@ async def update_measurement(
 
 
 @app.get("/measurements/{id_hex}")
-async def get_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
+async def get_measurement(
+    id_hex: Annotated[str, Depends(require_measurement_access)],
+    get_conn_fn=Depends(get_conn_factory),
+):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 
@@ -1119,7 +1145,10 @@ async def get_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
 
 
 @app.delete("/measurements/{id_hex}")
-async def delete_measurement(id_hex: str, get_conn_fn=Depends(get_conn_factory)):
+async def delete_measurement(
+    id_hex: Annotated[str, Depends(require_measurement_access)],
+    get_conn_fn=Depends(get_conn_factory),
+):
     if not HEX_RE.match(id_hex or ""):
         raise HTTPException(status_code=400, detail="Invalid id")
 

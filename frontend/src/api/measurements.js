@@ -15,8 +15,12 @@ export const measurementsApi = {
   },
   weight: {
     create(payload, signal, mode) {
-      const url = mode ? `/measurements/weight?mode=${mode}` : '/measurements/weight'
-      return apiClient.post(url, payload, {
+      const { plant_id, ...rest } = payload
+      if (!plant_id) throw new ApiError('Missing plant id')
+      const url = mode
+        ? `/plants/${plant_id}/measurements/weight?mode=${mode}`
+        : `/plants/${plant_id}/measurements/weight`
+      return apiClient.post(url, rest, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })
@@ -32,14 +36,20 @@ export const measurementsApi = {
   },
   watering: {
     create(payload, signal, mode) {
-      const url = mode ? `/measurements/watering?mode=${mode}` : '/measurements/watering'
-      return apiClient.post(url, payload, {
+      const { plant_id, ...rest } = payload
+      if (!plant_id) throw new ApiError('Missing plant id')
+      const url = mode
+        ? `/plants/${plant_id}/measurements/watering?mode=${mode}`
+        : `/plants/${plant_id}/measurements/watering`
+      return apiClient.post(url, rest, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })
     },
     createVacation(payload, signal) {
-      return apiClient.post('/measurements/vacation/watering', payload, {
+      const { plant_id, ...rest } = payload
+      if (!plant_id) throw new ApiError('Missing plant id')
+      return apiClient.post(`/plants/${plant_id}/measurements/vacation/watering`, rest, {
         headers: { 'Content-Type': 'application/json' },
         signal,
       })

@@ -500,3 +500,52 @@ async def verify_plant_access(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access to this plant denied",
             )
+
+
+async def verify_measurement_access(
+    db: Any,
+    user_id: bytes,
+    global_role: str,
+    measurement_id: str,
+) -> str:
+    """
+    Helper to verify access to a measurement by checking its parent plant access.
+    Returns the plant_id (hex) if access is granted.
+    """
+    if not HEX_RE.match(measurement_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid measurement ID format",
+        )
+
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT HEX(plant_id) FROM plants_measurements WHERE id = UNHEX(%s)",
+            (measurement_id,),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Measurement not found",
+            )
+        plant_id = row[0]
+
+    await verify_plant_access(db, user_id, global_role, plant_id)
+    return plant_id
+
+
+async def require_measurement_access(
+    request: Request,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+) -> str:
+    """
+    Dependency that ensures the user has access to the plant associated with the measurement.
+    """
+    measurement_id = request.path_params.get("id_hex")
+    if not measurement_id:
+        return ""
+    return await verify_measurement_access(
+        db, current_user["id"], current_user["global_role"], measurement_id
+    )
