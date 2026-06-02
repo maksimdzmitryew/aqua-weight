@@ -16,52 +16,11 @@ from ..schemas.plant import (
     PlantUpdateRequest,
     ReferenceItem,
 )
-from ..security import get_db, require_authenticated_user
+from ..security import get_db, require_authenticated_user, require_plant_access, require_plant_owner, verify_location_access, verify_plant_access
 from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
-
-
-def check_plant_access(cur, plant_id_bin, user_id, global_role, require_owner=False):
-    """
-    Check if user has access to a plant.
-    Access levels:
-    - Admin: Full access
-    - Plant Owner: Full access
-    - Location Owner: Full access
-    - Location Helper: Read-only access (plus reordering and measurements)
-    """
-    if global_role == "admin":
-        return True
-
-    cur.execute(
-        """
-        SELECT p.owner_id, acl.role
-        FROM plants p
-        LEFT JOIN user_location_acl acl ON p.location_id = acl.location_id AND acl.user_id = %s
-        WHERE p.id = %s
-        """,
-        (user_id, plant_id_bin),
-    )
-    row = cur.fetchone()
-    if not row:
-        return False
-
-    owner_id, acl_role = row
-
-    # 1. Direct Ownership
-    if owner_id == user_id:
-        return True
-
-    # 2. Location Inheritance
-    if acl_role == "owner":
-        return True
-
-    if acl_role == "helper":
-        return not require_owner
-
-    return False
 
 
 @app.get("/substrate-types", response_model=list[ReferenceItem])
@@ -380,6 +339,7 @@ async def list_plant_uuids(
 async def create_plant(
     payload: PlantCreateRequest,
     current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
 ):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
@@ -406,21 +366,21 @@ async def create_plant(
     if not name:
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
-    def do_insert():
+    async def do_insert():
+        # Access Check: If location_id is provided, ensure user has access to it
+        if payload.location_id:
+            await verify_location_access(
+                db,
+                current_user["id"],
+                current_user["global_role"],
+                payload.location_id,
+            )
+
+        loc_id_bin = hex_to_bytes(payload.location_id)
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
-                # Access Check: If location_id is provided, ensure user has access to it
-                loc_id_bin = hex_to_bytes(payload.location_id)
-                if loc_id_bin and current_user["global_role"] != "admin":
-                    cur.execute(
-                        "SELECT 1 FROM user_location_acl WHERE user_id = %s AND location_id = %s",
-                        (current_user["id"], loc_id_bin),
-                    )
-                    if not cur.fetchone():
-                        raise HTTPException(status_code=403, detail="Access to location denied")
-
                 new_id = generate_ulid_bytes()
                 sql = """
                     INSERT INTO plants (
@@ -491,7 +451,7 @@ async def create_plant(
         finally:
             conn.close()
 
-    return await run_in_threadpool(do_insert)
+    return await do_insert()
 
 
 # Reordering endpoints
@@ -499,21 +459,15 @@ async def create_plant(
 
 @app.post("/plants/{id_hex}/duplicate")
 async def duplicate_plant(
-    id_hex: str,
+    id_hex: Annotated[str, Depends(require_plant_access)],
     current_user: Annotated[dict, Depends(require_authenticated_user)],
 ):
     def do_duplicate():
-        if not HEX_RE.match(id_hex or ""):
-            raise HTTPException(status_code=400, detail="Invalid plant id")
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
                 pid_bin = hex_to_bin(id_hex)
-                if not check_plant_access(
-                    cur, pid_bin, current_user["id"], current_user["global_role"]
-                ):
-                    raise HTTPException(status_code=403, detail="Access to plant denied")
 
                 cur.execute(
                     """
@@ -638,9 +592,10 @@ def _validate_and_update_order(table: str, ids: list[str]):
 async def reorder_plants(
     payload: ReorderPayload,
     current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
 ):
     # Only reorder non-archived plants in the provided list
-    def do_update():
+    async def do_update():
         conn = get_conn()
         try:
             conn.autocommit(False)
@@ -651,12 +606,12 @@ async def reorder_plants(
                 # Access Check: Ensure user has access to all plants being reordered
                 # For reordering, we allow both owners and helpers.
                 for hex_id in payload.ordered_ids:
-                    if not check_plant_access(
-                        cur, hex_to_bin(hex_id), current_user["id"], current_user["global_role"]
-                    ):
-                        raise HTTPException(
-                            status_code=403, detail=f"Access to plant {hex_id} denied"
-                        )
+                    await verify_plant_access(
+                        db,
+                        current_user["id"],
+                        current_user["global_role"],
+                        hex_id,
+                    )
 
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
                 cur.execute(
@@ -680,35 +635,19 @@ async def reorder_plants(
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
+    await do_update()
     return {"ok": True}
 
 
 @app.delete("/plants/{id_hex}")
 async def delete_plant(
-    id_hex: str,
+    id_hex: Annotated[str, Depends(require_plant_owner)],
     current_user: Annotated[dict, Depends(require_authenticated_user)],
 ):
-    if not HEX_RE.match(id_hex or ""):
-        raise HTTPException(status_code=400, detail="Invalid id")
-
     def do_delete():
         conn = get_conn()
         try:
             with conn.cursor() as cur:
-                pid_bin = hex_to_bin(id_hex)
-                # Destructive action: require OWNER access
-                if not check_plant_access(
-                    cur,
-                    pid_bin,
-                    current_user["id"],
-                    current_user["global_role"],
-                    require_owner=True,
-                ):
-                    raise HTTPException(
-                        status_code=403, detail="Owner privileges required to delete plant"
-                    )
-
                 cur.execute("DELETE FROM plants WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail="Plant not found")
@@ -721,13 +660,11 @@ async def delete_plant(
 
 @app.patch("/plants/{id_hex}")
 async def update_plant(
-    id_hex: str,
+    id_hex: Annotated[str, Depends(require_plant_owner)],
     payload: PlantUpdateRequest,
     current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
 ):
-    if not HEX_RE.match(id_hex or ""):
-        raise HTTPException(status_code=400, detail="Invalid id")
-
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
 
@@ -750,44 +687,25 @@ async def update_plant(
     if payload.name is not None and not normalize(payload.name):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
-    def do_update():
+    async def do_update():
+        update_data = payload.model_dump(exclude_unset=True)
+        if not update_data:
+            return {"ok": True}
+
+        # If moving plant, verify access to new location
+        if "location_id" in update_data and update_data["location_id"]:
+            await verify_location_access(
+                db,
+                current_user["id"],
+                current_user["global_role"],
+                update_data["location_id"],
+            )
+
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
                 pid_bin = hex_to_bin(id_hex)
-                # Edit action: require OWNER access
-                if not check_plant_access(
-                    cur,
-                    pid_bin,
-                    current_user["id"],
-                    current_user["global_role"],
-                    require_owner=True,
-                ):
-                    raise HTTPException(
-                        status_code=403, detail="Owner privileges required to update plant"
-                    )
-
-                cur.execute("SELECT 1 FROM plants WHERE id=UNHEX(%s) LIMIT 1", (id_hex,))
-                exists = cur.fetchone()
-                if not exists:
-                    raise HTTPException(status_code=404, detail="Plant not found")
-
-                update_data = payload.model_dump(exclude_unset=True)
-                if not update_data:
-                    return {"ok": True}
-
-                # If moving plant, verify access to new location
-                new_loc_id = hex_to_bytes(update_data.get("location_id"))
-                if new_loc_id and current_user["global_role"] != "admin":
-                    cur.execute(
-                        "SELECT 1 FROM user_location_acl WHERE user_id = %s AND location_id = %s",
-                        (current_user["id"], new_loc_id),
-                    )
-                    if not cur.fetchone():
-                        raise HTTPException(
-                            status_code=403, detail="Access to target location denied"
-                        )
 
                 fields = []
                 params = []
@@ -829,26 +747,20 @@ async def update_plant(
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
+    await do_update()
     return {"ok": True}
 
 
-@app.get("/plants/{id_hex}")
+@app.get("/plants/{id_hex}", response_model=PlantDetail)
 async def get_plant(
-    id_hex: str,
+    id_hex: Annotated[str, Depends(require_plant_access)],
     current_user: Annotated[dict, Depends(require_authenticated_user)],
-) -> PlantDetail:
+):
     def fetch_one():
-        if not HEX_RE.match(id_hex or ""):
-            raise HTTPException(status_code=400, detail="Invalid plant id")
         conn = get_conn()
         try:
             with conn.cursor() as cur:
                 pid_bin = hex_to_bin(id_hex)
-                if not check_plant_access(
-                    cur, pid_bin, current_user["id"], current_user["global_role"]
-                ):
-                    raise HTTPException(status_code=403, detail="Access to plant denied")
 
                 cur.execute(
                     """

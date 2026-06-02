@@ -13,7 +13,7 @@ from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 
-from .db import get_conn, hex_to_bin
+from .db import HEX_RE, get_conn, hex_to_bin
 
 # Constants from environment
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-default-secret")
@@ -273,6 +273,12 @@ async def require_location_access(
     if not location_id:
         return ""
 
+    if not HEX_RE.match(location_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid location ID format",
+        )
+
     if current_user["global_role"] == "admin":
         return location_id
 
@@ -282,16 +288,56 @@ async def require_location_access(
 
     with db.cursor() as cur:
         cur.execute(
-            "SELECT 1 FROM user_location_acl WHERE user_id = %s AND location_id = UNHEX(%s)",
+            "SELECT role FROM user_location_acl WHERE user_id = %s AND location_id = UNHEX(%s)",
             (user_id, location_id),
         )
-        if not cur.fetchone():
+        row = cur.fetchone()
+        if not row:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access to this location denied",
             )
-
+        # For now, any role (owner/helper) is sufficient for location access
+        # unless a specific operation requires owner.
     return location_id
+
+
+async def verify_location_access(
+    db: Any,
+    user_id: bytes,
+    global_role: str,
+    location_id: str,
+    require_owner: bool = False,
+) -> None:
+    """
+    Helper to verify location access for any user/location pair.
+    Can be used for body payloads or other non-path sources.
+    """
+    if not HEX_RE.match(location_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid location ID format",
+        )
+
+    if global_role == "admin" or user_id is None:
+        return
+
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM user_location_acl WHERE user_id = %s AND location_id = UNHEX(%s)",
+            (user_id, location_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access to this location denied",
+            )
+        if require_owner and row[0] != "owner":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Owner privileges required for this location",
+            )
 
 
 async def require_plant_access(
@@ -307,6 +353,12 @@ async def require_plant_access(
     if not plant_id:
         return ""
 
+    if not HEX_RE.match(plant_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid plant ID format",
+        )
+
     if current_user["global_role"] == "admin":
         return plant_id
 
@@ -315,18 +367,136 @@ async def require_plant_access(
         return plant_id
 
     with db.cursor() as cur:
+        # Check both direct plant ownership and location-inherited ACL
         cur.execute(
             """
-            SELECT 1 FROM plants p
-            JOIN user_location_acl acl ON p.location_id = acl.location_id
-            WHERE p.id = UNHEX(%s) AND acl.user_id = %s
+            SELECT p.owner_id, acl.role
+            FROM plants p
+            LEFT JOIN user_location_acl acl ON p.location_id = acl.location_id AND acl.user_id = %s
+            WHERE p.id = UNHEX(%s)
             """,
-            (plant_id, user_id),
+            (user_id, plant_id),
         )
-        if not cur.fetchone():
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Plant not found",
+            )
+
+        owner_id, acl_role = row
+        # Access granted if user is direct owner OR has an ACL role (owner/helper) at the location
+        if owner_id == user_id or acl_role in ("owner", "helper"):
+            return plant_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Access to this plant denied",
+    )
+
+
+async def require_plant_owner(
+    request: Request,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+) -> str:
+    """
+    Dependency that ensures the user has OWNER access to the plant.
+    Owner access is either direct plant ownership or 'owner' role in location ACL.
+    """
+    plant_id = request.path_params.get("plant_id") or request.path_params.get("id_hex")
+    if not plant_id:
+        return ""
+
+    if not HEX_RE.match(plant_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid plant ID format",
+        )
+
+    if current_user["global_role"] == "admin":
+        return plant_id
+
+    user_id = current_user["id"]
+    if user_id is None:
+        return plant_id
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.owner_id, acl.role
+            FROM plants p
+            LEFT JOIN user_location_acl acl ON p.location_id = acl.location_id AND acl.user_id = %s
+            WHERE p.id = UNHEX(%s)
+            """,
+            (user_id, plant_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Plant not found",
+            )
+
+        owner_id, acl_role = row
+        if owner_id == user_id or acl_role == "owner":
+            return plant_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Owner privileges required for this plant",
+    )
+
+
+async def verify_plant_access(
+    db: Any,
+    user_id: bytes,
+    global_role: str,
+    plant_id: str,
+    require_owner: bool = False,
+) -> None:
+    """
+    Helper to verify plant access for any user/plant pair.
+    Can be used for list of IDs or other non-path sources.
+    """
+    if not HEX_RE.match(plant_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid plant ID format",
+        )
+
+    if global_role == "admin" or user_id is None:
+        return
+
+    with db.cursor() as cur:
+        cur.execute(
+            """
+            SELECT p.owner_id, acl.role
+            FROM plants p
+            LEFT JOIN user_location_acl acl ON p.location_id = acl.location_id AND acl.user_id = %s
+            WHERE p.id = UNHEX(%s)
+            """,
+            (user_id, plant_id),
+        )
+        row = cur.fetchone()
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Plant not found",
+            )
+
+        owner_id, acl_role = row
+        if require_owner:
+            if owner_id == user_id or acl_role == "owner":
+                return
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Owner privileges required for this plant",
+            )
+        else:
+            if owner_id == user_id or acl_role in ("owner", "helper"):
+                return
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access to this plant denied",
             )
-
-    return plant_id
