@@ -17,6 +17,8 @@ export default function AdminDashboard() {
   const [inviteExpires, setInviteExpires] = useState(null)
   const [isGeneratingInvite, setIsGeneratingInvite] = useState(false)
   const [confirmReset, setConfirmReset] = useState(null)
+  const [confirmRole, setConfirmRole] = useState(null)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -36,23 +38,31 @@ export default function AdminDashboard() {
   }, [])
 
   const handleToggleRole = async (user) => {
+    if (!user) return
     const newRole = user.global_role === 'admin' ? 'customer' : 'admin'
+    setIsProcessing(true)
     try {
       await apiClient.patch(`/admin/users/${user.id_hex}/role`, { global_role: newRole })
-      setUsers(users.map(u => u.id_hex === user.id_hex ? { ...u, global_role: newRole } : u))
+      setUsers(prev => prev.map(u => u.id_hex === user.id_hex ? { ...u, global_role: newRole } : u))
+      setConfirmRole(null)
     } catch (err) {
       alert(err.message || 'Failed to update role')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleResetMfa = async () => {
     if (!confirmReset) return
+    setIsProcessing(true)
     try {
       await apiClient.post(`/admin/users/${confirmReset.id_hex}/mfa-reset`)
-      setUsers(users.map(u => u.id_hex === confirmReset.id_hex ? { ...u, mfa_enabled: false } : u))
+      setUsers(prev => prev.map(u => u.id_hex === confirmReset.id_hex ? { ...u, mfa_enabled: false } : u))
       setConfirmReset(null)
     } catch (err) {
       alert(err.message || 'Failed to reset MFA')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -98,7 +108,7 @@ export default function AdminDashboard() {
                   <tr key={user.id_hex}>
                     <td className="td">{user.username}</td>
                     <td className="td">
-                      <Badge tone={user.global_role === 'admin' ? 'warning' : 'info'}>
+                      <Badge tone={user.global_role === 'admin' ? 'warning' : 'neutral'}>
                         {user.global_role}
                       </Badge>
                     </td>
@@ -106,7 +116,7 @@ export default function AdminDashboard() {
                       {user.mfa_enabled ? (
                         <Badge tone="success">Enabled</Badge>
                       ) : (
-                        <Badge tone="subtle">Disabled</Badge>
+                        <Badge tone="neutral">Disabled</Badge>
                       )}
                     </td>
                     <td className="td">{new Date(user.created_at).toLocaleDateString()}</td>
@@ -115,8 +125,8 @@ export default function AdminDashboard() {
                         <button 
                           className="btn btn-secondary"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
-                          onClick={() => handleToggleRole(user)}
-                          disabled={user.id_hex === currentUser?.id}
+                          onClick={() => setConfirmRole(user)}
+                          disabled={isProcessing}
                         >
                           Make {user.global_role === 'admin' ? 'Customer' : 'Admin'}
                         </button>
@@ -124,7 +134,7 @@ export default function AdminDashboard() {
                           className="btn btn-danger"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
                           onClick={() => setConfirmReset(user)}
-                          disabled={!user.mfa_enabled || user.id_hex === currentUser?.id}
+                          disabled={!user.mfa_enabled || user.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() || isProcessing}
                         >
                           Reset MFA
                         </button>
@@ -165,9 +175,13 @@ export default function AdminDashboard() {
               />
               <button 
                 className="btn btn-secondary"
-                onClick={() => {
-                  navigator.clipboard.writeText(inviteLink)
-                  alert('Copied to clipboard!')
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(inviteLink)
+                    alert('Copied to clipboard!')
+                  } catch (err) {
+                    alert('Failed to copy: ' + (err.message || 'unknown error'))
+                  }
                 }}
               >
                 Copy
@@ -180,16 +194,43 @@ export default function AdminDashboard() {
         )}
       </section>
 
-      {confirmReset && (
-        <ConfirmDialog
-          title="Reset MFA?"
-          message={`Are you sure you want to reset MFA for "${confirmReset.username}"? This will also revoke all their active sessions.`}
-          confirmLabel="Reset MFA"
-          onConfirm={handleResetMfa}
-          onCancel={() => setConfirmReset(null)}
-          tone="danger"
-        />
-      )}
+      <ConfirmDialog
+        open={!!confirmReset}
+        title="Reset MFA?"
+        message={confirmReset ? `Are you sure you want to reset MFA for "${confirmReset.username}"? This will also revoke all their active sessions.` : ''}
+        confirmText={isProcessing ? 'Processing...' : 'Reset MFA'}
+        onConfirm={handleResetMfa}
+        onCancel={() => setConfirmReset(null)}
+        tone="danger"
+        disabled={isProcessing}
+      />
+
+      <ConfirmDialog
+        open={!!confirmRole}
+        title={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() 
+          ? "Action Not Permitted" 
+          : (confirmRole?.global_role === 'admin' ? 'Demote to Customer?' : 'Promote to Admin?')
+        }
+        message={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+          ? "You cannot change your own role."
+          : (confirmRole ? `Are you sure you want to change "${confirmRole.username}"'s role to ${confirmRole.global_role === 'admin' ? 'customer' : 'admin'}?` : '')
+        }
+        confirmText={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+          ? "OK"
+          : (isProcessing ? 'Processing...' : (confirmRole?.global_role === 'admin' ? 'Make Customer' : 'Make Admin'))
+        }
+        onConfirm={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+          ? () => setConfirmRole(null)
+          : () => handleToggleRole(confirmRole)
+        }
+        onCancel={() => setConfirmRole(null)}
+        cancelText={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() ? null : "Cancel"}
+        tone={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+          ? "info"
+          : (confirmRole?.global_role === 'admin' ? 'warning' : 'info')
+        }
+        disabled={isProcessing}
+      />
     </DashboardLayout>
   )
 }

@@ -10,6 +10,7 @@ export default function ConfirmDialog({
   tone = 'danger', // 'danger' | 'default' | 'warning' | 'info' | 'success'
   onConfirm,
   onCancel,
+  disabled = false,
   // optional buttons override for future: [{ key, text, tone, onClick }]
   buttons,
   // optional explicit icon override: 'warning' | 'info' | 'success' | 'question' | 'danger'
@@ -225,17 +226,26 @@ export default function ConfirmDialog({
     color: colors.primaryText,
   }
 
-  const defaultButtons = [
-    // Cancel is first to allow quick safe action
-    { key: 'cancel', text: cancelText, style: btnBase, onClick: onCancel, ref: firstBtnRef },
-    // Confirm uses danger or primary styles depending on tone
-    {
-      key: 'confirm',
-      text: confirmText,
-      style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary },
-      onClick: onConfirm,
-    },
-  ]
+  const defaultButtons = []
+  if (cancelText) {
+    defaultButtons.push({
+      key: 'cancel',
+      text: cancelText,
+      style: btnBase,
+      onClick: onCancel,
+      ref: firstBtnRef,
+      disabled,
+    })
+  }
+
+  defaultButtons.push({
+    key: 'confirm',
+    text: confirmText,
+    style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary },
+    onClick: onConfirm,
+    ref: !cancelText ? firstBtnRef : undefined,
+    disabled,
+  })
 
   const shownButtons = Array.isArray(buttons) && buttons.length > 0 ? buttons : defaultButtons
 
@@ -251,12 +261,15 @@ export default function ConfirmDialog({
       ref={overlayRef}
       style={{
         position: 'fixed',
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         background: colors.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 1000,
+        zIndex: 2000,
         padding: 16,
       }}
     >
@@ -293,7 +306,7 @@ export default function ConfirmDialog({
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           {shownButtons.map((b) => (
-            <button key={b.key} type="button" ref={b.ref} onClick={b.onClick} style={b.style}>
+            <button key={b.key} type="button" ref={b.ref} onClick={b.onClick} style={b.style} disabled={b.disabled}>
               {b.text}
             </button>
           ))}
