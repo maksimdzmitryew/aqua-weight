@@ -6,8 +6,10 @@ import Loader from '../components/feedback/Loader.jsx'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import Badge from '../components/Badge.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 export default function AdminDashboard() {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -114,6 +116,7 @@ export default function AdminDashboard() {
                           className="btn btn-secondary"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
                           onClick={() => handleToggleRole(user)}
+                          disabled={user.id_hex === currentUser?.id}
                         >
                           Make {user.global_role === 'admin' ? 'Customer' : 'Admin'}
                         </button>
@@ -121,7 +124,7 @@ export default function AdminDashboard() {
                           className="btn btn-danger"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
                           onClick={() => setConfirmReset(user)}
-                          disabled={!user.mfa_enabled}
+                          disabled={!user.mfa_enabled || user.id_hex === currentUser?.id}
                         >
                           Reset MFA
                         </button>

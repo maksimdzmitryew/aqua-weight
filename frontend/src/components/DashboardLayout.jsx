@@ -1,9 +1,11 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import useDocumentTitle from '../hooks/useDocumentTitle.js'
 
 export default function DashboardLayout({ title = 'Dashboard', children }) {
   const location = useLocation()
+  const { user } = useAuth()
   const operationMode =
     typeof localStorage !== 'undefined' ? localStorage.getItem('operationMode') : null
 
@@ -18,6 +20,10 @@ export default function DashboardLayout({ title = 'Dashboard', children }) {
     { key: 'locations', label: 'Locations', to: '/locations' },
     { key: 'settings', label: 'Settings', to: '/settings' },
   ]
+
+  if (user?.global_role === 'admin') {
+    menuItems.push({ key: 'admin', label: 'Admin', to: '/admin' })
+  }
 
   return (
     <div className="layout">

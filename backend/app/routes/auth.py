@@ -161,7 +161,7 @@ async def refresh(
 
     auth_service = AuthService(db)
     try:
-        access_token, new_refresh_token = auth_service.rotate_tokens(
+        access_token, new_refresh_token, user_data = auth_service.rotate_tokens(
             refresh_token=refresh_token,
             device_id_str=device_id,
         )
@@ -177,6 +177,7 @@ async def refresh(
         return {
             "access_token": access_token,
             "token_type": "bearer",
+            "user": user_data,
         }
     except ValueError as e:
         # Map rotation/expiration errors to 401

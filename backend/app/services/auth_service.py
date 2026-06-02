@@ -254,7 +254,7 @@ class AuthService:
                 },
             }
 
-    def rotate_tokens(self, refresh_token: str, device_id_str: str) -> Tuple[str, str]:
+    def rotate_tokens(self, refresh_token: str, device_id_str: str) -> Tuple[str, str, dict]:
         """
         Rotate an existing refresh token for a new pair.
         Implements strict reuse detection and revocation.
@@ -265,9 +265,10 @@ class AuthService:
         with cursor(self.db) as cur:
             cur.execute(
                 """
-                SELECT id, user_id, device_id, revoked_at, expires_at
-                FROM auth_refresh_tokens
-                WHERE token_hash = %s
+                SELECT t.id, t.user_id, t.device_id, t.revoked_at, t.expires_at, u.username, u.global_role
+                FROM auth_refresh_tokens t
+                JOIN users u ON t.user_id = u.id
+                WHERE t.token_hash = %s
                 """,
                 (token_hash,),
             )
@@ -276,7 +277,7 @@ class AuthService:
             if not token_row:
                 raise ValueError("Invalid refresh token")
 
-            t_id, user_id, device_id_bin, revoked_at, expires_at = token_row
+            t_id, user_id, device_id_bin, revoked_at, expires_at, username, global_role = token_row
 
             # Check for reuse/revocation
             if revoked_at:
@@ -295,10 +296,20 @@ class AuthService:
             )
 
         # Issue new pair using the chain tracking
-        return self.issue_tokens(
+        access_token, new_refresh_token = self.issue_tokens(
             user_id=user_id,
             device_id_str=device_id_str,
             rotated_from_id=t_id,
+        )
+
+        return (
+            access_token,
+            new_refresh_token,
+            {
+                "id": bin_to_hex(user_id),
+                "username": username,
+                "global_role": global_role,
+            },
         )
 
     def revoke_session(self, refresh_token: str) -> None:
