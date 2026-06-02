@@ -2,6 +2,8 @@ import os as _os
 
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
 from .errors import register_exception_handlers
@@ -24,7 +26,7 @@ API_VERSION = _os.getenv("API_VERSION", "1.0.0")
 if TEST_MODE and APP_ENV not in {"test", "development", "local"}:
     raise RuntimeError("TEST_MODE=1 is only allowed in test/dev environments")
 
-app = FastAPI()
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 # Register global exception handlers
 register_exception_handlers(app)
@@ -68,17 +70,32 @@ internal_auth_router.include_router(plants_app)
 internal_auth_router.include_router(locations_app)
 internal_auth_router.include_router(measurements_app)
 internal_auth_router.include_router(settings_router)
+internal_auth_router.include_router(admin_router)
 
 # Conditionally include test admin endpoints when TEST_MODE=1
-if _os.getenv("TEST_MODE") == "1":
+if TEST_MODE:
     internal_auth_router.include_router(test_admin_app)
 
 # Versioned router (v1)
 v1 = APIRouter()
 v1.include_router(infrastructure_router)
 v1.include_router(auth_router, prefix="/auth", tags=["auth"])
-v1.include_router(admin_router)
 v1.include_router(internal_auth_router)
+
+
+@v1.get("/docs", include_in_schema=False)
+async def v1_docs():
+    return get_swagger_ui_html(openapi_url="/api/v1/openapi.json", title="API v1 Docs")
+
+
+@v1.get("/redoc", include_in_schema=False)
+async def v1_redoc():
+    return get_redoc_html(openapi_url="/api/v1/openapi.json", title="API v1 ReDoc")
+
+
+@v1.get("/openapi.json", include_in_schema=False)
+async def v1_openapi():
+    return JSONResponse(get_openapi(title="API v1", version=API_VERSION, routes=v1.routes))
 
 # Mount v1 under both /api/v1 and /api alias (Double Mount)
 app.include_router(v1, prefix="/api/v1")
