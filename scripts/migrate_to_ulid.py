@@ -73,14 +73,16 @@ def main():
         sys.exit(1)
 
     host = os.getenv("DB_HOST", "db")
+    port = int(os.getenv("DB_PORT", "3306"))
     user = os.getenv("DB_USER", "appuser")
     password = os.getenv("DB_PASSWORD", "apppass")
     database = os.getenv("DB_NAME", "appdb")
 
-    print(f"Connecting to {database} at {host}...")
+    print(f"Connecting to {database} at {host}:{port}...")
     try:
         conn = pymysql.connect(
             host=host,
+            port=port,
             user=user,
             password=password,
             database=database,
@@ -133,6 +135,18 @@ def main():
                 'users', 'locations', 'plants', 'plants_measurements', 
                 'plants_events', 'devices', 'auth_refresh_tokens'
             ]
+            
+            # Pre-migration validation: Record counts for time-series tables
+            time_series_tables = ['plants_measurements', 'plants_events']
+            counts_pre = {}
+            for table in time_series_tables:
+                try:
+                    cur.execute(f"SELECT COUNT(*) FROM {table}")
+                    counts_pre[table] = cur.fetchone()[0]
+                    print(f"Pre-migration count for {table}: {counts_pre[table]}")
+                except Exception:
+                    counts_pre[table] = 0
+
             mappings = {table: {} for table in tables_to_migrate}
 
             for table in tables_to_migrate:
@@ -220,7 +234,20 @@ def main():
                 else:
                     raise
 
-            # 6. Generate one-time admin login link (Invite Token)
+            # 6. Post-migration validation: Record counts for time-series tables
+            for table in time_series_tables:
+                try:
+                    cur.execute(f"SELECT COUNT(*) FROM {table}")
+                    count_post = cur.fetchone()[0]
+                    if count_post != counts_pre[table]:
+                        print(f"CRITICAL: Record count mismatch for {table}! Pre: {counts_pre[table]}, Post: {count_post}")
+                        raise Exception(f"Data loss detected in {table} during migration")
+                    print(f"Verified {table} record count: {count_post} (OK)")
+                except Exception as e:
+                    if "not found" not in str(e):
+                        raise
+
+            # 7. Generate one-time admin login link (Invite Token)
             raw_token = secrets.token_urlsafe(32)
             token_hash = hashlib.sha256(raw_token.encode()).digest()
             expires_at = datetime.now(timezone.utc) + timedelta(days=7)
@@ -230,7 +257,7 @@ def main():
                 (token_hash, admin_id_new, expires_at)
             )
 
-            # 7. Finalize
+            # 8. Finalize
             cur.execute("SET FOREIGN_KEY_CHECKS = 1")
             conn.commit()
             
