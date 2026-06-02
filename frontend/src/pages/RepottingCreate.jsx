@@ -31,7 +31,7 @@ const RepottingCreate = () => {
     async function loadRepottingEvent() {
       if (!isEdit) return
       try {
-        const data = await measurementsApi.repotting.get(editId)
+        const data = await measurementsApi.repotting.get(preselect, editId)
         if (cancelled) return
         form.setValues({
           plant_id: data.plant_id,
@@ -66,9 +66,9 @@ const RepottingCreate = () => {
         last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
       }
       if (isEdit) {
-        await measurementsApi.repotting.update(editId, payload)
+        await measurementsApi.repotting.update(vals.plant_id, editId, payload)
       } else {
-        await measurementsApi.repotting.create(payload)
+        await measurementsApi.repotting.create(vals.plant_id, payload)
       }
       const from = location.state?.from
       if (from) navigate(from)

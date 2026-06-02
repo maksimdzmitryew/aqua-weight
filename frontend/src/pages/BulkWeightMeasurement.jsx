@@ -244,9 +244,9 @@ export default function BulkWeightMeasurement() {
 
       let data
       if (existingId) {
-        data = await measurementsApi.weight.update(existingId, payload, controller.signal)
+        data = await measurementsApi.weight.update(plantId, existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.weight.create(payload, controller.signal)
+        data = await measurementsApi.weight.create(plantId, payload, controller.signal)
       }
 
       // If a newer request has been started for this plant, ignore this response
@@ -285,6 +285,34 @@ export default function BulkWeightMeasurement() {
       if (err.message && err.message.toLowerCase().includes('measured weight is incorrect')) {
         setValidationError({ message: err.message, plantId })
       }
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
+  async function handleWeightDelete(plantId, measurementId) {
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      await measurementsApi.delete(plantId, measurementId)
+
+      // Remove from progress buffer
+      setProgressBuffer((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
+      setMeasurementIds((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      setInputStatus((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+    } catch (err) {
+      console.error('Error deleting measurement:', err)
       setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
   }
@@ -421,6 +449,8 @@ export default function BulkWeightMeasurement() {
               plants={filteredPlants}
               inputStatus={inputStatus}
               onCommitValue={handleWeightMeasurement}
+              onDeleteWatering={handleWeightDelete}
+              measurementIds={measurementIds}
               onViewPlant={(p) => navigate(`/plants/${p.uuid}`, { state: { plant: p } })}
               firstColumnLabel="Weight gr, Water %"
               firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."

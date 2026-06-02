@@ -41,7 +41,7 @@ export default function WateringCreate() {
     async function loadExisting() {
       if (!isEdit) return
       try {
-        const data = await measurementsApi.getById(editId)
+        const data = await measurementsApi.getById(preselect, editId)
         if (cancelled) return
         const measured_at = data?.measured_at
           ? toLocalISOFull(data.measured_at) || form.values.measured_at
@@ -93,11 +93,11 @@ export default function WateringCreate() {
               ? Number(vals.water_added_g)
               : null,
         }
-        await measurementsApi.watering.update(editId, payload)
+        await measurementsApi.watering.update(vals.plant_id, editId, payload)
       } else {
         // Adding new
         if (operationMode === 'vacation') {
-          await measurementsApi.watering.createVacation({
+          await measurementsApi.watering.createVacation(vals.plant_id, {
             plant_id: vals.plant_id,
             measured_at: vals.measured_at,
           })
@@ -111,7 +111,7 @@ export default function WateringCreate() {
               vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
             water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
           }
-          await measurementsApi.watering.create(payload)
+          await measurementsApi.watering.create(vals.plant_id, payload)
         }
       }
       const from = location.state?.from

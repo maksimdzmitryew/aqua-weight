@@ -264,9 +264,9 @@ export default function BulkWatering() {
 
       let data
       if (existingId) {
-        data = await measurementsApi.watering.update(existingId, payload, controller.signal)
+        data = await measurementsApi.watering.update(plantId, existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.watering.create(payload, controller.signal)
+        data = await measurementsApi.watering.create(plantId, payload, controller.signal)
       }
 
       // If a newer request has been started for this plant, ignore this response
@@ -312,7 +312,7 @@ export default function BulkWatering() {
   async function handleWateringDelete(plantId, measurementId) {
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
-      await measurementsApi.delete(measurementId)
+      await measurementsApi.delete(plantId, measurementId)
 
       // Remove from progress buffer (or set to null to revert to original)
       setProgressBuffer((prev) => {
@@ -340,7 +340,7 @@ export default function BulkWatering() {
   async function handleVacationWateringCommit(plantId) {
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
-      const data = await measurementsApi.watering.createVacation({
+      const data = await measurementsApi.watering.createVacation(plantId, {
         plant_id: plantId,
         measured_at: wateringTime.getCommitDateTime(),
       })
@@ -386,7 +386,7 @@ export default function BulkWatering() {
   async function handleVacationWateringDelete(plantId, measurementId) {
     setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
     try {
-      await measurementsApi.delete(measurementId)
+      await measurementsApi.delete(plantId, measurementId)
 
       setProgressBuffer((prev) => {
         const next = { ...prev }

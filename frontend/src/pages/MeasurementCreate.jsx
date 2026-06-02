@@ -43,7 +43,7 @@ export default function MeasurementCreate() {
     async function loadExisting() {
       if (!isEdit) return
       try {
-        const data = await measurementsApi.getById(editId)
+        const data = await measurementsApi.getById(preselect, editId)
         if (cancelled) return
         const measured_at = data?.measured_at
           ? toLocalISOFull(data.measured_at) || form.values.measured_at
@@ -82,9 +82,9 @@ export default function MeasurementCreate() {
         note: vals.note || null,
       }
       if (isEdit) {
-        await measurementsApi.weight.update(editId, payload)
+        await measurementsApi.weight.update(vals.plant_id, editId, payload)
       } else {
-        await measurementsApi.weight.create(payload)
+        await measurementsApi.weight.create(vals.plant_id, payload)
       }
       const from = location.state?.from
       if (from) navigate(from)

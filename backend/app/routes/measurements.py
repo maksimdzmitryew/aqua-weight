@@ -30,7 +30,6 @@ from ..schemas.plant import PlantCalibrationItem
 from ..security import (
     require_authenticated_user,
     require_plant_access,
-    require_measurement_access,
 )
 from ..services.auth_service import generate_ulid_bytes
 from ..services.measurements import (
@@ -89,10 +88,9 @@ def _compute_water_retained_for_plant(
 def _post_delete_recalculate_and_commit(conn, plant_id_hex: str, measured_weight_g: int | None):
     """After a successful delete, recalculate min dry/max watering and commit.
 
-    Matches the behavior previously inlined in delete_measurement.
+    We pass None for new values to force refresh from current database state.
     """
-    if measured_weight_g is not None:
-        update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex, measured_weight_g, None)
+    update_min_dry_weight_and_max_watering_added_g(conn, plant_id_hex, None, None)
     conn.commit()
 
 
@@ -669,12 +667,12 @@ async def apply_measurements_corrections(
     return await run_in_threadpool(do_apply)
 
 
-@app.get("/plants/{id_hex}/measurements", response_model=list[MeasurementItem])
+@app.get("/plants/{plant_id}/measurements", response_model=list[MeasurementItem])
 async def list_measurements_for_plant(
-    id_hex: Annotated[str, Depends(require_plant_access)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
     get_conn_fn=Depends(get_conn_factory),
 ):
-    if not HEX_RE.match(id_hex or ""):
+    if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant id")
 
     def do_fetch():
@@ -691,7 +689,7 @@ async def list_measurements_for_plant(
                     ORDER BY measured_at DESC
                     """
                     ),
-                    (id_hex,),
+                    (plant_id,),
                 )
                 rows = cur.fetchall() or []
                 results = []
@@ -888,10 +886,11 @@ async def create_measurement(
     return await run_in_threadpool(do_insert)
 
 
-@app.put("/measurements/watering/{id_hex}")
-@app.put("/measurements/weight/{id_hex}")
+@app.put("/plants/{plant_id}/measurements/watering/{id_hex}")
+@app.put("/plants/{plant_id}/measurements/weight/{id_hex}")
 async def update_measurement(
-    id_hex: Annotated[str, Depends(require_measurement_access)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    id_hex: str,
     payload: MeasurementUpdateRequest,
     mode: str = "manual",
     get_conn_fn=Depends(get_conn_factory),
@@ -921,11 +920,14 @@ async def update_measurement(
                 if not base:
                     raise HTTPException(status_code=404, detail="Not found")
                 plant_id_bytes = base[0]
+                plant_hex = (
+                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                )
+                if plant_hex.lower() != plant_id.lower():
+                    raise HTTPException(status_code=404, detail="Not found")
+
                 current_measured_at = base[1]
                 current_mw, current_ld, current_lw, current_wa = base[2], base[3], base[4], base[5]
-                plant_hex = (
-                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else None
-                )
 
                 # Validate exclusivity
                 try:
@@ -1076,6 +1078,8 @@ async def update_measurement(
                     },
                     "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
+        except HTTPException:
+            raise
         except Exception as e:
             print(
                 "Could not update measurement: ",
@@ -1092,9 +1096,10 @@ async def update_measurement(
     return await run_in_threadpool(do_update)
 
 
-@app.get("/measurements/{id_hex}")
+@app.get("/plants/{plant_id}/measurements/{id_hex}")
 async def get_measurement(
-    id_hex: Annotated[str, Depends(require_measurement_access)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    id_hex: str,
     get_conn_fn=Depends(get_conn_factory),
 ):
     if not HEX_RE.match(id_hex or ""):
@@ -1119,6 +1124,14 @@ async def get_measurement(
                 row = cur.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Not found")
+
+                plant_id_bytes = row[1]
+                plant_hex = (
+                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                )
+                if plant_hex.lower() != plant_id.lower():
+                    raise HTTPException(status_code=404, detail="Not found")
+
                 return {
                     "id": bin_to_hex(row[0]),
                     "plant_id": bin_to_hex(row[1]),
@@ -1144,9 +1157,10 @@ async def get_measurement(
     return await run_in_threadpool(do_fetch)
 
 
-@app.delete("/measurements/{id_hex}")
+@app.delete("/plants/{plant_id}/measurements/{id_hex}")
 async def delete_measurement(
-    id_hex: Annotated[str, Depends(require_measurement_access)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    id_hex: str,
     get_conn_fn=Depends(get_conn_factory),
 ):
     if not HEX_RE.match(id_hex or ""):
@@ -1170,7 +1184,13 @@ async def delete_measurement(
                 if not row:
                     raise HTTPException(status_code=404, detail="Measurement not found")
 
-                plant_id_hex = row[0].hex() if isinstance(row[0], bytes) else row[0]
+                plant_id_bytes = row[0]
+                plant_id_hex = (
+                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                )
+                if plant_id_hex.lower() != plant_id.lower():
+                    raise HTTPException(status_code=404, detail="Measurement not found")
+
                 measured_weight_g = row[1]
 
             with conn.cursor() as cur:
@@ -1181,6 +1201,8 @@ async def delete_measurement(
                 _post_delete_recalculate_and_commit(conn, plant_id_hex, measured_weight_g)
 
                 return {"message": "Measurement deleted successfully"}
+        except HTTPException:
+            raise
         except Exception:
             try:
                 conn.rollback()
@@ -1191,5 +1213,4 @@ async def delete_measurement(
         finally:
             conn.close()
 
-    await run_in_threadpool(do_delete)
-    return {"ok": True}
+    return await run_in_threadpool(do_delete)

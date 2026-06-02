@@ -115,9 +115,9 @@ export default function PlantDetails() {
       return
     }
     try {
-      await measurementsApi.delete(toDeleteMeas.id)
+      await measurementsApi.delete(uuid, toDeleteMeas.id)
     } catch (e) {
-      // ignore optional error display
+      setMeasError(e?.message || 'Failed to delete measurement')
     } finally {
       await fetchMeasurements()
       closeMeasDialog()
