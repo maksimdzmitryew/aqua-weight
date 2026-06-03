@@ -683,7 +683,7 @@ async def list_measurements_for_plant(
                     (
                         """
                     SELECT id, measured_at, measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_added_g,
-                           water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g
+                           water_loss_total_pct, water_loss_total_g, water_loss_day_pct, water_loss_day_g, note
                     FROM plants_measurements
                     WHERE plant_id=UNHEX(%s)
                     ORDER BY measured_at DESC
@@ -709,6 +709,7 @@ async def list_measurements_for_plant(
                             "water_loss_total_g": r[7],
                             "water_loss_day_pct": float(r[8]) if r[8] is not None else None,
                             "water_loss_day_g": r[9],
+                            "note": r[10],
                         }
                     )
                 return results

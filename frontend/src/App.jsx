@@ -12,7 +12,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>AW Frontend</h1>
+      <h1>Aqua Weight</h1>
       <p>Backend says: {message}</p>
       <p>
         Try <code>/api/hello/YourName</code> via this domain:{' '}

@@ -64,6 +64,7 @@ class MeasurementItem(BaseModel):
     water_loss_total_g: Optional[int] = None
     water_loss_day_pct: Optional[float] = None
     water_loss_day_g: Optional[int] = None
+    note: Optional[str] = None
 
 
 class LastMeasurementResponse(BaseModel):
