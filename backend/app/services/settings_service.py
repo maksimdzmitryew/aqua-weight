@@ -5,6 +5,13 @@ import pymysql
 
 from ..db.core import cursor
 
+ALLOWED_SETTINGS_KEYS = {
+    "theme": str,
+    "language": str,
+    "notifications_enabled": bool,
+    "default_view": str,
+}
+
 class SettingsService:
     def __init__(self, db_conn: pymysql.connections.Connection):
         self.db_conn = db_conn
@@ -34,8 +41,19 @@ class SettingsService:
                 
             return settings_data, version
 
+    def validate_settings(self, settings: Dict[str, Any]) -> None:
+        """Validate settings against the whitelist and types."""
+        for key, value in settings.items():
+            if key not in ALLOWED_SETTINGS_KEYS:
+                raise ValueError(f"Setting key '{key}' is not allowed")
+            
+            expected_type = ALLOWED_SETTINGS_KEYS[key]
+            if not isinstance(value, expected_type):
+                raise ValueError(f"Setting '{key}' must be of type {expected_type.__name__}")
+
     def update_settings(self, user_id: bytes, settings: Dict[str, Any], version: int | None = None) -> bool:
         """Update user settings with full replacement."""
+        self.validate_settings(settings)
         with cursor(self.db_conn) as cur:
             # MariaDB JSON column accepts a JSON string
             settings_str = json.dumps(settings)

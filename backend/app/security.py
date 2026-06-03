@@ -19,6 +19,13 @@ from .db import HEX_RE, get_conn, hex_to_bin
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-default-secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 NONCE_SECRET_KEY = os.getenv("NONCE_SECRET_KEY", "insecure-nonce-default")
+
+# Security enforcement: prevent insecure defaults in non-test environments
+if os.getenv("TEST_MODE") != "1":
+    if JWT_SECRET_KEY == "insecure-default-secret":
+        raise RuntimeError("JWT_SECRET_KEY must be set in production")
+    if NONCE_SECRET_KEY == "insecure-nonce-default":
+        raise RuntimeError("NONCE_SECRET_KEY must be set in production")
 NONCE_MIN_AGE_SECONDS = 5
 NONCE_MAX_AGE_SECONDS = 900  # 15 minutes
 
@@ -212,35 +219,37 @@ async def require_authenticated_user(
     # Fallback to API Key only if TEST_MODE=1 and Bearer is missing
     if os.getenv("TEST_MODE") == "1":
         required = os.getenv("API_KEY")
-        if required:
-            if x_api_key == required:
-                # Mock an admin user for legacy/test access
-                with db.cursor() as cur:
-                    cur.execute(
-                        "SELECT id, username, global_role FROM users WHERE global_role = 'admin' LIMIT 1"
-                    )
-                    user = cur.fetchone()
-                    if user:
-                        return {
-                            "id": user[0],
-                            "id_hex": user[0].hex(),
-                            "username": user[1],
-                            "global_role": user[2],
-                        }
-                return {
-                    "id": None,
-                    "id_hex": None,
-                    "username": "test_admin",
-                    "global_role": "admin",
-                }
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid API Key (Test Mode fallback)",
+        if not required:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="API_KEY must be set even in TEST_MODE for fallback access",
+            )
+
+        if x_api_key == required:
+            # Mock an admin user for legacy/test access
+            with db.cursor() as cur:
+                cur.execute(
+                    "SELECT id, username, global_role FROM users WHERE global_role = 'admin' LIMIT 1"
                 )
+                user = cur.fetchone()
+                if user:
+                    return {
+                        "id": user[0],
+                        "id_hex": user[0].hex(),
+                        "username": user[1],
+                        "global_role": user[2],
+                    }
+            return {
+                "id": None,
+                "id_hex": None,
+                "username": "test_admin",
+                "global_role": "admin",
+            }
         else:
-            # API_KEY not set in env, allow access in test mode as admin guest
-            return {"id": None, "id_hex": None, "username": "test_guest", "global_role": "admin"}
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API Key (Test Mode fallback)",
+            )
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

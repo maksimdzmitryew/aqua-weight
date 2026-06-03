@@ -39,8 +39,9 @@ async function parseBody(res) {
 }
 
 export class ApiClient {
-  constructor({ baseUrl = DEFAULT_BASE_URL, getHeaders } = {}) {
+  constructor({ baseUrl = DEFAULT_BASE_URL, getHeaders, apiVersion } = {}) {
     this.baseUrl = baseUrl.replace(/\/$/, '')
+    this.apiVersion = apiVersion
     this.getHeaders = typeof getHeaders === 'function' ? getHeaders : () => ({})
     this.getAccessToken = null
     this.getDeviceId = null
@@ -90,14 +91,25 @@ export class ApiClient {
     return this._refreshPromise
   }
 
-  buildUrl(path) {
-    if (!path) return this.baseUrl
-    if (path.startsWith('http')) return path
+  buildUrl(path, apiVersion) {
+    if (path && path.startsWith('http')) return path
+
+    let url = this.baseUrl
+    const version = apiVersion || this.apiVersion
+
+    if (version) {
+      const v = version.startsWith('/') ? version : `/${version}`
+      if (!url.endsWith(v)) {
+        url += v
+      }
+    }
+
+    if (!path) return url
     if (!path.startsWith('/')) path = '/' + path
-    return this.baseUrl + path
+    return url + path
   }
 
-  async request(path, { method = 'GET', headers, body, signal, retry = undefined, skipGlobalForbidden = false } = {}) {
+  async request(path, { method = 'GET', headers, body, signal, retry = undefined, skipGlobalForbidden = false, apiVersion = undefined } = {}) {
     const isGet = method.toUpperCase() === 'GET'
     const attempts = typeof retry === 'number' ? retry + 1 : isGet ? 3 : 1
     const backoffMs = [0, 200, 500]
@@ -142,13 +154,13 @@ export class ApiClient {
         }
         let res
         try {
-          res = await fetch(this.buildUrl(path), requestInit)
+          res = await fetch(this.buildUrl(path, apiVersion), requestInit)
         } catch (fetchErr) {
           const msg = fetchErr?.message || ''
           const incompatibleSignal = /expected signal.*instance of abortsignal/i.test(msg)
           if (requestInit.signal && incompatibleSignal) {
             // Fallback for cross-realm signal mismatch (jsdom AbortSignal with undici fetch).
-            res = await fetch(this.buildUrl(path), { ...requestInit, signal: undefined })
+            res = await fetch(this.buildUrl(path, apiVersion), { ...requestInit, signal: undefined })
           } else {
             throw fetchErr
           }

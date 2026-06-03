@@ -276,6 +276,17 @@ class PlantCreate(BaseModel):
     max_water_weight_g: int | None = None
 
 
+def get_location_owner_id(db: Any, location_id_hex: str) -> bytes | None:
+    """Fetch the owner ID for a given location."""
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT user_id FROM user_location_acl WHERE location_id = UNHEX(%s) AND role = 'owner' LIMIT 1",
+            (location_id_hex,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
 @app.get("/plants/uuids", response_model=list[str])
 async def list_plant_uuids(
     current_user: Annotated[dict, Depends(require_authenticated_user)],
@@ -368,6 +379,8 @@ async def create_plant(
 
     async def do_insert():
         # Access Check: If location_id is provided, ensure user has access to it
+        # and sync owner_id with the location owner.
+        owner_id = current_user["id"]
         if payload.location_id:
             await verify_location_access(
                 db,
@@ -375,6 +388,9 @@ async def create_plant(
                 current_user["global_role"],
                 payload.location_id,
             )
+            loc_owner = get_location_owner_id(db, payload.location_id)
+            if loc_owner:
+                owner_id = loc_owner
 
         loc_id_bin = hex_to_bytes(payload.location_id)
         conn = get_conn()
@@ -405,7 +421,7 @@ async def create_plant(
                 """
                 params = (
                     new_id,
-                    current_user["id"],
+                    owner_id,
                     name,
                     (payload.plant_type or None),
                     (payload.identify_hint or None),
@@ -461,6 +477,7 @@ async def create_plant(
 async def duplicate_plant(
     id_hex: Annotated[str, Depends(require_plant_access)],
     current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
 ):
     def do_duplicate():
         conn = get_conn()
@@ -486,6 +503,13 @@ async def duplicate_plant(
                 row = cur.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Plant not found")
+
+                loc_id_bin = row[6]
+                owner_id = current_user["id"]
+                if loc_id_bin:
+                    loc_owner = get_location_owner_id(db, loc_id_bin.hex())
+                    if loc_owner:
+                        owner_id = loc_owner
 
                 new_name = f"{row[0]} copy"
                 new_id = generate_ulid_bytes()
@@ -513,7 +537,7 @@ async def duplicate_plant(
                 """
                 params = (
                     new_id,
-                    current_user["id"],
+                    owner_id,
                     new_name,
                     row[1],
                     row[2],
@@ -692,14 +716,21 @@ async def update_plant(
         if not update_data:
             return {"ok": True}
 
-        # If moving plant, verify access to new location
-        if "location_id" in update_data and update_data["location_id"]:
-            await verify_location_access(
-                db,
-                current_user["id"],
-                current_user["global_role"],
-                update_data["location_id"],
-            )
+        # If moving plant, verify access to new location and update owner
+        if "location_id" in update_data:
+            if update_data["location_id"]:
+                await verify_location_access(
+                    db,
+                    current_user["id"],
+                    current_user["global_role"],
+                    update_data["location_id"],
+                )
+                loc_owner = get_location_owner_id(db, update_data["location_id"])
+                if loc_owner:
+                    update_data["owner_id"] = loc_owner
+            else:
+                # If moved out of location, default back to current user as owner
+                update_data["owner_id"] = current_user["id"]
 
         conn = get_conn()
         try:
