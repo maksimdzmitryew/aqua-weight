@@ -16,7 +16,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 # For dev, we skip npm ci here because we do it in docker-compose for dev flexibility,
 # but for a "solid fix" we might want to do it here eventually.
 # As it is here, we have a faster container start
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 EXPOSE 5173
 

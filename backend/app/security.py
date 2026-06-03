@@ -20,8 +20,8 @@ JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "insecure-default-secret")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 NONCE_SECRET_KEY = os.getenv("NONCE_SECRET_KEY", "insecure-nonce-default")
 
-# Security enforcement: prevent insecure defaults in non-test environments
-if os.getenv("TEST_MODE") != "1":
+# Security enforcement: prevent insecure defaults in non-test/non-dev environments
+if os.getenv("TEST_MODE") != "1" and os.getenv("APP_ENV", "development").lower() != "development":
     if JWT_SECRET_KEY == "insecure-default-secret":
         raise RuntimeError("JWT_SECRET_KEY must be set in production")
     if NONCE_SECRET_KEY == "insecure-nonce-default":

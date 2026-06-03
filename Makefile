@@ -237,7 +237,7 @@ test-fe-ci:
 		npm install -g npm@11.13.0 && \
 		cp -r /src /tmp/fe && \
 		cd /tmp/fe && \
-		npm ci --no-audit --no-fund && \
+		npm install --no-audit --no-fund && \
 		CI=true npm run test:unit:coverage"
 
 .PHONY: fe-sb

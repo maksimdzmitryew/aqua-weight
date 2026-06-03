@@ -90,7 +90,7 @@ services:
       [
         "bash",
         "-lc",
-        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm ci --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm ci' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
+        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm install --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm install' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
       ]
 
   nginx:
