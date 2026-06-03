@@ -73,7 +73,6 @@ export default function MeasurementCreate() {
     setError('')
     try {
       const payload = {
-        plant_id: vals.plant_id,
         measured_at: vals.measured_at,
         measured_weight_g: vals.measured_weight_g !== '' ? Number(vals.measured_weight_g) : null,
         method_id: vals.method_id || null,

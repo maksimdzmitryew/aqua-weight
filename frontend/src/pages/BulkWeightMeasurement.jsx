@@ -74,7 +74,7 @@ export default function BulkWeightMeasurement() {
           promises.push(apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`))
           promises.push(apiClient.get(`/plants/uuids?needs_weighing=false&${commonParams}`))
           promises.push(apiClient.get(`/plants/uuids?${commonParams}`))
-          promises.push(apiClient.get('/measurements/approximation/watering'))
+          promises.push(apiClient.get('/plants/measurements/approximation/watering'))
         }
 
         const [watering, todo, done, all, approxData] = await Promise.all(promises)

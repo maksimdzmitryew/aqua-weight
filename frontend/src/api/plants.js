@@ -47,9 +47,9 @@ export const plantsApi = {
     return apiClient.delete(`/plants/${uuid}`, { signal })
   },
   getApproximation(signal) {
-    return apiClient.get('/measurements/approximation/watering', { signal })
+    return apiClient.get('/plants/measurements/approximation/watering', { signal })
   },
   getWeightApproximation(signal) {
-    return apiClient.get('/measurements/approximation/weight', { signal })
+    return apiClient.get('/plants/measurements/approximation/weight', { signal })
   },
 }

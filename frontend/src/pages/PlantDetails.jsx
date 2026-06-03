@@ -93,9 +93,9 @@ export default function PlantDetails() {
   function handleEditMeasurement(m) {
     if (!m?.id) return
     if ((m?.measured_weight_g || 0) > 0) {
-      navigate(`/measurement/weight?id=${m.id}`)
+      navigate(`/measurement/weight?id=${m.id}&plant=${uuid}`)
     } else {
-      navigate(`/measurement/watering?id=${m.id}`)
+      navigate(`/measurement/watering?id=${m.id}&plant=${uuid}`)
     }
   }
 

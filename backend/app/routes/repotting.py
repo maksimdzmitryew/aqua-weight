@@ -1,5 +1,4 @@
 import datetime
-import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +13,8 @@ from ..schemas.measurement import (
     RepottingResponse,
     RepottingUpdateRequest,
 )
-from ..security import get_db, require_plant_owner
+from ..security import get_db, require_plant_access
+from ..services.auth_service import generate_ulid_bytes
 from ..services.measurements import (
     DerivedWeights,
     compute_water_losses,
@@ -34,7 +34,7 @@ def get_last_watering_event(cursor, plant_id_hex):
 
 @app.post("/plants/{plant_id}/repotting", response_model=RepottingResponse)
 async def create_repotting_event(
-    plant_id: Annotated[str, Depends(require_plant_owner)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
     payload: RepottingCreateRequest,
     get_conn_fn=Depends(get_conn_factory),
 ):
@@ -72,7 +72,7 @@ async def create_repotting_event(
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -120,7 +120,7 @@ async def create_repotting_event(
 
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=200)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -148,7 +148,7 @@ async def create_repotting_event(
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=300)
                 new_measured_weight_g = repotted_weight_g - (prev_last_water or 0)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -188,7 +188,7 @@ async def create_repotting_event(
 
 @app.put("/plants/{plant_id}/repotting/{id_hex}", response_model=RepottingResponse)
 async def update_repotting_event(
-    plant_id: Annotated[str, Depends(require_plant_owner)],
+    plant_id: Annotated[str, Depends(require_plant_access)],
     id_hex: str,
     payload: RepottingUpdateRequest,
     get_conn_fn=Depends(get_conn_factory),
@@ -204,17 +204,14 @@ async def update_repotting_event(
     last_wet_weight_g = payload.last_wet_weight_g
     note = payload.note or ""
 
-    # Convert measured_at from string to datetime object in UTC, then convert to local timezone
-    utc_tz = datetime.timezone.utc
-    dt_object = datetime.datetime.fromisoformat(measured_at).replace(tzinfo=utc_tz)
-    local_dt = dt_object.astimezone(tz=timezone("US/Eastern"))
+    local_dt = parse_timestamp_local(measured_at)
 
     def do_update():
         conn = get_conn_fn()
         try:
             with conn.cursor() as cursor:
                 # Ownership check
-                cursor.execute("SELECT plant_id FROM repotting_events WHERE id=UNHEX(%s)", (id_hex,))
+                cursor.execute("SELECT plant_id FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
                 row = cursor.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Not found")
@@ -225,11 +222,10 @@ async def update_repotting_event(
                 if db_plant_id.lower() != plant_id.lower():
                     raise HTTPException(status_code=404, detail="Not found")
 
-                # Legacy table update retained
                 water_loss_total_g = None
 
                 query = """
-                        UPDATE repotting_events
+                        UPDATE plants_measurements
                         SET plant_id=UNHEX(%s), measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
                         WHERE id=UNHEX(%s)
                         """

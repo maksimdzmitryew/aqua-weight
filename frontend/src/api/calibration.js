@@ -2,7 +2,7 @@ import { apiClient } from './client'
 
 export const calibrationApi = {
   list(signal) {
-    return apiClient.get('/measurements/calibrating', { signal })
+    return apiClient.get('/plants/measurements/calibrating', { signal })
   },
   correct(payload, { signal } = {}) {
     const { plant_id, ...rest } = payload

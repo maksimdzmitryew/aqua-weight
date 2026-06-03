@@ -77,7 +77,7 @@ export default function BulkWatering() {
           apiClient.get(`/plants/uuids?needs_watering=true&${commonParams}`),
           apiClient.get(`/plants/uuids?needs_watering=false&${commonParams}`),
           apiClient.get(`/plants/uuids?${commonParams}`),
-          apiClient.get('/measurements/approximation/watering'),
+          apiClient.get('/plants/measurements/approximation/watering'),
           apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
         ])
         setTodoUuids(todo || [])
@@ -364,7 +364,7 @@ export default function BulkWatering() {
 
         // Refresh approximations for this plant
         try {
-          const approxData = await apiClient.get('/measurements/approximation/watering')
+          const approxData = await apiClient.get('/plants/measurements/approximation/watering')
           const approxItems = approxData?.items || []
           const approxMap = approxItems.reduce((acc, item) => {
             acc[item.plant_uuid] = item
@@ -407,7 +407,7 @@ export default function BulkWatering() {
 
       // Refresh approximations
       try {
-        const approxData = await apiClient.get('/measurements/approximation/watering')
+        const approxData = await apiClient.get('/plants/measurements/approximation/watering')
         const approxItems = approxData?.items || []
         const approxMap = approxItems.reduce((acc, item) => {
           acc[item.plant_uuid] = item

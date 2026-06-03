@@ -24,6 +24,7 @@ const RepottingCreate = () => {
     measured_at: nowLocalISOFull(),
     weight_before_repotting_g: '',
     last_wet_weight_g: '',
+    note: '',
   })
 
   useEffect(() => {
@@ -37,8 +38,11 @@ const RepottingCreate = () => {
           plant_id: data.plant_id,
           measured_at: toLocalISOFull(data.measured_at),
           weight_before_repotting_g:
-            data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
+            (data.weight_before_repotting_g ?? data.measured_weight_g) != null
+              ? String(data.weight_before_repotting_g ?? data.measured_weight_g)
+              : '',
           last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
+          note: data.note || '',
         })
       } catch (_) {
         if (!cancelled) setError('Failed to load repotting event')
@@ -59,11 +63,11 @@ const RepottingCreate = () => {
     setError('')
     try {
       const payload = {
-        plant_id: vals.plant_id,
         measured_at: vals.measured_at,
         measured_weight_g:
           vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
         last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+        note: vals.note || null,
       }
       if (isEdit) {
         await measurementsApi.repotting.update(vals.plant_id, editId, payload)
@@ -114,6 +118,17 @@ const RepottingCreate = () => {
             min={0}
             validators={[minNumber(0)]}
           />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
+              Note
+            </label>
+            <textarea
+              id="note"
+              {...form.register('note')}
+              className="input"
+              style={{ height: 100 }}
+            />
+          </div>
         </div>
         <div style={{ marginTop: 16 }}>
           <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">

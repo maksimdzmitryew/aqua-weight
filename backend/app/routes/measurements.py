@@ -350,7 +350,7 @@ def _to_dt_string(s: str | None):
     return s.strip().replace("T", " ")
 
 
-@app.get("/measurements/approximation/watering", response_model=WateringApproximationResponse)
+@app.get("/plants/measurements/approximation/watering", response_model=WateringApproximationResponse)
 async def get_watering_approximation(
     current_user: Annotated[dict, Depends(require_authenticated_user)],
     operationMode: str | None = Cookie(None),
@@ -444,7 +444,7 @@ async def get_last_measurement(
     return await run_in_threadpool(do_fetch)
 
 
-@app.get("/measurements/calibrating", response_model=list[PlantCalibrationItem])
+@app.get("/plants/measurements/calibrating", response_model=list[PlantCalibrationItem])
 async def list_plants_for_calibration(
     current_user: Annotated[dict, Depends(require_authenticated_user)],
     get_conn_fn=Depends(get_conn_factory),
@@ -1169,9 +1169,8 @@ async def delete_measurement(
     def do_delete():
         conn = get_conn_fn()
         try:
-
-            # First, get the measurement details to identify the plant
             with conn.cursor() as cur:
+                # First, get the measurement details to identify the plant
                 cur.execute(
                     """
                     SELECT plant_id, measured_weight_g
@@ -1193,7 +1192,6 @@ async def delete_measurement(
 
                 measured_weight_g = row[1]
 
-            with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
                 if cur.rowcount == 0:
                     raise HTTPException(status_code=404, detail="Not found")
