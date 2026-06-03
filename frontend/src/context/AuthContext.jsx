@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { Toaster, toast } from 'react-hot-toast';
 import { apiClient } from '../api/client';
 import Loader from '../components/feedback/Loader.jsx';
 
@@ -66,6 +67,11 @@ export const AuthProvider = ({ children }) => {
     setStatus('authenticated');
   }, []);
 
+  const handleForbidden = useCallback((data) => {
+    const msg = data?.detail || data?.message || "Access Denied: You do not have permission to perform this action.";
+    toast.error(msg, { id: 'forbidden-error' });
+  }, []);
+
   // 3. Keep ApiClient in sync with our state/callbacks.
   useEffect(() => {
     apiClient.setAuthHooks({
@@ -73,8 +79,9 @@ export const AuthProvider = ({ children }) => {
       getDeviceId: () => deviceIdRef.current,
       onAccessTokenUpdated: handleAccessTokenUpdated,
       onUnauthenticated: handleUnauthenticated,
+      onForbidden: handleForbidden,
     });
-  }, [handleAccessTokenUpdated, handleUnauthenticated]);
+  }, [handleAccessTokenUpdated, handleUnauthenticated, handleForbidden]);
 
   // 4. Initial authentication check (attempt to re-hydrate session via refresh token).
   useEffect(() => {
@@ -174,23 +181,26 @@ export const AuthProvider = ({ children }) => {
   }), [user, accessToken, status, deviceId, login, verifyMfa, logout]);
 
   // Prevent flicker by showing a loader during the initial session check.
-  if (status === 'loading') {
-    return (
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        width: '100vw',
-        background: 'var(--bg, #fff)'
-      }}>
-        <Loader label="Restoring session..." />
-      </div>
-    );
-  }
+  const content = status === 'loading' ? (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      width: '100vw',
+      background: 'var(--bg, #fff)'
+    }}>
+      <Loader label="Restoring session..." />
+    </div>
+  ) : children;
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      <Toaster position="top-right" toastOptions={{ duration: 5000 }} />
+      {content}
+    </AuthContext.Provider>
+  );
 };
 
 /**

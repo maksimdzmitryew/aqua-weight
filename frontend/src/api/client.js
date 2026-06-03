@@ -46,14 +46,16 @@ export class ApiClient {
     this.getDeviceId = null
     this.onAccessTokenUpdated = null
     this.onUnauthenticated = null
+    this.onForbidden = null
     this._refreshPromise = null
   }
 
-  setAuthHooks({ getAccessToken, getDeviceId, onAccessTokenUpdated, onUnauthenticated }) {
+  setAuthHooks({ getAccessToken, getDeviceId, onAccessTokenUpdated, onUnauthenticated, onForbidden }) {
     this.getAccessToken = getAccessToken
     this.getDeviceId = getDeviceId
     this.onAccessTokenUpdated = onAccessTokenUpdated
     this.onUnauthenticated = onUnauthenticated
+    this.onForbidden = onForbidden
   }
 
   async refreshTokens() {
@@ -95,7 +97,7 @@ export class ApiClient {
     return this.baseUrl + path
   }
 
-  async request(path, { method = 'GET', headers, body, signal, retry = undefined } = {}) {
+  async request(path, { method = 'GET', headers, body, signal, retry = undefined, skipGlobalForbidden = false } = {}) {
     const isGet = method.toUpperCase() === 'GET'
     const attempts = typeof retry === 'number' ? retry + 1 : isGet ? 3 : 1
     const backoffMs = [0, 200, 500]
@@ -154,6 +156,9 @@ export class ApiClient {
 
         const data = await parseBody(res)
         if (!res.ok) {
+          if (res.status === 403 && !skipGlobalForbidden) {
+            this.onForbidden?.(data)
+          }
           if (res.status === 401 && !path.includes('/auth/refresh') && !refreshed) {
             refreshed = true
             try {
