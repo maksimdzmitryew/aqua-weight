@@ -92,17 +92,16 @@ export default function PlantDetails() {
 
   function handleEditMeasurement(m) {
     if (!m?.id) return
-    // Repotting events usually have a note or can be identified by both weights being set 
-    // without water_added_g being the primary focus, but we'll use a hint or just check fields.
-    const isRepotting = m.note?.toLowerCase().includes('repot') || 
-                        (m.last_dry_weight_g > 0 && m.last_wet_weight_g > 0 && !m.water_added_g && m.measured_weight_g > 0)
-
-    if (isRepotting) {
-      navigate(`/measurement/repotting?id=${m.id}&plant=${uuid}`)
-    } else if ((m?.measured_weight_g || 0) > 0) {
-      navigate(`/measurement/weight?id=${m.id}&plant=${uuid}`)
-    } else {
-      navigate(`/measurement/watering?id=${m.id}&plant=${uuid}`)
+    switch (m.type) {
+      case 'Repotting':
+        navigate(`/measurement/repotting?id=${m.id}&plant=${uuid}`)
+        break
+      case 'Watering':
+        navigate(`/measurement/watering?id=${m.id}&plant=${uuid}`)
+        break
+      default:
+        navigate(`/measurement/weight?id=${m.id}&plant=${uuid}`)
+        break
     }
   }
 
@@ -247,15 +246,8 @@ export default function PlantDetails() {
                     </thead>
                     <tbody>
                       {measurements.map((m, i) => {
-                        const isRepotting = m.note?.toLowerCase().includes('repot') || 
-                                           (m.last_dry_weight_g > 0 && m.last_wet_weight_g > 0 && !m.water_added_g && m.measured_weight_g > 0)
-                        const isWatering = !isRepotting && m.water_added_g > 0
-                        const isWeight = !isRepotting && !isWatering && m.measured_weight_g > 0
-
-                        let type = 'Measurement'
-                        if (isRepotting) type = 'Repotting'
-                        else if (isWatering) type = 'Watering'
-                        else if (isWeight) type = 'Weight'
+                        const type = m.type || 'Measurement'
+                        const badgeClass = type === 'Repotting' ? 'badge-info' : type === 'Watering' ? 'badge-success' : ''
 
                         return (
                           <tr key={m.id || i}>
@@ -274,7 +266,7 @@ export default function PlantDetails() {
                               />
                             </td>
                             <td className="td">
-                              <span className={`badge ${isRepotting ? 'badge-info' : isWatering ? 'badge-success' : ''}`}>
+                              <span className={`badge ${badgeClass}`}>
                                 {type}
                               </span>
                             </td>

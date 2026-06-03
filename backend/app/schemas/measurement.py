@@ -65,6 +65,7 @@ class MeasurementItem(BaseModel):
     water_loss_day_pct: Optional[float] = None
     water_loss_day_g: Optional[int] = None
     note: Optional[str] = None
+    type: Optional[str] = None
 
 
 class LastMeasurementResponse(BaseModel):
@@ -76,7 +77,7 @@ class LastMeasurementResponse(BaseModel):
     method_id: Optional[HexID] = None
     scale_id: Optional[HexID] = None
     note: Optional[str] = None
-
+    type: Optional[str] = None
 
 class MeasurementsListResponse(BaseModel):
     items: List[MeasurementItem]
