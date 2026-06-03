@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import useDocumentTitle from '../hooks/useDocumentTitle.js';
 import TextInput from '../components/form/fields/TextInput.jsx';
 import Checkbox from '../components/form/fields/Checkbox.jsx';
 import { useForm, required } from '../components/form/useForm';
@@ -13,6 +14,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mfaData, setMfaData] = useState(null);
+
+  useDocumentTitle('Login');
 
   const from = location.state?.from?.pathname || '/dashboard';
 

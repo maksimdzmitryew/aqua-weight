@@ -1,12 +1,14 @@
 import { useLayoutEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 
+export const APP_NAME = 'Aqua Weight'
+
 /**
  * useDocumentTitle
  * Small hook to standardize document.title handling across pages.
  *
  * Usage:
- *   useDocumentTitle('Plants')            // => "Plants – AW Frontend"
+ *   useDocumentTitle('Plants')            // => "Plants – Aqua Weight"
  *   useDocumentTitle(plant?.name || 'Plant details')
  *
  * Options:
@@ -28,7 +30,7 @@ export default function useDocumentTitle(title, options = {}) {
   useLayoutEffect(() => {
     if (!doc) return
 
-    const base = 'AW Frontend'
+    const base = APP_NAME
     const safeTitle = typeof title === 'string' && title.trim().length > 0 ? title.trim() : ''
     const next = safeTitle ? `${safeTitle} – ${base}` : base
 
