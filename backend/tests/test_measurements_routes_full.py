@@ -3,10 +3,27 @@ from datetime import datetime
 import uuid as _uuid
 import pytest
 from httpx import AsyncClient, ASGITransport
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from backend.app.db import get_conn_factory
 from backend.app.routes import measurements as measurements_routes
+from backend.app.security import require_authenticated_user, require_plant_access
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _override_measurements_auth(app: FastAPI):
+    """Bypass auth for all tests in this module since they test business logic, not auth."""
+    app.dependency_overrides[require_authenticated_user] = lambda: {
+        "id": None, "id_hex": None, "username": "test_admin", "global_role": "admin",
+    }
+
+    def _bypass_plant_access(request: Request) -> str:
+        return request.path_params.get("plant_id", "")
+
+    app.dependency_overrides[require_plant_access] = _bypass_plant_access
+    yield
+    app.dependency_overrides.pop(require_authenticated_user, None)
+    app.dependency_overrides.pop(require_plant_access, None)
 
 
 class _WaterLossObj:
@@ -172,7 +189,7 @@ async def test__to_dt_string_unit():
 
 @pytest.mark.asyncio
 async def test_get_last_measurement_invalid_plant(app: FastAPI, async_client: AsyncClient):
-    resp = await async_client.get("/api/measurements/last", params={"plant_id": "xyz"})
+    resp = await async_client.get("/api/plants/xyz/measurements/last")
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid plant_id"
 
@@ -187,7 +204,7 @@ async def test_get_last_measurement_none_and_row(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: fake_conn)
 
     plant_hex = "aa" * 16
-    r1 = await async_client.get("/api/measurements/last", params={"plant_id": plant_hex})
+    r1 = await async_client.get(f"/api/plants/{plant_hex}/measurements/last")
     assert r1.status_code == 200
     assert r1.json() is None
 
@@ -205,7 +222,7 @@ async def test_get_last_measurement_none_and_row(
         "note here",
     ]
     fake_cur.rows_one = row
-    r2 = await async_client.get("/api/measurements/last", params={"plant_id": plant_hex})
+    r2 = await async_client.get(f"/api/plants/{plant_hex}/measurements/last")
     assert r2.status_code == 200
     data = r2.json()
     assert data["measured_at"] == "2025-01-01 12:00:00.000"
@@ -220,51 +237,53 @@ async def test_get_last_measurement_none_and_row(
 async def test_create_reported_watering_invalid_and_success(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
-    # invalid plant id
+    plant_hex = "aa" * 16
+
+    # invalid plant id in path -> 400
     r_bad = await async_client.post(
-        "/api/measurements/reported-watering", json={"plant_id": "nothex"}
+        "/api/plants/nothex/measurements/reported-watering",
+        json={"measured_at": "2025-01-02T10:20:00"},
     )
     assert r_bad.status_code == 400
     assert r_bad.json()["detail"] == "Invalid plant_id"
 
     # invalid measured_at format -> 400
     r_bad_ts = await async_client.post(
-        "/api/measurements/reported-watering",
-        json={"plant_id": "aa" * 16, "measured_at": "bogus"},
+        f"/api/plants/{plant_hex}/measurements/reported-watering",
+        json={"measured_at": "bogus"},
     )
     assert r_bad_ts.status_code == 400
     assert "Invalid measured_at" in r_bad_ts.json()["detail"]
 
     # success path with composed note and deterministic id
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-
     fixed_bytes = bytes.fromhex("77" * 16)
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: fixed_bytes)
 
     cur = _FakeCursor()
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     payload = {
-        "plant_id": "aa" * 16,
         "measured_at": "2025-01-02T10:20:00",
         "reporter": "Alice",
         "note": "top-up",
     }
-    r_ok = await async_client.post("/api/measurements/reported-watering", json=payload)
+    r_ok = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+    )
     assert r_ok.status_code == 200
     data = r_ok.json()
     assert data["id"] == ("77" * 16)
-    assert data["plant_id"] == ("aa" * 16)
+    assert data["plant_id"] == plant_hex
     assert data["measured_at"] == "2025-01-02 10:20:00.000000"
     assert data["note"].startswith("[reported] watering")
     assert "by Alice" in data["note"] and "top-up" in data["note"]
 
     # insert failure -> rollback and 500
     cur.raise_on_insert = True
-    r_fail = await async_client.post("/api/measurements/reported-watering", json=payload)
+    r_fail = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+    )
     assert r_fail.status_code >= 500
 
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -274,6 +293,8 @@ async def test_create_reported_watering_invalid_and_success(
 async def test_create_measurement_non_watering_branch_and_water_retained(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # Non-watering event: measured_weight present, compute returns is_watering=False
     monkeypatch.setattr(
         measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=0)
@@ -285,12 +306,8 @@ async def test_create_measurement_non_watering_branch_and_water_retained(
     )
 
     # deterministic id
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-
     fixed_bytes = bytes.fromhex("66" * 16)
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: fixed_bytes)
 
     # Spy on water_retained calculation to ensure the block is executed
     calls = []
@@ -308,7 +325,7 @@ async def test_create_measurement_non_watering_branch_and_water_retained(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     payload = {
-        "plant_id": "aa" * 16,
+        "plant_id": plant_hex,
         "measured_at": "2025-01-01T12:00:00",
         "measured_weight_g": 150,
         "method_id": "bb" * 16,
@@ -316,7 +333,7 @@ async def test_create_measurement_non_watering_branch_and_water_retained(
         "use_last_method": False,
         "note": "weighing",
     }
-    r = await async_client.post("/api/measurements/weight", json=payload)
+    r = await async_client.post(f"/api/plants/{plant_hex}/measurements/weight", json=payload)
     assert r.status_code == 200
     j = r.json()
     assert j["status"] == "success"
@@ -331,8 +348,10 @@ async def test_create_measurement_non_watering_branch_and_water_retained(
 async def test_update_measurement_watering_branch_and_retained(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # Base row exists
-    base_row = [bytes.fromhex("aa" * 16), datetime(2025, 1, 1, 0, 0, 0), None, 90, 120, 30]
+    base_row = [bytes.fromhex(plant_hex), datetime(2025, 1, 1, 0, 0, 0), None, 90, 120, 30]
     cur = _FakeCursor(rows_one=base_row)
     # Plant params for retained calc (queried after update)
     cur.rows_all = [(100, 200)]
@@ -356,7 +375,9 @@ async def test_update_measurement_watering_branch_and_retained(
     )
 
     mid = "33" * 16
-    r = await async_client.put(f"/api/measurements/watering/{mid}", json={"water_added_g": 25})
+    r = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/watering/{mid}", json={"water_added_g": 25},
+    )
     assert r.status_code == 200
     jj = r.json()
     assert jj["status"] == "success"
@@ -369,15 +390,17 @@ async def test_update_measurement_watering_branch_and_retained(
 async def test_delete_measurement_delete_rowcount_zero_and_rollback_except(
     app: FastAPI, async_client: AsyncClient
 ):
-    # Case 1: pre-select ok, but delete affects 0 rows -> triggers 404 inside do_delete then 5xx response
+    plant_hex = "aa" * 16
+
+    # Case 1: pre-select ok, but delete affects 0 rows -> triggers 404 inside do_delete
     cur = _FakeCursor(delete_ok=False)
     # pre-select returns a row
-    cur.rows_one = [bytes.fromhex("aa" * 16), 123]
+    cur.rows_one = [bytes.fromhex(plant_hex), 123]
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
     gid = "44" * 16
-    r = await async_client.delete(f"/api/measurements/{gid}")
-    assert r.status_code >= 500
+    r = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
+    assert r.status_code == 404
 
     app.dependency_overrides.pop(get_conn_factory, None)
 
@@ -389,6 +412,7 @@ async def test_create_measurement_retained_block_executes_without_spy(
     """Covers create_measurement post-insert retained calculation (524-529) without monkeypatching
     calculate_water_retained so the call site line is executed under coverage.
     """
+    plant_hex = "aa" * 16
 
     # Execute route internals synchronously to ensure coverage captures threadpool work
     async def _inline(fn):
@@ -406,15 +430,7 @@ async def test_create_measurement_retained_block_executes_without_spy(
         lambda **kwargs: _WaterLossObj(is_watering=False),
     )
 
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-            self._hex = b.hex()
-
-        def hex(self):
-            return self._hex
-
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(bytes.fromhex("aa" * 16)))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex(plant_hex))
 
     # Provide plant min/max for retained calc
     cur = _FakeCursor()
@@ -423,14 +439,14 @@ async def test_create_measurement_retained_block_executes_without_spy(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     payload = {
-        "plant_id": "aa" * 16,
+        "plant_id": plant_hex,
         "measured_at": "2025-02-01T08:00:00",
         "measured_weight_g": 150,
         "method_id": "bb" * 16,
         "scale_id": "cc" * 16,
         "use_last_method": False,
     }
-    r = await async_client.post("/api/measurements/weight", json=payload)
+    r = await async_client.post(f"/api/plants/{plant_hex}/measurements/weight", json=payload)
     assert r.status_code == 200
     data = r.json()
     assert "water_retained_pct" in data["data"]
@@ -444,6 +460,7 @@ async def test_update_measurement_retained_block_executes_without_spy(
     """Covers update_measurement post-commit retained calculation (675-680) without monkeypatching
     calculate_water_retained so the call site line is executed under coverage.
     """
+    plant_hex = "aa" * 16
 
     # Execute route internals synchronously to ensure coverage captures threadpool work
     async def _inline(fn):
@@ -452,7 +469,7 @@ async def test_update_measurement_retained_block_executes_without_spy(
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # Base row exists
-    base_row = [bytes.fromhex("aa" * 16), datetime(2025, 1, 1, 0, 0, 0), 140, 90, 120, 0]
+    base_row = [bytes.fromhex(plant_hex), datetime(2025, 1, 1, 0, 0, 0), 140, 90, 120, 0]
     cur = _FakeCursor(rows_one=base_row)
     # Plant params for retained calc (queried after update)
     cur.rows_all = [(100, 200)]
@@ -471,7 +488,9 @@ async def test_update_measurement_retained_block_executes_without_spy(
     monkeypatch.setattr(measurements_routes, "validate_water_loss", lambda **kwargs: None)
 
     mid = "66" * 16
-    r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 150})
+    r = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json={"measured_weight_g": 150},
+    )
     assert r.status_code == 200
     data = r.json()
     assert "water_retained_pct" in data["data"]
@@ -485,6 +504,7 @@ async def test_delete_measurement_success_updates_min_dry_inline_pool(
     """Covers delete_measurement post-delete recalculation and commit (795-798) with inline threadpool
     to ensure coverage traces the lines.
     """
+    plant_hex = "aa" * 16
 
     async def _inline(fn):
         return fn()
@@ -501,14 +521,14 @@ async def test_delete_measurement_success_updates_min_dry_inline_pool(
 
     cur = _FakeCursor(delete_ok=True)
     # pre-select returns a row with measured_weight_g set
-    cur.rows_one = [bytes.fromhex("aa" * 16), 200]
+    cur.rows_one = [bytes.fromhex(plant_hex), 200]
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     gid = "77" * 16
-    r = await async_client.delete(f"/api/measurements/{gid}")
+    r = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    assert r.json() == {"message": "Measurement deleted successfully"}
     assert len(calls) == 1
     app.dependency_overrides.pop(get_conn_factory, None)
 
@@ -595,15 +615,24 @@ async def test__post_delete_recalculate_and_commit_branch(monkeypatch):
 async def test_delete_measurement_rollback_raises_covers_inner_except(
     app: FastAPI, async_client: AsyncClient
 ):
-    """Force rollback to raise so inner except (818-819) executes, returning 500."""
-    cur = _FakeCursor(delete_ok=False)
-    # Pre-select returns a valid row so code proceeds to DELETE and then 0 rowcount triggers error
-    cur.rows_one = [bytes.fromhex("aa" * 16), 123]
+    """Force rollback to raise so inner except (1252-1257) executes, returning 500."""
+    plant_hex = "aa" * 16
+
+    # Use a cursor that raises on delete to trigger the exception path (not just 0 rowcount)
+    class _DeleteBoomCursor(_FakeCursor):
+        def execute(self, sql, params=None):
+            super().execute(sql, params)
+            sql_norm = " ".join(sql.split()).lower()
+            if sql_norm.startswith("delete"):
+                raise RuntimeError("delete failed")
+
+    cur = _DeleteBoomCursor(delete_ok=False)
+    cur.rows_one = [bytes.fromhex(plant_hex), 123]
     conn = _FakeConn(cur, raise_on_rollback=True)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     gid = "99" * 16
-    r = await async_client.delete(f"/api/measurements/{gid}")
+    r = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r.status_code >= 500
     app.dependency_overrides.pop(get_conn_factory, None)
 
@@ -642,7 +671,7 @@ async def test_get_watering_approximation_success(
         "backend.app.routes.measurements.PlantsList.fetch_all", lambda **k: mock_plants
     )
 
-    resp = await async_client.get("/api/measurements/approximation/watering")
+    resp = await async_client.get("/api/plants/measurements/approximation/watering")
     assert resp.status_code == 200
     data = resp.json()["items"]
     assert len(data) == 2
@@ -653,9 +682,8 @@ async def test_get_watering_approximation_success(
 
 @pytest.mark.asyncio
 async def test__post_delete_recalculate_and_commit_none_weight_no_update(monkeypatch):
-    """Cover the False branch of the helper if: measured_weight_g is None → no update call, but commit occurs."""
+    """Cover the helper when measured_weight_g is None: update is still called (with None args), then commit."""
     calls: list = []
-    # Spy update to ensure it's not called
     monkeypatch.setattr(
         measurements_routes,
         "update_min_dry_weight_and_max_watering_added_g",
@@ -670,15 +698,17 @@ async def test__post_delete_recalculate_and_commit_none_weight_no_update(monkeyp
 
     measurements_routes._post_delete_recalculate_and_commit(conn, "aa" * 16, None)
 
-    # Ensure only commit recorded, no update
+    # update is always called, followed by commit
+    assert ("update",) in calls
     assert ("commit",) in calls
-    assert all(c[0] != "update" for c in calls)
 
 
 @pytest.mark.asyncio
 async def test_delete_measurement_success_updates_min_dry(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # Spy on update_min_dry_weight_and_max_watering_added_g
     calls = []
     monkeypatch.setattr(
@@ -689,14 +719,14 @@ async def test_delete_measurement_success_updates_min_dry(
 
     cur = _FakeCursor(delete_ok=True)
     # pre-select returns a row with measured_weight_g set
-    cur.rows_one = [bytes.fromhex("aa" * 16), 200]
+    cur.rows_one = [bytes.fromhex(plant_hex), 200]
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     gid = "55" * 16
-    r = await async_client.delete(f"/api/measurements/{gid}")
+    r = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    assert r.json() == {"message": "Measurement deleted successfully"}
     # ensure the min dry/max water update was invoked
     assert len(calls) == 1
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -706,11 +736,9 @@ async def test_delete_measurement_success_updates_min_dry(
 async def test_create_reported_watering_rollback_and_close_excepts(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
+    plant_hex = "aa" * 16
 
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(bytes.fromhex("77" * 16)))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex("77" * 16))
 
     class _Conn(_FakeConn):
         def __init__(self, cur):
@@ -723,8 +751,10 @@ async def test_create_reported_watering_rollback_and_close_excepts(
     conn = _Conn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    payload = {"plant_id": "aa" * 16, "measured_at": "2025-01-02T10:20:00"}
-    r = await async_client.post("/api/measurements/reported-watering", json=payload)
+    payload = {"plant_id": plant_hex, "measured_at": "2025-01-02T10:20:00"}
+    r = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+    )
     assert r.status_code >= 500
     app.dependency_overrides.pop(get_conn_factory, None)
 
@@ -740,19 +770,19 @@ async def test_list_measurements_for_plant_invalid_id(app: FastAPI, async_client
 async def test_create_measurement_validation_and_success(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
-    # Validation: invalid plant id -> 400
+    plant_hex = "aa" * 16
+
+    # Validation: invalid plant id in path -> 400
     bad_payload = {
-        "plant_id": "xyz",
         "measured_at": "2025-01-01T12:00:00",
     }
-    r0 = await async_client.post("/api/measurements/weight", json=bad_payload)
-    assert r0.status_code == 422 or r0.status_code == 400
-    if r0.status_code == 400:
-        assert r0.json()["detail"] == "Invalid plant_id"
+    r0 = await async_client.post("/api/plants/xyz/measurements/weight", json=bad_payload)
+    assert r0.status_code == 400
+    assert r0.json()["detail"] == "Invalid plant_id"
 
     # Validation: both measured_weight_g and water_added_g provided -> 400
     payload = {
-        "plant_id": "aa" * 16,
+        "plant_id": plant_hex,
         "measured_at": "2025-01-01T12:00:00",
         "measured_weight_g": 100,
         "water_added_g": 10,
@@ -761,7 +791,7 @@ async def test_create_measurement_validation_and_success(
         "use_last_method": False,
         "note": "x",
     }
-    resp = await async_client.post("/api/measurements/weight", json=payload)
+    resp = await async_client.post(f"/api/plants/{plant_hex}/measurements/weight", json=payload)
     assert resp.status_code == 400
     assert "Provide either measured_weight_g or water_added_g" in resp.json()["detail"]
 
@@ -776,16 +806,8 @@ async def test_create_measurement_validation_and_success(
         lambda **kwargs: _WaterLossObj(is_watering=True),
     )
 
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-            self._hex = b.hex()
-
-        def hex(self):
-            return self._hex
-
     fixed_bytes = bytes.fromhex("99" * 16)
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: fixed_bytes)
 
     fake_cur = _FakeCursor()
     fake_conn = _FakeConn(fake_cur)
@@ -795,7 +817,7 @@ async def test_create_measurement_validation_and_success(
     fake_cur.rows_all = [(100, 200)]
 
     payload2 = {
-        "plant_id": "aa" * 16,
+        "plant_id": plant_hex,
         "measured_at": "2025-01-01T12:00:00",
         "measured_weight_g": None,
         "water_added_g": 25,
@@ -804,7 +826,9 @@ async def test_create_measurement_validation_and_success(
         "use_last_method": True,
         "note": "watering",
     }
-    r2 = await async_client.post("/api/measurements/watering", json=payload2)
+    r2 = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/watering", json=payload2,
+    )
     assert r2.status_code == 200
     j = r2.json()
     assert j["status"] == "success"
@@ -813,7 +837,9 @@ async def test_create_measurement_validation_and_success(
 
     # Failure path: exception during insert triggers rollback and 500
     fake_cur.raise_on_insert = True
-    r3 = await async_client.post("/api/measurements/watering", json=payload2)
+    r3 = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/watering", json=payload2,
+    )
     assert r3.status_code >= 500
 
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -823,6 +849,8 @@ async def test_create_measurement_validation_and_success(
 async def test_create_measurement_rollback_inner_except(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # Arrange deterministic stubs again
     monkeypatch.setattr(
         measurements_routes, "derive_weights", lambda **kwargs: _DerivedObj(ld=90, lw=120, wa=25)
@@ -833,23 +861,15 @@ async def test_create_measurement_rollback_inner_except(
         lambda **kwargs: _WaterLossObj(is_watering=True),
     )
 
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-            self._hex = b.hex()
-
-        def hex(self):
-            return self._hex
-
     fixed_bytes = bytes.fromhex("98" * 16)
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: fixed_bytes)
 
     cur = _FakeCursor(raise_on_insert=True)
     conn = _FakeConn(cur, raise_on_rollback=True)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     payload = {
-        "plant_id": "aa" * 16,
+        "plant_id": plant_hex,
         "measured_at": "2025-01-01T12:00:00",
         "measured_weight_g": None,
         "water_added_g": 25,
@@ -857,7 +877,9 @@ async def test_create_measurement_rollback_inner_except(
         "scale_id": "cc" * 16,
         "use_last_method": True,
     }
-    r = await async_client.post("/api/measurements/watering", json=payload)
+    r = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/watering", json=payload,
+    )
     # Should surface as 500 but not crash the test harness
     assert r.status_code >= 500
 
@@ -868,8 +890,10 @@ async def test_create_measurement_rollback_inner_except(
 async def test_update_measurement_rollback_inner_except(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     base_row = [
-        bytes.fromhex("aa" * 16),  # plant_id bytes
+        bytes.fromhex(plant_hex),  # plant_id bytes
         datetime(2025, 1, 1, 0, 0, 0),  # measured_at current as datetime
         100,
         90,
@@ -892,7 +916,9 @@ async def test_update_measurement_rollback_inner_except(
     monkeypatch.setattr(measurements_routes, "validate_water_loss", lambda **kwargs: None)
 
     mid = "33" * 16
-    r = await async_client.put(f"/api/measurements/weight/{mid}", json={"measured_weight_g": 111})
+    r = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json={"measured_weight_g": 111},
+    )
     assert r.status_code >= 500
 
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -902,8 +928,12 @@ async def test_update_measurement_rollback_inner_except(
 async def test_update_measurement_invalid_and_not_found(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # invalid id
-    resp = await async_client.put("/api/measurements/weight/nothex", json={})
+    resp = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/weight/nothex", json={},
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid id"
 
@@ -912,7 +942,9 @@ async def test_update_measurement_invalid_and_not_found(
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
     good_id = "ab" * 16
-    r2 = await async_client.put(f"/api/measurements/watering/{good_id}", json={})
+    r2 = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/watering/{good_id}", json={},
+    )
     assert r2.status_code == 404
 
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -922,9 +954,11 @@ async def test_update_measurement_invalid_and_not_found(
 async def test_update_measurement_success_and_validation_and_rollback(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # Base row exists
     base_row = [
-        bytes.fromhex("aa" * 16),  # plant_id bytes
+        bytes.fromhex(plant_hex),  # plant_id bytes
         datetime(2025, 1, 1, 0, 0, 0),  # measured_at current as datetime
         100,
         90,
@@ -950,14 +984,17 @@ async def test_update_measurement_success_and_validation_and_rollback(
 
     # Validation: both measured_weight_g and water_added_g provided -> 400 (covers 254-255)
     r_val = await async_client.put(
-        f"/api/measurements/weight/{pid}", json={"measured_weight_g": 110, "water_added_g": 5}
+        f"/api/plants/{plant_hex}/measurements/weight/{pid}",
+        json={"measured_weight_g": 110, "water_added_g": 5},
     )
     assert r_val.status_code == 400
 
     # Success update path
     # Provide plant min/max weights for new route logic
     cur.rows_all = [(100, 200)]
-    r = await async_client.put(f"/api/measurements/weight/{pid}", json={"measured_weight_g": 110})
+    r = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/weight/{pid}", json={"measured_weight_g": 110},
+    )
     assert r.status_code == 200
     jj = r.json()
     assert jj["status"] == "success"
@@ -966,7 +1003,7 @@ async def test_update_measurement_success_and_validation_and_rollback(
     # Rollback path: raise on update to trigger 500 and inner rollback except (338-339)
     cur.raise_on_update = True
     r_err = await async_client.put(
-        f"/api/measurements/weight/{pid}", json={"measured_weight_g": 120}
+        f"/api/plants/{plant_hex}/measurements/weight/{pid}", json={"measured_weight_g": 120},
     )
     assert r_err.status_code >= 500
 
@@ -977,8 +1014,10 @@ async def test_update_measurement_success_and_validation_and_rollback(
 async def test_get_measurement_invalid_not_found_and_success(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
+    plant_hex = "aa" * 16
+
     # invalid
-    resp = await async_client.get("/api/measurements/nothex")
+    resp = await async_client.get(f"/api/plants/{plant_hex}/measurements/nothex")
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid id"
 
@@ -987,13 +1026,13 @@ async def test_get_measurement_invalid_not_found_and_success(
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
     gid = "11" * 16
-    r2 = await async_client.get(f"/api/measurements/{gid}")
+    r2 = await async_client.get(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r2.status_code == 404
 
     # success
     row = [
         bytes.fromhex("11" * 16),  # id
-        bytes.fromhex("aa" * 16),  # plant_id
+        bytes.fromhex(plant_hex),  # plant_id
         types.SimpleNamespace(
             isoformat=lambda sep=" ", timespec="milliseconds": "2025-01-01 00:00:00.000"
         ),
@@ -1011,11 +1050,11 @@ async def test_get_measurement_invalid_not_found_and_success(
         "note",
     ]
     cur.rows_one = row
-    r3 = await async_client.get(f"/api/measurements/{gid}")
+    r3 = await async_client.get(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r3.status_code == 200
     data = r3.json()
     assert data["id"] == ("11" * 16)
-    assert data["plant_id"] == ("aa" * 16)
+    assert data["plant_id"] == plant_hex
     assert data["use_last_method"] is True
     assert data["method_id"] == ("bb" * 16)
 
@@ -1026,28 +1065,29 @@ async def test_get_measurement_invalid_not_found_and_success(
 async def test_delete_measurement_invalid_not_found_and_success(
     app: FastAPI, async_client: AsyncClient
 ):
+    plant_hex = "aa" * 16
+
     # invalid
-    resp = await async_client.delete("/api/measurements/nothex")
+    resp = await async_client.delete(f"/api/plants/{plant_hex}/measurements/nothex")
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid id"
 
-    # not found
-    cur = _FakeCursor(delete_ok=False)
+    # not found (no pre-select row → 404)
+    cur = _FakeCursor(rows_one=None)
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     gid = "22" * 16
-    r2 = await async_client.delete(f"/api/measurements/{gid}")
-    # The route now wraps exceptions and returns 5xx on missing measurement
-    assert r2.status_code >= 500
+    r2 = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
+    assert r2.status_code == 404
 
     # success
     cur._delete_ok = True
     # Provide existing measurement details for the pre-delete SELECT
-    cur.rows_one = [bytes.fromhex("aa" * 16), 100]
-    r3 = await async_client.delete(f"/api/measurements/{gid}")
+    cur.rows_one = [bytes.fromhex(plant_hex), 100]
+    r3 = await async_client.delete(f"/api/plants/{plant_hex}/measurements/{gid}")
     assert r3.status_code == 200
-    assert r3.json() == {"ok": True}
+    assert r3.json() == {"message": "Measurement deleted successfully"}
 
     app.dependency_overrides.pop(get_conn_factory, None)
 
@@ -1057,6 +1097,7 @@ async def test_create_vacation_watering_success(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
     """Covers create_vacation_watering (118-218)."""
+    plant_hex = "aa" * 16
 
     # Execute route internals synchronously
     async def _inline(fn):
@@ -1065,12 +1106,8 @@ async def test_create_vacation_watering_success(
     monkeypatch.setattr(measurements_routes, "run_in_threadpool", _inline)
 
     # deterministic id
-    class _UUID:
-        def __init__(self, b):
-            self.bytes = b
-
     fixed_bytes = bytes.fromhex("55" * 16)
-    monkeypatch.setattr(measurements_routes.uuid, "uuid4", lambda: _UUID(fixed_bytes))
+    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: fixed_bytes)
 
     cur = _FakeCursor()
     # Mocking rows for water_added_g and (method_id, scale_id)
@@ -1079,35 +1116,42 @@ async def test_create_vacation_watering_success(
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    payload = {"plant_id": "aa" * 16, "measured_at": "2025-01-01T12:00:00"}
-    r = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    payload = {"plant_id": plant_hex, "measured_at": "2025-01-01T12:00:00"}
+    r = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["id"] == ("55" * 16)
     assert data["note"] == "[vacation] watering"
 
-    # Test invalid plant_id
+    # Test invalid plant_id in path
     r_bad = await async_client.post(
-        "/api/measurements/vacation/watering", json={"plant_id": "invalid"}
+        "/api/plants/invalid/measurements/vacation/watering",
+        json={"measured_at": "2025-01-01T12:00:00"},
     )
     assert r_bad.status_code == 400
 
     # Test invalid measured_at
     r_bad_ts = await async_client.post(
-        "/api/measurements/vacation/watering",
-        json={"plant_id": "aa" * 16, "measured_at": "invalid"},
+        f"/api/plants/{plant_hex}/measurements/vacation/watering",
+        json={"measured_at": "invalid"},
     )
     assert r_bad_ts.status_code == 400
 
     # Test failure path
     cur.raise_on_insert = True
-    r_fail = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    r_fail = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+    )
     assert r_fail.status_code == 500
 
     # Test failure path with rollback exception
     cur.raise_on_insert = True
     monkeypatch.setattr(conn, "rollback", lambda: exec('raise RuntimeError("rollback failed")'))
-    r_fail_rollback = await async_client.post("/api/measurements/vacation/watering", json=payload)
+    r_fail_rollback = await async_client.post(
+        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+    )
     assert r_fail_rollback.status_code == 500
 
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -1118,6 +1162,7 @@ async def test_update_measurement_vacation_event_signature(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
     """Covers update_measurement lines 911-920."""
+    plant_hex = "aa" * 16
 
     async def _inline(fn):
         return fn()
@@ -1126,7 +1171,7 @@ async def test_update_measurement_vacation_event_signature(
 
     # Base row is a vacation event (mw, ld, lw are None)
     base_row = [
-        bytes.fromhex("aa" * 16),  # plant_id bytes
+        bytes.fromhex(plant_hex),  # plant_id bytes
         datetime(2025, 1, 1, 0, 0, 0),  # measured_at
         None,
         None,
@@ -1139,10 +1184,12 @@ async def test_update_measurement_vacation_event_signature(
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    mid = "aa" * 16
+    mid = plant_hex
     # Update without changing weights to maintain vacation signature
     payload = {"note": "updated vacation note"}
-    r = await async_client.put(f"/api/measurements/weight/{mid}", json=payload)
+    r = await async_client.put(
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json=payload,
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["status"] == "success"

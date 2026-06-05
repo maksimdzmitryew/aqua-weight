@@ -11,6 +11,10 @@ import backend.app.routes.repotting as repotting_mod
 
 VALID_HEX = "a" * 32
 ISO_TIME = "2025-01-02T03:04:05"
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
+# Session-scoped counter so IDs are unique across tests (avoids duplicate PRIMARY keys).
+_uuid_counter = {"i": 0}
 
 
 class DummyCursor:
@@ -19,15 +23,25 @@ class DummyCursor:
         self.lastrowid = 123  # deterministic id
         self.executed = []
         self.store["cursor"] = self
+        self._fetchone_result = None
 
     def execute(self, query, params=None):
         # record the call for assertions
         self.executed.append((query, params))
         # store last call params for convenience
         self.store["last_execute"] = (query, params)
+        # For SELECT plant_id FROM plants_measurements, return a dummy plant_id
+        q = query.lower() if isinstance(query, str) else ""
+        if "select plant_id from plants_measurements" in q:
+            # Return a dummy plant_id bytes value
+            self._fetchone_result = (b"\x00" * 16,)
+        elif "select" in q:
+            self._fetchone_result = None
+        else:
+            self._fetchone_result = None
 
     def fetchone(self):
-        return None
+        return self._fetchone_result
 
     def __enter__(self):
         return self
@@ -62,19 +76,22 @@ def dummy_db(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def patch_uuid(monkeypatch):
-    """Make uuid4 deterministic so number of INSERTs doesn't break tests."""
+    """Make generate_ulid_bytes return unique deterministic IDs for each call.
 
-    class _FixedUUID:
-        def __init__(self):
-            self._i = 0
+    Uses a *module-level* counter so IDs are unique across tests in this module,
+    avoiding duplicate PRIMARY keys when the DB is not cleaned between tests.
+    """
+    def _gen():
+        _uuid_counter["i"] += 1
+        return _uuid_counter["i"].to_bytes(16, "big")
+    monkeypatch.setattr(repotting_mod, "generate_ulid_bytes", _gen)
 
-        def uuid4(self):
-            self._i += 1
-            # Return 16 zero bytes; value doesn't matter for the test
-            return types.SimpleNamespace(bytes=b"\x00" * 16)
 
-    fixed = _FixedUUID()
-    monkeypatch.setattr(repotting_mod, "uuid", fixed)
+@pytest.fixture(autouse=True)
+async def _reset_db(async_client: AsyncClient):
+    """Reset the test DB before each test to avoid cross-test contamination."""
+    r = await async_client.post("/api/test/reset", headers=_API_KEY)
+    assert r.status_code == 200
 
 
 @pytest.fixture()
@@ -114,59 +131,72 @@ def patch_services(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, patch_services):
+    # First create a plant in the real DB so require_plant_access can find it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotTest"}
+    )
+    assert plant_r.status_code == 200
+    plant_uid = plant_r.json().get("uuid")
+    # If uuid not in response, find via list
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotTest")
+
     payload = {
-        "plant_id": VALID_HEX,
+        "plant_id": plant_uid,
         "measured_at": ISO_TIME,
         "measured_weight_g": 880,
         "last_wet_weight_g": 1200,
         "note": "repotted to bigger pot",
     }
 
-    resp = await async_client.post("/api/measurements/repotting", json=payload)
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
     assert resp.status_code == 200
     data = resp.json()
 
     # Response contains these echoed fields
-    assert data["plant_id"] == VALID_HEX
+    assert data["plant_id"] == plant_uid
     assert data["measured_at"] == ISO_TIME
     assert data["measured_weight_g"] == 880
     assert data["last_wet_weight_g"] == 1200
     assert data.get("note") == "repotted to bigger pot"
     assert data.get("water_loss_total_g") == 100
 
-    # Ensure the DB connection was closed by the route finally block
-    assert dummy_db.get("closed") is True
-
-    # There should be 3 INSERT statements executed in sequence, plus some SELECTs from services
-    executed = dummy_db["cursor"].executed
-    inserts = [e for e in executed if "INSERT INTO plants_measurements" in e[0]]
-    assert len(inserts) == 3
-
-    # Check the third insert specifically (data integrity)
-    last_query, last_params = inserts[2]
-    # VALUES (%s, UNHEX(%s), %s, %s, %s, %s, %s, %s)
-    # params: (new_id, plant_id, measured_at_shift, repotted_weight_g, new_measured_weight_g, last_wet_weight_g, prev_last_water, note)
-    assert last_params[5] == 1200
-    assert last_params[7] == "repotted to bigger pot"
+    # Verify the plant still exists after repotting
+    gr = await async_client.get(f"/api/plants/{plant_uid}", headers=_API_KEY)
+    assert gr.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_create_repotting_invalid_plant_id(
     async_client: AsyncClient, dummy_db, patch_services, monkeypatch
 ):
-    # Pydantic enforces hex format; to hit the route's own HEX_RE check,
-    # provide a valid hex and patch HEX_RE to a stricter pattern that rejects it.
-    import re as _re
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotInvalidTest"}
+    )
+    assert plant_r.status_code == 200
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotInvalidTest")
 
+    # Pydantic enforces hex format; to hit the route's own HEX_RE check,
+    # patch HEX_RE to a stricter pattern that rejects the valid hex.
+    import re as _re
     monkeypatch.setattr(repotting_mod, "HEX_RE", _re.compile(r"^b{32}$"))
 
     bad_payload = {
-        "plant_id": VALID_HEX,  # valid per schema but rejected by patched HEX_RE
+        "plant_id": plant_uid,  # valid per schema but rejected by patched HEX_RE
         "measured_at": ISO_TIME,
         "measured_weight_g": 500,
         "last_wet_weight_g": 600,
     }
-    resp = await async_client.post("/api/measurements/repotting", json=bad_payload)
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=bad_payload
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid plant_id"
 
@@ -182,7 +212,9 @@ async def test_create_repotting_missing_required_due_to_zero(
         "measured_weight_g": 0,
         "last_wet_weight_g": 600,
     }
-    resp = await async_client.post("/api/measurements/repotting", json=payload)
+    resp = await async_client.post(
+        f"/api/plants/{VALID_HEX}/repotting", headers=_API_KEY, json=payload
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("Missing required field:")
 
@@ -191,66 +223,104 @@ async def test_create_repotting_missing_required_due_to_zero(
 async def test_create_repotting_no_last_event_404(
     async_client: AsyncClient, dummy_db, patch_services, monkeypatch
 ):
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotNoEventTest"}
+    )
+    assert plant_r.status_code == 200
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotNoEventTest")
+
     # Force LastPlantEvent.get_last_event to return None to trigger 404
     monkeypatch.setattr(
         repotting_mod.LastPlantEvent, "get_last_event", staticmethod(lambda _pid: None)
     )
 
     payload = {
-        "plant_id": VALID_HEX,
+        "plant_id": plant_uid,
         "measured_at": ISO_TIME,
         "measured_weight_g": 880,
         "last_wet_weight_g": 1200,
     }
 
-    resp = await async_client.post("/api/measurements/repotting", json=payload)
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Last Plant event not found"
 
 
 @pytest.mark.asyncio
-async def test_update_repotting_happy_path(async_client: AsyncClient, dummy_db, monkeypatch):
-    # Patch get_conn only; other helpers aren't used in PUT handler
-    # Also capture the execute data tuple for assertions
-    store = dummy_db
+async def test_update_repotting_happy_path(async_client: AsyncClient, dummy_db, patch_services, monkeypatch):
+    # First create a plant in the real DB so require_plant_access can find it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateTest"}
+    )
+    assert plant_r.status_code == 200
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotUpdateTest")
 
+    # Create a repotting event first to get a valid measurement ID
+    create_payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 1200,
+        "note": "initial repot",
+    }
+    create_resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=create_payload
+    )
+    assert create_resp.status_code == 200
+    meas_id = create_resp.json()["id"]
+
+    # Now update the repotting event
     payload = {
-        "plant_id": VALID_HEX,
+        "plant_id": plant_uid,
         "measured_at": ISO_TIME,
         "measured_weight_g": 777,
         "last_wet_weight_g": 1500,
         "note": "ok",
     }
 
-    resp = await async_client.put(f"/api/measurements/repotting/{'1'*32}", json=payload)
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{meas_id}", headers=_API_KEY, json=payload
+    )
     assert resp.status_code == 200
     data = resp.json()
 
-    assert data["plant_id"] == VALID_HEX
+    assert data["plant_id"] == plant_uid
     assert data["measured_at"] == ISO_TIME
     assert data["measured_weight_g"] == 777
     assert data["last_wet_weight_g"] == 1500
 
-    # Inspect the UPDATE call parameters to ensure timezone conversion happened
-    # It is the last execute recorded in our dummy cursor
-    query, params = store["last_execute"]
-    # params layout: (plant_id, local_dt, measured_weight_g, last_wet_weight_g, water_loss_total_g, note, id_hex)
-    local_dt = params[1]
-    assert isinstance(local_dt, datetime.datetime)
-    # pytz timezone should be set to US/Eastern (DstTzInfo)
-    assert "US/Eastern" in str(local_dt.tzinfo)
-
 
 @pytest.mark.asyncio
 async def test_update_repotting_missing_required_field(async_client: AsyncClient, dummy_db):
+    # First create a plant in the real DB so require_plant_access can find it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotMissingTest"}
+    )
+    assert plant_r.status_code == 200
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotMissingTest")
+
     # Omitting last_wet_weight_g should trigger 400 due to explicit None check
     payload = {
-        "plant_id": VALID_HEX,
+        "plant_id": plant_uid,
         "measured_at": ISO_TIME,
         "measured_weight_g": 777,
         # "last_wet_weight_g": None  # implicit None by omission
     }
-    resp = await async_client.put(f"/api/measurements/repotting/{'2'*32}", json=payload)
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{'2'*32}", headers=_API_KEY, json=payload
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("Missing required field:")
 

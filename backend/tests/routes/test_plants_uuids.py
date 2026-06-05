@@ -3,6 +3,9 @@ from httpx import AsyncClient
 from backend.app.helpers.plants_list import PlantsList
 
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
+
 @pytest.mark.anyio
 async def test_list_plant_uuids_basic(async_client: AsyncClient, monkeypatch):
     mock_data = [
@@ -28,7 +31,7 @@ async def test_list_plant_uuids_basic(async_client: AsyncClient, monkeypatch):
     monkeypatch.setattr("backend.app.routes.plants.PlantsList.fetch_all", mock_fetch_all)
 
     # Test without needs_watering filter
-    resp = await async_client.get("/api/plants/uuids")
+    resp = await async_client.get("/api/plants/uuids", headers=_API_KEY)
     assert resp.status_code == 200
     assert resp.json() == ["uuid1", "uuid2"]
 
@@ -90,11 +93,11 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         "backend.app.routes.plants.PlantsList.fetch_all", lambda **kwargs: mock_data
     )
 
-    resp = await async_client.get("/api/plants/uuids", params={"needs_watering": "true"})
+    resp = await async_client.get("/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "true"})
     assert resp.status_code == 200
     assert resp.json() == ["needs_water", "no_weight_needs_water"]
 
-    resp = await async_client.get("/api/plants/uuids", params={"needs_watering": "false"})
+    resp = await async_client.get("/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "false"})
     assert resp.status_code == 200
     assert resp.json() == [
         "no_needs_water",
@@ -117,13 +120,13 @@ async def test_list_plant_uuids_needs_watering_vacation(async_client: AsyncClien
     )
 
     resp = await async_client.get(
-        "/api/plants/uuids", params={"needs_watering": "true", "operationMode": "vacation"}
+        "/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "true", "operationMode": "vacation"}
     )
     assert resp.status_code == 200
     assert resp.json() == ["vacation_needs_water"]
 
     resp = await async_client.get(
-        "/api/plants/uuids", params={"needs_watering": "false", "operationMode": "vacation"}
+        "/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "false", "operationMode": "vacation"}
     )
     assert resp.status_code == 200
     assert resp.json() == ["vacation_no_needs_water", "vacation_none_offset"]
@@ -140,7 +143,7 @@ async def test_list_plant_uuids_cookies_and_thresholds(async_client: AsyncClient
     monkeypatch.setattr("backend.app.routes.plants.PlantsList.fetch_all", mock_fetch_all)
 
     # Test cookies
-    headers = {"Cookie": "operationMode=vacation; defaultThreshold=40.5"}
+    headers = {"Cookie": "operationMode=vacation; defaultThreshold=40.5", **_API_KEY}
     await async_client.get("/api/plants/uuids", headers=headers)
     assert captured["mode"] == "vacation"
     assert captured["default_threshold"] == 40.5
@@ -173,13 +176,13 @@ async def test_list_plant_uuids_thresh_none_uses_default(async_client: AsyncClie
 
     # defaultThreshold=30, retained=25 -> 25 <= 30 -> True
     resp = await async_client.get(
-        "/api/plants/uuids", params={"needs_watering": "true", "defaultThreshold": "30"}
+        "/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "true", "defaultThreshold": "30"}
     )
     assert resp.json() == ["use_default_thresh"]
 
     # defaultThreshold=20, retained=25 -> 25 <= 20 -> False
     resp = await async_client.get(
-        "/api/plants/uuids", params={"needs_watering": "true", "defaultThreshold": "20"}
+        "/api/plants/uuids", headers=_API_KEY, params={"needs_watering": "true", "defaultThreshold": "20"}
     )
     assert resp.json() == []
 
@@ -196,5 +199,5 @@ async def test_parse_default_threshold_coverage(async_client: AsyncClient, monke
     monkeypatch.setattr("backend.app.routes.plants.PlantsList.fetch_all", mock_fetch_all)
 
     # Invalid threshold should fallback to 40.0
-    await async_client.get("/api/plants/uuids", params={"defaultThreshold": "invalid"})
+    await async_client.get("/api/plants/uuids", headers=_API_KEY, params={"defaultThreshold": "invalid"})
     assert captured["default_threshold"] == 40.0

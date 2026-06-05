@@ -7,6 +7,9 @@ from httpx import AsyncClient
 import backend.app.routes.plants as plants_module
 
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
+
 class BytesRaiser:
     @staticmethod
     def fromhex(s: str):
@@ -18,7 +21,7 @@ async def test_create_plant_hex_to_bytes_fromhex_exception(
     monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient
 ):
     # Reset DB
-    r = await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/test/reset", headers=_API_KEY)
     assert r.status_code == 200
 
     # Monkeypatch bytes in plants module so hex_to_bytes will hit the except branch
@@ -27,6 +30,7 @@ async def test_create_plant_hex_to_bytes_fromhex_exception(
     valid_hex = uuid.uuid4().hex  # matches regex but our fromhex will raise
     r = await async_client.post(
         "/api/plants",
+        headers=_API_KEY,
         json={
             "name": "Exc Create",
             "location_id": valid_hex,
@@ -42,15 +46,15 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(
     monkeypatch: pytest.MonkeyPatch, async_client: AsyncClient
 ):
     # Reset DB
-    r = await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/test/reset", headers=_API_KEY)
     assert r.status_code == 200
 
     # Create a plant
-    r = await async_client.post("/api/plants", json={"name": "Exc Update"})
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "Exc Update"})
     assert r.status_code == 200
 
     # Find UUID via list (paginated response)
-    lr = await async_client.get("/api/plants")
+    lr = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "Exc Update")
 
     # Monkeypatch bytes in plants module
@@ -60,6 +64,7 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(
     valid_hex = uuid.uuid4().hex
     ur = await async_client.patch(
         f"/api/plants/{uid}",
+        headers=_API_KEY,
         json={
             "name": "Exc Update v2",
             "location_id": valid_hex,
@@ -68,7 +73,7 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(
     assert ur.status_code == 200
     assert ur.json()["ok"] is True
 
-    gr = await async_client.get(f"/api/plants/{uid}")
+    gr = await async_client.get(f"/api/plants/{uid}", headers=_API_KEY)
     assert gr.status_code == 200
     item = gr.json()
     assert item["name"] == "Exc Update v2"

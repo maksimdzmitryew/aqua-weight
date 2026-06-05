@@ -2,6 +2,9 @@ import pytest
 from httpx import AsyncClient
 
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
+
 @pytest.mark.anyio
 async def test_list_reference_endpoints(async_client: AsyncClient):
     endpoints = [
@@ -13,7 +16,7 @@ async def test_list_reference_endpoints(async_client: AsyncClient):
         "/api/measurement-methods",
     ]
     for ep in endpoints:
-        resp = await async_client.get(ep)
+        resp = await async_client.get(ep, headers=_API_KEY)
         assert resp.status_code == 200
         data = resp.json()
         assert isinstance(data, list)

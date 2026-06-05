@@ -6,14 +6,16 @@ import pytest
 
 from backend.app.db.core import connect, cursor
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
 
 @pytest.mark.anyio
-async def test_reset_returns_404_when_test_mode_disabled(async_client, monkeypatch):
-    # Ensure runtime app has routes mounted, but request-time guard should block
+async def test_reset_returns_401_when_test_mode_disabled(async_client, monkeypatch):
+    # When TEST_MODE=0, the API key fallback in require_authenticated_user is disabled,
+    # so the request is rejected with 401 before reaching the route handler's _ensure_test_mode() guard.
     monkeypatch.setenv("TEST_MODE", "0")
-    resp = await async_client.post("/api/test/reset")
-    assert resp.status_code == 404
-    assert resp.json().get("detail") == "Not Found"
+    resp = await async_client.post("/api/test/reset", headers={"X-API-Key": "test_api_key_for_testing"})
+    assert resp.status_code == 401
 
 
 def _fetch_hex_ids_and_names(table: str) -> List[Tuple[str, str]]:
@@ -33,10 +35,10 @@ def _count_rows(table: str) -> int:
 @pytest.mark.anyio
 async def test_seed_minimal_inserts_expected_rows_and_is_idempotent(async_client):
     # Start from clean slate
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
 
     # First seed
-    r1 = await async_client.post("/api/test/seed-minimal")
+    r1 = await async_client.post("/api/test/seed-minimal", headers=_API_KEY)
     assert r1.status_code == 200
     body1 = r1.json()
     assert body1["status"] == "ok"
@@ -54,7 +56,7 @@ async def test_seed_minimal_inserts_expected_rows_and_is_idempotent(async_client
     ]
 
     # Second seed should be idempotent and keep same data
-    r2 = await async_client.post("/api/test/seed-minimal")
+    r2 = await async_client.post("/api/test/seed-minimal", headers=_API_KEY)
     assert r2.status_code == 200
     body2 = r2.json()
     assert body2 == body1
@@ -69,7 +71,7 @@ async def test_seed_minimal_inserts_expected_rows_and_is_idempotent(async_client
 @pytest.mark.anyio
 async def test_seed_endpoint_performs_reset_then_seed(async_client):
     # Ensure minimal seed exists
-    await async_client.post("/api/test/seed-minimal")
+    await async_client.post("/api/test/seed-minimal", headers=_API_KEY)
 
     # Insert some extra dummy data that should be wiped by /seed
     dummy_loc = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -92,7 +94,7 @@ async def test_seed_endpoint_performs_reset_then_seed(async_client):
             )
 
     # Call seed endpoint (should reset and then seed minimal)
-    resp = await async_client.post("/api/test/seed")
+    resp = await async_client.post("/api/test/seed", headers=_API_KEY)
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 
@@ -111,7 +113,7 @@ async def test_seed_endpoint_performs_reset_then_seed(async_client):
 @pytest.mark.anyio
 async def test_cleanup_truncates_tables(async_client):
     # Seed to ensure there is data to clear
-    await async_client.post("/api/test/seed")
+    await async_client.post("/api/test/seed", headers=_API_KEY)
 
     # Create a dummy measurement/event row if schema allows; otherwise rely on plants/locations
     # For robustness, just ensure counts > 0 before cleanup where applicable
@@ -119,7 +121,7 @@ async def test_cleanup_truncates_tables(async_client):
     assert _count_rows("locations") >= 1
 
     # Cleanup should truncate all relevant tables
-    resp = await async_client.post("/api/test/cleanup")
+    resp = await async_client.post("/api/test/cleanup", headers=_API_KEY)
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
 

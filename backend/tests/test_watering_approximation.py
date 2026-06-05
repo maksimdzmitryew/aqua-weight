@@ -3,6 +3,18 @@ from fastapi import FastAPI
 from httpx import AsyncClient
 from datetime import datetime, timedelta
 
+from backend.app.security import require_authenticated_user
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _override_auth(app: FastAPI):
+    """Bypass auth for this test module."""
+    app.dependency_overrides[require_authenticated_user] = lambda: {
+        "id": None, "id_hex": None, "username": "test_admin", "global_role": "admin",
+    }
+    yield
+    app.dependency_overrides.pop(require_authenticated_user, None)
+
 
 @pytest.mark.asyncio
 async def test_get_watering_approximation_success(
@@ -31,7 +43,7 @@ async def test_get_watering_approximation_success(
 
     monkeypatch.setattr("backend.app.routes.measurements.PlantsList", MockPlantsList)
 
-    response = await async_client.get("/api/measurements/approximation/watering")
+    response = await async_client.get("/api/plants/measurements/approximation/watering")
     assert response.status_code == 200
     data = response.json()
 

@@ -19,7 +19,7 @@ class DummyCreate:
         self.botanical_name = None
         self.cultivar = None
         # invalid hex strings that fail regex -> hit final return None path in hex_to_bytes
-        self.location_id = "not_a_hex_32"
+        self.location_id = None  # skip verify_location_access; exercise hex_to_bytes only
         self.substrate_type_id = "z" * 31
         self.light_level_id = "g" * 32
         self.pest_status_id = "-" * 32
@@ -47,7 +47,7 @@ class DummyUpdate:
         self.plant_type = None
         self.identify_hint = None
         self.typical_action = None
-        self.location_id = "X" * 16
+        self.location_id = None  # skip verify_location_access; exercise hex_to_bytes only
         self.substrate_type_id = "y" * 10
         self.light_level_id = "q" * 1
         self.pest_status_id = "foo"
@@ -83,18 +83,27 @@ class DummyUpdate:
         return self.dict(exclude_unset=exclude_unset)
 
 
+class _DummyDB:
+    """Minimal dummy DB that satisfies the verify_location_access / verify_plant_access checks."""
+    pass
+
+
 @pytest.mark.anyio
 async def test_hex_to_bytes_invalid_paths_unit(async_client):
+    # Mock admin user for direct function calls
+    mock_user = {"id": None, "id_hex": None, "username": "unit_test", "global_role": "admin"}
+    mock_db = _DummyDB()
+
     # Call create_plant directly with a dummy payload to bypass Pydantic and HTTP layer
-    resp = await create_plant(DummyCreate())
+    resp = await create_plant(DummyCreate(), mock_user, mock_db)
     assert resp["ok"] is True
 
     # Find created UUID via GET list to get an id for update (paginated response)
-    lr = await async_client.get("/api/plants")
+    lr = await async_client.get("/api/plants", headers={"X-API-Key": "test_api_key_for_testing"})
     assert lr.status_code == 200
     items = lr.json()["items"]
     uid = next(it["uuid"] for it in items if it["name"] == "Unit Invalid")
 
     # Call update_plant directly with invalid hex fields
-    resp2 = await update_plant(uid, DummyUpdate())
+    resp2 = await update_plant(uid, DummyUpdate(), mock_user, mock_db)
     assert resp2["ok"] is True
