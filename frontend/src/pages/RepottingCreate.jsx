@@ -63,6 +63,7 @@ const RepottingCreate = () => {
     setError('')
     try {
       const payload = {
+        plant_id: vals.plant_id,
         measured_at: vals.measured_at,
         measured_weight_g:
           vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
@@ -131,7 +132,7 @@ const RepottingCreate = () => {
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">
+          <button disabled={!form.valid || !form.values.plant_id || saving} type="submit" className="btn btn-primary">
             {isEdit ? 'Update repotting' : 'Save repotting'}
           </button>
           <button

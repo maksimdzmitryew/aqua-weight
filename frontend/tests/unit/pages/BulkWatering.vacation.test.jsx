@@ -8,6 +8,16 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 describe('pages/BulkWatering (vacation mode commit/delete)', () => {
   beforeEach(() => {
     localStorage.setItem('operationMode', 'vacation')
@@ -43,12 +53,12 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
           water_loss_total_pct: 90,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           status: 'success',
           data: {
@@ -76,12 +86,12 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({ message: 'Error' }, { status: 500 }),
       ),
     )
@@ -100,8 +110,8 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({ status: 'success', data: null }),
       ),
     )
@@ -130,18 +140,18 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
           water_loss_total_pct: 90,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           status: 'success',
           data: { id: 5001, water_retained_pct: 100, water_loss_total_pct: 0 },
         }),
       ),
-      http.delete('/api/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
     )
 
     await setupAndShowAll()
@@ -168,18 +178,18 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
           water_loss_total_pct: 90,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           status: 'success',
           data: { id: 5001, water_retained_pct: 100, water_loss_total_pct: 0 },
         }),
       ),
-      http.delete('/api/measurements/5001', () =>
+      http.delete('/api/plants/:pid/measurements/5001', () =>
         HttpResponse.json({ message: 'Fail' }, { status: 500 }),
       ),
     )
@@ -203,24 +213,24 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           data: { id: 5001 },
         }),
       ),
-      http.delete('/api/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
     )
 
     await setupAndShowAll()
 
     // 1. Commit fails to refresh approx
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ message: 'fail' }, { status: 500 }),
       ),
     )
@@ -254,13 +264,13 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
         { uuid: 'u2', name: 'Other', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           data: { id: 5001 },
         }),
       ),
-      http.delete('/api/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
     )
 
     await setupAndShowAll()
@@ -280,7 +290,7 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     // and if it was empty, reduce wouldn't run, but the OR-chain would.
     // Let's force an empty items array to hit `approxData?.items || []` branch.
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),
@@ -290,7 +300,7 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
     await waitFor(() => expect(screen.queryByLabelText('Undo')).toBeInTheDocument())
 
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }],
         }),

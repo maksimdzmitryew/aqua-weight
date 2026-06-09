@@ -234,7 +234,7 @@ test-fe-ci:
 	  -v "$(PWD)/frontend:/src" \
 	  node:24 \
 	  bash -lc "\
-		npm install -g npm@11.13.0 && \
+		npm install -g npm@11.16.0 && \
 		cp -r /src /tmp/fe && \
 		cd /tmp/fe && \
 		npm install --no-audit --no-fund && \

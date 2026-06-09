@@ -9,6 +9,16 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 // Mock useNavigate to verify navigation from handleView
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -111,7 +121,7 @@ describe.sequential('pages/BulkWatering', () => {
     try {
       // Mock plants and approximations
       server.use(
-        http.get('/api/measurements/approximation/watering', () =>
+        http.get('/api/plants/measurements/approximation/watering', () =>
           HttpResponse.json({
             items: [
               { plant_uuid: 'u1', days_offset: 0, next_watering_at: '2026-01-12 10:00' }, // Needs water
@@ -166,7 +176,7 @@ describe.sequential('pages/BulkWatering', () => {
 
       // Add a test case for overdue plant
       server.use(
-        http.get('/api/measurements/approximation/watering', () =>
+        http.get('/api/plants/measurements/approximation/watering', () =>
           HttpResponse.json({
             items: [
               { plant_uuid: 'u1', days_offset: -1, next_watering_at: '2026-01-11 10:00' }, // Overdue
@@ -192,7 +202,7 @@ describe.sequential('pages/BulkWatering', () => {
         ...paginatedPlantsHandler([
           { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
         ]),
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json(null)), // Line 37: approxData?.items || []
+        http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json(null)), // Line 37: approxData?.items || []
       )
 
       renderPage()
@@ -206,7 +216,7 @@ describe.sequential('pages/BulkWatering', () => {
 
       // Now test the actual catch block
       server.use(
-        http.get('/api/measurements/approximation/watering', () =>
+        http.get('/api/plants/measurements/approximation/watering', () =>
           HttpResponse.json({ message: 'Error' }, { status: 500 }),
         ),
       )
@@ -266,7 +276,7 @@ describe.sequential('pages/BulkWatering', () => {
     // Coverage for handleWateringDelete catch block (Line 177)
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.delete('/api/measurements/:id', () =>
+      http.delete('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({ message: 'Delete fail' }, { status: 500 }),
       ),
     )
@@ -287,11 +297,11 @@ describe.sequential('pages/BulkWatering', () => {
     try {
       server.use(
         ...paginatedPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-        http.get('/api/measurements/approximation/watering', () =>
+        http.get('/api/plants/measurements/approximation/watering', () =>
           HttpResponse.json({ items: [] }),
         ),
-        http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ id: 123 })),
-        http.delete('/api/measurements/:id', () => HttpResponse.json({ ok: true })),
+        http.post('/api/plants/:pid/measurements/vacation/watering', () => HttpResponse.json({ id: 123 })),
+        http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ ok: true })),
       )
 
       renderPage()
@@ -314,7 +324,7 @@ describe.sequential('pages/BulkWatering', () => {
 
       // Error in vacation commit (Line 222-226)
       server.use(
-        http.post('/api/measurements/vacation/watering', () =>
+        http.post('/api/plants/:pid/measurements/vacation/watering', () =>
           HttpResponse.json({ message: 'Error' }, { status: 500 }),
         ),
       )
@@ -328,13 +338,13 @@ describe.sequential('pages/BulkWatering', () => {
 
       // Error in vacation delete (Line 274)
       server.use(
-        http.delete('/api/measurements/:id', () =>
+        http.delete('/api/plants/:pid/measurements/:id', () =>
           HttpResponse.json({ message: 'Error' }, { status: 500 }),
         ),
       )
       // To re-enable delete, first have a successful commit
       server.use(
-        http.post('/api/measurements/vacation/watering', () => HttpResponse.json({ id: 999 })),
+        http.post('/api/plants/:pid/measurements/vacation/watering', () => HttpResponse.json({ id: 999 })),
       )
       fireEvent.click(within(row).getByTitle(/record vacation watering/i))
       const nextDeleteBtn = await within(row).findByTitle(/delete vacation watering/i)
@@ -355,7 +365,7 @@ describe.sequential('pages/BulkWatering', () => {
     localStorage.setItem('operationMode', 'manual')
     try {
       server.use(
-        http.get('/api/measurements/approximation/watering', () => HttpResponse.json([])),
+        http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json([])),
         http.get('/api/measurements/approximation', () => HttpResponse.json([])),
       )
       renderPage()
@@ -364,7 +374,7 @@ describe.sequential('pages/BulkWatering', () => {
 
       // 1. Successful commit
       server.use(
-        http.post('/api/measurements/watering', () =>
+        http.post('/api/plants/:pid/measurements/watering', () =>
           HttpResponse.json(
             {
               id: 100,
@@ -382,7 +392,7 @@ describe.sequential('pages/BulkWatering', () => {
       await waitFor(() => expect(screen.queryByText(/42%/)).toBeInTheDocument(), { timeout: 3000 })
 
       // 2. Delete it
-      server.use(http.delete('/api/measurements/:id', () => HttpResponse.json({ success: true })))
+      server.use(http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ success: true })))
       const deleteBtn = await screen.findByLabelText(/Delete watering/i, { timeout: 5000 })
       fireEvent.click(deleteBtn)
 
@@ -459,7 +469,7 @@ describe.sequential('pages/BulkWatering', () => {
   test('handles wrapped API response {status, data} and logs on error in update path', async () => {
     // First, wrap POST response
     server.use(
-      http.post('/api/measurements/watering', async ({ request }) => {
+      http.post('/api/plants/:pid/measurements/watering', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json(
           {
@@ -491,7 +501,7 @@ describe.sequential('pages/BulkWatering', () => {
     // Now make PUT fail to exercise catch path
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.put('/api/measurements/watering/:id', () =>
+      http.put('/api/plants/:pid/measurements/watering/:id', () =>
         HttpResponse.json({ message: 'boom' }, { status: 500 }),
       ),
     )
@@ -517,7 +527,7 @@ describe.sequential('pages/BulkWatering', () => {
         },
       ]),
       // POST without timestamps to exercise fallback in component
-      http.post('/api/measurements/watering', async ({ request }) => {
+      http.post('/api/plants/:pid/measurements/watering', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json(
           {
@@ -562,7 +572,7 @@ describe.sequential('pages/BulkWatering', () => {
           latest_at: '2025-01-01T12:00',
         },
       ]),
-      http.post('/api/measurements/watering', () =>
+      http.post('/api/plants/:pid/measurements/watering', () =>
         HttpResponse.json({ id: 4001, plant_id: 'u4' }, { status: 201 }),
       ),
     )
@@ -579,9 +589,9 @@ describe.sequential('pages/BulkWatering', () => {
     // First let POST create with metrics 40/60 as per default handler
     // Then make PUT omit both water_retained_pct and water_loss_total_pct
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
       http.get('/api/measurements/approximation', () => HttpResponse.json({ items: [] })),
-      http.put('/api/measurements/watering/:id', async ({ request, params }) => {
+      http.put('/api/plants/:pid/measurements/watering/:id', async ({ request, params }) => {
         const payload = await request.json()
         return HttpResponse.json({
           id: Number(params.id),
@@ -646,13 +656,13 @@ describe.sequential('pages/BulkWatering', () => {
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
       ]),
-      http.post('/api/measurements/watering', () =>
+      http.post('/api/plants/:pid/measurements/watering', () =>
         HttpResponse.json({
           status: 'success',
           data: { id: 1001, water_retained_pct: 50, water_loss_total_pct: 10 },
         }),
       ),
-      http.put('/api/measurements/watering/1001', () =>
+      http.put('/api/plants/:pid/measurements/watering/1001', () =>
         HttpResponse.json({
           status: 'success',
           data: { id: 1001, water_retained_pct: 60, water_loss_total_pct: 5 },

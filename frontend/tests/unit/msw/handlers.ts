@@ -100,12 +100,32 @@ export const handlers = [
     return HttpResponse.json([])
   }),
 
-  http.delete('/api/measurements/:id', () => {
+  http.delete('/api/plants/:plantId/measurements/:id', () => {
     return HttpResponse.json({ ok: true })
   }),
 
+  // Measurements: weight
+  http.post('/api/plants/:plantId/measurements/weight', async ({ request }) => {
+    const payload = await request.json()
+    return HttpResponse.json({
+      id: 2001,
+      measured_at: payload?.measured_at || '2025-01-03T00:00:00',
+      measured_weight_g: payload?.measured_weight_g ?? null,
+      last_dry_weight_g: payload?.last_dry_weight_g ?? null,
+    })
+  }),
+  http.put('/api/plants/:plantId/measurements/weight/:id', async ({ request, params }) => {
+    const payload = await request.json()
+    return HttpResponse.json({
+      id: Number(params.id),
+      measured_at: payload?.measured_at || '2025-01-03T00:00:00',
+      measured_weight_g: payload?.measured_weight_g ?? null,
+      last_dry_weight_g: payload?.last_dry_weight_g ?? null,
+    })
+  }),
+
   // Measurements: watering
-  http.post('/api/measurements/watering', async ({ request }) => {
+  http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
     const payload = await request.json()
     // reflect back minimal computed values
     return HttpResponse.json({
@@ -117,7 +137,7 @@ export const handlers = [
       water_loss_total_pct: 60,
     })
   }),
-  http.put('/api/measurements/watering/:id', async ({ request, params }) => {
+  http.put('/api/plants/:plantId/measurements/watering/:id', async ({ request, params }) => {
     const payload = await request.json()
     return HttpResponse.json({
       id: Number(params.id),
@@ -128,10 +148,50 @@ export const handlers = [
       water_loss_total_pct: 58,
     })
   }),
-  http.get('/api/measurements/approximation/watering', () => {
+  http.post('/api/plants/:plantId/measurements/vacation/watering', async ({ request }) => {
+    const payload = await request.json()
+    return HttpResponse.json({
+      id: 1002,
+      measured_at: payload?.measured_at || '2025-01-03T00:00:00',
+      latest_at: payload?.measured_at || '2025-01-03T00:00:00',
+      water_retained_pct: 40,
+      water_loss_total_pct: 60,
+    })
+  }),
+
+  // Measurements: repotting
+  http.post('/api/plants/:plantId/repotting', async ({ request }) => {
+    const payload = await request.json()
+    return HttpResponse.json({
+      id: 3001,
+      measured_at: payload?.measured_at || '2025-01-03T00:00:00',
+    })
+  }),
+  http.put('/api/plants/:plantId/repotting/:id', async ({ request, params }) => {
+    const payload = await request.json()
+    return HttpResponse.json({
+      id: Number(params.id),
+      measured_at: payload?.measured_at || '2025-01-03T00:00:00',
+    })
+  }),
+
+  // Measurements: generic getById
+  http.get('/api/plants/:plantId/measurements/:id', () => {
+    return HttpResponse.json({
+      id: 500,
+      measured_at: '2025-01-10T12:34:00Z',
+      measured_weight_g: 100,
+      last_dry_weight_g: null,
+      last_wet_weight_g: null,
+      water_added_g: null,
+      water_loss_total_pct: null,
+      water_loss_day_pct: null,
+    })
+  }),
+  http.get('/api/plants/measurements/approximation/watering', () => {
     return HttpResponse.json({ items: [] })
   }),
-  http.get('/api/measurements/approximation/weight', () => {
+  http.get('/api/plants/measurements/approximation/weight', () => {
     return HttpResponse.json({ items: [] })
   }),
   http.get('/api/substrate-types', () => HttpResponse.json([])),
@@ -141,4 +201,13 @@ export const handlers = [
   http.get('/api/scales', () => HttpResponse.json([])),
   http.get('/api/measurement-methods', () => HttpResponse.json([])),
   http.get('/api/locations', () => HttpResponse.json({ items: [], total: 0 })),
+
+  // Calibration
+  http.get('/api/plants/measurements/calibrating', () => {
+    return HttpResponse.json([])
+  }),
+  http.post('/api/plants/:plant_id/measurements/corrections', async ({ request }) => {
+    const payload = await request.json()
+    return HttpResponse.json({ ok: true, ...payload })
+  }),
 ]

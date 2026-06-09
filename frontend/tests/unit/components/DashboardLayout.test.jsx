@@ -12,6 +12,16 @@ vi.mock('../../../src/hooks/useDocumentTitle.js', () => ({
 import useDocumentTitle from '../../../src/hooks/useDocumentTitle.js'
 import DashboardLayout from '../../../src/components/DashboardLayout.jsx'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 function renderWithRoute(ui, { initialEntries = ['/dashboard'] } = {}) {
   return render(
     <MemoryRouter initialEntries={initialEntries}>

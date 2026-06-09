@@ -6,6 +6,50 @@ import { MemoryRouter } from 'react-router-dom'
 import Settings from '../../../src/pages/Settings.jsx'
 import { vi } from 'vitest'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { global_role: 'admin' },
+    isAuthenticated: true,
+    status: 'authenticated',
+    logout: vi.fn().mockResolvedValue({})
+  }),
+}))
+
+// Mock SettingsContext — Settings component uses useSettings()
+const updateSettingsMock = vi.fn().mockImplementation((newSettings) => {
+  // Mirror real SettingsContext behavior: write to localStorage
+  Object.entries(newSettings).forEach(([key, value]) => {
+    localStorage.setItem(key, value)
+  })
+  return Promise.resolve()
+})
+
+// Build a settings object from localStorage to mimic what the real
+// SettingsProvider does after fetching settings from the API.
+function settingsFromLocalStorage() {
+  const keys = ['displayName', 'dtFormat', 'operationMode', 'defaultThreshold', 'pageSize', 'theme']
+  const settings = {}
+  keys.forEach((key) => {
+    const val = localStorage.getItem(key)
+    if (val !== null) settings[key] = val
+  })
+  return settings
+}
+
+vi.mock('../../../src/context/SettingsContext.jsx', () => ({
+  SettingsProvider: ({ children }) => children,
+  useSettings: () => ({
+    settings: settingsFromLocalStorage(),
+    loading: false,
+    error: null,
+    updateSettings: updateSettingsMock,
+    refreshSettings: vi.fn().mockResolvedValue({}),
+    version: null,
+  }),
+}))
+
 function renderPage() {
   return render(
     <ThemeProvider>
@@ -45,30 +89,34 @@ describe('pages/Settings', () => {
     renderPage()
 
     const pageSize = screen.getByLabelText(/items per page/i)
-    fireEvent.change(pageSize, { target: { value: '50' } })
-    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+
+    await act(async () => {
+      fireEvent.change(pageSize, { target: { value: '50' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    })
 
     expect(window.localStorage.getItem('pageSize')).toBe('50')
   })
 
-  test('sets cookies on save', async () => {
-    // Mock document.cookie
-    const cookieSpy = vi.spyOn(document, 'cookie', 'set')
-
+  test('calls updateSettings with operation mode and threshold on save', async () => {
     renderPage()
 
     const operation = screen.getByLabelText(/operation mode/i)
-    fireEvent.change(operation, { target: { value: 'vacation' } })
-
     const threshold = screen.getByLabelText(/default watering threshold/i)
-    fireEvent.change(threshold, { target: { value: '45' } })
 
-    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    // Use act to ensure state updates are flushed before save
+    await act(async () => {
+      fireEvent.change(operation, { target: { value: 'vacation' } })
+      fireEvent.change(threshold, { target: { value: '45' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    })
 
-    expect(cookieSpy).toHaveBeenCalledWith(expect.stringContaining('operationMode=vacation'))
-    expect(cookieSpy).toHaveBeenCalledWith(expect.stringContaining('defaultThreshold=45'))
-
-    cookieSpy.mockRestore()
+    expect(updateSettingsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operationMode: 'vacation',
+        defaultThreshold: '45',
+      }),
+    )
   })
 
   test('applies dark theme styles when effective theme is dark', () => {
@@ -110,12 +158,13 @@ describe('pages/Settings', () => {
     expect(name).toHaveValue('Alice')
     expect(dt).toHaveValue('europe')
 
-    // change values
-    fireEvent.change(name, { target: { value: 'Bob' } })
-    fireEvent.change(dt, { target: { value: 'usa' } })
+    // change values and submit form in single act to flush state + async save
+    await act(async () => {
+      fireEvent.change(name, { target: { value: 'Bob' } })
+      fireEvent.change(dt, { target: { value: 'usa' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    })
 
-    // submit form
-    fireEvent.click(screen.getByRole('button', { name: /save/i }))
     // success message appears
     expect(screen.getByText('Saved!')).toBeInTheDocument()
 
@@ -145,16 +194,19 @@ describe('pages/Settings', () => {
     renderPage()
 
     const operation = screen.getByLabelText(/operation mode/i)
-    // change to vacation
-    fireEvent.change(operation, { target: { value: 'vacation' } })
-    // save
-    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    // change to vacation and save
+    await act(async () => {
+      fireEvent.change(operation, { target: { value: 'vacation' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    })
     // persisted via the save handler
     expect(window.localStorage.getItem('operationMode')).toBe('vacation')
 
-    // change to automatic
-    fireEvent.change(operation, { target: { value: 'automatic' } })
-    fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    // change to automatic and save
+    await act(async () => {
+      fireEvent.change(operation, { target: { value: 'automatic' } })
+      fireEvent.click(screen.getByRole('button', { name: /save/i }))
+    })
     expect(window.localStorage.getItem('operationMode')).toBe('automatic')
   })
 
@@ -180,6 +232,11 @@ describe('pages/Settings', () => {
     // Submit the form to trigger saving and show the success message
     const saveButton = screen.getByRole('button', { name: /save/i })
     fireEvent.click(saveButton)
+
+    // Flush the async updateSettings promise so setSaved('Saved!') runs
+    await act(async () => {
+      await Promise.resolve()
+    })
 
     // Message appears right after save
     expect(screen.getByText('Saved!')).toBeInTheDocument()

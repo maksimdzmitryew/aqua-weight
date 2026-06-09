@@ -9,6 +9,16 @@ import { locationsApi } from '../../../src/api/locations'
 import { server } from '../msw/server'
 import { http, HttpResponse } from 'msw'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 // Mock useNavigate to assert navigations while keeping other router utilities
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {

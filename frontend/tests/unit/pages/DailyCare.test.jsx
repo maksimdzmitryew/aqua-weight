@@ -120,7 +120,7 @@ function renderPage(mode = 'manual') {
 test('shows tasks table with water indicators', async () => {
   // provide one plant that needs both water and measurement
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     http.get('/api/plants', () =>
       HttpResponse.json({
         items: [
@@ -138,7 +138,7 @@ test('shows tasks table with water indicators', async () => {
       }),
     ),
     http.get('/api/plants/uuids', () => HttpResponse.json(['u1'])),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
@@ -169,7 +169,7 @@ test('renders empty state when no tasks are due', async () => {
         latest_at: '2999-01-01T00:00:00',
       },
     ]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'x1', days_offset: 5 }],
       }),
@@ -182,7 +182,7 @@ test('renders empty state when no tasks are due', async () => {
 
 test('handles non-array API response gracefully as empty', async () => {
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([]),
   )
   renderPage('vacation') // Use vacation mode
@@ -192,10 +192,10 @@ test('handles non-array API response gracefully as empty', async () => {
 
 test('shows error notice when API fails', async () => {
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     http.get('/api/plants', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
     http.get('/api/plants/uuids', () => HttpResponse.json({ message: 'boom' }, { status: 500 })),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage()
   const alert = await screen.findByRole('alert')
@@ -215,7 +215,7 @@ test('shows default error message when API rejects without message', async () =>
 test('header actions: refresh reloads data; buttons navigate and show counts', async () => {
   // First response: two plants, one needs water
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     http.get('/api/plants', () =>
       HttpResponse.json({
         items: [
@@ -243,7 +243,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
       }),
     ),
     http.get('/api/plants/uuids', () => HttpResponse.json(['a', 'b'])),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
           { plant_uuid: 'a', days_offset: 0, virtual_water_retained_pct: 5 },
@@ -270,7 +270,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
 
   // Now change server response and click refresh to re-load
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     http.get('/api/plants', () =>
       HttpResponse.json({
         items: [
@@ -286,7 +286,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
       }),
     ),
     http.get('/api/plants/uuids', () => HttpResponse.json(['c'])),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'c', days_offset: 10, virtual_water_retained_pct: 100 }],
       }),
@@ -303,7 +303,7 @@ test('handle reload error (line 111) and refetch usage', async () => {
 
   // To trigger refetch, we can call the handleRefresh on PageHeader
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       { uuid: 'p1', name: 'Plant 1', status: 'active', needs_weighing: true },
     ]),
@@ -313,7 +313,7 @@ test('handle reload error (line 111) and refetch usage', async () => {
 
   // Now make reload fail
   server.use(
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({ message: 'Fail' }, { status: 500 }),
     ),
   )
@@ -331,7 +331,7 @@ test('missing approximation data results in no tasks', async () => {
     ...paginatedPlantsHandler([
       { uuid: 'x', id: 10, name: 'Ivy', latest_at: '2020-01-01T00:00:00' },
     ]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
   )
   renderPage('vacation')
   const note = await screen.findByRole('note')
@@ -340,12 +340,12 @@ test('missing approximation data results in no tasks', async () => {
 
 test('missing latest_at results in no measurement icon and potentially needs water from approximation', async () => {
   server.use(
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'm1', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
     ),
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false },
     ]),
@@ -361,7 +361,7 @@ test('missing latest_at results in no measurement icon and potentially needs wat
 test('fallback rendering: water task from approximation and name/notes/location fallbacks', async () => {
   // One plant: has identify_hint and only measurement due; another: no names to force em-dash and reason fallback
   server.use(
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
           { plant_uuid: 'p1', days_offset: 0, virtual_water_retained_pct: 5 },
@@ -369,7 +369,7 @@ test('fallback rendering: water task from approximation and name/notes/location 
         ],
       }),
     ),
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       {
         uuid: 'p1',
@@ -455,11 +455,11 @@ test('clicking back button triggers navigate to dashboard (covers onBack inline)
 
 test('bulk watering button shows count when plants need water', async () => {
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
     ]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'a', days_offset: 0, virtual_water_retained_pct: 5 }],
       }),
@@ -473,11 +473,11 @@ test('bulk watering button shows count when plants need water', async () => {
 
 test('shows weight column and enables bulk measurement in manual mode', async () => {
   server.use(
-    http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
     ...paginatedPlantsHandler([
       { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
     ]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
           { plant_uuid: 'a', days_offset: 10, virtual_water_retained_pct: 80 }, // Not needing water

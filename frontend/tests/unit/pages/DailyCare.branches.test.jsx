@@ -9,6 +9,16 @@ import { vi } from 'vitest'
 import { plantsApi } from '../../../src/api/plants'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 vi.mock('../../../src/components/PageHeader.jsx', () => ({
   default: ({ onBack, onRefresh, title, actions }) => (
     <div data-testid="mock-page-header">
@@ -80,10 +90,10 @@ describe('DailyCare branches', () => {
       internalError = e
     }
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ detail: 'error' }, { status: 500 }),
       ),
-      http.get('/api/measurements/approximation/weight', () =>
+      http.get('/api/plants/measurements/approximation/weight', () =>
         HttpResponse.json({ detail: 'error' }, { status: 500 }),
       ),
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true }]),
@@ -114,7 +124,7 @@ describe('DailyCare branches', () => {
     }
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', needs_weighing: true }]), // No name, no plant
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -147,7 +157,7 @@ describe('DailyCare branches', () => {
 
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -179,7 +189,7 @@ describe('DailyCare branches', () => {
     }
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }),
       ),
     )
@@ -200,7 +210,7 @@ describe('DailyCare branches', () => {
   test('plantsData fallback', async () => {
     server.use(
       http.get('/api/plants', () => HttpResponse.json({ not_an_array: true })),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -222,8 +232,8 @@ describe('DailyCare branches', () => {
     }
     // Case 1: approxData is null
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
-      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({})),
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
     )
 
@@ -241,8 +251,8 @@ describe('DailyCare branches', () => {
 
     // Case 2: approxData exists but items is missing
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
-      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({})),
     )
     rerender(
       <ThemeProvider>
@@ -256,8 +266,8 @@ describe('DailyCare branches', () => {
     // Case 3: No stub, fallback to []
     delete window.__VITEST_STUB_APPROX_ITEMS__
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({})),
-      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({})),
+      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({})),
     )
     rerender(
       <ThemeProvider>
@@ -274,7 +284,7 @@ describe('DailyCare branches', () => {
     localStorage.setItem('operationMode', 'manual')
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     const { unmount } = render(
@@ -295,7 +305,7 @@ describe('DailyCare branches', () => {
       ...paginatedPlantsHandler([
         { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50 },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [{ plant_uuid: 'p1', days_offset: 0 }],
         }),
@@ -321,7 +331,7 @@ describe('DailyCare branches', () => {
     // Mock list to reject with something that has no message
     const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({})
     server.use(
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     render(
@@ -364,7 +374,7 @@ describe('DailyCare branches', () => {
 
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     await act(async () => {
@@ -403,10 +413,10 @@ describe('DailyCare branches', () => {
 describe('DailyCare load and aria-label branches', () => {
   test('successful approximation reload covers line 142 and needsWater false (line 231 false)', async () => {
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: null }),
       ),
-      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
       ...paginatedPlantsHandler([
         {
           uuid: 'p1',
@@ -443,7 +453,7 @@ describe('DailyCare load and aria-label branches', () => {
 
   test('needsWater true branch for line 231', async () => {
     server.use(
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [
             {
@@ -453,7 +463,7 @@ describe('DailyCare load and aria-label branches', () => {
           ],
         }),
       ),
-      http.get('/api/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
       ...paginatedPlantsHandler([
         {
           uuid: 'p1',

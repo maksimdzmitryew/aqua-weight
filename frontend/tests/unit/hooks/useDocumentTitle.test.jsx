@@ -33,7 +33,7 @@ describe('hooks/useDocumentTitle', () => {
       </MemoryRouter>,
     )
 
-    expect(document.title).toBe('AW Frontend')
+    expect(document.title).toBe('Aqua Weight')
 
     rerender(
       <MemoryRouter initialEntries={[{ pathname: '/' }]}>
@@ -42,7 +42,7 @@ describe('hooks/useDocumentTitle', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(document.title).toBe('Plants – AW Frontend')
+    expect(document.title).toBe('Plants – Aqua Weight')
   })
 
   test('re-applies same title on route change to counter late writers; reacts to location key changes', async () => {
@@ -58,7 +58,7 @@ describe('hooks/useDocumentTitle', () => {
     )
 
     // Initially applied
-    expect(document.title).toBe('Same – AW Frontend')
+    expect(document.title).toBe('Same – Aqua Weight')
 
     // Simulate some other code messing with title
     document.title = 'Corrupted'
@@ -68,7 +68,7 @@ describe('hooks/useDocumentTitle', () => {
     await user.click(screen.getByRole('button', { name: /go/i }))
 
     // Effect should have re-applied the proper title after navigation
-    expect(document.title).toBe('Same – AW Frontend')
+    expect(document.title).toBe('Same – Aqua Weight')
   })
 
   test('restores previous title on unmount when restoreOnUnmount is true', () => {
@@ -83,7 +83,7 @@ describe('hooks/useDocumentTitle', () => {
     )
 
     // While mounted
-    expect(document.title).toBe('Page – AW Frontend')
+    expect(document.title).toBe('Page – Aqua Weight')
 
     // Unmount should restore
     unmount()
@@ -92,7 +92,7 @@ describe('hooks/useDocumentTitle', () => {
 
   test('does not rewrite when title already matches target (no-op branch)', () => {
     // Set current title to base
-    document.title = 'AW Frontend'
+    document.title = 'Aqua Weight'
 
     render(
       <MemoryRouter initialEntries={[{ pathname: '/' }]}>
@@ -103,7 +103,7 @@ describe('hooks/useDocumentTitle', () => {
     )
 
     // Remains unchanged since it's already the desired value
-    expect(document.title).toBe('AW Frontend')
+    expect(document.title).toBe('Aqua Weight')
   })
 
   test('supports server-like env: injected doc undefined initializes safely and early-returns', () => {

@@ -9,6 +9,16 @@ import { measurementsApi } from '../../../src/api/measurements'
 import { server } from '../msw/server'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 // Mock useNavigate to verify it is NOT called when handleView receives plant without uuid
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -314,7 +324,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           recommended_water_threshold_pct: 30,
         },
       ]),
-      http.post('/api/measurements/watering', () =>
+      http.post('/api/plants/:pid/measurements/watering', () =>
         HttpResponse.json(
           { id: 9001, water_retained_pct: 50, water_loss_total_pct: 50 },
           { status: 201 },
@@ -351,14 +361,14 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           recommended_water_threshold_pct: 30,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [
             { plant_uuid: 'p-line249', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
           ],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           data: { id: 9002, water_retained_pct: 100, water_loss_total_pct: 0 },
         }),
@@ -394,14 +404,14 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           recommended_water_threshold_pct: 30,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [
             { plant_uuid: 'p-line301', days_offset: 0, next_watering_at: '2026-01-12 10:00' },
           ],
         }),
       ),
-      http.delete('/api/measurements/vac-m-1', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ status: 'success' })),
     )
     render(
       <ThemeProvider>
@@ -444,7 +454,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           recommended_water_threshold_pct: 30,
         },
       ]),
-      http.get('/api/measurements/approximation/watering', ({ request }) => {
+      http.get('/api/plants/measurements/approximation/watering', ({ request }) => {
         // Use a counter to fail on the second call
         const url = new URL(request.url)
         if (url.searchParams.get('refresh') === 'true') {
@@ -453,7 +463,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
         return HttpResponse.json({ items: [{ plant_uuid: 'p-match', days_offset: 0 }] })
       }),
       // Mock vacation watering commit
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({ id: 'mock-id', water_retained_pct: 100 }),
       ),
     )
@@ -461,7 +471,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
     // Note: the component doesn't actually append ?refresh=true, but I can use a simpler state-based mock
     let callCount = 0
     server.use(
-      http.get('/api/measurements/approximation/watering', () => {
+      http.get('/api/plants/measurements/approximation/watering', () => {
         callCount++
         if (callCount > 1) return HttpResponse.error()
         return HttpResponse.json({ items: [{ plant_uuid: 'p-match', days_offset: 0 }] })
@@ -666,10 +676,10 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           ],
         }),
       ),
-      http.post('/api/measurements/vacation/watering', () =>
+      http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({ data: { id: 9002, measured_at: '2026-01-01 10:00' } }),
       ),
-      http.get('/api/measurements/approximation/watering', () => {
+      http.get('/api/plants/measurements/approximation/watering', () => {
         approxCallCount++
         return HttpResponse.json({ items: null })
       }),
@@ -703,8 +713,8 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           ],
         }),
       ),
-      http.delete('/api/measurements/vac-m-1', () => HttpResponse.json({ status: 'success' })),
-      http.get('/api/measurements/approximation/watering', () => {
+      http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ status: 'success' })),
+      http.get('/api/plants/measurements/approximation/watering', () => {
         approxCallCount++
         return HttpResponse.json({ items: null })
       }),
@@ -737,7 +747,7 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           recommended_water_threshold_pct: 30,
         },
       ]),
-      http.post('/api/measurements/watering', () =>
+      http.post('/api/plants/:pid/measurements/watering', () =>
         HttpResponse.json(
           { id: 2001, water_retained_pct: 60, water_loss_total_pct: 40 },
           { status: 201 },

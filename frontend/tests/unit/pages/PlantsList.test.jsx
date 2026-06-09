@@ -142,7 +142,7 @@ test('integrated: renders plants with various states and handles header actions'
         latest_at: '2025-01-01T00:00:00',
       },
     ]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [
           {
@@ -348,7 +348,7 @@ test('EmptyState for search result with zero items (lines 349-357)', async () =>
 test('vacation mode styling without localstorage', async () => {
   server.use(
     mockPlantsHandler([{ uuid: 'v1', name: 'Vacation' }]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }],
       }),
@@ -995,7 +995,7 @@ test('logs error and continues when approximations fail to load', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({ message: 'Approximation error' }, { status: 500 }),
     ),
   )
@@ -1012,7 +1012,7 @@ test('logs error and continues when approximations fail to load', async () => {
 test('handles null/missing approximation items gracefully', async () => {
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: null })),
+    http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: null })),
   )
   renderPage()
   expect(await screen.findByText('Aloe')).toBeInTheDocument()
@@ -1022,7 +1022,7 @@ test('applies vacation mode warning style for negative days_offset', async () =>
   localStorage.setItem('operationMode', 'vacation')
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/measurements/approximation/watering', () =>
+    http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }],
       }),
@@ -1164,7 +1164,7 @@ test('integrated: line 437 coverage - badge titles', async () => {
           limit: 20,
         }),
       ),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
     )
 
     const { unmount } = renderPage()
@@ -1187,7 +1187,7 @@ test('integrated: line 437 coverage - badge titles', async () => {
           limit: 20,
         }),
       ),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [
             {

@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { server } from './msw/server'
 import { http, HttpResponse } from 'msw'
 import App from '../../src/App.jsx'
@@ -9,7 +10,7 @@ describe('App.jsx', () => {
     // Arrange mock for /api/ root endpoint
     server.use(http.get('/api/', () => HttpResponse.json({ message: 'Hello from test' })))
 
-    render(<App />)
+    render(<MemoryRouter><App /></MemoryRouter>)
 
     // Initial state shows loading
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -18,14 +19,14 @@ describe('App.jsx', () => {
     expect(await screen.findByText(/backend says: hello from test/i)).toBeInTheDocument()
 
     // Static content renders as well (smoke check)
-    expect(screen.getByRole('heading', { name: /aw frontend/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /aqua weight/i })).toBeInTheDocument()
   })
 
   test('shows fallback message when backend request fails', async () => {
     // Make the request reject to hit catch() branch
     server.use(http.get('/api/', () => HttpResponse.json(null, { status: 500 })))
 
-    render(<App />)
+    render(<MemoryRouter><App /></MemoryRouter>)
 
     // Loading first
     expect(screen.getByText(/loading/i)).toBeInTheDocument()

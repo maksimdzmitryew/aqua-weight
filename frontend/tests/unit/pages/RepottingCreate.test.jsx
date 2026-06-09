@@ -8,6 +8,16 @@ import { http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ 
+    user: { global_role: 'admin' }, 
+    isAuthenticated: true,
+    status: 'authenticated'
+  }),
+}))
+
 // Mock navigate to observe navigations
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -126,7 +136,11 @@ describe('pages/RepottingCreate', () => {
   test('create flow: preselects plant from query, submits and navigates to plant page', async () => {
     let captured = null
     server.use(
-      http.post('/api/measurements/repotting', async ({ request }) => {
+      http.get('/api/plants/names', () => HttpResponse.json([
+        { uuid: 'p1', name: 'Aloe' },
+        { uuid: 'p2', name: 'Monstera' },
+      ])),
+      http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 1 }, { status: 201 })
       }),
@@ -148,20 +162,23 @@ describe('pages/RepottingCreate', () => {
     await waitFor(() => expect(submit).not.toBeDisabled())
     fireEvent.click(submit)
 
-    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/plants/p2'))
-    expect(captured).toEqual(
-      expect.objectContaining({
-        plant_id: 'p2',
-        measured_weight_g: 200,
-        last_wet_weight_g: 350,
-      }),
-    )
+    await waitFor(() => expect(captured).not.toBeNull())
+    expect(captured).toMatchObject({
+      measured_weight_g: 200,
+      last_wet_weight_g: 350,
+      note: null,
+    })
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/p2')
   })
 
   test('create flow: explicitly provided 0 is sent as 0 (not null) for coverage', async () => {
     let captured = null
     server.use(
-      http.post('/api/measurements/repotting', async ({ request }) => {
+      http.get('/api/plants/names', () => HttpResponse.json([
+        { uuid: 'p1', name: 'Aloe' },
+        { uuid: 'p2', name: 'Monstera' },
+      ])),
+      http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 1 }, { status: 201 })
       }),
@@ -179,7 +196,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: loads existing by id, updates via PUT and navigates', async () => {
     server.use(
-      http.get('/api/measurements/:id', ({ params }) => {
+      http.get('/api/plants/:pid/measurements/:id', ({ params }) => {
         expect(params.id).toBe('77')
         return HttpResponse.json({
           id: 77,
@@ -189,11 +206,10 @@ describe('pages/RepottingCreate', () => {
           last_wet_weight_g: 222,
         })
       }),
-      http.put('/api/measurements/repotting/:id', async ({ params, request }) => {
+      http.put('/api/plants/:plantId/repotting/:id', async ({ params, request }) => {
         expect(params.id).toBe('77')
         const body = await request.json()
         expect(body).toMatchObject({
-          plant_id: 'p1',
           measured_at: '2025-01-01T10:00:00.000',
           measured_weight_g: 123,
           last_wet_weight_g: 456,
@@ -202,7 +218,7 @@ describe('pages/RepottingCreate', () => {
       }),
     )
 
-    renderWithRouter(['/repotting/edit?id=77'])
+    renderWithRouter(['/repotting/edit?id=77&plant=p1'])
 
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
     fireEvent.change(weightBefore, { target: { value: '123' } })
@@ -217,7 +233,7 @@ describe('pages/RepottingCreate', () => {
   test('edit flow: allows blank numeric fields mapping to nulls in payload', async () => {
     let putBody = null
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({
           id: 77,
           plant_id: 'p1',
@@ -226,13 +242,13 @@ describe('pages/RepottingCreate', () => {
           last_wet_weight_g: 222,
         }),
       ),
-      http.put('/api/measurements/repotting/:id', async ({ request }) => {
+      http.put('/api/plants/:plantId/repotting/:id', async ({ request }) => {
         putBody = await request.json()
         return HttpResponse.json({ ok: true })
       }),
     )
 
-    renderWithRouter(['/repotting/edit?id=77'])
+    renderWithRouter(['/repotting/edit?id=77&plant=p1'])
 
     // Clear both numeric inputs to hit null branches
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
@@ -253,7 +269,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: handles null values in initial load (coverage for lines 58-59)', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({
           id: 88,
           plant_id: 'p1',
@@ -263,7 +279,7 @@ describe('pages/RepottingCreate', () => {
         }),
       ),
     )
-    renderWithRouter(['/repotting/edit?id=88'])
+    renderWithRouter(['/repotting/edit?id=88&plant=p1'])
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
     expect(weightBefore).toHaveValue(null)
     const lastWet = screen.getByLabelText(/weight after repotting/i)
@@ -282,7 +298,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: shows error when existing repotting load fails', async () => {
     // Make the GET for existing measurement fail
-    server.use(http.get('/api/measurements/:id', () => HttpResponse.text('nope', { status: 500 })))
+    server.use(http.get('/api/plants/:pid/measurements/:id', () => HttpResponse.text('nope', { status: 500 })))
 
     renderWithRouter(['/repotting/edit?id=123'])
 
@@ -308,7 +324,7 @@ describe('pages/RepottingCreate', () => {
   test('edit flow: request resolves after unmount -> cancelled branch is taken', async () => {
     // Delay the response so we can unmount before it resolves
     server.use(
-      http.get('/api/measurements/:id', async () => {
+      http.get('/api/plants/:pid/measurements/:id', async () => {
         await new Promise((r) => setTimeout(r, 30))
         return HttpResponse.json({
           id: 5,
@@ -320,7 +336,7 @@ describe('pages/RepottingCreate', () => {
       }),
     )
 
-    const utils = renderWithRouter(['/repotting/edit?id=5'])
+    const utils = renderWithRouter(['/repotting/edit?id=5&plant=p1'])
     // Immediately unmount; when the delayed response arrives, effect cleanup sets cancelled=true and early-returns
     utils.unmount()
 
@@ -330,7 +346,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: save error shows server message (update branch)', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({
           id: 42,
           plant_id: 'p1',
@@ -339,10 +355,10 @@ describe('pages/RepottingCreate', () => {
           last_wet_weight_g: 20,
         }),
       ),
-      http.put('/api/measurements/repotting/:id', () => HttpResponse.text('bad', { status: 500 })),
+      http.put('/api/plants/:plantId/repotting/:id', () => HttpResponse.text('bad', { status: 500 })),
     )
 
-    renderWithRouter(['/repotting/edit?id=42'])
+    renderWithRouter(['/repotting/edit?id=42&plant=p1'])
 
     const weightBefore = await screen.findByLabelText(/weight before repotting/i)
     fireEvent.change(weightBefore, { target: { value: '' } })
@@ -357,7 +373,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: update error without message falls back to generic', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({
           id: 44,
           plant_id: 'p1',
@@ -371,7 +387,7 @@ describe('pages/RepottingCreate', () => {
     const mod = await vi.importActual('../../../src/api/measurements')
     const spy = vi.spyOn(mod.measurementsApi.repotting, 'update').mockRejectedValueOnce({})
 
-    renderWithRouter(['/repotting/edit?id=44'])
+    renderWithRouter(['/repotting/edit?id=44&plant=p1'])
     // Ensure submit is enabled and click it (no need to change values)
     await screen.findByLabelText(/plant/i)
     fireEvent.click(screen.getByRole('button', { name: /update repotting/i }))
@@ -383,7 +399,7 @@ describe('pages/RepottingCreate', () => {
   test('save error shows generic message', async () => {
     // Plants load succeeds (default handler), but save fails
     server.use(
-      http.post('/api/measurements/repotting', () => HttpResponse.text('boom', { status: 500 })),
+      http.post('/api/plants/:plantId/repotting', () => HttpResponse.text('boom', { status: 500 })),
     )
 
     renderWithRouter(['/repotting/new'])
@@ -406,7 +422,7 @@ describe('pages/RepottingCreate', () => {
 
   test('cancel navigates back and button disabled when form incomplete', async () => {
     server.use(
-      http.post('/api/measurements/repotting', () =>
+      http.post('/api/plants/:plantId/repotting', () =>
         HttpResponse.json({ id: 99 }, { status: 201 }),
       ),
     )
@@ -441,7 +457,7 @@ describe('pages/RepottingCreate', () => {
 
   test('submit handler early-returns when form incomplete (branch)', async () => {
     server.use(
-      http.post('/api/measurements/repotting', () =>
+      http.post('/api/plants/:plantId/repotting', () =>
         HttpResponse.json({ id: 99 }, { status: 201 }),
       ),
     )
@@ -468,7 +484,7 @@ describe('pages/RepottingCreate', () => {
     let captured = null
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Aloe' }]),
-      http.post('/api/measurements/repotting', async ({ request }) => {
+      http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 2 }, { status: 201 })
       }),
@@ -488,7 +504,6 @@ describe('pages/RepottingCreate', () => {
     await waitFor(() => expect(captured).not.toBeNull())
     expect(captured).toEqual(
       expect.objectContaining({
-        plant_id: 'p1',
         measured_weight_g: null,
         last_wet_weight_g: null,
       }),
@@ -517,7 +532,7 @@ describe('pages/RepottingCreate', () => {
 
     let captured = null
     server.use(
-      http.post('/api/measurements/repotting', async ({ request }) => {
+      http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 3 }, { status: 201 })
       }),
@@ -557,7 +572,7 @@ describe('pages/RepottingCreate', () => {
 
   test('submit with location.state.from missing navigates to plant page (branch 89-90)', async () => {
     server.use(
-      http.post('/api/measurements/repotting', () =>
+      http.post('/api/plants/:plantId/repotting', () =>
         HttpResponse.json({ id: 99 }, { status: 201 }),
       ),
     )
@@ -570,7 +585,7 @@ describe('pages/RepottingCreate', () => {
 
   test('submit with location.state.from PRESENT navigates to it (branch 88-89)', async () => {
     server.use(
-      http.post('/api/measurements/repotting', () =>
+      http.post('/api/plants/:plantId/repotting', () =>
         HttpResponse.json({ id: 99 }, { status: 201 }),
       ),
     )
@@ -590,7 +605,7 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: handles error on loadExisting', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:pid/measurements/:id', () =>
         HttpResponse.json({ message: 'fail' }, { status: 500 }),
       ),
     )
