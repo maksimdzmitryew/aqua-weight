@@ -304,7 +304,9 @@ describe('pages/WateringCreate', () => {
           water_added_g: 5,
         }),
       ),
-      http.put('/api/plants/:plantId/measurements/watering/:id', () => HttpResponse.json({ ok: true })),
+      http.put('/api/plants/:plantId/measurements/watering/:id', () =>
+        HttpResponse.json({ ok: true }),
+      ),
     )
 
     renderWithRouter(['/edit?id=700&plant=u2'])
@@ -344,7 +346,9 @@ describe('pages/WateringCreate', () => {
     // Ensure plants list exists so form is valid enough
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'u2', name: 'Monstera' }]),
-      http.get('/api/plants/:plantId/measurements/:id', () => HttpResponse.json({ id: 777, plant_id: 'u2' })),
+      http.get('/api/plants/:plantId/measurements/:id', () =>
+        HttpResponse.json({ id: 777, plant_id: 'u2' }),
+      ),
     )
 
     renderWithRouter(['/edit?id=777&plant=u2'])
@@ -435,7 +439,9 @@ describe('pages/WateringCreate', () => {
 
   test('submit with location.state.from missing navigates to plant page (branch 118-119)', async () => {
     server.use(
-      http.post('/api/plants/:plantId/measurements/watering', () => HttpResponse.json({ id: 99 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/watering', () =>
+        HttpResponse.json({ id: 99 }, { status: 201 }),
+      ),
     )
     renderWithRouter(['/new?plant=u1'])
     const submit = await screen.findByRole('button', { name: /save watering/i })
@@ -446,7 +452,9 @@ describe('pages/WateringCreate', () => {
 
   test('submit with location.state.from PRESENT navigates to it (branch 117-118)', async () => {
     server.use(
-      http.post('/api/plants/:plantId/measurements/watering', () => HttpResponse.json({ id: 99 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/watering', () =>
+        HttpResponse.json({ id: 99 }, { status: 201 }),
+      ),
     )
     renderWithRouter([
       { pathname: '/new', search: '?plant=u1', state: { from: '/custom-water-submit' } },

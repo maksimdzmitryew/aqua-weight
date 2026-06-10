@@ -264,7 +264,12 @@ export default function BulkWatering() {
 
       let data
       if (existingId) {
-        data = await measurementsApi.watering.update(plantId, existingId, payload, controller.signal)
+        data = await measurementsApi.watering.update(
+          plantId,
+          existingId,
+          payload,
+          controller.signal,
+        )
       } else {
         data = await measurementsApi.watering.create(plantId, payload, controller.signal)
       }

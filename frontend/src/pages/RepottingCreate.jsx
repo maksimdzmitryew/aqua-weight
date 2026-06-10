@@ -132,7 +132,11 @@ const RepottingCreate = () => {
           </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || !form.values.plant_id || saving} type="submit" className="btn btn-primary">
+          <button
+            disabled={!form.valid || !form.values.plant_id || saving}
+            type="submit"
+            className="btn btn-primary"
+          >
             {isEdit ? 'Update repotting' : 'Save repotting'}
           </button>
           <button

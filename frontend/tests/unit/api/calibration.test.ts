@@ -28,7 +28,11 @@ describe('calibrationApi', () => {
     const res = await calibrationApi.correct(body, { signal: ac.signal })
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/corrections', { measurement_ids: ['m1', 'm2'] }, { signal: ac.signal })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/corrections',
+      { measurement_ids: ['m1', 'm2'] },
+      { signal: ac.signal },
+    )
     expect(res).toBe(created)
   })
 
@@ -41,7 +45,11 @@ describe('calibrationApi', () => {
 
     expect(spy).toHaveBeenCalledTimes(1)
     // third argument should be an empty options object when none provided
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/corrections', { measurement_ids: [] }, {})
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/corrections',
+      { measurement_ids: [] },
+      {},
+    )
     expect(res).toBe(ok)
   })
 

@@ -13,7 +13,7 @@ vi.mock('../../../src/context/AuthContext.jsx', () => ({
     user: { global_role: 'admin' },
     isAuthenticated: true,
     status: 'authenticated',
-    logout: vi.fn().mockResolvedValue({})
+    logout: vi.fn().mockResolvedValue({}),
   }),
 }))
 

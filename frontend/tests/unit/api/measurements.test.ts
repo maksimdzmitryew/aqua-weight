@@ -70,16 +70,25 @@ describe('measurementsApi', () => {
     const res = await measurementsApi.weight.create('p1', body, ac.signal)
 
     expect(spy).toHaveBeenCalledTimes(1)
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/weight', { grams: 123 }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/weight',
+      { grams: 123 },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 
   it('weight.update throws on missing id and sends PUT with headers and signal', async () => {
     expect(() =>
-      measurementsApi.weight.update('' as unknown as string, '' as unknown as string, { grams: 1 }, undefined as any),
+      measurementsApi.weight.update(
+        '' as unknown as string,
+        '' as unknown as string,
+        { grams: 1 },
+        undefined as any,
+      ),
     ).toThrow(ApiError)
 
     const updated = { id: 'w2', grams: 200 }
@@ -104,16 +113,25 @@ describe('measurementsApi', () => {
     const body = { plant_id: 'p1', ml: 500 }
     const res = await measurementsApi.watering.create('p1', body, ac.signal)
 
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/watering', { ml: 500 }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/watering',
+      { ml: 500 },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 
   it('watering.update throws on missing id and sends PUT with headers and signal', async () => {
     expect(() =>
-      measurementsApi.watering.update('' as unknown as string, '' as unknown as string, { ml: 1 }, undefined as any),
+      measurementsApi.watering.update(
+        '' as unknown as string,
+        '' as unknown as string,
+        { ml: 1 },
+        undefined as any,
+      ),
     ).toThrow(ApiError)
 
     const updated = { id: 'wa2', ml: 600 }
@@ -154,10 +172,14 @@ describe('measurementsApi', () => {
     const body = { plant_id: 'p1', pot_size: 'M' }
     const res = await measurementsApi.repotting.create('p1', body, ac.signal)
 
-    expect(spy).toHaveBeenCalledWith('/plants/p1/repotting', { pot_size: 'M' }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/repotting',
+      { pot_size: 'M' },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 
@@ -193,10 +215,14 @@ describe('measurementsApi', () => {
     const body = { plant_id: 'p1' }
     const res = await measurementsApi.watering.createVacation('p1', body, ac.signal)
 
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/vacation/watering', {}, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/vacation/watering',
+      {},
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 
@@ -209,10 +235,14 @@ describe('measurementsApi', () => {
     const mode = 'bulk'
     const res = await measurementsApi.watering.create('p1', body, ac.signal, mode)
 
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/watering?mode=bulk', { ml: 500 }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/watering?mode=bulk',
+      { ml: 500 },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 
@@ -242,10 +272,14 @@ describe('measurementsApi', () => {
     const mode = 'bulk'
     const res = await measurementsApi.weight.create('p1', body, ac.signal, mode)
 
-    expect(spy).toHaveBeenCalledWith('/plants/p1/measurements/weight?mode=bulk', { grams: 123 }, {
-      headers: { 'Content-Type': 'application/json' },
-      signal: ac.signal,
-    })
+    expect(spy).toHaveBeenCalledWith(
+      '/plants/p1/measurements/weight?mode=bulk',
+      { grams: 123 },
+      {
+        headers: { 'Content-Type': 'application/json' },
+        signal: ac.signal,
+      },
+    )
     expect(res).toBe(created)
   })
 

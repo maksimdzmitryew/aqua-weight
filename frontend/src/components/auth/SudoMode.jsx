@@ -5,19 +5,19 @@ import ConfirmDialog from '../ConfirmDialog.jsx'
 /**
  * SudoMode component provides a password re-verification barrier for sensitive actions.
  * It follows the "Sudo Mode" pattern common in security-conscious applications.
- * 
+ *
  * @param {boolean} open - Whether the modal is open.
  * @param {function} onConfirm - Callback called with the password upon confirmation.
  * @param {function} onCancel - Callback called when the action is cancelled.
  * @param {string} title - Optional title for the modal.
  * @param {string} message - Optional message for the modal.
  */
-export default function SudoMode({ 
-  open, 
-  onConfirm, 
-  onCancel, 
-  title = 'Security Verification', 
-  message = 'Please enter your password to proceed with this sensitive action.' 
+export default function SudoMode({
+  open,
+  onConfirm,
+  onCancel,
+  title = 'Security Verification',
+  message = 'Please enter your password to proceed with this sensitive action.',
 }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -48,35 +48,35 @@ export default function SudoMode({
     background: isDark ? '#111827' : '#ffffff',
     color: isDark ? '#f9fafb' : '#111827',
     marginTop: 12,
-    boxSizing: 'border-box'
+    boxSizing: 'border-box',
   }
 
   const buttons = [
-    { 
-      key: 'cancel', 
-      text: 'Cancel', 
-      onClick: handleCancel, 
-      style: { 
-        padding: '8px 12px', 
-        cursor: 'pointer', 
-        background: 'transparent', 
-        border: 'none', 
-        color: isDark ? '#9ca3af' : '#4b5563' 
-      } 
+    {
+      key: 'cancel',
+      text: 'Cancel',
+      onClick: handleCancel,
+      style: {
+        padding: '8px 12px',
+        cursor: 'pointer',
+        background: 'transparent',
+        border: 'none',
+        color: isDark ? '#9ca3af' : '#4b5563',
+      },
     },
-    { 
-      key: 'confirm', 
-      text: 'Verify Password', 
-      onClick: handleConfirm, 
-      style: { 
-        padding: '8px 16px', 
-        cursor: 'pointer', 
-        background: isDark ? '#3b82f6' : '#2563eb', 
-        color: 'white', 
-        border: 'none', 
-        borderRadius: 6 
-      } 
-    }
+    {
+      key: 'confirm',
+      text: 'Verify Password',
+      onClick: handleConfirm,
+      style: {
+        padding: '8px 16px',
+        cursor: 'pointer',
+        background: isDark ? '#3b82f6' : '#2563eb',
+        color: 'white',
+        border: 'none',
+        borderRadius: 6,
+      },
+    },
   ]
 
   const messageContent = (

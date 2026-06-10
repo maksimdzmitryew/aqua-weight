@@ -10,10 +10,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -103,7 +103,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   test('Array.isArray(data) false branch: non-array plants response yields empty list gracefully', async () => {
     server.use(
       http.get('/api/plants/uuids', () => HttpResponse.json(['fakeuuid'])),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () => HttpResponse.json({ items: null })),
     )
 
@@ -265,7 +267,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   test('init falls back to empty uuid arrays when uuids endpoints return null', async () => {
     server.use(
       http.get('/api/plants/uuids', () => HttpResponse.json(null)),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () => HttpResponse.json({ items: [] })),
     )
 
@@ -288,7 +292,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
     let weightCalls = 0
     server.use(
       http.get('/api/plants/uuids', () => HttpResponse.json(['ghost-plant'])),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () => HttpResponse.json({ items: [] })),
       http.post('/api/plants/:pid/measurements/weight', async ({ request }) => {
         weightCalls += 1
@@ -432,7 +438,9 @@ describe('pages/BulkWeightMeasurement (branches)', () => {
   test('covers line 253 fallback when prev[plantId] and currentPlant are both missing', async () => {
     server.use(
       http.get('/api/plants/uuids', () => HttpResponse.json(['p1'])),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () =>
         HttpResponse.json({ items: [{ uuid: 'p1', name: 'Real Plant', needs_weighing: true }] }),
       ),

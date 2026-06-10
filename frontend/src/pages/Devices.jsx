@@ -39,7 +39,7 @@ export default function Devices() {
       // The apiClient or AuthContext should handle the 401 and redirect to login.
       // For other devices, we just refresh the list.
       if (untrusting === currentDeviceId) {
-        // Wait for redirection or force it? 
+        // Wait for redirection or force it?
         // Usually, the next request will fail.
       }
       await fetchDevices()
@@ -56,7 +56,8 @@ export default function Devices() {
         <header style={{ marginBottom: 24 }}>
           <h1 style={{ marginTop: 0 }}>Your Devices</h1>
           <p style={{ color: '#6b7280' }}>
-            These are the devices that have accessed your account. You can revoke trust from any device to log it out.
+            These are the devices that have accessed your account. You can revoke trust from any
+            device to log it out.
           </p>
         </header>
 
@@ -84,7 +85,14 @@ export default function Devices() {
                   }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '4px',
+                      }}
+                    >
                       <span style={{ fontWeight: 600, fontSize: '1.1em' }}>
                         {device.device_name || 'Unknown Device'}
                       </span>

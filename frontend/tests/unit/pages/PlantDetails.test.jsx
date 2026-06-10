@@ -13,10 +13,10 @@ import { plantsApi } from '../../../src/api/plants'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 

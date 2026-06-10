@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login} from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -13,9 +13,7 @@ test.describe('Bulk Watering Styles', () => {
     await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' })
     const seedFernRow = page.getByRole('row', { name: /seed fern/i })
     await seedFernRow.waitFor({ state: 'visible' })
-    await seedFernRow
-      .getByRole('button', { name: /edit/i })
-      .click()
+    await seedFernRow.getByRole('button', { name: /edit/i }).click()
     await page.getByRole('tab', { name: /care/i }).click()
     await page.getByLabel(/recommended water threshold/i).fill('50')
     await page.getByRole('tab', { name: /calculated/i }).click()
@@ -25,7 +23,11 @@ test.describe('Bulk Watering Styles', () => {
     await expect(page).toHaveURL(/\/plants/)
 
     await page.goto(`${ORIGIN}/measurement/watering?plant=22222222222222222222222222222222`)
-    await page.getByLabel(/(?:current weight|measured weight|save watering|save measurement|recommended water threshold)/i).waitFor({ state: 'visible' })
+    await page
+      .getByLabel(
+        /(?:current weight|measured weight|save watering|save measurement|recommended water threshold)/i,
+      )
+      .waitFor({ state: 'visible' })
     await page.getByLabel(/current weight/i).fill('225') // 25% < 50%
     await page.getByRole('button', { name: /save watering/i }).click()
     await expect(page).not.toHaveURL(/\/measurement\/watering/)
@@ -35,9 +37,7 @@ test.describe('Bulk Watering Styles', () => {
     await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' })
     const seedIvyRow = page.getByRole('row', { name: /seed ivy/i })
     await seedIvyRow.waitFor({ state: 'visible' })
-    await seedIvyRow
-      .getByRole('button', { name: /edit/i })
-      .click()
+    await seedIvyRow.getByRole('button', { name: /edit/i }).click()
     await page.getByRole('tab', { name: /care/i }).click()
     await page.getByLabel(/recommended water threshold/i).fill('20')
     await page.getByRole('tab', { name: /calculated/i }).click()
@@ -47,7 +47,11 @@ test.describe('Bulk Watering Styles', () => {
     await expect(page).toHaveURL(/\/plants/)
 
     await page.goto(`${ORIGIN}/measurement/weight?plant=33333333333333333333333333333333`)
-    await page.getByLabel(/(?:current weight|measured weight|save watering|save measurement|recommended water threshold)/i).waitFor({ state: 'visible' })
+    await page
+      .getByLabel(
+        /(?:current weight|measured weight|save watering|save measurement|recommended water threshold)/i,
+      )
+      .waitFor({ state: 'visible' })
     await page.getByLabel(/measured weight/i).fill('280') // 80% > 20%
     await page.getByRole('button', { name: /save measurement/i }).click()
     await expect(page).not.toHaveURL(/\/measurement\/weight/)
@@ -56,8 +60,6 @@ test.describe('Bulk Watering Styles', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, ORIGIN)
   })
-
-
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)

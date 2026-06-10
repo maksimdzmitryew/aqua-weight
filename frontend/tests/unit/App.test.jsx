@@ -10,7 +10,11 @@ describe('App.jsx', () => {
     // Arrange mock for /api/ root endpoint
     server.use(http.get('/api/', () => HttpResponse.json({ message: 'Hello from test' })))
 
-    render(<MemoryRouter><App /></MemoryRouter>)
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
 
     // Initial state shows loading
     expect(screen.getByText(/loading/i)).toBeInTheDocument()
@@ -26,7 +30,11 @@ describe('App.jsx', () => {
     // Make the request reject to hit catch() branch
     server.use(http.get('/api/', () => HttpResponse.json(null, { status: 500 })))
 
-    render(<MemoryRouter><App /></MemoryRouter>)
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    )
 
     // Loading first
     expect(screen.getByText(/loading/i)).toBeInTheDocument()

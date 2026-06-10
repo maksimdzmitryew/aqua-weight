@@ -26,14 +26,21 @@ export const SettingsProvider = ({ children }) => {
       const fetchedSettings = data.settings || {}
       setSettings(fetchedSettings)
       setVersion(data.version)
-      
+
       if (fetchedSettings.theme) {
         setTheme(fetchedSettings.theme)
       }
-      
+
       // Update localStorage as a shim for components not yet converted to useSettings
-      const keys = ['displayName', 'dtFormat', 'operationMode', 'defaultThreshold', 'pageSize', 'theme']
-      keys.forEach(key => {
+      const keys = [
+        'displayName',
+        'dtFormat',
+        'operationMode',
+        'defaultThreshold',
+        'pageSize',
+        'theme',
+      ]
+      keys.forEach((key) => {
         if (fetchedSettings[key] !== undefined) {
           localStorage.setItem(key, fetchedSettings[key])
         }
@@ -50,28 +57,33 @@ export const SettingsProvider = ({ children }) => {
     fetchSettings()
   }, [fetchSettings])
 
-  const updateSettings = useCallback(async (newSettings) => {
-    try {
-      const updated = { ...settings, ...newSettings }
-      await apiClient.put('/settings', { settings: updated, version })
-      setSettings(updated)
-      
-      if (newSettings.theme) {
-        setTheme(newSettings.theme)
+  const updateSettings = useCallback(
+    async (newSettings) => {
+      try {
+        const updated = { ...settings, ...newSettings }
+        await apiClient.put('/settings', { settings: updated, version })
+        setSettings(updated)
+
+        if (newSettings.theme) {
+          setTheme(newSettings.theme)
+        }
+
+        // Update localStorage shim
+        Object.entries(newSettings).forEach(([key, value]) => {
+          localStorage.setItem(key, value)
+        })
+      } catch (err) {
+        console.error('Failed to update settings:', err)
+        throw err
       }
-      
-      // Update localStorage shim
-      Object.entries(newSettings).forEach(([key, value]) => {
-        localStorage.setItem(key, value)
-      })
-    } catch (err) {
-      console.error('Failed to update settings:', err)
-      throw err
-    }
-  }, [settings, version, setTheme])
+    },
+    [settings, version, setTheme],
+  )
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, error, updateSettings, refreshSettings: fetchSettings, version }}>
+    <SettingsContext.Provider
+      value={{ settings, loading, error, updateSettings, refreshSettings: fetchSettings, version }}
+    >
       {children}
     </SettingsContext.Provider>
   )

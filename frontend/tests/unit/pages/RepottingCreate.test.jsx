@@ -11,10 +11,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -136,10 +136,12 @@ describe('pages/RepottingCreate', () => {
   test('create flow: preselects plant from query, submits and navigates to plant page', async () => {
     let captured = null
     server.use(
-      http.get('/api/plants/names', () => HttpResponse.json([
-        { uuid: 'p1', name: 'Aloe' },
-        { uuid: 'p2', name: 'Monstera' },
-      ])),
+      http.get('/api/plants/names', () =>
+        HttpResponse.json([
+          { uuid: 'p1', name: 'Aloe' },
+          { uuid: 'p2', name: 'Monstera' },
+        ]),
+      ),
       http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 1 }, { status: 201 })
@@ -174,10 +176,12 @@ describe('pages/RepottingCreate', () => {
   test('create flow: explicitly provided 0 is sent as 0 (not null) for coverage', async () => {
     let captured = null
     server.use(
-      http.get('/api/plants/names', () => HttpResponse.json([
-        { uuid: 'p1', name: 'Aloe' },
-        { uuid: 'p2', name: 'Monstera' },
-      ])),
+      http.get('/api/plants/names', () =>
+        HttpResponse.json([
+          { uuid: 'p1', name: 'Aloe' },
+          { uuid: 'p2', name: 'Monstera' },
+        ]),
+      ),
       http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         captured = await request.json()
         return HttpResponse.json({ id: 1 }, { status: 201 })
@@ -298,7 +302,11 @@ describe('pages/RepottingCreate', () => {
 
   test('edit flow: shows error when existing repotting load fails', async () => {
     // Make the GET for existing measurement fail
-    server.use(http.get('/api/plants/:pid/measurements/:id', () => HttpResponse.text('nope', { status: 500 })))
+    server.use(
+      http.get('/api/plants/:pid/measurements/:id', () =>
+        HttpResponse.text('nope', { status: 500 }),
+      ),
+    )
 
     renderWithRouter(['/repotting/edit?id=123'])
 
@@ -355,7 +363,9 @@ describe('pages/RepottingCreate', () => {
           last_wet_weight_g: 20,
         }),
       ),
-      http.put('/api/plants/:plantId/repotting/:id', () => HttpResponse.text('bad', { status: 500 })),
+      http.put('/api/plants/:plantId/repotting/:id', () =>
+        HttpResponse.text('bad', { status: 500 }),
+      ),
     )
 
     renderWithRouter(['/repotting/edit?id=42&plant=p1'])

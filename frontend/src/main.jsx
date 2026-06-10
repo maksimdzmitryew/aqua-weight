@@ -55,7 +55,7 @@ const Logout = () => {
 
 /**
  * SessionManager component
- * 
+ *
  * Provides a central listener for authentication state changes.
  * If the user becomes unauthenticated while on a restricted page,
  * they are redirected to the login page.

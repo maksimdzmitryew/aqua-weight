@@ -334,7 +334,9 @@ describe('pages/MeasurementCreate', () => {
 
   test('submit with location.state.from navigates to that path', async () => {
     server.use(
-      http.post('/api/plants/:plantId/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/weight', () =>
+        HttpResponse.json({ id: 1 }, { status: 201 }),
+      ),
     )
 
     renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom-path' } }])
@@ -421,7 +423,9 @@ describe('pages/MeasurementCreate', () => {
     } catch {}
     // success handlers
     server.use(
-      http.post('/api/plants/:plantId/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/weight', () =>
+        HttpResponse.json({ id: 1 }, { status: 201 }),
+      ),
     )
     renderWithRouter(['/new?plant=u1'])
 

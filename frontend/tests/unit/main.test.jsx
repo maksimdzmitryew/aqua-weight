@@ -117,7 +117,9 @@ describe('src/main.jsx bootstrap', () => {
     const apChildren = React.Children.toArray(authProvider.props.children)
     expect(apChildren).toHaveLength(1)
     const settingsProvider = apChildren[0]
-    expect(settingsProvider.type?.name || settingsProvider.type?.displayName).toBe('SettingsProvider')
+    expect(settingsProvider.type?.name || settingsProvider.type?.displayName).toBe(
+      'SettingsProvider',
+    )
 
     const spChildren = React.Children.toArray(settingsProvider.props.children)
     expect(spChildren).toHaveLength(1)
@@ -135,11 +137,13 @@ describe('src/main.jsx bootstrap', () => {
     // We expect public routes, a ProtectedRoute wrapper for restricted ones, and a catch-all
     const publicPaths = ['/', '/login', '/logout', '/invite/complete']
     const catchAllPath = '*'
-    
+
     // Find the ProtectedRoute element (the one without a path prop)
-    const protectedRoute = routeChildren.find((r) => !r.props?.path && r.props?.element?.type?.name === 'ProtectedRoute')
+    const protectedRoute = routeChildren.find(
+      (r) => !r.props?.path && r.props?.element?.type?.name === 'ProtectedRoute',
+    )
     expect(protectedRoute).toBeTruthy()
-    
+
     // Extract nested paths from the ProtectedRoute, including those inside wrappers like RequireAdmin
     const getPaths = (children) => {
       let paths = []

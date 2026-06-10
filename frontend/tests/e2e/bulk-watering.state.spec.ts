@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login} from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -12,9 +12,7 @@ test.describe('Bulk Watering State', () => {
     await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' })
     const seedFernRow = page.getByRole('row', { name: /seed fern/i })
     await seedFernRow.waitFor({ state: 'visible' })
-    await seedFernRow
-      .getByRole('button', { name: /edit/i })
-      .click()
+    await seedFernRow.getByRole('button', { name: /edit/i }).click()
     await page.getByRole('tab', { name: /care/i }).click()
     await page.getByLabel(/recommended water threshold/i).fill('50')
     await page.getByRole('tab', { name: /calculated/i }).click()
@@ -34,8 +32,6 @@ test.describe('Bulk Watering State', () => {
   test.beforeEach(async ({ page }) => {
     await login(page, ORIGIN)
   })
-
-
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)

@@ -51,7 +51,13 @@ export class ApiClient {
     this._refreshPromise = null
   }
 
-  setAuthHooks({ getAccessToken, getDeviceId, onAccessTokenUpdated, onUnauthenticated, onForbidden }) {
+  setAuthHooks({
+    getAccessToken,
+    getDeviceId,
+    onAccessTokenUpdated,
+    onUnauthenticated,
+    onForbidden,
+  }) {
     this.getAccessToken = getAccessToken
     this.getDeviceId = getDeviceId
     this.onAccessTokenUpdated = onAccessTokenUpdated
@@ -109,7 +115,18 @@ export class ApiClient {
     return url + path
   }
 
-  async request(path, { method = 'GET', headers, body, signal, retry = undefined, skipGlobalForbidden = false, apiVersion = undefined } = {}) {
+  async request(
+    path,
+    {
+      method = 'GET',
+      headers,
+      body,
+      signal,
+      retry = undefined,
+      skipGlobalForbidden = false,
+      apiVersion = undefined,
+    } = {},
+  ) {
     const isGet = method.toUpperCase() === 'GET'
     const attempts = typeof retry === 'number' ? retry + 1 : isGet ? 3 : 1
     const backoffMs = [0, 200, 500]
@@ -160,7 +177,10 @@ export class ApiClient {
           const incompatibleSignal = /expected signal.*instance of abortsignal/i.test(msg)
           if (requestInit.signal && incompatibleSignal) {
             // Fallback for cross-realm signal mismatch (jsdom AbortSignal with undici fetch).
-            res = await fetch(this.buildUrl(path, apiVersion), { ...requestInit, signal: undefined })
+            res = await fetch(this.buildUrl(path, apiVersion), {
+              ...requestInit,
+              signal: undefined,
+            })
           } else {
             throw fetchErr
           }
@@ -177,7 +197,7 @@ export class ApiClient {
               await this.refreshTokens()
               i--
               continue
-            } catch (refreshErr) {
+            } catch {
               this.onUnauthenticated?.()
               // Fall through to normal error handling
             }

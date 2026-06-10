@@ -1012,7 +1012,9 @@ test('logs error and continues when approximations fail to load', async () => {
 test('handles null/missing approximation items gracefully', async () => {
   server.use(
     mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
-    http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: null })),
+    http.get('/api/plants/measurements/approximation/watering', () =>
+      HttpResponse.json({ items: null }),
+    ),
   )
   renderPage()
   expect(await screen.findByText('Aloe')).toBeInTheDocument()
@@ -1164,7 +1166,9 @@ test('integrated: line 437 coverage - badge titles', async () => {
           limit: 20,
         }),
       ),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     const { unmount } = renderPage()

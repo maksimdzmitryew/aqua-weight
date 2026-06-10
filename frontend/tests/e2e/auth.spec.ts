@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login} from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -15,7 +15,8 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
 
   test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
     // Generate a dummy access token for the mocked refresh response
-    const dummyAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X2FkbWluIiwiaWF0IjoxNzE4MDAwMDAwLCJleHAiOjE5MTgwMDAwMDB9.fake_signature'
+    const dummyAccessToken =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X2FkbWluIiwiaWF0IjoxNzE4MDAwMDAwLCJleHAiOjE5MTgwMDAwMDB9.fake_signature'
 
     // Intercept all API calls (except test/*) and return 401 to simulate expired session.
     // The /api/auth/refresh endpoint is mocked to succeed so the API client refreshes

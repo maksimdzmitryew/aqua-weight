@@ -247,7 +247,12 @@ export default function PlantDetails() {
                     <tbody>
                       {measurements.map((m, i) => {
                         const type = m.type || 'Measurement'
-                        const badgeClass = type === 'Repotting' ? 'badge-info' : type === 'Watering' ? 'badge-success' : ''
+                        const badgeClass =
+                          type === 'Repotting'
+                            ? 'badge-info'
+                            : type === 'Watering'
+                              ? 'badge-success'
+                              : ''
 
                         return (
                           <tr key={m.id || i}>
@@ -266,9 +271,7 @@ export default function PlantDetails() {
                               />
                             </td>
                             <td className="td">
-                              <span className={`badge ${badgeClass}`}>
-                                {type}
-                              </span>
+                              <span className={`badge ${badgeClass}`}>{type}</span>
                             </td>
                             <td className="td">
                               <DateTimeText value={m.measured_at} />
@@ -277,12 +280,23 @@ export default function PlantDetails() {
                             <td className="td">{m.last_dry_weight_g ?? '—'}</td>
                             <td className="td">{m.last_wet_weight_g ?? '—'}</td>
                             <td className="td">{m.water_added_g ?? 0}</td>
-                            <td className="td" style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.note}>
+                            <td
+                              className="td"
+                              style={{
+                                maxWidth: 200,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={m.note}
+                            >
                               {m.note || '—'}
                             </td>
                             <td className="td">
                               {m.water_loss_total_pct != null
-                                ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%`
+                                ? `${
+                                    m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct
+                                  }%`
                                 : '—'}
                             </td>
                             <td className="td">{m.water_loss_total_g ?? '—'}</td>

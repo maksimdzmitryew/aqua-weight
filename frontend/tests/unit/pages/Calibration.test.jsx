@@ -653,7 +653,9 @@ test('correction error falls back to generic message when detail is empty', asyn
     // Return a JSON empty string body (""), which parses to '' (empty string).
     // ApiClient will set ApiError.body = '' and message = 'Request failed...'.
     // In Calibration catch, detail becomes '' (via e.body) so it falls through to e.message branch (81-82).
-    http.post('/api/plants/:plant_id/measurements/corrections', () => HttpResponse.text('""', { status: 500 })),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
+      HttpResponse.text('""', { status: 500 }),
+    ),
   )
   renderPage()
   await screen.findByText('B')
@@ -829,7 +831,9 @@ test('post-correction refresh tolerates non-array response (covers false branch 
       calls += 1
       return calls === 1 ? HttpResponse.json([plant]) : HttpResponse.json({ ok: true })
     }),
-    http.post('/api/plants/:plant_id/measurements/corrections', () => HttpResponse.json({ ok: true })),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
+      HttpResponse.json({ ok: true }),
+    ),
   )
   renderPage()
   await screen.findByText('NonArray')

@@ -11,10 +11,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -110,7 +110,9 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
       ...paginatedPlantsHandler([
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({ status: 'success', data: null }),
       ),
@@ -151,7 +153,9 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
           data: { id: 5001, water_retained_pct: 100, water_loss_total_pct: 0 },
         }),
       ),
-      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () =>
+        HttpResponse.json({ status: 'success' }),
+      ),
     )
 
     await setupAndShowAll()
@@ -223,7 +227,9 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
           data: { id: 5001 },
         }),
       ),
-      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () =>
+        HttpResponse.json({ status: 'success' }),
+      ),
     )
 
     await setupAndShowAll()
@@ -264,13 +270,17 @@ describe('pages/BulkWatering (vacation mode commit/delete)', () => {
         { uuid: 'u1', name: 'Aloe', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
         { uuid: 'u2', name: 'Other', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
       ]),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.post('/api/plants/:pid/measurements/vacation/watering', () =>
         HttpResponse.json({
           data: { id: 5001 },
         }),
       ),
-      http.delete('/api/plants/:pid/measurements/5001', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/5001', () =>
+        HttpResponse.json({ status: 'success' }),
+      ),
     )
 
     await setupAndShowAll()

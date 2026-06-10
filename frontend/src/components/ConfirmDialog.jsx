@@ -306,7 +306,14 @@ export default function ConfirmDialog({
         )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           {shownButtons.map((b) => (
-            <button key={b.key} type="button" ref={b.ref} onClick={b.onClick} style={b.style} disabled={b.disabled}>
+            <button
+              key={b.key}
+              type="button"
+              ref={b.ref}
+              onClick={b.onClick}
+              style={b.style}
+              disabled={b.disabled}
+            >
               {b.text}
             </button>
           ))}

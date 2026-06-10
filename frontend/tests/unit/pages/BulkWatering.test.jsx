@@ -12,10 +12,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -300,7 +300,9 @@ describe.sequential('pages/BulkWatering', () => {
         http.get('/api/plants/measurements/approximation/watering', () =>
           HttpResponse.json({ items: [] }),
         ),
-        http.post('/api/plants/:pid/measurements/vacation/watering', () => HttpResponse.json({ id: 123 })),
+        http.post('/api/plants/:pid/measurements/vacation/watering', () =>
+          HttpResponse.json({ id: 123 }),
+        ),
         http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ ok: true })),
       )
 
@@ -344,7 +346,9 @@ describe.sequential('pages/BulkWatering', () => {
       )
       // To re-enable delete, first have a successful commit
       server.use(
-        http.post('/api/plants/:pid/measurements/vacation/watering', () => HttpResponse.json({ id: 999 })),
+        http.post('/api/plants/:pid/measurements/vacation/watering', () =>
+          HttpResponse.json({ id: 999 }),
+        ),
       )
       fireEvent.click(within(row).getByTitle(/record vacation watering/i))
       const nextDeleteBtn = await within(row).findByTitle(/delete vacation watering/i)
@@ -392,7 +396,11 @@ describe.sequential('pages/BulkWatering', () => {
       await waitFor(() => expect(screen.queryByText(/42%/)).toBeInTheDocument(), { timeout: 3000 })
 
       // 2. Delete it
-      server.use(http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ success: true })))
+      server.use(
+        http.delete('/api/plants/:pid/measurements/:id', () =>
+          HttpResponse.json({ success: true }),
+        ),
+      )
       const deleteBtn = await screen.findByLabelText(/Delete watering/i, { timeout: 5000 })
       fireEvent.click(deleteBtn)
 
@@ -589,7 +597,9 @@ describe.sequential('pages/BulkWatering', () => {
     // First let POST create with metrics 40/60 as per default handler
     // Then make PUT omit both water_retained_pct and water_loss_total_pct
     server.use(
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/measurements/approximation', () => HttpResponse.json({ items: [] })),
       http.put('/api/plants/:pid/measurements/watering/:id', async ({ request, params }) => {
         const payload = await request.json()

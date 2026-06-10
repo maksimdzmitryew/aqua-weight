@@ -13,10 +13,10 @@ import { measurementsApi } from '../../../src/api/measurements'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -385,7 +385,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
         return HttpResponse.json(Array.from({ length: 11 }, (_, i) => `u${i + 1}`))
       }),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', ({ request }) => {
         plantsCalls += 1
         if (plantsCalls >= 2) {
@@ -416,7 +418,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(['u2'])
         return HttpResponse.json(['u1', 'u2'])
       }),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
@@ -442,7 +446,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(doneUuids)
         return HttpResponse.json(allUuids)
       }),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', ({ request }) => {
         const url = new URL(request.url)
         const uuids = (url.searchParams.get('uuids') || '').split(',').filter(Boolean)
@@ -498,7 +504,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
         return HttpResponse.json(['u1'])
       }),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () => HttpResponse.json({})),
     )
 

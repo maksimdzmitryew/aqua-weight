@@ -43,7 +43,9 @@ export default function AdminDashboard() {
     setIsProcessing(true)
     try {
       await apiClient.patch(`/admin/users/${user.id_hex}/role`, { global_role: newRole })
-      setUsers(prev => prev.map(u => u.id_hex === user.id_hex ? { ...u, global_role: newRole } : u))
+      setUsers((prev) =>
+        prev.map((u) => (u.id_hex === user.id_hex ? { ...u, global_role: newRole } : u)),
+      )
       setConfirmRole(null)
     } catch (err) {
       alert(err.message || 'Failed to update role')
@@ -57,7 +59,9 @@ export default function AdminDashboard() {
     setIsProcessing(true)
     try {
       await apiClient.post(`/admin/users/${confirmReset.id_hex}/mfa-reset`)
-      setUsers(prev => prev.map(u => u.id_hex === confirmReset.id_hex ? { ...u, mfa_enabled: false } : u))
+      setUsers((prev) =>
+        prev.map((u) => (u.id_hex === confirmReset.id_hex ? { ...u, mfa_enabled: false } : u)),
+      )
       setConfirmReset(null)
     } catch (err) {
       alert(err.message || 'Failed to reset MFA')
@@ -79,7 +83,9 @@ export default function AdminDashboard() {
     }
   }
 
-  const inviteLink = inviteToken ? `${window.location.origin}/invite/complete?token=${inviteToken}` : ''
+  const inviteLink = inviteToken
+    ? `${window.location.origin}/invite/complete?token=${inviteToken}`
+    : ''
 
   return (
     <DashboardLayout>
@@ -104,7 +110,7 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {users.map(user => (
+                {users.map((user) => (
                   <tr key={user.id_hex}>
                     <td className="td">{user.username}</td>
                     <td className="td">
@@ -122,7 +128,7 @@ export default function AdminDashboard() {
                     <td className="td">{new Date(user.created_at).toLocaleDateString()}</td>
                     <td className="td">
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <button 
+                        <button
                           className="btn btn-secondary"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
                           onClick={() => setConfirmRole(user)}
@@ -130,11 +136,15 @@ export default function AdminDashboard() {
                         >
                           Make {user.global_role === 'admin' ? 'Customer' : 'Admin'}
                         </button>
-                        <button 
+                        <button
                           className="btn btn-danger"
                           style={{ padding: '4px 8px', fontSize: '0.85em' }}
                           onClick={() => setConfirmReset(user)}
-                          disabled={!user.mfa_enabled || user.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() || isProcessing}
+                          disabled={
+                            !user.mfa_enabled ||
+                            user.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() ||
+                            isProcessing
+                          }
                         >
                           Reset MFA
                         </button>
@@ -153,7 +163,7 @@ export default function AdminDashboard() {
         <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
           Create a one-time use token for a new user to register.
         </p>
-        <button 
+        <button
           className="btn btn-primary"
           onClick={handleGenerateInvite}
           disabled={isGeneratingInvite}
@@ -162,18 +172,20 @@ export default function AdminDashboard() {
         </button>
 
         {inviteToken && (
-          <div style={{ marginTop: 24, padding: 16, background: 'var(--sidebar-bg)', borderRadius: 6 }}>
+          <div
+            style={{ marginTop: 24, padding: 16, background: 'var(--sidebar-bg)', borderRadius: 6 }}
+          >
             <p style={{ fontWeight: 600, marginBottom: 8 }}>Invite Link (Valid for 7 days):</p>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input 
-                type="text" 
-                readOnly 
-                value={inviteLink} 
+              <input
+                type="text"
+                readOnly
+                value={inviteLink}
                 className="input"
                 style={{ flex: 1 }}
                 onClick={(e) => e.target.select()}
               />
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={async () => {
                   try {
@@ -197,7 +209,11 @@ export default function AdminDashboard() {
       <ConfirmDialog
         open={!!confirmReset}
         title="Reset MFA?"
-        message={confirmReset ? `Are you sure you want to reset MFA for "${confirmReset.username}"? This will also revoke all their active sessions.` : ''}
+        message={
+          confirmReset
+            ? `Are you sure you want to reset MFA for "${confirmReset.username}"? This will also revoke all their active sessions.`
+            : ''
+        }
         confirmText={isProcessing ? 'Processing...' : 'Reset MFA'}
         onConfirm={handleResetMfa}
         onCancel={() => setConfirmReset(null)}
@@ -207,27 +223,46 @@ export default function AdminDashboard() {
 
       <ConfirmDialog
         open={!!confirmRole}
-        title={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() 
-          ? "Action Not Permitted" 
-          : (confirmRole?.global_role === 'admin' ? 'Demote to Customer?' : 'Promote to Admin?')
+        title={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+            ? 'Action Not Permitted'
+            : confirmRole?.global_role === 'admin'
+              ? 'Demote to Customer?'
+              : 'Promote to Admin?'
         }
-        message={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
-          ? "You cannot change your own role."
-          : (confirmRole ? `Are you sure you want to change "${confirmRole.username}"'s role to ${confirmRole.global_role === 'admin' ? 'customer' : 'admin'}?` : '')
+        message={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+            ? 'You cannot change your own role.'
+            : confirmRole
+              ? `Are you sure you want to change "${confirmRole.username}"'s role to ${
+                  confirmRole.global_role === 'admin' ? 'customer' : 'admin'
+                }?`
+              : ''
         }
-        confirmText={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
-          ? "OK"
-          : (isProcessing ? 'Processing...' : (confirmRole?.global_role === 'admin' ? 'Make Customer' : 'Make Admin'))
+        confirmText={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+            ? 'OK'
+            : isProcessing
+              ? 'Processing...'
+              : confirmRole?.global_role === 'admin'
+                ? 'Make Customer'
+                : 'Make Admin'
         }
-        onConfirm={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
-          ? () => setConfirmRole(null)
-          : () => handleToggleRole(confirmRole)
+        onConfirm={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+            ? () => setConfirmRole(null)
+            : () => handleToggleRole(confirmRole)
         }
         onCancel={() => setConfirmRole(null)}
-        cancelText={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() ? null : "Cancel"}
-        tone={confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
-          ? "info"
-          : (confirmRole?.global_role === 'admin' ? 'warning' : 'info')
+        cancelText={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase() ? null : 'Cancel'
+        }
+        tone={
+          confirmRole?.id_hex?.toLowerCase() === currentUser?.id?.toLowerCase()
+            ? 'info'
+            : confirmRole?.global_role === 'admin'
+              ? 'warning'
+              : 'info'
         }
         disabled={isProcessing}
       />

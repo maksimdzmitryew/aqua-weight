@@ -12,10 +12,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -124,7 +124,9 @@ describe('DailyCare branches', () => {
     }
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', needs_weighing: true }]), // No name, no plant
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     render(
@@ -157,7 +159,9 @@ describe('DailyCare branches', () => {
 
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     render(
@@ -210,7 +214,9 @@ describe('DailyCare branches', () => {
   test('plantsData fallback', async () => {
     server.use(
       http.get('/api/plants', () => HttpResponse.json({ not_an_array: true })),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     render(
@@ -284,7 +290,9 @@ describe('DailyCare branches', () => {
     localStorage.setItem('operationMode', 'manual')
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     const { unmount } = render(
@@ -331,7 +339,9 @@ describe('DailyCare branches', () => {
     // Mock list to reject with something that has no message
     const spy = vi.spyOn(plantsApi, 'list').mockRejectedValueOnce({})
     server.use(
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     render(
@@ -374,7 +384,9 @@ describe('DailyCare branches', () => {
 
     server.use(
       ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true }]),
-      http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
     )
 
     await act(async () => {
@@ -416,7 +428,9 @@ describe('DailyCare load and aria-label branches', () => {
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: null }),
       ),
-      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      http.get('/api/plants/measurements/approximation/weight', () =>
+        HttpResponse.json({ items: null }),
+      ),
       ...paginatedPlantsHandler([
         {
           uuid: 'p1',
@@ -463,7 +477,9 @@ describe('DailyCare load and aria-label branches', () => {
           ],
         }),
       ),
-      http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: null })),
+      http.get('/api/plants/measurements/approximation/weight', () =>
+        HttpResponse.json({ items: null }),
+      ),
       ...paginatedPlantsHandler([
         {
           uuid: 'p1',

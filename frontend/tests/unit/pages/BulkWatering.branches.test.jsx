@@ -12,10 +12,10 @@ import { paginatedPlantsHandler } from '../msw/paginate.js'
 // Mock AuthContext to avoid react-hot-toast resolution issues
 vi.mock('../../../src/context/AuthContext.jsx', () => ({
   AuthProvider: ({ children }) => children,
-  useAuth: () => ({ 
-    user: { global_role: 'admin' }, 
+  useAuth: () => ({
+    user: { global_role: 'admin' },
     isAuthenticated: true,
-    status: 'authenticated'
+    status: 'authenticated',
   }),
 }))
 
@@ -411,7 +411,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           ],
         }),
       ),
-      http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/:id', () =>
+        HttpResponse.json({ status: 'success' }),
+      ),
     )
     render(
       <ThemeProvider>
@@ -713,7 +715,9 @@ describe.sequential('pages/BulkWatering (branches)', () => {
           ],
         }),
       ),
-      http.delete('/api/plants/:pid/measurements/:id', () => HttpResponse.json({ status: 'success' })),
+      http.delete('/api/plants/:pid/measurements/:id', () =>
+        HttpResponse.json({ status: 'success' }),
+      ),
       http.get('/api/plants/measurements/approximation/watering', () => {
         approxCallCount++
         return HttpResponse.json({ items: null })

@@ -107,13 +107,10 @@ export async function login(page: Page, apiBase: string): Promise<void> {
 
     // Set up the browser session: store the access token so the frontend
     // AuthProvider picks up the authenticated state via test-mode detection.
-    await page.evaluate(
-      (accessToken) => {
-        localStorage.setItem('aw_test_access_token', accessToken)
-        localStorage.setItem('aw_test_authenticated', 'true')
-      },
-      access_token,
-    )
+    await page.evaluate((accessToken) => {
+      localStorage.setItem('aw_test_access_token', accessToken)
+      localStorage.setItem('aw_test_authenticated', 'true')
+    }, access_token)
   } finally {
     await api.dispose()
   }

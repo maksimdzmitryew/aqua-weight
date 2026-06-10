@@ -44,7 +44,11 @@ export function paginatedPlantsHandler(items) {
 
       return HttpResponse.json(filtered.map((i) => i.uuid))
     }),
-    http.get('/api/plants/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
-    http.get('/api/plants/measurements/approximation/weight', () => HttpResponse.json({ items: [] })),
+    http.get('/api/plants/measurements/approximation/watering', () =>
+      HttpResponse.json({ items: [] }),
+    ),
+    http.get('/api/plants/measurements/approximation/weight', () =>
+      HttpResponse.json({ items: [] }),
+    ),
   ]
 }

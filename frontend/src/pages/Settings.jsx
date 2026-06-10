@@ -16,7 +16,7 @@ export default function Settings() {
   const [operationMode, setOperationMode] = useState('manual')
   const [defaultThreshold, setDefaultThreshold] = useState('40')
   const [pageSize, setPageSize] = useState('20')
-  
+
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
 
@@ -61,7 +61,7 @@ export default function Settings() {
       return
     }
     setThresholdError('')
-    
+
     try {
       await updateSettings({
         displayName: name,
@@ -240,8 +240,9 @@ export default function Settings() {
       >
         <h3 style={{ marginTop: 0, color: '#ef4444' }}>Regenerate Recovery Codes</h3>
         <p style={{ fontSize: '0.9em', marginBottom: 16 }}>
-          Generating new recovery codes will invalidate all of your current codes and log you out fromm all other devices except for the current one. You can only do
-          this once every 24 hours.
+          Generating new recovery codes will invalidate all of your current codes and log you out
+          fromm all other devices except for the current one. You can only do this once every 24
+          hours.
         </p>
         <button
           type="button"
@@ -253,9 +254,7 @@ export default function Settings() {
         >
           Regenerate Codes
         </button>
-        {error && (
-          <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>
-        )}
+        {error && <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>}
 
         <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #ef4444' }}>
           <h3 style={{ marginTop: 0, color: '#ef4444' }}>Device Management</h3>
