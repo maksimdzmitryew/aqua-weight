@@ -34,7 +34,7 @@ def apply_schema(cur):
         if os.path.exists(p):
             schema_path = p
             break
-    
+
     if not schema_path:
         print("Warning: db/init/schema.sql not found. Script will attempt to proceed but may fail.")
         return
@@ -53,7 +53,7 @@ def apply_schema(cur):
             if clean_line.endswith(";"):
                 statements.append(" ".join(current_stmt))
                 current_stmt = []
-        
+
         for stmt in statements:
             try:
                 cur.execute(stmt)
@@ -118,11 +118,11 @@ def main():
                     (admin_id_bin, 'admin', 'bootstrap-placeholder', 'admin')
                 )
                 users_rows = [(admin_id_bin, 'admin', 'admin')]
-            
+
             if len(users_rows) > 1:
                 print(f"Error: Found {len(users_rows)} users. Migration requires a single-user (admin) state for safety.")
                 sys.exit(1)
-            
+
             admin_id_old, admin_username, admin_role = users_rows[0]
             if admin_role != 'admin':
                 print(f"Error: Existing user '{admin_username}' is not an admin.")
@@ -132,10 +132,10 @@ def main():
 
             # 2. Collect IDs and generate new ULIDs
             tables_to_migrate = [
-                'users', 'locations', 'plants', 'plants_measurements', 
+                'users', 'locations', 'plants', 'plants_measurements',
                 'plants_events', 'devices', 'auth_refresh_tokens'
             ]
-            
+
             # Pre-migration validation: Record counts for time-series tables
             time_series_tables = ['plants_measurements', 'plants_events']
             counts_pre = {}
@@ -166,10 +166,10 @@ def main():
             for table, mapping in mappings.items():
                 for old_id, new_id in mapping.items():
                     cur.execute(f"UPDATE {table} SET id = %s WHERE id = %s", (new_id, old_id))
-            
+
             # B. Update Foreign Keys (Ripple)
             admin_id_new = mappings['users'].get(admin_id_old, admin_id_old)
-            
+
             fk_updates = [
                 ('invite_tokens', 'user_id', 'users'),
                 ('user_totp_secrets', 'user_id', 'users'),
@@ -195,7 +195,7 @@ def main():
             for table, col, ref_table in fk_updates:
                 if ref_table not in mappings or not mappings[ref_table]:
                     continue
-                
+
                 # Check if table and column exist to avoid "Unknown column" or "Table not found" error
                 try:
                     cur.execute(f"SELECT {col} FROM {table} LIMIT 0")
@@ -251,7 +251,7 @@ def main():
             raw_token = secrets.token_urlsafe(32)
             token_hash = hashlib.sha256(raw_token.encode()).digest()
             expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-            
+
             cur.execute(
                 "INSERT INTO invite_tokens (token_hash, user_id, expires_at) VALUES (%s, %s, %s)",
                 (token_hash, admin_id_new, expires_at)
@@ -260,10 +260,10 @@ def main():
             # 8. Finalize
             cur.execute("SET FOREIGN_KEY_CHECKS = 1")
             conn.commit()
-            
+
             with open(MARKER_FILE, "w") as f:
                 f.write(f"Migration completed at {datetime.now(timezone.utc).isoformat()}\n")
-            
+
             print("\nMigration successful!")
             print("================================================================")
             print(f"One-time admin login link (Expires in 7 days):")

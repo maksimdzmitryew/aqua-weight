@@ -49,7 +49,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./frontend:/app
-    # now we have modules pre-downloaded in image which allows for a fast container start
+      # now we have modules pre-downloaded in image which allows for a fast container start
       - /app/node_modules
     # Always install deps on startup to avoid partial node_modules issues when bind-mounting from host.
     # This ensures @vitejs/plugin-react-swc and other dev deps are present for the Vite dev server.
@@ -62,15 +62,7 @@ services:
     #    "cd /app && npm ci --no-audit --no-fund && exec npm run dev -- --host 0.0.0.0",
     #  ]
 
-    command:
-      [
-        "npm",
-        "run",
-        "dev",
-        "--",
-        "--host",
-        "0.0.0.0",
-      ]
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
     security_opt:
       - no-new-privileges:true
 

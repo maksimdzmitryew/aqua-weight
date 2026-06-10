@@ -41,4 +41,3 @@
   Bottom line – the repository is a fairly complete Docker‑compose‑based web app that manages plant‑watering data, offers three UI operation modes, and includes a solid security baseline (TLS, optional API key, secret‑free
   repo). Recent commits focus on auth/measurement security, UI resilience, and migration of plant‑detail pages. If you have a specific area you’d like to dig into (e.g., API contract, UI bugs, performance, security
   hardening), let me know and I can dive deeper or run relevant checks.
-
