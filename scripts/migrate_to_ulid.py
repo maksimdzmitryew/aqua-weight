@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
+import hashlib
 import os
+import secrets
 import sys
 import time
-import secrets
-import hashlib
 from datetime import datetime, timedelta, timezone
+
 
 # --- ULID Generation (Self-contained) ---
 def generate_ulid_bytes() -> bytes:
@@ -19,16 +20,14 @@ def generate_ulid_bytes() -> bytes:
     r_bytes = os.urandom(10)
     return t_bytes + r_bytes
 
+
 # --- Migration Script ---
 MARKER_FILE = ".migration_ulid_done"
 
+
 def apply_schema(cur):
     """Attempt to apply schema.sql if tables are missing."""
-    possible_paths = [
-        "db/init/schema.sql",
-        "../db/init/schema.sql",
-        "/app/db/init/schema.sql"
-    ]
+    possible_paths = ["db/init/schema.sql", "../db/init/schema.sql", "/app/db/init/schema.sql"]
     schema_path = None
     for p in possible_paths:
         if os.path.exists(p):
@@ -61,6 +60,7 @@ def apply_schema(cur):
                 # Ignore common "already exists" errors since we use IF NOT EXISTS
                 pass
 
+
 def main():
     if os.path.exists(MARKER_FILE):
         print("Migration already completed (marker file exists).")
@@ -69,7 +69,9 @@ def main():
     try:
         import pymysql
     except ImportError:
-        print("Error: pymysql not found. Please run this in an environment with dependencies installed.")
+        print(
+            "Error: pymysql not found. Please run this in an environment with dependencies installed."
+        )
         sys.exit(1)
 
     host = os.getenv("DB_HOST", "db")
@@ -81,12 +83,7 @@ def main():
     print(f"Connecting to {database} at {host}:{port}...")
     try:
         conn = pymysql.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database,
-            autocommit=False
+            host=host, port=port, user=user, password=password, database=database, autocommit=False
         )
     except Exception as e:
         print(f"Failed to connect to database: {e}")
@@ -115,16 +112,18 @@ def main():
                 admin_id_bin = generate_ulid_bytes()
                 cur.execute(
                     "INSERT INTO users (id, username, password_hash, global_role) VALUES (%s, %s, %s, %s)",
-                    (admin_id_bin, 'admin', 'bootstrap-placeholder', 'admin')
+                    (admin_id_bin, "admin", "bootstrap-placeholder", "admin"),
                 )
-                users_rows = [(admin_id_bin, 'admin', 'admin')]
+                users_rows = [(admin_id_bin, "admin", "admin")]
 
             if len(users_rows) > 1:
-                print(f"Error: Found {len(users_rows)} users. Migration requires a single-user (admin) state for safety.")
+                print(
+                    f"Error: Found {len(users_rows)} users. Migration requires a single-user (admin) state for safety."
+                )
                 sys.exit(1)
 
             admin_id_old, admin_username, admin_role = users_rows[0]
-            if admin_role != 'admin':
+            if admin_role != "admin":
                 print(f"Error: Existing user '{admin_username}' is not an admin.")
                 sys.exit(1)
 
@@ -132,12 +131,17 @@ def main():
 
             # 2. Collect IDs and generate new ULIDs
             tables_to_migrate = [
-                'users', 'locations', 'plants', 'plants_measurements',
-                'plants_events', 'devices', 'auth_refresh_tokens'
+                "users",
+                "locations",
+                "plants",
+                "plants_measurements",
+                "plants_events",
+                "devices",
+                "auth_refresh_tokens",
             ]
 
             # Pre-migration validation: Record counts for time-series tables
-            time_series_tables = ['plants_measurements', 'plants_events']
+            time_series_tables = ["plants_measurements", "plants_events"]
             counts_pre = {}
             for table in time_series_tables:
                 try:
@@ -168,28 +172,28 @@ def main():
                     cur.execute(f"UPDATE {table} SET id = %s WHERE id = %s", (new_id, old_id))
 
             # B. Update Foreign Keys (Ripple)
-            admin_id_new = mappings['users'].get(admin_id_old, admin_id_old)
+            admin_id_new = mappings["users"].get(admin_id_old, admin_id_old)
 
             fk_updates = [
-                ('invite_tokens', 'user_id', 'users'),
-                ('user_totp_secrets', 'user_id', 'users'),
-                ('user_recovery_codes', 'user_id', 'users'),
-                ('user_devices', 'user_id', 'users'),
-                ('auth_refresh_tokens', 'user_id', 'users'),
-                ('user_location_acl', 'user_id', 'users'),
-                ('plants', 'owner_id', 'users'),
+                ("invite_tokens", "user_id", "users"),
+                ("user_totp_secrets", "user_id", "users"),
+                ("user_recovery_codes", "user_id", "users"),
+                ("user_devices", "user_id", "users"),
+                ("auth_refresh_tokens", "user_id", "users"),
+                ("user_location_acl", "user_id", "users"),
+                ("plants", "owner_id", "users"),
                 # Locations references
-                ('user_location_acl', 'location_id', 'locations'),
-                ('plants', 'location_id', 'locations'),
-                ('plants_events', 'related_location_id', 'locations'),
+                ("user_location_acl", "location_id", "locations"),
+                ("plants", "location_id", "locations"),
+                ("plants_events", "related_location_id", "locations"),
                 # Plants references
-                ('plants_measurements', 'plant_id', 'plants'),
-                ('plants_events', 'plant_id', 'plants'),
+                ("plants_measurements", "plant_id", "plants"),
+                ("plants_events", "plant_id", "plants"),
                 # Devices references
-                ('user_devices', 'device_id', 'devices'),
-                ('auth_refresh_tokens', 'device_id', 'devices'),
+                ("user_devices", "device_id", "devices"),
+                ("auth_refresh_tokens", "device_id", "devices"),
                 # Tokens references
-                ('auth_refresh_tokens', 'rotated_from_id', 'auth_refresh_tokens'),
+                ("auth_refresh_tokens", "rotated_from_id", "auth_refresh_tokens"),
             ]
 
             for table, col, ref_table in fk_updates:
@@ -200,7 +204,7 @@ def main():
                 try:
                     cur.execute(f"SELECT {col} FROM {table} LIMIT 0")
                 except pymysql.err.OperationalError as e:
-                    if e.args[0] in (1054, 1146): # 1054: Unknown column, 1146: Table doesn't exist
+                    if e.args[0] in (1054, 1146):  # 1054: Unknown column, 1146: Table doesn't exist
                         print(f"Skipping update for {table}.{col} (not found)")
                         continue
                     raise
@@ -212,10 +216,10 @@ def main():
             # Clear existing ACL for clean slate if migrating from old ownership
             try:
                 cur.execute("DELETE FROM user_location_acl")
-                for loc_id_new in mappings['locations'].values():
+                for loc_id_new in mappings["locations"].values():
                     cur.execute(
                         "INSERT INTO user_location_acl (user_id, location_id, role) VALUES (%s, %s, 'owner')",
-                        (admin_id_new, loc_id_new)
+                        (admin_id_new, loc_id_new),
                     )
                 print(f"Backfilled ACL for {len(mappings['locations'])} locations to admin.")
             except pymysql.err.OperationalError as e:
@@ -229,7 +233,7 @@ def main():
                 cur.execute("UPDATE plants SET owner_id = NULL")
                 print("Cleared legacy plants.owner_id.")
             except pymysql.err.OperationalError as e:
-                if e.args[0] == 1054: # Unknown column
+                if e.args[0] == 1054:  # Unknown column
                     print("Skipping legacy plants.owner_id clearing (column not found).")
                 else:
                     raise
@@ -240,7 +244,9 @@ def main():
                     cur.execute(f"SELECT COUNT(*) FROM {table}")
                     count_post = cur.fetchone()[0]
                     if count_post != counts_pre[table]:
-                        print(f"CRITICAL: Record count mismatch for {table}! Pre: {counts_pre[table]}, Post: {count_post}")
+                        print(
+                            f"CRITICAL: Record count mismatch for {table}! Pre: {counts_pre[table]}, Post: {count_post}"
+                        )
                         raise Exception(f"Data loss detected in {table} during migration")
                     print(f"Verified {table} record count: {count_post} (OK)")
                 except Exception as e:
@@ -254,7 +260,7 @@ def main():
 
             cur.execute(
                 "INSERT INTO invite_tokens (token_hash, user_id, expires_at) VALUES (%s, %s, %s)",
-                (token_hash, admin_id_new, expires_at)
+                (token_hash, admin_id_new, expires_at),
             )
 
             # 8. Finalize
@@ -266,7 +272,7 @@ def main():
 
             print("\nMigration successful!")
             print("================================================================")
-            print(f"One-time admin login link (Expires in 7 days):")
+            print("One-time admin login link (Expires in 7 days):")
             print(f"/invite/complete?token={raw_token}")
             print("================================================================")
 
@@ -275,10 +281,12 @@ def main():
         print(f"\nMigration failed: {e}")
         # Print stack trace for debugging if it's an unexpected error
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     main()
