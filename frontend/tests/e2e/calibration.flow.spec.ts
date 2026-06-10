@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,6 +7,7 @@ test.describe('Calibration Flow', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage()
     await seed(ORIGIN)
+    await login(page, ORIGIN)
 
     // 1. Create a NEW plant
     await page.goto(`${ORIGIN}/plants/new`, { waitUntil: 'commit' })
@@ -47,6 +48,11 @@ test.describe('Calibration Flow', () => {
     // Now target is 200+100=300. The 400g watering event is now an OVERFILL (+100).
     await page.close()
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)

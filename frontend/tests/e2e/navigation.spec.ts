@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,6 +7,11 @@ test.describe('Layout and Navigation', () => {
   test.beforeAll(async () => {
     await seed(ORIGIN)
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)
@@ -36,7 +41,7 @@ test.describe('Layout and Navigation', () => {
     // Back to Home link in sidebar
     await page.getByRole('link', { name: /back to home/i }).click()
     await expect(page).toHaveURL(new RegExp(ORIGIN + '/$'))
-    await expect(page.getByRole('heading', { name: /AW Frontend/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Aqua Weight/i })).toBeVisible()
   })
 
   test('page header quick create navigation', async ({ page }) => {

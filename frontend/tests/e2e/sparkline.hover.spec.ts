@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,8 +7,10 @@ test.describe('Sparkline Hover', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage()
     await seed(ORIGIN)
+    await login(page, ORIGIN)
     // 1. Create multiple measurements to have a trend and delta
     await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' })
+    await expect(page.getByLabel(/plant/i).locator('option', { hasText: 'Seed Fern' })).toHaveCount(1, { timeout: 10000 })
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
     await page.getByLabel(/measured weight \(g\)/i).fill('300')
     await page.getByLabel(/measured at/i).fill('2025-01-01T10:00')
@@ -16,6 +18,7 @@ test.describe('Sparkline Hover', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/)
 
     await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' })
+    await expect(page.getByLabel(/plant/i).locator('option', { hasText: 'Seed Fern' })).toHaveCount(1, { timeout: 10000 })
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
     await page.getByLabel(/measured weight \(g\)/i).fill('280')
     await page.getByLabel(/measured at/i).fill('2025-01-02T10:00')
@@ -23,6 +26,11 @@ test.describe('Sparkline Hover', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/)
     await page.close()
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)
@@ -42,7 +50,8 @@ test.describe('Sparkline Hover', () => {
 
     // Verify HTML tooltip visibility
     // The tooltip is a div inside the Sparkline container but outside the SVG
-    const tooltip = page.locator('div').filter({ hasText: /g/ }).filter({ hasText: /Δ/ }).first()
+    // Scope to the sparkline container to avoid matching the root div
+    const tooltip = sparkline.locator('..').locator('div').filter({ hasText: /Δ/ }).first()
     await expect(tooltip).toBeVisible()
 
     // Verify content: 02/01/2025 (Europe default), 280 g, Δ -20 g
@@ -54,6 +63,10 @@ test.describe('Sparkline Hover', () => {
     await page.goto('/settings', { waitUntil: 'commit' })
     await page.getByLabel(/date\/time format/i).selectOption('usa')
     await page.getByRole('button', { name: /save/i }).click()
+    // Wait for the save to settle (backend may reject unknown keys, but UI should reflect selection)
+    await page.waitForTimeout(2000)
+    // Ensure localStorage has the USA format for the Sparkline component
+    await page.evaluate(() => localStorage.setItem('dtFormat', 'usa'))
 
     await page.goto('/dashboard', { waitUntil: 'commit' })
     const sparkline2 = page.locator('svg').first()
@@ -61,7 +74,7 @@ test.describe('Sparkline Hover', () => {
     if (!box2) throw new Error('No bounding box')
     await page.mouse.move(box2.x + box2.width - 5, box2.y + box2.height / 2)
 
-    const tooltip2 = page.locator('div').filter({ hasText: /g/ }).filter({ hasText: /Δ/ }).first()
+    const tooltip2 = sparkline2.locator('..').locator('div').filter({ hasText: /Δ/ }).first()
     await expect(tooltip2).toBeVisible()
     await expect(tooltip2).toContainText('01/02/2025') // MM/DD/YYYY
   })

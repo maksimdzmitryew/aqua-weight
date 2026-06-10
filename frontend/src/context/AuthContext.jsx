@@ -6,6 +6,27 @@ import Loader from '../components/feedback/Loader.jsx';
 const AuthContext = createContext(null);
 
 /**
+ * Test mode detection: when the backend runs with TEST_MODE=1 and the frontend
+ * is served from the test nginx (aw.max), the app auto-authenticates using a
+ * localStorage token set by the E2E test login helper.
+ */
+function isTestMode() {
+  try {
+    return localStorage.getItem('aw_test_authenticated') === 'true'
+  } catch {
+    return false
+  }
+}
+
+function getTestAccessToken() {
+  try {
+    return localStorage.getItem('aw_test_access_token') || null
+  } catch {
+    return null
+  }
+}
+
+/**
  * AuthProvider
  * Centralizes authentication state, token persistence coordination,
  * and integration with the ApiClient.
@@ -13,8 +34,8 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  const [status, setStatus] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
-  
+  const [status, setStatus] = useState(isTestMode() ? 'authenticated' : 'loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+
   const accessTokenRef = useRef(accessToken);
   const deviceIdRef = useRef(null);
 
@@ -75,7 +96,14 @@ export const AuthProvider = ({ children }) => {
   // 3. Keep ApiClient in sync with our state/callbacks.
   useEffect(() => {
     apiClient.setAuthHooks({
-      getAccessToken: () => accessTokenRef.current,
+      getAccessToken: () => {
+        // In test mode, return the test access token from localStorage
+        if (isTestMode()) {
+          const testToken = getTestAccessToken()
+          if (testToken) return testToken
+        }
+        return accessTokenRef.current
+      },
       getDeviceId: () => deviceIdRef.current,
       onAccessTokenUpdated: handleAccessTokenUpdated,
       onUnauthenticated: handleUnauthenticated,
@@ -88,6 +116,22 @@ export const AuthProvider = ({ children }) => {
     let mounted = true;
 
     const initAuth = async () => {
+      // In test mode, skip the refresh token call — the localStorage token is sufficient.
+      if (isTestMode()) {
+        if (mounted) {
+          const testToken = getTestAccessToken()
+          if (testToken) {
+            try {
+              const payload = JSON.parse(atob(testToken.split('.')[1]))
+              if (payload?.sub) {
+                setUser({ id: payload.sub, username: 'test_admin', global_role: 'admin' })
+              }
+            } catch { /* ignore decode errors */ }
+          }
+        }
+        return
+      }
+
       try {
         // Attempt one refresh to see if we have a valid session cookie.
         const data = await apiClient.refreshTokens();

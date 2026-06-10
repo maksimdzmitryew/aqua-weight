@@ -72,15 +72,15 @@ internal_auth_router.include_router(measurements_app)
 internal_auth_router.include_router(settings_router)
 internal_auth_router.include_router(admin_router)
 
-# Conditionally include test admin endpoints when TEST_MODE=1
-if TEST_MODE:
-    internal_auth_router.include_router(test_admin_app)
-
 # Versioned router (v1)
 v1 = APIRouter()
 v1.include_router(infrastructure_router)
 v1.include_router(auth_router, prefix="/auth", tags=["auth"])
 v1.include_router(internal_auth_router)
+
+# Test admin endpoints (unauthenticated, protected by TEST_MODE check in handlers)
+if TEST_MODE:
+    v1.include_router(test_admin_app)
 
 
 @v1.get("/docs", include_in_schema=False)

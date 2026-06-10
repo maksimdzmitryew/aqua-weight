@@ -1,11 +1,14 @@
 import os
+import secrets
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
 try:
     from ..db.core import connect, cursor
+    from ..security import hash_password
 except ImportError:  # fallback when imported as a top-level module during pytest collection
     from backend.app.db.core import connect, cursor
+    from backend.app.security import hash_password
 
 app = APIRouter(prefix="/test", tags=["test-admin"])  # will be mounted under /api when enabled
 
@@ -13,6 +16,37 @@ app = APIRouter(prefix="/test", tags=["test-admin"])  # will be mounted under /a
 def _ensure_test_mode():
     if os.getenv("TEST_MODE") != "1":
         raise HTTPException(status_code=404, detail="Not Found")
+
+
+def _get_or_create_test_admin():
+    """Get or create the test admin user and return (id_hex, created)."""
+    with connect() as conn:
+        with cursor(conn) as cur:
+            cur.execute("SELECT HEX(id) FROM users WHERE username = %s", ("test_admin",))
+            row = cur.fetchone()
+            if row:
+                return row[0], False
+            admin_id_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            cur.execute(
+                """
+                INSERT INTO users (id, username, password_hash, global_role, settings_json)
+                VALUES (UNHEX(%s), %s, %s, %s, %s)
+                """,
+                (
+                    admin_id_hex,
+                    "test_admin",
+                    hash_password("testpassword"),
+                    "admin",
+                    "{}",
+                ),
+            )
+            return admin_id_hex, True
+
+
+def _ensure_test_admin_user():
+    """Create or update a deterministic test admin user for E2E tests."""
+    admin_id_hex, _ = _get_or_create_test_admin()
+    return admin_id_hex
 
 
 @app.post("/reset")
@@ -94,12 +128,14 @@ def seed_minimal():
 def seed():
     """Reset the DB and seed minimal data (if any). Only in TEST_MODE.
     Provided for compatibility with e2e tests that POST /api/test/seed.
+    Also creates a test admin user for E2E authentication.
     """
     _ensure_test_mode()
     # Truncate all data and then run minimal seed.
     reset_db()
     seed_minimal()
-    return {"status": "ok"}
+    admin_id = _ensure_test_admin_user()
+    return {"status": "ok", "admin_id": admin_id}
 
 
 @app.post("/cleanup")
@@ -110,3 +146,35 @@ def cleanup():
     _ensure_test_mode()
     reset_db()
     return {"status": "ok"}
+
+
+@app.post("/login")
+def test_login():
+    """Authenticate the test admin user and return an access token for E2E tests.
+    Only available in TEST_MODE.
+    """
+    _ensure_test_mode()
+    from datetime import datetime, timedelta, timezone
+    import jwt as _jwt
+    from ..security import JWT_SECRET_KEY, JWT_ALGORITHM
+
+    admin_id_hex, _ = _get_or_create_test_admin()
+
+    # Generate access token
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": admin_id_hex,
+        "iat": now,
+        "exp": now + timedelta(minutes=60),
+    }
+    access_token = _jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": admin_id_hex,
+            "username": "test_admin",
+            "global_role": "admin",
+        },
+    }

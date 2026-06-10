@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,10 +7,12 @@ test.describe('Bulk Watering State', () => {
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage()
     await seed(ORIGIN)
+    await login(page, ORIGIN)
     // Setup: Seed Fern needs min_dry_weight and max_water_weight to calculate retained %
     await page.goto(`${ORIGIN}/plants`, { waitUntil: 'commit' })
-    await page
-      .getByRole('row', { name: /seed fern/i })
+    const seedFernRow = page.getByRole('row', { name: /seed fern/i })
+    await seedFernRow.waitFor({ state: 'visible' })
+    await seedFernRow
       .getByRole('button', { name: /edit/i })
       .click()
     await page.getByRole('tab', { name: /care/i }).click()
@@ -29,6 +31,11 @@ test.describe('Bulk Watering State', () => {
     await expect(page).not.toHaveURL(/\/measurement\/weight/)
     await page.close()
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)
@@ -44,6 +51,7 @@ test.describe('Bulk Watering State', () => {
     await expect(page.getByText(/loading/i)).not.toBeVisible()
 
     const row = page.getByRole('row', { name: /seed fern/i })
+    await row.waitFor({ state: 'visible' })
 
     // Initially should not be deemphasized if it needs water.
     // However, to avoid flakiness with initial state calculation,
@@ -51,6 +59,7 @@ test.describe('Bulk Watering State', () => {
 
     // Input weight after watering: 300g (100% retained)
     const input = row.getByRole('spinbutton')
+    await input.waitFor({ state: 'visible' })
     await input.fill('300')
     await input.blur()
 

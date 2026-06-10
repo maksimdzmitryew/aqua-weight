@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,6 +7,11 @@ test.describe('Localization Persistence beyond Date Formats', () => {
   test.beforeAll(async () => {
     await seed(ORIGIN)
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
   test.afterAll(async () => {
     await cleanup(ORIGIN)
   })

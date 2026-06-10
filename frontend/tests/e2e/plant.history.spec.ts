@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login} from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -7,6 +7,11 @@ test.describe('Plant History Management', () => {
   test.beforeAll(async () => {
     await seed(ORIGIN)
   })
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
+
 
   test.afterAll(async () => {
     await cleanup(ORIGIN)
@@ -14,7 +19,8 @@ test.describe('Plant History Management', () => {
 
   test('delete measurement from history table', async ({ page }) => {
     // 1. Create a measurement
-    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' })
+    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'networkidle' })
+    await expect(page.getByLabel(/plant/i)).toHaveValue('', { timeout: 5000 })
     await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
     await page.getByLabel(/measured weight \(g\)/i).fill('357')
     await page.getByRole('button', { name: /save measurement/i }).click()
@@ -35,7 +41,7 @@ test.describe('Plant History Management', () => {
     // 3. Delete the measurement
     // Identify the row with 357 and click its delete button
     const row = historyTable.getByRole('row', { name: /357/ })
-    await row.getByRole('button', { name: /delete measurement/i }).click()
+    await row.getByRole('button', { name: /^delete$/i }).click()
 
     // Confirm dialog
     await page
