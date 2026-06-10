@@ -27,7 +27,7 @@ async def list_users(
     with cursor(db) as cur:
         cur.execute(
             """
-            SELECT u.id, u.username, u.global_role, u.created_at, 
+            SELECT u.id, u.username, u.global_role, u.created_at,
                    CASE WHEN s.secret IS NOT NULL THEN 1 ELSE 0 END as mfa_enabled
             FROM users u
             LEFT JOIN user_totp_secrets s ON u.id = s.user_id
@@ -127,8 +127,8 @@ async def reset_user_mfa(
                     current_device_internal_id = dev_row[0]
                     cur.execute(
                         """
-                        UPDATE auth_refresh_tokens 
-                        SET revoked_at = %s 
+                        UPDATE auth_refresh_tokens
+                        SET revoked_at = %s
                         WHERE user_id = %s AND device_id != %s AND revoked_at IS NULL
                         """,
                         (now, user_id_bin, current_device_internal_id),
