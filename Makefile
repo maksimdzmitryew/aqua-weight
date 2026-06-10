@@ -306,7 +306,7 @@ be-mypy:
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
 
 .PHONY: fix-be
-fix-be: ## Run all frontend auto-fixes
+fix-be: ## Run all backend auto-fixes
 	$(MAKE) be-fmt-fix
 	$(MAKE) be-lint-fix
 	$(MAKE) be-mypy

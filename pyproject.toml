@@ -135,6 +135,7 @@ module = [
   "backend.app.db.*",
   "backend.app.utils.*",
   "backend.app.services.*",
+  "backend.app.security",
 ]
 ignore_errors = true
 
