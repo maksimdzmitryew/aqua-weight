@@ -17,6 +17,7 @@ from ..security import get_db, get_device_id, require_admin_user
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
+
 @router.get("/users", response_model=UserListResponse)
 async def list_users(
     db: Annotated[Any, Depends(get_db)],
@@ -34,7 +35,7 @@ async def list_users(
             """
         )
         rows = cur.fetchall()
-        
+
     users = [
         UserListEntry(
             id_hex=bin_to_hex(row[0]),
@@ -46,6 +47,7 @@ async def list_users(
         for row in rows
     ]
     return UserListResponse(users=users)
+
 
 @router.patch("/users/{user_id_hex}/role")
 async def update_user_role(
@@ -60,7 +62,7 @@ async def update_user_role(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Admins cannot change their own role",
         )
-    
+
     user_id_bin = hex_to_bin(user_id_hex)
     if not user_id_bin:
         raise HTTPException(
@@ -75,13 +77,14 @@ async def update_user_role(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-        
+
         cur.execute(
             "UPDATE users SET global_role = %s WHERE id = %s",
             (payload.global_role, user_id_bin),
         )
-    
+
     return {"message": "User role updated successfully"}
+
 
 @router.post("/users/{user_id_hex}/mfa-reset")
 async def reset_user_mfa(
@@ -99,7 +102,7 @@ async def reset_user_mfa(
         )
 
     now = datetime.now(timezone.utc)
-    
+
     with cursor(db) as cur:
         # Check if user exists
         cur.execute("SELECT 1 FROM users WHERE id = %s", (user_id_bin,))
@@ -108,13 +111,13 @@ async def reset_user_mfa(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found",
             )
-            
+
         try:
             db.autocommit(False)
             # 1. Delete MFA secrets
             cur.execute("DELETE FROM user_totp_secrets WHERE user_id = %s", (user_id_bin,))
             cur.execute("DELETE FROM user_recovery_codes WHERE user_id = %s", (user_id_bin,))
-            
+
             # 2. Revoke sessions
             if user_id_hex == current_user["id_hex"]:
                 # Exclude current device from revocation
@@ -142,15 +145,16 @@ async def reset_user_mfa(
                     "UPDATE auth_refresh_tokens SET revoked_at = %s WHERE user_id = %s AND revoked_at IS NULL",
                     (now, user_id_bin),
                 )
-            
+
             db.commit()
         except Exception:
             db.rollback()
             raise
         finally:
             db.autocommit(True)
-            
+
     return {"message": "MFA reset and sessions revoked successfully"}
+
 
 @router.post("/invites", response_model=InviteResponse)
 async def create_invite(
@@ -161,9 +165,9 @@ async def create_invite(
     """Generate a new invitation token."""
     token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode()).digest()
-    
+
     expires_at = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
-    
+
     with cursor(db) as cur:
         cur.execute(
             """
@@ -172,5 +176,5 @@ async def create_invite(
             """,
             (token_hash, current_user["id"], expires_at),
         )
-        
+
     return InviteResponse(token=token, expires_at=expires_at)

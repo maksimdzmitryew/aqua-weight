@@ -1,9 +1,8 @@
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Any, Optional
+from datetime import datetime, timezone
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from ..services.auth_service import AuthService
 from ..schemas.auth import (
     DeviceListResponse,
     InviteCompleteRequest,
@@ -20,6 +19,7 @@ from ..security import (
     require_authenticated_user,
     verify_page_nonce,
 )
+from ..services.auth_service import AuthService
 
 router = APIRouter()
 

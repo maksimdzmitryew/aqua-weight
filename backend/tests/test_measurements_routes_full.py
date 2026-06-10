@@ -14,7 +14,10 @@ from backend.app.security import require_authenticated_user, require_plant_acces
 def _override_measurements_auth(app: FastAPI):
     """Bypass auth for all tests in this module since they test business logic, not auth."""
     app.dependency_overrides[require_authenticated_user] = lambda: {
-        "id": None, "id_hex": None, "username": "test_admin", "global_role": "admin",
+        "id": None,
+        "id_hex": None,
+        "username": "test_admin",
+        "global_role": "admin",
     }
 
     def _bypass_plant_access(request: Request) -> str:
@@ -269,7 +272,8 @@ async def test_create_reported_watering_invalid_and_success(
         "note": "top-up",
     }
     r_ok = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/reported-watering",
+        json=payload,
     )
     assert r_ok.status_code == 200
     data = r_ok.json()
@@ -282,7 +286,8 @@ async def test_create_reported_watering_invalid_and_success(
     # insert failure -> rollback and 500
     cur.raise_on_insert = True
     r_fail = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/reported-watering",
+        json=payload,
     )
     assert r_fail.status_code >= 500
 
@@ -376,7 +381,8 @@ async def test_update_measurement_watering_branch_and_retained(
 
     mid = "33" * 16
     r = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/watering/{mid}", json={"water_added_g": 25},
+        f"/api/plants/{plant_hex}/measurements/watering/{mid}",
+        json={"water_added_g": 25},
     )
     assert r.status_code == 200
     jj = r.json()
@@ -430,7 +436,9 @@ async def test_create_measurement_retained_block_executes_without_spy(
         lambda **kwargs: _WaterLossObj(is_watering=False),
     )
 
-    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex(plant_hex))
+    monkeypatch.setattr(
+        measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex(plant_hex)
+    )
 
     # Provide plant min/max for retained calc
     cur = _FakeCursor()
@@ -489,7 +497,8 @@ async def test_update_measurement_retained_block_executes_without_spy(
 
     mid = "66" * 16
     r = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json={"measured_weight_g": 150},
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}",
+        json={"measured_weight_g": 150},
     )
     assert r.status_code == 200
     data = r.json()
@@ -738,7 +747,9 @@ async def test_create_reported_watering_rollback_and_close_excepts(
 ):
     plant_hex = "aa" * 16
 
-    monkeypatch.setattr(measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex("77" * 16))
+    monkeypatch.setattr(
+        measurements_routes, "generate_ulid_bytes", lambda: bytes.fromhex("77" * 16)
+    )
 
     class _Conn(_FakeConn):
         def __init__(self, cur):
@@ -753,7 +764,8 @@ async def test_create_reported_watering_rollback_and_close_excepts(
 
     payload = {"plant_id": plant_hex, "measured_at": "2025-01-02T10:20:00"}
     r = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/reported-watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/reported-watering",
+        json=payload,
     )
     assert r.status_code >= 500
     app.dependency_overrides.pop(get_conn_factory, None)
@@ -827,7 +839,8 @@ async def test_create_measurement_validation_and_success(
         "note": "watering",
     }
     r2 = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/watering", json=payload2,
+        f"/api/plants/{plant_hex}/measurements/watering",
+        json=payload2,
     )
     assert r2.status_code == 200
     j = r2.json()
@@ -838,7 +851,8 @@ async def test_create_measurement_validation_and_success(
     # Failure path: exception during insert triggers rollback and 500
     fake_cur.raise_on_insert = True
     r3 = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/watering", json=payload2,
+        f"/api/plants/{plant_hex}/measurements/watering",
+        json=payload2,
     )
     assert r3.status_code >= 500
 
@@ -878,7 +892,8 @@ async def test_create_measurement_rollback_inner_except(
         "use_last_method": True,
     }
     r = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/watering",
+        json=payload,
     )
     # Should surface as 500 but not crash the test harness
     assert r.status_code >= 500
@@ -917,7 +932,8 @@ async def test_update_measurement_rollback_inner_except(
 
     mid = "33" * 16
     r = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json={"measured_weight_g": 111},
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}",
+        json={"measured_weight_g": 111},
     )
     assert r.status_code >= 500
 
@@ -932,7 +948,8 @@ async def test_update_measurement_invalid_and_not_found(
 
     # invalid id
     resp = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/nothex", json={},
+        f"/api/plants/{plant_hex}/measurements/weight/nothex",
+        json={},
     )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid id"
@@ -943,7 +960,8 @@ async def test_update_measurement_invalid_and_not_found(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
     good_id = "ab" * 16
     r2 = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/watering/{good_id}", json={},
+        f"/api/plants/{plant_hex}/measurements/watering/{good_id}",
+        json={},
     )
     assert r2.status_code == 404
 
@@ -993,7 +1011,8 @@ async def test_update_measurement_success_and_validation_and_rollback(
     # Provide plant min/max weights for new route logic
     cur.rows_all = [(100, 200)]
     r = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/{pid}", json={"measured_weight_g": 110},
+        f"/api/plants/{plant_hex}/measurements/weight/{pid}",
+        json={"measured_weight_g": 110},
     )
     assert r.status_code == 200
     jj = r.json()
@@ -1003,7 +1022,8 @@ async def test_update_measurement_success_and_validation_and_rollback(
     # Rollback path: raise on update to trigger 500 and inner rollback except (338-339)
     cur.raise_on_update = True
     r_err = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/{pid}", json={"measured_weight_g": 120},
+        f"/api/plants/{plant_hex}/measurements/weight/{pid}",
+        json={"measured_weight_g": 120},
     )
     assert r_err.status_code >= 500
 
@@ -1118,7 +1138,8 @@ async def test_create_vacation_watering_success(
 
     payload = {"plant_id": plant_hex, "measured_at": "2025-01-01T12:00:00"}
     r = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/vacation/watering",
+        json=payload,
     )
     assert r.status_code == 200
     data = r.json()
@@ -1142,7 +1163,8 @@ async def test_create_vacation_watering_success(
     # Test failure path
     cur.raise_on_insert = True
     r_fail = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/vacation/watering",
+        json=payload,
     )
     assert r_fail.status_code == 500
 
@@ -1150,7 +1172,8 @@ async def test_create_vacation_watering_success(
     cur.raise_on_insert = True
     monkeypatch.setattr(conn, "rollback", lambda: exec('raise RuntimeError("rollback failed")'))
     r_fail_rollback = await async_client.post(
-        f"/api/plants/{plant_hex}/measurements/vacation/watering", json=payload,
+        f"/api/plants/{plant_hex}/measurements/vacation/watering",
+        json=payload,
     )
     assert r_fail_rollback.status_code == 500
 
@@ -1188,7 +1211,8 @@ async def test_update_measurement_vacation_event_signature(
     # Update without changing weights to maintain vacation signature
     payload = {"note": "updated vacation note"}
     r = await async_client.put(
-        f"/api/plants/{plant_hex}/measurements/weight/{mid}", json=payload,
+        f"/api/plants/{plant_hex}/measurements/weight/{mid}",
+        json=payload,
     )
     assert r.status_code == 200
     data = r.json()

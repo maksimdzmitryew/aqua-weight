@@ -85,6 +85,7 @@ class DummyUpdate:
 
 class _DummyDB:
     """Minimal dummy DB that satisfies the verify_location_access / verify_plant_access checks."""
+
     pass
 
 

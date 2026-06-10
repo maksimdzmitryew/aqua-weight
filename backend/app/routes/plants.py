@@ -1,5 +1,4 @@
 import re
-import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,7 +6,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, bin_to_hex, get_conn, hex_to_bin
+from ..db import bin_to_hex, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
 from ..schemas.plant import (
     PaginatedPlantsResponse,
@@ -16,7 +15,14 @@ from ..schemas.plant import (
     PlantUpdateRequest,
     ReferenceItem,
 )
-from ..security import get_db, require_authenticated_user, require_plant_access, require_plant_owner, verify_location_access, verify_plant_access
+from ..security import (
+    get_db,
+    require_authenticated_user,
+    require_plant_access,
+    require_plant_owner,
+    verify_location_access,
+    verify_plant_access,
+)
 from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
 
@@ -210,9 +216,7 @@ async def list_plants(
         )
 
         # Get global count for drift detection (always without filters besides ACL)
-        global_total = PlantsList.count_all(
-            search=None, status="active", current_user=current_user
-        )
+        global_total = PlantsList.count_all(search=None, status="active", current_user=current_user)
 
         # Calculate total pages based on filtered count
         total_pages = (total + limit - 1) // limit if total > 0 else 0
@@ -736,8 +740,6 @@ async def update_plant(
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
-                pid_bin = hex_to_bin(id_hex)
-
                 fields = []
                 params = []
 

@@ -53,6 +53,7 @@ def patch_uuid(monkeypatch):
     def _gen():
         _uuid_counter["i"] += 1
         return _uuid_counter["i"].to_bytes(16, "big")
+
     monkeypatch.setattr(repotting_mod, "generate_ulid_bytes", _gen)
 
 
@@ -99,6 +100,7 @@ async def test_create_repotting_close_raises_is_swallowed(
 ):
     # Create a plant with a known ID so require_plant_access finds it
     from backend.app.db import get_conn
+
     conn = get_conn()
     try:
         with conn.cursor() as cur:
@@ -114,6 +116,7 @@ async def test_create_repotting_close_raises_is_swallowed(
     # Patch get_conn in db.core (used by get_conn_factory) and db.deps (where it's captured)
     import backend.app.db.core as db_core
     import backend.app.db.deps as db_deps
+
     monkeypatch.setattr(db_core, "get_conn", lambda: conn)
     monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
 
@@ -144,6 +147,7 @@ async def test_update_repotting_close_raises_is_swallowed(monkeypatch):
     # Patch get_conn in db.core (used by get_conn_factory) and db.deps (where it's captured)
     import backend.app.db.core as db_core
     import backend.app.db.deps as db_deps
+
     monkeypatch.setattr(db_core, "get_conn", lambda: conn)
     monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
 

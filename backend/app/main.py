@@ -63,6 +63,7 @@ infrastructure_router.include_router(health_app)
 async def bootstrap():
     return {"version": API_VERSION}
 
+
 # Domain routes (protected)
 internal_auth_router = APIRouter(dependencies=[Depends(require_authenticated_user)])
 internal_auth_router.include_router(repotting_app)
@@ -96,6 +97,7 @@ async def v1_redoc():
 @v1.get("/openapi.json", include_in_schema=False)
 async def v1_openapi():
     return JSONResponse(get_openapi(title="API v1", version=API_VERSION, routes=v1.routes))
+
 
 # Mount v1 under both /api/v1 and /api alias (Double Mount)
 app.include_router(v1, prefix="/api/v1")

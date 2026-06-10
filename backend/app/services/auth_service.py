@@ -609,7 +609,6 @@ class AuthService:
         generate recovery codes, and issue new tokens.
         Returns (access_token, refresh_token, recovery_codes).
         """
-        now = self._get_now_utc()
 
         with cursor(self.db) as cur:
             # 1. Check if already enrolled

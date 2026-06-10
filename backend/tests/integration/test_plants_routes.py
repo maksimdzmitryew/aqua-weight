@@ -33,7 +33,9 @@ def _clean_db() -> None:
 
 
 async def _create_and_get_uuid(async_client: AsyncClient, name: str) -> str:
-    resp = await async_client.post("/api/plants", headers={"X-API-Key": API_KEY}, json={"name": name})
+    resp = await async_client.post(
+        "/api/plants", headers={"X-API-Key": API_KEY}, json={"name": name}
+    )
     assert resp.status_code == 200
     # Find it by name in list to get uuid (paginated response)
     r = await async_client.get("/api/plants", headers={"X-API-Key": API_KEY})
@@ -61,7 +63,9 @@ async def test_list_plants_initially_empty_and_after_create(async_client: AsyncC
     assert data["global_total"] == 0
 
     # Create a plant
-    r = await async_client.post("/api/plants", headers={"X-API-Key": API_KEY}, json={"name": "Alpha"})
+    r = await async_client.post(
+        "/api/plants", headers={"X-API-Key": API_KEY}, json={"name": "Alpha"}
+    )
     assert r.status_code == 200
     plant_data = r.json()
     assert plant_data.get("ok") is True
@@ -76,7 +80,9 @@ async def test_list_plants_initially_empty_and_after_create(async_client: AsyncC
 @pytest.mark.anyio
 async def test_create_plant_validation(async_client: AsyncClient):
     # Empty/whitespace name -> 400
-    r = await async_client.post("/api/plants", headers={"X-API-Key": API_KEY}, json={"name": "   \t  "})
+    r = await async_client.post(
+        "/api/plants", headers={"X-API-Key": API_KEY}, json={"name": "   \t  "}
+    )
     assert r.status_code == 400
     assert r.json()["detail"] == "Name cannot be empty"
 
@@ -119,19 +125,25 @@ async def test_get_plant_happy_and_errors(async_client: AsyncClient):
 @pytest.mark.anyio
 async def test_update_plant_happy_and_errors(async_client: AsyncClient):
     # Invalid id -> 400
-    r = await async_client.patch("/api/plants/xyz", headers={"X-API-Key": API_KEY}, json={"name": "X"})
+    r = await async_client.patch(
+        "/api/plants/xyz", headers={"X-API-Key": API_KEY}, json={"name": "X"}
+    )
     assert r.status_code == 400
     assert r.json()["detail"] == "Invalid plant ID format"
 
     # Non-existent valid id -> 200 (UPDATE affects 0 rows, no existence check in PATCH)
     missing_id = "a" * 32
-    r = await async_client.patch(f"/api/plants/{missing_id}", headers={"X-API-Key": API_KEY}, json={"description": "d"})
+    r = await async_client.patch(
+        f"/api/plants/{missing_id}", headers={"X-API-Key": API_KEY}, json={"description": "d"}
+    )
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
     # Empty name -> 400 (validation branch)
     uid = await _create_and_get_uuid(async_client, "Charlie")
-    r = await async_client.patch(f"/api/plants/{uid}", headers={"X-API-Key": API_KEY}, json={"name": "   "})
+    r = await async_client.patch(
+        f"/api/plants/{uid}", headers={"X-API-Key": API_KEY}, json={"name": "   "}
+    )
     assert r.status_code == 400
     assert r.json()["detail"] == "Name cannot be empty"
 
@@ -162,7 +174,9 @@ async def test_update_plant_happy_and_errors(async_client: AsyncClient):
 @pytest.mark.anyio
 async def test_reorder_plants_endpoint_and_helper_errors(async_client: AsyncClient):
     # Empty list -> 400 via endpoint
-    r = await async_client.put("/api/plants/order", headers={"X-API-Key": API_KEY}, json={"ordered_ids": []})
+    r = await async_client.put(
+        "/api/plants/order", headers={"X-API-Key": API_KEY}, json={"ordered_ids": []}
+    )
     assert r.status_code == 400
     assert r.json()["detail"] == "ordered_ids cannot be empty"
 

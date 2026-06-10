@@ -8,14 +8,16 @@ from httpx import AsyncClient, ASGITransport
 
 # Ensure test admin endpoints are enabled before importing the app
 os.environ.setdefault("TEST_MODE", "1")
-os.environ.pop('PYTEST_AIOHTTP_BASE_URL', None)  # Disable reuse
+os.environ.pop("PYTEST_AIOHTTP_BASE_URL", None)  # Disable reuse
 
 # Import the real FastAPI app
 from backend.app.main import app as real_app
 
-@pytest.fixture(name='uuidfaker', scope='session')
+
+@pytest.fixture(name="uuidfaker", scope="session")
 def uuidfaker():
     return uuidfaker.UUIDFaker()  # Initialize here
+
 
 @pytest.fixture(scope="session")
 def anyio_backend() -> str:

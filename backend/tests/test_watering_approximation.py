@@ -10,7 +10,10 @@ from backend.app.security import require_authenticated_user
 def _override_auth(app: FastAPI):
     """Bypass auth for this test module."""
     app.dependency_overrides[require_authenticated_user] = lambda: {
-        "id": None, "id_hex": None, "username": "test_admin", "global_role": "admin",
+        "id": None,
+        "id_hex": None,
+        "username": "test_admin",
+        "global_role": "admin",
     }
     yield
     app.dependency_overrides.pop(require_authenticated_user, None)

@@ -180,12 +180,16 @@ async def test_list_plants_for_calibration_skips_missing_uuid_and_close_except(
 @pytest.mark.asyncio
 async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: AsyncClient):
     # invalid plant (path param validated by require_plant_access -> 400)
-    r_bad = await async_client.post("/api/plants/nothex/measurements/corrections", headers=_API_KEY, json={})
+    r_bad = await async_client.post(
+        "/api/plants/nothex/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r_bad.status_code == 400
 
     # invalid cap
     r_cap = await async_client.post(
-        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={"cap": "bogus"}
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections",
+        headers=_API_KEY,
+        json={"cap": "bogus"},
     )
     assert r_cap.status_code == 400
     assert r_cap.json()["detail"] == "Invalid cap mode"
@@ -194,12 +198,16 @@ async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: 
     cur = _SeqCursor(plant_row=None)
     conn = _SeqConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
-    r_nf = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r_nf = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r_nf.status_code == 404
 
     # calibration incomplete: min_dry None
     cur._plant_row = (None, 200, 100)
-    r_noop = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r_noop = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r_noop.status_code == 200
     assert r_noop.json()["updated"] == 0
 
@@ -233,7 +241,9 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
     # capacity mode, edit_last_wet true (default)
-    r1 = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r1 = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r1.status_code == 200
     j1 = r1.json()
     assert j1["updated"] == 1 and j1["total_excess_g"] == 20
@@ -286,7 +296,9 @@ async def test_apply_corrections_window_build_no_rows_and_exceptions(
         "from_ts": "2025-01-01 00:00:00",
         "to_ts": "2025-01-31 23:59:59",
     }
-    r = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json=payload)
+    r = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json=payload
+    )
     assert r.status_code == 200
     assert r.json()["updated"] == 0  # no rows => line 312
 
@@ -315,7 +327,9 @@ async def test_apply_corrections_update_failure_triggers_rollback_and_close_exce
     conn = _ConnRBAndCloseFail(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    r = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     # Update fails -> exception path triggers rollback (355-360) and close except (368-369)
     assert r.status_code >= 500
 
@@ -337,7 +351,9 @@ async def test_apply_corrections_default_window_parse_error_branch(
     conn = _SeqConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    r = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r.status_code == 200
     assert r.json()["updated"] == 0
 
@@ -362,7 +378,9 @@ async def test_apply_corrections_update_failure_rollback_raises(
     conn = _ConnRBFail(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
-    r = await async_client.post("/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={})
+    r = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
+    )
     assert r.status_code >= 500
 
     app.dependency_overrides.pop(get_conn_factory, None)

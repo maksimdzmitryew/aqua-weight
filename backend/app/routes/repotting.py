@@ -1,11 +1,9 @@
-import datetime
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pytz import timezone
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, bin_to_hex, get_conn, get_conn_factory
+from ..db import HEX_RE, bin_to_hex, get_conn_factory
 from ..helpers.last_plant_event import LastPlantEvent
 from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..schemas.measurement import (
@@ -13,7 +11,7 @@ from ..schemas.measurement import (
     RepottingResponse,
     RepottingUpdateRequest,
 )
-from ..security import get_db, require_plant_access
+from ..security import require_plant_access
 from ..services.auth_service import generate_ulid_bytes
 from ..services.measurements import (
     DerivedWeights,
@@ -211,7 +209,9 @@ async def update_repotting_event(
         try:
             with conn.cursor() as cursor:
                 # Ownership check
-                cursor.execute("SELECT plant_id FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,))
+                cursor.execute(
+                    "SELECT plant_id FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,)
+                )
                 row = cursor.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Not found")

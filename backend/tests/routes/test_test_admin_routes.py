@@ -10,12 +10,15 @@ _API_KEY = {"X-API-Key": "test_api_key_for_testing"}
 
 
 @pytest.mark.anyio
-async def test_reset_returns_401_when_test_mode_disabled(async_client, monkeypatch):
-    # When TEST_MODE=0, the API key fallback in require_authenticated_user is disabled,
-    # so the request is rejected with 401 before reaching the route handler's _ensure_test_mode() guard.
+async def test_reset_returns_404_when_test_mode_disabled(async_client, monkeypatch):
+    # The test admin routes are mounted without require_authenticated_user (main.py),
+    # so the request reaches the handler. When TEST_MODE=0, _ensure_test_mode() in
+    # test_admin.py raises HTTPException(404) to hide the endpoint.
     monkeypatch.setenv("TEST_MODE", "0")
-    resp = await async_client.post("/api/test/reset", headers={"X-API-Key": "test_api_key_for_testing"})
-    assert resp.status_code == 401
+    resp = await async_client.post(
+        "/api/test/reset", headers={"X-API-Key": "test_api_key_for_testing"}
+    )
+    assert resp.status_code == 404
 
 
 def _fetch_hex_ids_and_names(table: str) -> List[Tuple[str, str]]:
@@ -96,7 +99,9 @@ async def test_seed_endpoint_performs_reset_then_seed(async_client):
     # Call seed endpoint (should reset and then seed minimal)
     resp = await async_client.post("/api/test/seed", headers=_API_KEY)
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert "admin_id" in body
 
     # Verify only minimal records remain
     assert _count_rows("locations") == 1

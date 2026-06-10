@@ -81,9 +81,11 @@ def patch_uuid(monkeypatch):
     Uses a *module-level* counter so IDs are unique across tests in this module,
     avoiding duplicate PRIMARY keys when the DB is not cleaned between tests.
     """
+
     def _gen():
         _uuid_counter["i"] += 1
         return _uuid_counter["i"].to_bytes(16, "big")
+
     monkeypatch.setattr(repotting_mod, "generate_ulid_bytes", _gen)
 
 
@@ -132,9 +134,7 @@ def patch_services(monkeypatch):
 @pytest.mark.asyncio
 async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, patch_services):
     # First create a plant in the real DB so require_plant_access can find it
-    plant_r = await async_client.post(
-        "/api/plants", headers=_API_KEY, json={"name": "RepotTest"}
-    )
+    plant_r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "RepotTest"})
     assert plant_r.status_code == 200
     plant_uid = plant_r.json().get("uuid")
     # If uuid not in response, find via list
@@ -181,11 +181,14 @@ async def test_create_repotting_invalid_plant_id(
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
-        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotInvalidTest")
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotInvalidTest"
+        )
 
     # Pydantic enforces hex format; to hit the route's own HEX_RE check,
     # patch HEX_RE to a stricter pattern that rejects the valid hex.
     import re as _re
+
     monkeypatch.setattr(repotting_mod, "HEX_RE", _re.compile(r"^b{32}$"))
 
     bad_payload = {
@@ -231,7 +234,9 @@ async def test_create_repotting_no_last_event_404(
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
-        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotNoEventTest")
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotNoEventTest"
+        )
 
     # Force LastPlantEvent.get_last_event to return None to trigger 404
     monkeypatch.setattr(
@@ -253,7 +258,9 @@ async def test_create_repotting_no_last_event_404(
 
 
 @pytest.mark.asyncio
-async def test_update_repotting_happy_path(async_client: AsyncClient, dummy_db, patch_services, monkeypatch):
+async def test_update_repotting_happy_path(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
     # First create a plant in the real DB so require_plant_access can find it
     plant_r = await async_client.post(
         "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateTest"}
@@ -309,7 +316,9 @@ async def test_update_repotting_missing_required_field(async_client: AsyncClient
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
-        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotMissingTest")
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotMissingTest"
+        )
 
     # Omitting last_wet_weight_g should trigger 400 due to explicit None check
     payload = {

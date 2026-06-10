@@ -1,4 +1,3 @@
-import uuid
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,13 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..db import HEX_RE
-from ..security import get_db, require_authenticated_user
-from ..services.auth_service import generate_ulid_bytes
 from ..schemas.location import (
     LocationCreateRequest,
     LocationListItem,
     LocationUpdateByNameRequest,
 )
+from ..security import get_db, require_authenticated_user
+from ..services.auth_service import generate_ulid_bytes
 
 app = APIRouter()
 
@@ -173,7 +172,12 @@ def update_location_by_name(
                     (new_name, orig_name),
                 )
                 db.commit()
-                return {"ok": True, "rows_affected": cur.rowcount, "name": new_name, "created": False}
+                return {
+                    "ok": True,
+                    "rows_affected": cur.rowcount,
+                    "name": new_name,
+                    "created": False,
+                }
             else:
                 # Original name not found, trying to create new
                 if new_row:
@@ -277,9 +281,7 @@ def reorder_locations(
                 )
                 count = cur.fetchone()[0]
                 if count != len(payload.ordered_ids):
-                    raise HTTPException(
-                        status_code=403, detail="Access to some locations denied"
-                    )
+                    raise HTTPException(status_code=403, detail="Access to some locations denied")
 
             # Verification: Ensure all IDs exist in locations table
             placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
@@ -293,9 +295,7 @@ def reorder_locations(
 
             # Perform reordering
             for idx, hex_id in enumerate(payload.ordered_ids, start=1):
-                cur.execute(
-                    "UPDATE locations SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id)
-                )
+                cur.execute("UPDATE locations SET sort_order=%s WHERE id=UNHEX(%s)", (idx, hex_id))
         db.commit()
     except HTTPException:
         db.rollback()

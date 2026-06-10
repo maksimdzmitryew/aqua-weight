@@ -79,6 +79,7 @@ class LastMeasurementResponse(BaseModel):
     note: Optional[str] = None
     type: Optional[str] = None
 
+
 class MeasurementsListResponse(BaseModel):
     items: List[MeasurementItem]
 

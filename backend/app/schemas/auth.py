@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Annotated, Optional
+
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 # Common constraints for reuse across Auth DTOs

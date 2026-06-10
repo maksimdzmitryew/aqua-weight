@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 import pymysql
 
 from ..db.core import cursor
@@ -11,6 +12,7 @@ ALLOWED_SETTINGS_KEYS = {
     "notifications_enabled": bool,
     "default_view": str,
 }
+
 
 class SettingsService:
     def __init__(self, db_conn: pymysql.connections.Connection):
@@ -24,9 +26,9 @@ class SettingsService:
             result = cur.fetchone()
             if not result:
                 return {}, 1
-            
+
             settings_json, version = result
-            
+
             # Handle potential variations in how PyMySQL/MariaDB returns JSON columns
             if isinstance(settings_json, str):
                 try:
@@ -38,7 +40,7 @@ class SettingsService:
                 settings_data = settings_json
             else:
                 settings_data = {}
-                
+
             return settings_data, version
 
     def validate_settings(self, settings: Dict[str, Any]) -> None:
@@ -46,12 +48,14 @@ class SettingsService:
         for key, value in settings.items():
             if key not in ALLOWED_SETTINGS_KEYS:
                 raise ValueError(f"Setting key '{key}' is not allowed")
-            
+
             expected_type = ALLOWED_SETTINGS_KEYS[key]
             if not isinstance(value, expected_type):
                 raise ValueError(f"Setting '{key}' must be of type {expected_type.__name__}")
 
-    def update_settings(self, user_id: bytes, settings: Dict[str, Any], version: int | None = None) -> bool:
+    def update_settings(
+        self, user_id: bytes, settings: Dict[str, Any], version: int | None = None
+    ) -> bool:
         """Update user settings with full replacement."""
         self.validate_settings(settings)
         with cursor(self.db_conn) as cur:

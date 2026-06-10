@@ -117,7 +117,9 @@ async def test_reorder_plants_db_error_rollback_inner_except(
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
     # Non-empty list so code enters try and hits failing execute
-    resp = await async_client.put("/api/plants/order", headers=_API_KEY, json={"ordered_ids": ["1" * 32]})
+    resp = await async_client.put(
+        "/api/plants/order", headers=_API_KEY, json={"ordered_ids": ["1" * 32]}
+    )
     assert resp.status_code >= 500
 
 
@@ -164,7 +166,9 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(
 
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
-    resp = await async_client.patch(f"/api/plants/{uid}", headers=_API_KEY, json={"description": "x"})
+    resp = await async_client.patch(
+        f"/api/plants/{uid}", headers=_API_KEY, json={"description": "x"}
+    )
     assert resp.status_code >= 500
 
 
@@ -208,7 +212,9 @@ async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncC
     assert r.status_code == 200
     lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "HexNone")
-    resp = await async_client.patch(f"/api/plants/{uid}", headers=_API_KEY, json={"location_id": None})
+    resp = await async_client.patch(
+        f"/api/plants/{uid}", headers=_API_KEY, json={"location_id": None}
+    )
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
 

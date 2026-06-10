@@ -1,9 +1,9 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
-from typing import Annotated
 
 from ..db import HEX_RE, bin_to_hex, get_conn_factory, hex_to_bin
 from ..helpers.calibration import (
@@ -350,7 +350,9 @@ def _to_dt_string(s: str | None):
     return s.strip().replace("T", " ")
 
 
-@app.get("/plants/measurements/approximation/watering", response_model=WateringApproximationResponse)
+@app.get(
+    "/plants/measurements/approximation/watering", response_model=WateringApproximationResponse
+)
 async def get_watering_approximation(
     current_user: Annotated[dict, Depends(require_authenticated_user)],
     operationMode: str | None = Cookie(None),
@@ -969,7 +971,9 @@ async def update_measurement(
                     raise HTTPException(status_code=404, detail="Not found")
                 plant_id_bytes = base[0]
                 plant_hex = (
-                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                    plant_id_bytes.hex()
+                    if isinstance(plant_id_bytes, (bytes, bytearray))
+                    else str(plant_id_bytes)
                 )
                 if plant_hex.lower() != plant_id.lower():
                     raise HTTPException(status_code=404, detail="Not found")
@@ -1175,7 +1179,9 @@ async def get_measurement(
 
                 plant_id_bytes = row[1]
                 plant_hex = (
-                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                    plant_id_bytes.hex()
+                    if isinstance(plant_id_bytes, (bytes, bytearray))
+                    else str(plant_id_bytes)
                 )
                 if plant_hex.lower() != plant_id.lower():
                     raise HTTPException(status_code=404, detail="Not found")
@@ -1233,7 +1239,9 @@ async def delete_measurement(
 
                 plant_id_bytes = row[0]
                 plant_id_hex = (
-                    plant_id_bytes.hex() if isinstance(plant_id_bytes, (bytes, bytearray)) else str(plant_id_bytes)
+                    plant_id_bytes.hex()
+                    if isinstance(plant_id_bytes, (bytes, bytearray))
+                    else str(plant_id_bytes)
                 )
                 if plant_id_hex.lower() != plant_id.lower():
                     raise HTTPException(status_code=404, detail="Measurement not found")

@@ -1,7 +1,6 @@
 import os
-import secrets
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 
 try:
     from ..db.core import connect, cursor
@@ -155,8 +154,10 @@ def test_login():
     """
     _ensure_test_mode()
     from datetime import datetime, timedelta, timezone
+
     import jwt as _jwt
-    from ..security import JWT_SECRET_KEY, JWT_ALGORITHM
+
+    from ..security import JWT_ALGORITHM, JWT_SECRET_KEY
 
     admin_id_hex, _ = _get_or_create_test_admin()
 
@@ -178,3 +179,7 @@ def test_login():
             "global_role": "admin",
         },
     }
+
+
+# This is a FastAPI route handler, not a pytest test. Suppress collection.
+test_login.__test__ = False  # type: ignore[attr-defined]
