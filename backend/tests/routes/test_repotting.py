@@ -4,9 +4,11 @@ import uuid as _uuid
 
 import pytest
 from httpx import AsyncClient
+from fastapi import FastAPI
 
 # Target module imports for monkeypatching
 import backend.app.routes.repotting as repotting_mod
+from backend.app.db.deps import get_conn_factory
 
 
 VALID_HEX = "a" * 32
@@ -24,17 +26,31 @@ class DummyCursor:
         self.executed = []
         self.store["cursor"] = self
         self._fetchone_result = None
+        self._inserted_plant_id = None  # track plant_id from INSERTs
 
     def execute(self, query, params=None):
         # record the call for assertions
         self.executed.append((query, params))
         # store last call params for convenience
         self.store["last_execute"] = (query, params)
-        # For SELECT plant_id FROM plants_measurements, return a dummy plant_id
         q = query.lower() if isinstance(query, str) else ""
+        # Track plant_id from INSERT INTO plants_measurements so we can
+        # return it for the ownership SELECT during update tests.
+        if "insert into plants_measurements" in q and params:
+            # params layout: (id, plant_id_hex_or_bytes, ...)
+            plant_id_val = params[1] if len(params) > 1 else None
+            if isinstance(plant_id_val, str):
+                # Hex string – convert to bytes for consistent fetchone
+                self._inserted_plant_id = bytes.fromhex(plant_id_val)
+            elif isinstance(plant_id_val, (bytes, bytearray)):
+                self._inserted_plant_id = bytes(plant_id_val)
+        # For SELECT plant_id FROM plants_measurements, return the last
+        # inserted plant_id so the ownership check in update succeeds.
         if "select plant_id from plants_measurements" in q:
-            # Return a dummy plant_id bytes value
-            self._fetchone_result = (b"\x00" * 16,)
+            if self._inserted_plant_id is not None:
+                self._fetchone_result = (self._inserted_plant_id,)
+            else:
+                self._fetchone_result = (b"\x00" * 16,)
         elif "select" in q:
             self._fetchone_result = None
         else:
@@ -66,12 +82,17 @@ class DummyConn:
 
 
 @pytest.fixture()
-def dummy_db(monkeypatch):
-    """Patch get_conn to return a dummy connection and collect executed queries."""
+def dummy_db(app: FastAPI):
+    """Override get_conn_factory to return a dummy connection and collect executed queries."""
     store = {}
     conn = DummyConn(store)
-    monkeypatch.setattr(repotting_mod, "get_conn", lambda: conn)
-    return store
+
+    def _override():
+        return lambda: conn
+
+    app.dependency_overrides[get_conn_factory] = _override
+    yield store
+    app.dependency_overrides.pop(get_conn_factory, None)
 
 
 @pytest.fixture(autouse=True)
