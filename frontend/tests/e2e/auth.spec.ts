@@ -15,8 +15,7 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
 
   test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
     // Generate a dummy access token for the mocked refresh response
-    const dummyAccessToken =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0X2FkbWluIiwiaWF0IjoxNzE4MDAwMDAwLCJleHAiOjE5MTgwMDAwMDB9.fake_signature'
+    const dummyAccessToken = 'e2e-dummy-access-token'
 
     // Intercept all API calls (except test/*) and return 401 to simulate expired session.
     // The /api/auth/refresh endpoint is mocked to succeed so the API client refreshes
