@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import App from './App.jsx'
+import LandingPage from './pages/LandingPage.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import PlantsList from './pages/PlantsList.jsx'
 import LocationsList from './pages/LocationsList.jsx'
@@ -29,6 +29,7 @@ import BulkWatering from './pages/BulkWatering.jsx'
 import Calibration from './pages/Calibration.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import MFASetup from './pages/MFASetup.jsx'
+import ApiDocs from './pages/ApiDocs.jsx'
 import { Navigate, Outlet } from 'react-router-dom'
 import './styles/theme.css'
 
@@ -124,7 +125,8 @@ createRoot(document.getElementById('root')).render(
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <SessionManager />
             <Routes>
-              <Route path="/" element={<App />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/api-docs" element={<ApiDocs />} />
               <Route path="/login" element={<Login />} />
               <Route path="/logout" element={<Logout />} />
               <Route path="/invite/complete" element={<InviteComplete />} />
