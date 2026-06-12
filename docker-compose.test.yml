@@ -152,13 +152,12 @@ services:
       - nginx
     environment:
       - E2E_BASE_URL=https://aw.max
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     volumes:
       - ./frontend:/app
       - fe_node_modules_test:/app/node_modules
-    # Ensure dev dependencies are installed (including newly added ones)
-    # If vitest binary is missing, run npm ci, then keep container running
-    # Use npm ci to enforce lockfile consistency for deterministic test deps
-    command: ["sh", "-c", "npm install -g npm@11.16.0 && tail -f /dev/null"]
+    # Use a simple wait command; the actual test run will be triggered via docker compose exec
+    command: ["tail", "-f", "/dev/null"]
     networks:
       - aw-tests-net
 

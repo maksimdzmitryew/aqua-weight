@@ -52,17 +52,23 @@ const LandingPage = () => {
         {/* Hero Section */}
         <section className="relative px-margin-mobile md:px-margin-desktop py-stack-lg min-h-screen flex items-center">
           <div className="absolute inset-0 water-flow-pattern -z-10"></div>
-          <div className="max-w-container-max mx-auto grid lg:grid-cols-2 gap-stack-lg items-center w-full">
+          <div className="max-w-container-max mx-auto grid lg:grid-cols-[1.1fr_0.9fr] gap-stack-lg items-center w-full">
             <div className="flex flex-col gap-6 max-w-[736px]" data-aos="fade-right">
               <div className="inline-flex items-center gap-2 px-4 py-1 bg-secondary-container text-on-secondary-container rounded-full w-fit">
                 <span className="material-symbols-outlined text-[16px]">eco</span>
                 <span className="font-label-caps text-label-caps">Next-Gen Plant Care</span>
               </div>
-              <h1 className="font-headline-xl text-headline-xl md:text-6xl text-gradient leading-tight">Precision. Plant. Care.<br />Powered by Gravity.</h1>
-              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
-                The IoT system that understands your plants' thirst through weight-based signatures. Automated, manual, or vacation mode — always water enough.
+              <h1 className="font-headline-xl text-headline-xl md:text-6xl text-gradient leading-tight mt-4 block py-2">
+                <span className="block mb-4">Precision. Plant. Care.</span>
+                <span className="block">Powered by Gravity.</span>
+              </h1>
+              <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg mt-8">
+                The system that understands each plants' thirst through weight-based signatures.
               </p>
-              <div className="flex flex-wrap gap-4 mt-4">
+                <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg">
+                Automated, manual, or vacation mode — always water enough.
+              </p>
+              <div className="flex flex-wrap gap-4 mt-8">
                 <Link to="/login" className="bg-primary text-on-primary font-label-caps text-label-caps px-8 py-4 rounded-full shadow-lg hover:shadow-xl transition-all hover:translate-y-[-2px] flex items-center gap-2">
                   Get Started <span className="material-symbols-outlined">arrow_forward</span>
                 </Link>
@@ -158,23 +164,23 @@ const LandingPage = () => {
           <div className="max-w-container-max mx-auto">
             <div className="grid lg:grid-cols-2 gap-stack-lg items-center">
               <div className="relative order-2 lg:order-1">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-6 rounded-2xl bg-surface-container flex flex-col items-center gap-3 text-center border border-outline-variant/30">
+                <div className="grid grid-cols-[repeat(2,300px)] gap-x-4 gap-y-[14px] justify-center">
+                  <div className="w-[300px] p-6 rounded-2xl bg-surface-container flex flex-col items-center gap-3 text-center border border-outline-variant/30">
                     <span className="material-symbols-outlined text-4xl text-secondary">bolt</span>
                     <span className="font-headline-md text-headline-md">FastAPI</span>
                     <span className="font-label-sm text-label-sm text-on-surface-variant">Performant Backend</span>
                   </div>
-                  <div className="p-6 rounded-2xl bg-surface-container-high flex flex-col items-center gap-3 text-center border border-outline-variant/30 transform">
+                  <div className="w-[300px] p-6 rounded-2xl bg-surface-container-high flex flex-col items-center gap-3 text-center border border-outline-variant/30 transform">
                     <span className="material-symbols-outlined text-4xl text-secondary">layers</span>
                     <span className="font-headline-md text-headline-md">React</span>
                     <span className="font-label-sm text-label-sm text-on-surface-variant">Reactive Dashboard</span>
                   </div>
-                  <div className="p-6 rounded-2xl bg-surface-container-high flex flex-col items-center gap-3 text-center border border-outline-variant/30">
+                  <div className="w-[300px] p-6 rounded-2xl bg-surface-container-high flex flex-col items-center gap-3 text-center border border-outline-variant/30">
                     <span className="material-symbols-outlined text-4xl text-secondary">database</span>
                     <span className="font-headline-md text-headline-md">MariaDB</span>
                     <span className="font-label-sm text-label-sm text-on-surface-variant">Secure Data Persistence</span>
                   </div>
-                  <div className="p-6 rounded-2xl bg-surface-container flex flex-col items-center gap-3 text-center border border-outline-variant/30 transform">
+                  <div className="w-[300px] p-6 rounded-2xl bg-surface-container flex flex-col items-center gap-3 text-center border border-outline-variant/30 transform">
                     <span className="material-symbols-outlined text-4xl text-secondary">router</span>
                     <span className="font-headline-md text-headline-md">Nginx</span>
                     <span className="font-label-sm text-label-sm text-on-surface-variant">Robust Reverse Proxy</span>
