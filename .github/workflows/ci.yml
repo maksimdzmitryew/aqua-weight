@@ -185,6 +185,13 @@ jobs:
             libxkbcommon0 \
             libxrandr2
 
+      - name: Restore Playwright Chromium cache
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-1.56.1-${{ runner.os }}
+
       - name: Install Chromium browser
         working-directory: frontend
         timeout-minutes: 15
