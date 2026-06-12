@@ -60,7 +60,9 @@ jobs:
 
       - name: Install Chromium browser
         working-directory: frontend
-        timeout-minutes: 5
+        timeout-minutes: 15
+        env:
+          PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS: "1"
         run: |
           npm ci
           npx playwright install chromium
