@@ -39,7 +39,7 @@ test.describe('Layout and Navigation', () => {
     // Back to Home link in sidebar
     await page.getByRole('link', { name: /back to home/i }).click()
     await expect(page).toHaveURL(new RegExp(ORIGIN + '/$'))
-    await expect(page.getByRole('heading', { name: /Aqua Weight/i })).toBeVisible()
+    await expect(page.getByRole('navigation').getByText(/Aqua Weight/i)).toBeVisible()
   })
 
   test('page header quick create navigation', async ({ page }) => {
