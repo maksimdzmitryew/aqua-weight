@@ -233,16 +233,16 @@ const LandingPage = () => {
                   <h3 className="font-headline-lg text-white">Privacy by Design</h3>
                   <p className="font-label-caps text-secondary uppercase tracking-wider text-sm font-semibold">Your privacy is our priority.</p>
                 </div>
-                <p className="text-slate-300 font-body-md leading-relaxed">
-                  Your identity remains fully anonymous. We implement robust security measures to ensure your plant care data remains yours alone, utilizing industry-standard encryption and privacy-first account management.
-                </p>
-                <div className="mt-auto pt-6 flex items-start gap-4 border-t">
-                  <img alt="Null User Data Icon" className="w-10 h-10 object-contain rounded-lg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYOAbfvnAXibPX0jDr6FMkruOomyZidMOSmB2YsvxjyDmjTFQuUc0fyoX5qdaXEmBKXYgfTigTE1kXlezxgPAxM3F9FGa-lVoIZ7yTBbFK8KiNMC3s14WpV69R7w8Z_SLP7Eyh-5h0Iy25qS1bntn1MrCZ-aJT5e3wuz_uuSpsOZ96L6ICueA7xWvzhC6K4EwFct6PnzC67ltFmefO7IJbGQmDnmSX8IAv9iyMGKOIcEOrqTdDgOiW4mf4hohy_zD-kupVblqh3f4V" />
+                <div className="pt-6 flex items-start gap-4 border-t">
+                  <span className="material-symbols-outlined text-[80px] leading-none text-secondary">person_off</span>
                   <div>
-                    <span className="font-label-caps text-label-caps block mb-1 text-white">Null User Data</span>
-                    <p className="text-xs text-slate-400">Account creation requires only a username and password. Providing an email address is entirely optional.</p>
+                    <span className="font-label-caps text-body-lg block mb-1 text-white">Null User Data</span>
+                    <p className="text-body-md text-slate-400">Account creation requires only a username and password. Providing an email address is entirely optional.</p>
                   </div>
                 </div>
+                <p className="text-slate-300 font-body-md text-sm leading-relaxed">
+                  Your identity remains fully anonymous. We implement robust security measures to ensure your plant care data remains yours alone, utilizing industry-standard encryption and privacy-first account management.
+                </p>
               </div>
               {/* 2. Protection by Principle */}
               <div className="flex flex-col gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-secondary/30 transition-colors">
@@ -250,16 +250,16 @@ const LandingPage = () => {
                   <h3 className="font-headline-lg text-white">Protection by Principle</h3>
                   <p className="font-label-caps text-secondary uppercase tracking-wider text-sm font-semibold">Foundational data-minimization rules.</p>
                 </div>
-                <p className="text-slate-300 font-body-md leading-relaxed">
-                  Our system is built on a foundation of proactive data protection and user-centric privacy principles. We prioritize minimal data collection to maximize your digital safety.
-                </p>
-                <div className="mt-auto pt-6 flex items-start gap-4 border-t">
-                  <img alt="Zero Device Info Icon" className="w-10 h-10 object-contain rounded-lg" src="https://lh3.googleusercontent.com/aida/AP1WRLvYbkPMv-OJEH18LSN-NwcBc0hcw_rliXT7ini9d2icufDSLpgJv6vGwWIiu4devR8tFWiAaOlThR16JQLLmHetNWj5J9kHHxbsu6Exd_seCZ8nxq2NWFDbD0MaEVOcRf9EKhU-SCY8-QnMJT3ri8fWVayBXWbtOfIGJduMPeW5_aWGQnDe_KcMV-f-_iO3WiwTGWT8DLVhCpDG3h6nH1m48GnhDEx_5D3AzeYGyoqJL1YGnS5Yzl3ij2A" />
+                <div className="pt-6 flex items-start gap-4 border-t">
+                  <span className="material-symbols-outlined text-[80px] leading-none text-secondary">fingerprint_off</span>
                   <div>
-                    <span className="font-label-caps text-label-caps block mb-1 text-white">Zero Device Info</span>
-                    <p className="text-xs text-slate-400">Only if you choose to trust specific device for a faster login experience would device fingerprint be saved.</p>
+                    <span className="font-label-caps text-body-lg block mb-1 text-white">Zero Device Info</span>
+                    <p className="text-body-md text-slate-400">Only if you choose to trust specific device for a faster login experience would device fingerprint be saved.</p>
                   </div>
                 </div>
+                <p className="text-slate-300 font-body-md text-sm leading-relaxed">
+                  Our system is built on a foundation of proactive data protection and user-centric privacy principles. We prioritize minimal data collection in order to maximize your digital safety.
+                </p>
               </div>
               {/* 3. Security by Engineering */}
               <div className="flex flex-col gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-secondary/30 transition-colors">
@@ -267,16 +267,16 @@ const LandingPage = () => {
                   <h3 className="font-headline-lg text-white">Security by Engineering</h3>
                   <p className="font-label-caps text-secondary uppercase tracking-wider text-sm font-semibold">Fortifying integrity with industrial-grade safeguards.</p>
                 </div>
-                <p className="text-slate-300 font-body-md leading-relaxed">
-                  Best industry-grade LLMs perform regular automated penetration tests to ensure the highest standards of system resilience and data safety are maintained against evolving threats.
-                </p>
-                <div className="mt-auto pt-6 flex items-start gap-4 border-t">
-                  <img alt="MFA Icon" className="w-10 h-10 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLv-4kxTbJ7NACZ50eINrVqfgbIDxSuN4LC7FdWLxT8kMGdsYf0fjBQ9shTNJAJPfIScFnhj9GC1kN2jbUkdetyCGk-UKGhm4FLR3-5JT_Uoywyu1gnp8miF5FUEfaIsLpBSIkDEDCyaNJOrAcF1mWFR8qC0LdPfA6s_dMgiUMl6x4csaWc60s6wh2CzmiD4VVzCtHzK22X1_GWhAUyyrHwDRTdWotTWh1haUbG6zg3j0JnzuhztVBX-oH0v" />
+                <div className="pt-6 flex items-start gap-4 border-t">
+                  <span className="material-symbols-outlined text-[80px] leading-none text-secondary">verified</span>
                   <div>
-                    <span className="font-label-caps text-label-caps block mb-1 text-white">Multi-Factor Authentication</span>
-                    <p className="text-xs text-slate-400">Ensure that only you can access your account by requiring an MFA verification step via secure standards.</p>
+                    <span className="font-label-caps text-body-lg block mb-1 text-white">Multi-Factor Authentication</span>
+                    <p className="text-body-md text-slate-400">Ensure that only you can access your account by requiring an MFA verification step via secure standards.</p>
                   </div>
                 </div>
+                <p className="text-slate-300 font-body-md text-sm leading-relaxed">
+                  Best industry-grade top-tier LLMs perform regular automated penetration tests to ensure the highest standards of system resilience and data safety are maintained against evolving threats.
+                </p>
               </div>
               {/* 4. Integrity by Architecture */}
               <div className="flex flex-col gap-6 p-8 rounded-3xl bg-white/5 border border-white/10 hover:border-secondary/30 transition-colors">
@@ -284,16 +284,16 @@ const LandingPage = () => {
                   <h3 className="font-headline-lg text-white">Integrity by Architecture</h3>
                   <p className="font-label-caps text-secondary uppercase tracking-wider text-sm font-semibold">Hardware-level security.</p>
                 </div>
-                <p className="text-slate-300 font-body-md leading-relaxed">
-                  Our system is built on a foundation of hardware-level security and immutable design principles. We secure the firmware and the communication pipeline at the source.
-                </p>
-                <div className="mt-auto pt-6 flex items-start gap-4 border-t">
-                  <span className="material-symbols-outlined text-4xl text-secondary">memory</span>
+                <div className="pt-6 flex items-start gap-4 border-t">
+                  <span className="material-symbols-outlined text-[80px] leading-none text-secondary">memory</span>
                   <div>
-                    <span className="font-label-caps text-label-caps block mb-1 text-white">Hardened IoT Core</span>
-                    <p className="text-xs text-slate-400">Every IoT device operates with a hardened core to ensure data integrity and system resilience from the ground up.</p>
+                    <span className="font-label-caps text-body-lg block mb-1 text-white">Hardened IoT Core</span>
+                    <p className="text-body-md text-slate-400">Every IoT device operates with a hardened core to ensure data integrity and system resilience from the ground up.</p>
                   </div>
                 </div>
+                <p className="text-slate-300 font-body-md text-sm leading-relaxed">
+                  Our system is built on a foundation of hardware-level security and immutable design principles. We secure the firmware and the communication pipeline at the source, preventing unauthorized access and tampering.
+                </p>
               </div>
             </div>
           </div>
