@@ -4,6 +4,7 @@ from httpx import AsyncClient
 from fastapi import FastAPI
 
 from backend.app.db import get_conn_factory
+from backend.app.security import require_authenticated_user, require_plant_access
 
 
 class _FakeCursor:
@@ -53,7 +54,7 @@ class _FakeConn:
 
 @pytest.mark.asyncio
 async def test_list_measurements_for_plant_di(app: FastAPI, async_client: AsyncClient, monkeypatch):
-    # Fake one row coming from DB
+    # Fake one row coming from DB (11 columns matching the SELECT query)
     rows = [
         [
             bytes.fromhex("11" * 16),  # id
@@ -69,6 +70,7 @@ async def test_list_measurements_for_plant_di(app: FastAPI, async_client: AsyncC
             20,  # water_loss_total_g
             1.2,  # water_loss_day_pct
             3,  # water_loss_day_g
+            None,  # note
         ]
     ]
 
@@ -78,8 +80,17 @@ async def test_list_measurements_for_plant_di(app: FastAPI, async_client: AsyncC
         return fake_conn
 
     app.dependency_overrides[get_conn_factory] = lambda: _fake_factory
+    app.dependency_overrides[require_authenticated_user] = lambda: {
+        "id": None,
+        "id_hex": None,
+        "username": "test_admin",
+        "global_role": "admin",
+    }
 
     plant_hex = "aa" * 16
+    # Bypass plant access check since we're testing measurement listing logic, not authz
+    app.dependency_overrides[require_plant_access] = lambda: plant_hex
+
     resp = await async_client.get(f"/api/plants/{plant_hex}/measurements")
     assert resp.status_code == 200
     data = resp.json()
@@ -88,5 +99,7 @@ async def test_list_measurements_for_plant_di(app: FastAPI, async_client: AsyncC
     assert data[0]["measured_weight_g"] == 100
     assert data[0]["water_loss_total_pct"] == 10.5
 
-    # cleanup override
+    # cleanup overrides
     app.dependency_overrides.pop(get_conn_factory, None)
+    app.dependency_overrides.pop(require_authenticated_user, None)
+    app.dependency_overrides.pop(require_plant_access, None)

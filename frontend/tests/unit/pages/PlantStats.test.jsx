@@ -2,6 +2,17 @@ import React from 'react'
 import { render, screen, waitFor } from '@testing-library/react'
 import { ThemeProvider } from '../../../src/ThemeContext.jsx'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { vi } from 'vitest'
+
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { global_role: 'admin' },
+    isAuthenticated: true,
+    status: 'authenticated',
+  }),
+}))
 
 // Stub Sparkline to capture props passed by PlantStats
 vi.mock('../../../src/components/Sparkline.jsx', () => ({

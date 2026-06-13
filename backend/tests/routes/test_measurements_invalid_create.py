@@ -14,13 +14,16 @@ async def test_create_measurement_invalid_hex_branch(
     monkeypatch.setattr(measurements_routes, "HEX_RE", re.compile(r"^x$"))
 
     payload = {
-        "plant_id": "aa" * 16,  # valid per schema (lower-case 32 hex)
         "measured_at": "2025-01-01T12:00:00",
         "measured_weight_g": 123,
         # leave water_added_g None to avoid exclusivity error
         # optional fields can be omitted
     }
 
-    resp = await async_client.post("/api/measurements/weight", json=payload)
+    resp = await async_client.post(
+        "/api/plants/" + "aa" * 16 + "/measurements/weight",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json=payload,
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid plant_id"

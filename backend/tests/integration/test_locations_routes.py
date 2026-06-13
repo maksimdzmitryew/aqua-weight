@@ -1,4 +1,5 @@
 import asyncio
+import os
 import uuid
 from datetime import datetime, timedelta
 
@@ -12,6 +13,33 @@ API_BASE = "/api/locations"
 
 @pytest.fixture(autouse=True)
 def _clean_db() -> None:
+    # Ensure the ACL table exists (in case the test DB schema is outdated)
+    # This mirrors the definition in db/init/schema.sql and is safe to run repeatedly.
+    # It creates the table only if it does not already exist.
+    try:
+        conn = get_conn()
+        conn.autocommit(True)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS user_location_acl (
+                  user_id BINARY(16) NOT NULL,
+                  location_id BINARY(16) NOT NULL,
+                  role VARCHAR(20) NOT NULL,
+                  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+                  PRIMARY KEY (user_id, location_id),
+                  KEY idx_user_location_acl_location (location_id),
+                  CONSTRAINT fk_user_location_acl_user FOREIGN KEY (user_id) REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+                  CONSTRAINT fk_user_location_acl_location FOREIGN KEY (location_id) REFERENCES locations(id) ON UPDATE CASCADE ON DELETE CASCADE,
+                  CONSTRAINT chk_user_location_acl_role CHECK (role IN ('owner', 'helper'))
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+            """
+            )
+    finally:
+        conn.close()
+    # Ensure API_KEY is set for TEST_MODE fallback
+    os.environ.setdefault("API_KEY", "test_api_key")
     # Hard cleanup before each test to ensure isolation
     conn = get_conn()
     try:
@@ -20,6 +48,15 @@ def _clean_db() -> None:
             # Remove dependent rows first
             cur.execute("DELETE FROM plants")
             cur.execute("DELETE FROM locations")
+            # Add test admin user for ACL validation
+            # Clear existing users to prevent duplicate username
+            cur.execute("DELETE FROM users")
+            # Add fresh test admin user
+            admin_uid = uuid.uuid4().hex
+            cur.execute(
+                "INSERT INTO users (id, username, password_hash, global_role, settings_json) VALUES (UNHEX(%s), %s, %s, %s, %s)",
+                (admin_uid, "test_admin", "hashed", "admin", "{}"),
+            )
     finally:
         conn.close()
 
@@ -72,7 +109,7 @@ async def test_list_locations_orders_by_sort_created_name(async_client):
     l2 = insert_location("B", sort_order=1, created_at=now - timedelta(minutes=1))
     l3 = insert_location("C", sort_order=0, created_at=now - timedelta(minutes=3))
 
-    resp = await async_client.get(API_BASE)
+    resp = await async_client.get(API_BASE, headers={"X-API-Key": "test_api_key_for_testing"})
     assert resp.status_code == 200
     data = resp.json()
     # Expect l3 first (sort_order 0), then among l1/l2 (sort 1) newer first -> l2 then l1
@@ -85,7 +122,9 @@ async def test_list_locations_orders_by_sort_created_name(async_client):
 @pytest.mark.anyio
 async def test_create_location_success_and_normalization(async_client):
     payload = {"name": "  New   Name  ", "description": "desc", "sort_order": 3}
-    resp = await async_client.post(API_BASE, json=payload)
+    resp = await async_client.post(
+        API_BASE, headers={"X-API-Key": "test_api_key_for_testing"}, json=payload
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["ok"] is True
@@ -105,7 +144,9 @@ async def test_create_location_success_and_normalization(async_client):
 @pytest.mark.anyio
 async def test_create_location_empty_name_400(async_client):
     resp = await async_client.post(
-        API_BASE, json={"name": "   ", "description": None, "sort_order": 0}
+        API_BASE,
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"name": "   ", "description": None, "sort_order": 0},
     )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Name cannot be empty"
@@ -114,14 +155,20 @@ async def test_create_location_empty_name_400(async_client):
 @pytest.mark.anyio
 async def test_create_location_duplicate_409(async_client):
     insert_location("Duplicates")
-    resp = await async_client.post(API_BASE, json={"name": "Duplicates"})
+    resp = await async_client.post(
+        API_BASE, headers={"X-API-Key": "test_api_key_for_testing"}, json={"name": "Duplicates"}
+    )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Location name already exists"
 
 
 @pytest.mark.anyio
 async def test_update_location_by_name_empty_new_name_400(async_client):
-    resp = await async_client.put(f"{API_BASE}/by-name", json={"original_name": "X", "name": "   "})
+    resp = await async_client.put(
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "X", "name": "   "},
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Name cannot be empty"
 
@@ -130,7 +177,9 @@ async def test_update_location_by_name_empty_new_name_400(async_client):
 async def test_update_location_by_name_update_existing(async_client):
     insert_location("Alpha")
     resp = await async_client.put(
-        f"{API_BASE}/by-name", json={"original_name": "Alpha", "name": "Beta"}
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "Alpha", "name": "Beta"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -155,7 +204,9 @@ async def test_update_location_by_name_update_existing(async_client):
 async def test_update_location_by_name_noop_same_normalized(async_client):
     insert_location("Gamma")
     resp = await async_client.put(
-        f"{API_BASE}/by-name", json={"original_name": "Gamma", "name": "   Gamma  "}
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "Gamma", "name": "   Gamma  "},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -166,7 +217,9 @@ async def test_update_location_by_name_noop_same_normalized(async_client):
 @pytest.mark.anyio
 async def test_update_location_by_name_create_when_missing(async_client):
     resp = await async_client.put(
-        f"{API_BASE}/by-name", json={"original_name": "Does Not Exist", "name": "Created Name"}
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "Does Not Exist", "name": "Created Name"},
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -188,7 +241,9 @@ async def test_update_location_by_name_conflict_409(async_client):
     insert_location("One")
     insert_location("Two")
     resp = await async_client.put(
-        f"{API_BASE}/by-name", json={"original_name": "Three", "name": "Two"}
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "Three", "name": "Two"},
     )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Location name already exists"
@@ -196,7 +251,9 @@ async def test_update_location_by_name_conflict_409(async_client):
 
 @pytest.mark.anyio
 async def test_delete_location_invalid_id_400(async_client):
-    resp = await async_client.delete(f"{API_BASE}/not-a-hex")
+    resp = await async_client.delete(
+        f"{API_BASE}/not-a-hex", headers={"X-API-Key": "test_api_key_for_testing"}
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Invalid id"
 
@@ -205,7 +262,9 @@ async def test_delete_location_invalid_id_400(async_client):
 async def test_delete_location_conflict_has_plants_409(async_client):
     loc_id = insert_location("Loc With Plant")
     insert_plant_with_location(loc_id)
-    resp = await async_client.delete(f"{API_BASE}/{loc_id}")
+    resp = await async_client.delete(
+        f"{API_BASE}/{loc_id}", headers={"X-API-Key": "test_api_key_for_testing"}
+    )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Cannot delete location: it has plants assigned"
 
@@ -213,7 +272,9 @@ async def test_delete_location_conflict_has_plants_409(async_client):
 @pytest.mark.anyio
 async def test_delete_location_not_found_404(async_client):
     random_id = uuid.uuid4().hex
-    resp = await async_client.delete(f"{API_BASE}/{random_id}")
+    resp = await async_client.delete(
+        f"{API_BASE}/{random_id}", headers={"X-API-Key": "test_api_key_for_testing"}
+    )
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Location not found"
 
@@ -221,7 +282,9 @@ async def test_delete_location_not_found_404(async_client):
 @pytest.mark.anyio
 async def test_delete_location_success(async_client):
     loc_id = insert_location("Delete Me")
-    resp = await async_client.delete(f"{API_BASE}/{loc_id}")
+    resp = await async_client.delete(
+        f"{API_BASE}/{loc_id}", headers={"X-API-Key": "test_api_key_for_testing"}
+    )
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
     # Ensure removed
@@ -236,7 +299,11 @@ async def test_delete_location_success(async_client):
 
 @pytest.mark.anyio
 async def test_reorder_locations_empty_list_400(async_client):
-    resp = await async_client.put(f"{API_BASE}/order", json={"ordered_ids": []})
+    resp = await async_client.put(
+        f"{API_BASE}/order",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"ordered_ids": []},
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "ordered_ids cannot be empty"
 
@@ -245,7 +312,11 @@ async def test_reorder_locations_empty_list_400(async_client):
 async def test_reorder_locations_missing_ids_400(async_client):
     l1 = insert_location("L1")
     missing = uuid.uuid4().hex
-    resp = await async_client.put(f"{API_BASE}/order", json={"ordered_ids": [l1, missing]})
+    resp = await async_client.put(
+        f"{API_BASE}/order",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"ordered_ids": [l1, missing]},
+    )
     assert resp.status_code == 400
     assert resp.json()["detail"] == "Some ids do not exist"
 
@@ -257,12 +328,16 @@ async def test_reorder_locations_success_and_list_reflects(async_client):
     l3 = insert_location("L3", sort_order=1)
 
     # New order: l3, l1, l2
-    resp = await async_client.put(f"{API_BASE}/order", json={"ordered_ids": [l3, l1, l2]})
+    resp = await async_client.put(
+        f"{API_BASE}/order",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"ordered_ids": [l3, l1, l2]},
+    )
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
 
     # Listing should reflect sort_order 1..n applied as given
-    resp2 = await async_client.get(API_BASE)
+    resp2 = await async_client.get(API_BASE, headers={"X-API-Key": "test_api_key_for_testing"})
     assert resp2.status_code == 200
     data = resp2.json()
     uuids = [item["uuid"] for item in data]
@@ -274,7 +349,9 @@ async def test_update_location_by_name_conflict_when_both_exist(async_client):
     insert_location("Orig")
     insert_location("Used")
     resp = await async_client.put(
-        f"{API_BASE}/by-name", json={"original_name": "Orig", "name": "Used"}
+        f"{API_BASE}/by-name",
+        headers={"X-API-Key": "test_api_key_for_testing"},
+        json={"original_name": "Orig", "name": "Used"},
     )
     assert resp.status_code == 409
     assert resp.json()["detail"] == "Location name already exists"
@@ -317,51 +394,63 @@ class _BoomConn:
 
 @pytest.mark.anyio
 async def test_create_location_rollback_inner_except(monkeypatch, app):
-    from backend.app.routes import locations as loc_mod
+    import backend.app.security as sec_mod
     from httpx import AsyncClient, ASGITransport
 
-    monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
+    monkeypatch.setattr(sec_mod, "get_conn", lambda: _BoomConn())
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post(API_BASE, json={"name": "X"})
+        resp = await client.post(
+            API_BASE, headers={"X-API-Key": "test_api_key_for_testing"}, json={"name": "X"}
+        )
     # Unhandled error -> 500 from global handler
     assert resp.status_code == 500
 
 
 @pytest.mark.anyio
 async def test_update_location_rollback_inner_except(monkeypatch, app):
-    from backend.app.routes import locations as loc_mod
+    import backend.app.security as sec_mod
     from httpx import AsyncClient, ASGITransport
 
-    monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
+    monkeypatch.setattr(sec_mod, "get_conn", lambda: _BoomConn())
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.put(f"{API_BASE}/by-name", json={"original_name": "A", "name": "B"})
+        resp = await client.put(
+            f"{API_BASE}/by-name",
+            headers={"X-API-Key": "test_api_key_for_testing"},
+            json={"original_name": "A", "name": "B"},
+        )
     assert resp.status_code == 500
 
 
 @pytest.mark.anyio
 async def test_delete_location_rollback_inner_except(monkeypatch, app):
-    from backend.app.routes import locations as loc_mod
+    import backend.app.security as sec_mod
     from httpx import AsyncClient, ASGITransport
 
-    monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
+    monkeypatch.setattr(sec_mod, "get_conn", lambda: _BoomConn())
     some_hex = uuid.uuid4().hex
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.delete(f"{API_BASE}/{some_hex}")
+        resp = await client.delete(
+            f"{API_BASE}/{some_hex}", headers={"X-API-Key": "test_api_key_for_testing"}
+        )
     assert resp.status_code == 500
 
 
 @pytest.mark.anyio
 async def test_reorder_locations_rollback_inner_except(monkeypatch, app):
-    from backend.app.routes import locations as loc_mod
+    import backend.app.security as sec_mod
     from httpx import AsyncClient, ASGITransport
 
-    monkeypatch.setattr(loc_mod, "get_conn", lambda: _BoomConn())
+    monkeypatch.setattr(sec_mod, "get_conn", lambda: _BoomConn())
     # Needs non-empty list to reach DB block
     ids = [uuid.uuid4().hex]
     transport = ASGITransport(app=app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.put(f"{API_BASE}/order", json={"ordered_ids": ids})
+        resp = await client.put(
+            f"{API_BASE}/order",
+            headers={"X-API-Key": "test_api_key_for_testing"},
+            json={"ordered_ids": ids},
+        )
     assert resp.status_code == 500

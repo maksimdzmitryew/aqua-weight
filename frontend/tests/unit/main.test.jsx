@@ -23,6 +23,19 @@ vi.mock('../../src/pages/PlantStats.jsx', () => stub('PlantStats'))
 vi.mock('../../src/pages/DailyCare.jsx', () => stub('DailyCare'))
 vi.mock('../../src/pages/BulkWeightMeasurement.jsx', () => stub('BulkWeightMeasurement'))
 vi.mock('../../src/pages/BulkWatering.jsx', () => stub('BulkWatering'))
+vi.mock('../../src/pages/Calibration.jsx', () => stub('Calibration'))
+vi.mock('../../src/pages/Devices.jsx', () => stub('Devices'))
+vi.mock('../../src/pages/AdminDashboard.jsx', () => stub('AdminDashboard'))
+vi.mock('../../src/pages/MFASetup.jsx', () => stub('MFASetup'))
+
+// Mock context providers so the test can unwrap through them
+vi.mock('../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({ status: 'authenticated', user: null, isAuthenticated: false }),
+}))
+vi.mock('../../src/context/SettingsContext.jsx', () => ({
+  SettingsProvider: ({ children }) => children,
+}))
 
 // Capture createRoot and the element it renders for strict assertions
 let renderSpy
@@ -95,23 +108,57 @@ describe('src/main.jsx bootstrap', () => {
     expect(themeProvider).toBeTruthy()
     expect(themeProvider.type?.name).toBe('ThemeProvider')
 
-    // Next level: BrowserRouter > Routes with many Route children
+    // Next level: AuthProvider > SettingsProvider > BrowserRouter > SessionManager and Routes
     const tpChildren = React.Children.toArray(themeProvider.props.children)
     expect(tpChildren).toHaveLength(1)
-    const browserRouter = tpChildren[0]
-    // In tests, BrowserRouter is a function/component with name BrowserRouter
+    const authProvider = tpChildren[0]
+    expect(authProvider.type?.name || authProvider.type?.displayName).toBe('AuthProvider')
+
+    const apChildren = React.Children.toArray(authProvider.props.children)
+    expect(apChildren).toHaveLength(1)
+    const settingsProvider = apChildren[0]
+    expect(settingsProvider.type?.name || settingsProvider.type?.displayName).toBe(
+      'SettingsProvider',
+    )
+
+    const spChildren = React.Children.toArray(settingsProvider.props.children)
+    expect(spChildren).toHaveLength(1)
+    const browserRouter = spChildren[0]
     expect(browserRouter.type?.name).toBe('BrowserRouter')
 
     const brChildren = React.Children.toArray(browserRouter.props.children)
-    expect(brChildren).toHaveLength(1)
-    const routes = brChildren[0]
+    expect(brChildren).toHaveLength(2)
+    const sessionManager = brChildren[0]
+    expect(sessionManager.type?.name).toBe('SessionManager')
+    const routes = brChildren[1]
     expect(routes.type?.name).toBe('Routes')
 
     const routeChildren = React.Children.toArray(routes.props.children)
-    // We expect the exact number of <Route> entries defined in main.jsx
-    // Keep this list synced with the file
-    const expectedPaths = [
-      '/',
+    // We expect public routes, a ProtectedRoute wrapper for restricted ones, and a catch-all
+    const publicPaths = ['/', '/login', '/logout', '/invite/complete']
+    const catchAllPath = '*'
+
+    // Find the ProtectedRoute element (the one without a path prop)
+    const protectedRoute = routeChildren.find(
+      (r) => !r.props?.path && r.props?.element?.type?.name === 'ProtectedRoute',
+    )
+    expect(protectedRoute).toBeTruthy()
+
+    // Extract nested paths from the ProtectedRoute, including those inside wrappers like RequireAdmin
+    const getPaths = (children) => {
+      let paths = []
+      React.Children.forEach(children, (child) => {
+        if (child.props?.path) {
+          paths.push(child.props.path)
+        } else if (child.props?.children) {
+          paths = paths.concat(getPaths(child.props.children))
+        }
+      })
+      return paths
+    }
+    const nestedPaths = getPaths(protectedRoute.props.children)
+
+    const expectedNestedPaths = [
       '/dashboard',
       '/daily',
       '/plants',
@@ -123,20 +170,25 @@ describe('src/main.jsx bootstrap', () => {
       '/locations/new',
       '/locations/:id/edit',
       '/settings',
+      '/devices',
       '/calibration',
       '/measurement/weight',
       '/measurement/watering',
       '/measurement/repotting',
       '/measurements/bulk/weight',
       '/measurements/bulk/watering',
-      '*',
+      '/mfa/setup',
+      '/admin',
     ]
 
-    // Assert we have the same number of Route children
-    expect(routeChildren.length).toBe(expectedPaths.length)
+    expect(nestedPaths).toEqual(expectedNestedPaths)
 
-    // Extract path props from each child (they are <Route path=... element=... />)
-    const actualPaths = routeChildren.map((r) => r.props?.path)
-    expect(actualPaths).toEqual(expectedPaths)
+    // Assert top-level routes
+    const topLevelPaths = routeChildren.map((r) => r.props?.path)
+    expect(topLevelPaths).toContain('/')
+    expect(topLevelPaths).toContain('/login')
+    expect(topLevelPaths).toContain('/logout')
+    expect(topLevelPaths).toContain('/invite/complete')
+    expect(topLevelPaths).toContain('*')
   })
 })

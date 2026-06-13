@@ -8,8 +8,15 @@ from httpx import AsyncClient, ASGITransport
 
 # Ensure test admin endpoints are enabled before importing the app
 os.environ.setdefault("TEST_MODE", "1")
+os.environ.pop("PYTEST_AIOHTTP_BASE_URL", None)  # Disable reuse
+
 # Import the real FastAPI app
 from backend.app.main import app as real_app
+
+
+@pytest.fixture(name="uuidfaker", scope="session")
+def uuidfaker():
+    return uuidfaker.UUIDFaker()  # Initialize here
 
 
 @pytest.fixture(scope="session")
@@ -41,6 +48,8 @@ def _override_test_env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("DB_NAME", os.getenv("TEST_DB_NAME", "appdb_test"))
     # Enable test admin endpoints
     monkeypatch.setenv("TEST_MODE", "1")
+    # Set API key for test fallback authentication
+    monkeypatch.setenv("API_KEY", "test_api_key_for_testing")
 
     # Safety checks: fail fast if misconfigured
     runtime_db = os.getenv("RUNTIME_DB_NAME", "appdb")

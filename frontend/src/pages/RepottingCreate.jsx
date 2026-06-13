@@ -24,6 +24,7 @@ const RepottingCreate = () => {
     measured_at: nowLocalISOFull(),
     weight_before_repotting_g: '',
     last_wet_weight_g: '',
+    note: '',
   })
 
   useEffect(() => {
@@ -31,14 +32,17 @@ const RepottingCreate = () => {
     async function loadRepottingEvent() {
       if (!isEdit) return
       try {
-        const data = await measurementsApi.repotting.get(editId)
+        const data = await measurementsApi.repotting.get(preselect, editId)
         if (cancelled) return
         form.setValues({
           plant_id: data.plant_id,
           measured_at: toLocalISOFull(data.measured_at),
           weight_before_repotting_g:
-            data.weight_before_repotting_g != null ? String(data.weight_before_repotting_g) : '',
+            (data.weight_before_repotting_g ?? data.measured_weight_g) != null
+              ? String(data.weight_before_repotting_g ?? data.measured_weight_g)
+              : '',
           last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
+          note: data.note || '',
         })
       } catch (_) {
         if (!cancelled) setError('Failed to load repotting event')
@@ -64,11 +68,12 @@ const RepottingCreate = () => {
         measured_weight_g:
           vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
         last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+        note: vals.note || null,
       }
       if (isEdit) {
-        await measurementsApi.repotting.update(editId, payload)
+        await measurementsApi.repotting.update(vals.plant_id, editId, payload)
       } else {
-        await measurementsApi.repotting.create(payload)
+        await measurementsApi.repotting.create(vals.plant_id, payload)
       }
       const from = location.state?.from
       if (from) navigate(from)
@@ -114,9 +119,24 @@ const RepottingCreate = () => {
             min={0}
             validators={[minNumber(0)]}
           />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
+              Note
+            </label>
+            <textarea
+              id="note"
+              {...form.register('note')}
+              className="input"
+              style={{ height: 100 }}
+            />
+          </div>
         </div>
         <div style={{ marginTop: 16 }}>
-          <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">
+          <button
+            disabled={!form.valid || !form.values.plant_id || saving}
+            type="submit"
+            className="btn btn-primary"
+          >
             {isEdit ? 'Update repotting' : 'Save repotting'}
           </button>
           <button

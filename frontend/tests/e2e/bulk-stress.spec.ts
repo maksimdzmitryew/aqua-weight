@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
 test.describe('Data Integrity during Rapid Input', () => {
   test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
     await seed(ORIGIN)
   })
 
@@ -21,7 +22,7 @@ test.describe('Data Integrity during Rapid Input', () => {
 
     // Mock API to be slow and potentially return out of order
     let requestCount = 0
-    await page.route('**/api/measurements/weight', async (route) => {
+    await page.route('**/api/plants/**/measurements/weight', async (route) => {
       requestCount++
       const currentRequest = requestCount
       // Delay first request more than second to simulate out-of-order response
@@ -86,7 +87,7 @@ test.describe('Data Integrity during Rapid Input', () => {
 
     // Mock API to be slow and potentially return out of order
     let requestCount = 0
-    await page.route('**/api/measurements/watering', async (route) => {
+    await page.route('**/api/plants/**/measurements/watering', async (route) => {
       requestCount++
       const currentRequest = requestCount
       // Delay first request more than second to simulate out-of-order response

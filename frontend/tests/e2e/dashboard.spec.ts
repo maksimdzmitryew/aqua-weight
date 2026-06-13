@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -9,6 +9,7 @@ test.describe('Dashboard Controls', () => {
   })
 
   test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
     await page.goto('/dashboard', { waitUntil: 'commit' })
   })
 

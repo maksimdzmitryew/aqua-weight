@@ -57,6 +57,7 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make fe-clean          - Clear Vite cache and restart frontend container"
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
 	@echo "  make fix-fe            - Auto-fix formatting and lint"
@@ -233,10 +234,10 @@ test-fe-ci:
 	  -v "$(PWD)/frontend:/src" \
 	  node:24 \
 	  bash -lc "\
-		npm install -g npm@11.13.0 && \
+		npm install -g npm@11.16.0 && \
 		cp -r /src /tmp/fe && \
 		cd /tmp/fe && \
-		npm ci --no-audit --no-fund && \
+		npm install --no-audit --no-fund && \
 		CI=true npm run test:unit:coverage"
 
 .PHONY: fe-sb
@@ -246,6 +247,11 @@ fe-sb:
 .PHONY: fe-sb-build
 fe-sb-build:
 	npm run build-storybook --prefix frontend
+
+.PHONY: fe-clean
+fe-clean: ## Clear Vite cache and restart frontend container
+	rm -rf frontend/node_modules/.vite
+	docker compose restart frontend
 
 .PHONY: fe-fmt-fix
 fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
@@ -300,7 +306,7 @@ be-mypy:
 	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
 
 .PHONY: fix-be
-fix-be: ## Run all frontend auto-fixes
+fix-be: ## Run all backend auto-fixes
 	$(MAKE) be-fmt-fix
 	$(MAKE) be-lint-fix
 	$(MAKE) be-mypy

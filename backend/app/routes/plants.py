@@ -1,12 +1,12 @@
 import re
-import uuid
 from datetime import datetime
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Cookie, HTTPException
+from fastapi import APIRouter, Cookie, Depends, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, bin_to_hex, get_conn, hex_to_bin
+from ..db import bin_to_hex, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
 from ..schemas.plant import (
     PaginatedPlantsResponse,
@@ -15,6 +15,15 @@ from ..schemas.plant import (
     PlantUpdateRequest,
     ReferenceItem,
 )
+from ..security import (
+    get_db,
+    require_authenticated_user,
+    require_plant_access,
+    require_plant_owner,
+    verify_location_access,
+    verify_plant_access,
+)
+from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
 
 app = APIRouter()
@@ -112,9 +121,11 @@ class PlantNameItem(BaseModel):
 
 
 @app.get("/plants/names", response_model=list[PlantNameItem])
-async def list_plant_names() -> list[PlantNameItem]:
+async def list_plant_names(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+) -> list[PlantNameItem]:
     """
-    Fetch only uuid and name for all active plants.
+    Fetch only uuid and name for all active plants the user has access to.
     Used for dropdowns to minimize data transfer and prevent DDoS via large payloads.
     Returns all active plants without pagination.
     """
@@ -123,13 +134,30 @@ async def list_plant_names() -> list[PlantNameItem]:
         conn = get_conn()
         try:
             with conn.cursor() as cur:
-                query = """
-                    SELECT p.id, p.name
-                    FROM plants p
-                    WHERE p.archive = 0
-                    ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
-                """
-                cur.execute(query)
+                if current_user["global_role"] == "admin":
+                    query = """
+                        SELECT p.id, p.name
+                        FROM plants p
+                        WHERE p.archive = 0
+                        ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
+                    """
+                    params = ()
+                else:
+                    query = """
+                        SELECT p.id, p.name
+                        FROM plants p
+                        WHERE p.archive = 0
+                        AND (
+                            p.owner_id = %s
+                            OR p.location_id IN (
+                                SELECT location_id FROM user_location_acl WHERE user_id = %s
+                            )
+                        )
+                        ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC
+                    """
+                    params = (current_user["id"], current_user["id"])
+
+                cur.execute(query, params)
                 rows = cur.fetchall() or []
 
                 results = []
@@ -152,6 +180,7 @@ async def list_plant_names() -> list[PlantNameItem]:
 
 @app.get("/plants", response_model=PaginatedPlantsResponse)
 async def list_plants(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
     page: int = 1,
     limit: int = 20,
     search: str | None = None,
@@ -183,10 +212,11 @@ async def list_plants(
             needs_weighing_filter=needs_weighing,
             mode=mode,
             uuids=uuid_list,
+            current_user=current_user,
         )
 
-        # Get global count for drift detection (always without filters)
-        global_total = PlantsList.count_all(search=None, status="active")
+        # Get global count for drift detection (always without filters besides ACL)
+        global_total = PlantsList.count_all(search=None, status="active", current_user=current_user)
 
         # Calculate total pages based on filtered count
         total_pages = (total + limit - 1) // limit if total > 0 else 0
@@ -201,6 +231,7 @@ async def list_plants(
             status=status,
             needs_weighing_filter=needs_weighing,
             uuids=uuid_list,
+            current_user=current_user,
         )
 
         return PaginatedPlantsResponse(
@@ -249,8 +280,20 @@ class PlantCreate(BaseModel):
     max_water_weight_g: int | None = None
 
 
+def get_location_owner_id(db: Any, location_id_hex: str) -> bytes | None:
+    """Fetch the owner ID for a given location."""
+    with db.cursor() as cur:
+        cur.execute(
+            "SELECT user_id FROM user_location_acl WHERE location_id = UNHEX(%s) AND role = 'owner' LIMIT 1",
+            (location_id_hex,),
+        )
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
 @app.get("/plants/uuids", response_model=list[str])
 async def list_plant_uuids(
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
     status: str = "active",
     needs_weighing: bool | None = None,
     needs_watering: bool | None = None,
@@ -268,6 +311,7 @@ async def list_plant_uuids(
             needs_weighing_filter=needs_weighing,
             mode=mode,
             default_threshold=def_thr,
+            current_user=current_user,
         )
 
         if needs_watering is not None:
@@ -289,13 +333,15 @@ async def list_plant_uuids(
                     if thresh is None:
                         thresh = def_thr
 
-                    return thresh is not None and retained <= thresh
+                    return (thresh is not None and retained <= thresh) or p.get(
+                        "needs_watering_prediction", False
+                    )
 
                 # If we have no weight data, and no approximation, we assume it needs attention
                 # (weighing/watering) by default to avoid missing plants.
                 if p["days_offset"] is not None:
                     return p["days_offset"] <= 0
-                return True
+                return True or p.get("needs_watering_prediction", False)
 
             items = [item for item in items if check_needs_water(item) == needs_watering]
 
@@ -305,7 +351,11 @@ async def list_plant_uuids(
 
 
 @app.post("/plants")
-async def create_plant(payload: PlantCreateRequest):
+async def create_plant(
+    payload: PlantCreateRequest,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
 
@@ -331,15 +381,30 @@ async def create_plant(payload: PlantCreateRequest):
     if not name:
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
-    def do_insert():
+    async def do_insert():
+        # Access Check: If location_id is provided, ensure user has access to it
+        # and sync owner_id with the location owner.
+        owner_id = current_user["id"]
+        if payload.location_id:
+            await verify_location_access(
+                db,
+                current_user["id"],
+                current_user["global_role"],
+                payload.location_id,
+            )
+            loc_owner = get_location_owner_id(db, payload.location_id)
+            if loc_owner:
+                owner_id = loc_owner
+
+        loc_id_bin = hex_to_bytes(payload.location_id)
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
                 sql = """
                     INSERT INTO plants (
-                        id, name, plant_type, identify_hint, typical_action,
+                        id, owner_id, name, plant_type, identify_hint, typical_action,
                         description, notes, location_id, photo_url,
                         default_measurement_method_id, scale_id, sort_order, repotted, archive,
                         recommended_water_threshold_pct, biomass_weight_g, biomass_last_at,
@@ -348,7 +413,7 @@ async def create_plant(payload: PlantCreateRequest):
                         light_level_id, pest_status_id, health_status_id,
                         min_dry_weight_g, max_water_weight_g
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s, %s, %s,
@@ -360,13 +425,14 @@ async def create_plant(payload: PlantCreateRequest):
                 """
                 params = (
                     new_id,
+                    owner_id,
                     name,
                     (payload.plant_type or None),
                     (payload.identify_hint or None),
                     (payload.typical_action or None),
                     (payload.description or None),
                     (payload.notes or None),
-                    hex_to_bytes(payload.location_id),
+                    loc_id_bin,
                     (payload.photo_url or None),
                     hex_to_bytes(payload.default_measurement_method_id),
                     hex_to_bytes(payload.scale_id),
@@ -405,21 +471,25 @@ async def create_plant(payload: PlantCreateRequest):
         finally:
             conn.close()
 
-    return await run_in_threadpool(do_insert)
+    return await do_insert()
 
 
 # Reordering endpoints
 
 
 @app.post("/plants/{id_hex}/duplicate")
-async def duplicate_plant(id_hex: str):
+async def duplicate_plant(
+    id_hex: Annotated[str, Depends(require_plant_access)],
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
     def do_duplicate():
-        if not HEX_RE.match(id_hex or ""):
-            raise HTTPException(status_code=400, detail="Invalid plant id")
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
+                pid_bin = hex_to_bin(id_hex)
+
                 cur.execute(
                     """
                     SELECT
@@ -432,18 +502,25 @@ async def duplicate_plant(id_hex: str):
                     FROM plants
                     WHERE id = %s
                     """,
-                    (hex_to_bin(id_hex),),
+                    (pid_bin,),
                 )
                 row = cur.fetchone()
                 if not row:
                     raise HTTPException(status_code=404, detail="Plant not found")
 
+                loc_id_bin = row[6]
+                owner_id = current_user["id"]
+                if loc_id_bin:
+                    loc_owner = get_location_owner_id(db, loc_id_bin.hex())
+                    if loc_owner:
+                        owner_id = loc_owner
+
                 new_name = f"{row[0]} copy"
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 sql = """
                     INSERT INTO plants (
-                        id, name, plant_type, identify_hint, typical_action,
+                        id, owner_id, name, plant_type, identify_hint, typical_action,
                         description, notes, location_id, photo_url,
                         default_measurement_method_id, scale_id, sort_order, repotted, archive,
                         recommended_water_threshold_pct,
@@ -452,7 +529,7 @@ async def duplicate_plant(id_hex: str):
                         biomass_weight_g, biomass_last_at, substrate_last_refresh_at,
                         fertilized_last_at, min_dry_weight_g, max_water_weight_g
                     ) VALUES (
-                        %s, %s, %s, %s, %s,
+                        %s, %s, %s, %s, %s, %s,
                         %s, %s, %s, %s,
                         %s, %s, %s, %s, %s,
                         %s,
@@ -464,6 +541,7 @@ async def duplicate_plant(id_hex: str):
                 """
                 params = (
                     new_id,
+                    owner_id,
                     new_name,
                     row[1],
                     row[2],
@@ -539,15 +617,30 @@ def _validate_and_update_order(table: str, ids: list[str]):
 
 
 @app.put("/plants/order")
-async def reorder_plants(payload: ReorderPayload):
+async def reorder_plants(
+    payload: ReorderPayload,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
     # Only reorder non-archived plants in the provided list
-    def do_update():
+    async def do_update():
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
                 if not payload.ordered_ids:
                     raise HTTPException(status_code=400, detail="ordered_ids cannot be empty")
+
+                # Access Check: Ensure user has access to all plants being reordered
+                # For reordering, we allow both owners and helpers.
+                for hex_id in payload.ordered_ids:
+                    await verify_plant_access(
+                        db,
+                        current_user["id"],
+                        current_user["global_role"],
+                        hex_id,
+                    )
+
                 placeholders = ",".join(["UNHEX(%s)"] * len(payload.ordered_ids))
                 cur.execute(
                     f"SELECT COUNT(*) FROM plants WHERE archive=0 AND id IN ({placeholders})",
@@ -570,15 +663,15 @@ async def reorder_plants(payload: ReorderPayload):
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
+    await do_update()
     return {"ok": True}
 
 
 @app.delete("/plants/{id_hex}")
-async def delete_plant(id_hex: str):
-    if not HEX_RE.match(id_hex or ""):
-        raise HTTPException(status_code=400, detail="Invalid id")
-
+async def delete_plant(
+    id_hex: Annotated[str, Depends(require_plant_owner)],
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+):
     def do_delete():
         conn = get_conn()
         try:
@@ -594,10 +687,12 @@ async def delete_plant(id_hex: str):
 
 
 @app.patch("/plants/{id_hex}")
-async def update_plant(id_hex: str, payload: PlantUpdateRequest):
-    if not HEX_RE.match(id_hex or ""):
-        raise HTTPException(status_code=400, detail="Invalid id")
-
+async def update_plant(
+    id_hex: Annotated[str, Depends(require_plant_owner)],
+    payload: PlantUpdateRequest,
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+    db: Annotated[Any, Depends(get_db)],
+):
     def normalize(s: str) -> str:
         return " ".join((s or "").split())
 
@@ -620,20 +715,31 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
     if payload.name is not None and not normalize(payload.name):
         raise HTTPException(status_code=400, detail="Name cannot be empty")
 
-    def do_update():
+    async def do_update():
+        update_data = payload.model_dump(exclude_unset=True)
+        if not update_data:
+            return {"ok": True}
+
+        # If moving plant, verify access to new location and update owner
+        if "location_id" in update_data:
+            if update_data["location_id"]:
+                await verify_location_access(
+                    db,
+                    current_user["id"],
+                    current_user["global_role"],
+                    update_data["location_id"],
+                )
+                loc_owner = get_location_owner_id(db, update_data["location_id"])
+                if loc_owner:
+                    update_data["owner_id"] = loc_owner
+            else:
+                # If moved out of location, default back to current user as owner
+                update_data["owner_id"] = current_user["id"]
+
         conn = get_conn()
         try:
             conn.autocommit(False)
             with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM plants WHERE id=UNHEX(%s) LIMIT 1", (id_hex,))
-                exists = cur.fetchone()
-                if not exists:
-                    raise HTTPException(status_code=404, detail="Plant not found")
-
-                update_data = payload.model_dump(exclude_unset=True)
-                if not update_data:
-                    return {"ok": True}
-
                 fields = []
                 params = []
 
@@ -674,18 +780,21 @@ async def update_plant(id_hex: str, payload: PlantUpdateRequest):
         finally:
             conn.close()
 
-    await run_in_threadpool(do_update)
+    await do_update()
     return {"ok": True}
 
 
-@app.get("/plants/{id_hex}")
-async def get_plant(id_hex: str) -> PlantDetail:
+@app.get("/plants/{id_hex}", response_model=PlantDetail)
+async def get_plant(
+    id_hex: Annotated[str, Depends(require_plant_access)],
+    current_user: Annotated[dict, Depends(require_authenticated_user)],
+):
     def fetch_one():
-        if not HEX_RE.match(id_hex or ""):
-            raise HTTPException(status_code=400, detail="Invalid plant id")
         conn = get_conn()
         try:
             with conn.cursor() as cur:
+                pid_bin = hex_to_bin(id_hex)
+
                 cur.execute(
                     """
                     SELECT
@@ -701,7 +810,7 @@ async def get_plant(id_hex: str) -> PlantDetail:
                     LEFT JOIN locations l ON l.id = p.location_id
                     WHERE p.id = %s
                     """,
-                    (hex_to_bin(id_hex),),
+                    (pid_bin,),
                 )
                 row = cur.fetchone()
 

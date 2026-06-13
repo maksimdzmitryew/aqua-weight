@@ -92,10 +92,16 @@ export default function PlantDetails() {
 
   function handleEditMeasurement(m) {
     if (!m?.id) return
-    if ((m?.measured_weight_g || 0) > 0) {
-      navigate(`/measurement/weight?id=${m.id}`)
-    } else {
-      navigate(`/measurement/watering?id=${m.id}`)
+    switch (m.type) {
+      case 'Repotting':
+        navigate(`/measurement/repotting?id=${m.id}&plant=${uuid}`)
+        break
+      case 'Watering':
+        navigate(`/measurement/watering?id=${m.id}&plant=${uuid}`)
+        break
+      default:
+        navigate(`/measurement/weight?id=${m.id}&plant=${uuid}`)
+        break
     }
   }
 
@@ -115,9 +121,9 @@ export default function PlantDetails() {
       return
     }
     try {
-      await measurementsApi.delete(toDeleteMeas.id)
+      await measurementsApi.delete(uuid, toDeleteMeas.id)
     } catch (e) {
-      // ignore optional error display
+      setMeasError(e?.message || 'Failed to delete measurement')
     } finally {
       await fetchMeasurements()
       closeMeasDialog()
@@ -225,11 +231,13 @@ export default function PlantDetails() {
                     <thead>
                       <tr>
                         <th className="th right">Actions</th>
+                        <th className="th">Type</th>
                         <th className="th">measured_at</th>
                         <th className="th">measured_weight</th>
                         <th className="th">last_dry_weight_g</th>
                         <th className="th">last_wet_weight_g</th>
                         <th className="th">water_added_g</th>
+                        <th className="th">Note</th>
                         <th className="th">water_loss_total_pct</th>
                         <th className="th">water_loss_total_g</th>
                         <th className="th">water_loss_day_pct</th>
@@ -237,43 +245,70 @@ export default function PlantDetails() {
                       </tr>
                     </thead>
                     <tbody>
-                      {measurements.map((m, i) => (
-                        <tr key={m.id || i}>
-                          <td className="td text-right nowrap">
-                            <IconButton
-                              icon="edit"
-                              label="Edit measurement"
-                              onClick={() => handleEditMeasurement(m)}
-                              variant="subtle"
-                            />
-                            <IconButton
-                              icon="delete"
-                              label="Delete measurement"
-                              onClick={() => handleDeleteMeasurement(m)}
-                              variant="danger"
-                            />
-                          </td>
-                          <td className="td">
-                            <DateTimeText value={m.measured_at} />
-                          </td>
-                          <td className="td">{m.measured_weight_g ?? '—'}</td>
-                          <td className="td">{m.last_dry_weight_g ?? '—'}</td>
-                          <td className="td">{m.last_wet_weight_g ?? '—'}</td>
-                          <td className="td">{m.water_added_g ?? 0}</td>
-                          <td className="td">
-                            {m.water_loss_total_pct != null
-                              ? `${m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct}%`
-                              : '—'}
-                          </td>
-                          <td className="td">{m.water_loss_total_g ?? '—'}</td>
-                          <td className="td">
-                            {m.water_loss_day_pct != null
-                              ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%`
-                              : '—'}
-                          </td>
-                          <td className="td">{m.water_loss_day_g ?? '—'}</td>
-                        </tr>
-                      ))}
+                      {measurements.map((m, i) => {
+                        const type = m.type || 'Measurement'
+                        const badgeClass =
+                          type === 'Repotting'
+                            ? 'badge-info'
+                            : type === 'Watering'
+                              ? 'badge-success'
+                              : ''
+
+                        return (
+                          <tr key={m.id || i}>
+                            <td className="td text-right nowrap">
+                              <IconButton
+                                icon="edit"
+                                label="Edit"
+                                onClick={() => handleEditMeasurement(m)}
+                                variant="subtle"
+                              />
+                              <IconButton
+                                icon="delete"
+                                label="Delete"
+                                onClick={() => handleDeleteMeasurement(m)}
+                                variant="danger"
+                              />
+                            </td>
+                            <td className="td">
+                              <span className={`badge ${badgeClass}`}>{type}</span>
+                            </td>
+                            <td className="td">
+                              <DateTimeText value={m.measured_at} />
+                            </td>
+                            <td className="td">{m.measured_weight_g ?? '—'}</td>
+                            <td className="td">{m.last_dry_weight_g ?? '—'}</td>
+                            <td className="td">{m.last_wet_weight_g ?? '—'}</td>
+                            <td className="td">{m.water_added_g ?? 0}</td>
+                            <td
+                              className="td"
+                              style={{
+                                maxWidth: 200,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={m.note}
+                            >
+                              {m.note || '—'}
+                            </td>
+                            <td className="td">
+                              {m.water_loss_total_pct != null
+                                ? `${
+                                    m.water_loss_total_pct.toFixed?.(2) ?? m.water_loss_total_pct
+                                  }%`
+                                : '—'}
+                            </td>
+                            <td className="td">{m.water_loss_total_g ?? '—'}</td>
+                            <td className="td">
+                              {m.water_loss_day_pct != null
+                                ? `${m.water_loss_day_pct.toFixed?.(2) ?? m.water_loss_day_pct}%`
+                                : '—'}
+                            </td>
+                            <td className="td">{m.water_loss_day_g ?? '—'}</td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>

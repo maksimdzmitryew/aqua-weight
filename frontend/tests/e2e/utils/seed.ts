@@ -1,4 +1,4 @@
-import { request, APIRequestContext, expect } from '@playwright/test'
+import { request, APIRequestContext, expect, Page } from '@playwright/test'
 
 export async function createApiClient(baseURL: string): Promise<APIRequestContext> {
   // Allow calling https endpoints with self-signed certs in test env
@@ -78,6 +78,39 @@ export async function cleanup(apiBase: string) {
     if (!res.ok()) {
       throw new Error(`Cleanup failed with status ${res.status()}`)
     }
+  } finally {
+    await api.dispose()
+  }
+}
+
+/**
+ * Authenticate the test admin user via the test login endpoint and set up
+ * the browser session so that the ApiClient will send Bearer tokens.
+ *
+ * This calls POST /api/test/login to get an access token + refresh token,
+ * then uses page.evaluate to prime the AuthContext via a direct API login
+ * that sets the refresh cookie and access token.
+ */
+export async function login(page: Page, apiBase: string): Promise<void> {
+  const api = await createApiClient(apiBase)
+  try {
+    const res = await api.post('/api/test/login')
+    if (!res.ok()) {
+      throw new Error(`Test login failed with status ${res.status()}`)
+    }
+    const data = await res.json()
+    const { access_token } = data
+
+    // Navigate to the app origin first so that localStorage is accessible
+    // (localStorage is not available on about:blank).
+    await page.goto('/', { waitUntil: 'commit' })
+
+    // Set up the browser session: store the access token so the frontend
+    // AuthProvider picks up the authenticated state via test-mode detection.
+    await page.evaluate((accessToken) => {
+      localStorage.setItem('aw_test_access_token', accessToken)
+      localStorage.setItem('aw_test_authenticated', 'true')
+    }, access_token)
   } finally {
     await api.dispose()
   }

@@ -1,10 +1,17 @@
 import { test, expect } from '@playwright/test'
+import { login } from './utils/seed'
 
-// These tests focus on the PlantSelect component as used on the WateringCreate page.
+const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
+
+// These tests focus on the PlantSelect component as used on the Watering Create page.
 // We intercept /api/plants/names to simulate success and error states, asserting
 // the loading indicator, populated options, and error message rendering.
 
 test.describe('PlantSelect (Watering Create page)', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
+  })
+
   test('shows loading, then populates options on success', async ({ page }) => {
     // Intercept names endpoint with a slight delay to ensure loading state is visible
     await page.route('**/api/plants/names', async (route) => {

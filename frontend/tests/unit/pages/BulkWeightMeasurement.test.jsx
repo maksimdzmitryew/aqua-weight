@@ -10,6 +10,16 @@ import { vi } from 'vitest'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 import { measurementsApi } from '../../../src/api/measurements'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { global_role: 'admin' },
+    isAuthenticated: true,
+    status: 'authenticated',
+  }),
+}))
+
 // Mock navigation to verify handleView
 const mockNavigate = vi.fn()
 vi.mock('react-router-dom', async () => {
@@ -100,7 +110,7 @@ describe('pages/BulkWeightMeasurement', () => {
   test('committing weight creates then updates measurement; invalid negative marks error', async () => {
     // Handlers for weight endpoints
     server.use(
-      http.post('/api/measurements/weight', async ({ request }) => {
+      http.post('/api/plants/:pid/measurements/weight', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json({
           id: 2001,
@@ -111,7 +121,7 @@ describe('pages/BulkWeightMeasurement', () => {
           water_loss_total_pct: 65,
         })
       }),
-      http.put('/api/measurements/weight/:id', async ({ request, params }) => {
+      http.put('/api/plants/:pid/measurements/weight/:id', async ({ request, params }) => {
         const payload = await request.json()
         return HttpResponse.json({
           id: Number(params.id) || 2001,
@@ -255,7 +265,7 @@ describe('pages/BulkWeightMeasurement', () => {
   test('handles wrapped {status,data} response and logs error on update failure', async () => {
     // Wrap POST response for weight
     server.use(
-      http.post('/api/measurements/weight', async ({ request }) => {
+      http.post('/api/plants/:pid/measurements/weight', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json(
           {
@@ -286,7 +296,7 @@ describe('pages/BulkWeightMeasurement', () => {
 
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     server.use(
-      http.put('/api/measurements/weight/:id', () =>
+      http.put('/api/plants/:pid/measurements/weight/:id', () =>
         HttpResponse.json({ message: 'fail' }, { status: 500 }),
       ),
     )
@@ -309,7 +319,7 @@ describe('pages/BulkWeightMeasurement', () => {
         }
         return HttpResponse.json(['u1', 'u2', 'u3', 'u4'])
       }),
-      http.get('/api/measurements/approximation/watering', () =>
+      http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
           items: [
             { plant_uuid: 'u1', next_watering_at: '2025-01-01T00:00:00' },
@@ -375,7 +385,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
         return HttpResponse.json(Array.from({ length: 11 }, (_, i) => `u${i + 1}`))
       }),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', ({ request }) => {
         plantsCalls += 1
         if (plantsCalls >= 2) {
@@ -406,7 +418,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(['u2'])
         return HttpResponse.json(['u1', 'u2'])
       }),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
@@ -432,7 +446,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json(doneUuids)
         return HttpResponse.json(allUuids)
       }),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', ({ request }) => {
         const url = new URL(request.url)
         const uuids = (url.searchParams.get('uuids') || '').split(',').filter(Boolean)
@@ -488,7 +504,9 @@ describe('pages/BulkWeightMeasurement', () => {
         if (url.searchParams.get('needs_weighing') === 'false') return HttpResponse.json([])
         return HttpResponse.json(['u1'])
       }),
-      http.get('/api/measurements/approximation/watering', () => HttpResponse.json({ items: [] })),
+      http.get('/api/plants/measurements/approximation/watering', () =>
+        HttpResponse.json({ items: [] }),
+      ),
       http.get('/api/plants', () => HttpResponse.json({})),
     )
 

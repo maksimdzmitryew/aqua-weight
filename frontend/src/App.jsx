@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import useDocumentTitle, { APP_NAME } from './hooks/useDocumentTitle.js'
 
 export default function App() {
   const [message, setMessage] = useState('Loading...')
+
+  useDocumentTitle()
 
   useEffect(() => {
     fetch('/api/')
@@ -12,7 +15,7 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 24 }}>
-      <h1>AW Frontend</h1>
+      <h1>{APP_NAME}</h1>
       <p>Backend says: {message}</p>
       <p>
         Try <code>/api/hello/YourName</code> via this domain:{' '}

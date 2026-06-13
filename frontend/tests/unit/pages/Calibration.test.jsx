@@ -64,7 +64,7 @@ function renderPage() {
 }
 
 test('shows empty state when API returns no plants', async () => {
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([])))
   renderPage()
   // Loader visible first (role=status)
   expect(screen.getByRole('status')).toBeInTheDocument()
@@ -116,7 +116,7 @@ test('renders a plant with filtered rows, sorting, and highlights most under tar
       ],
     },
   }
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
 
   // Wait for table to appear
@@ -181,15 +181,15 @@ test('Correct overfill button sends composed payload and refreshes list', async 
   // First list (then empty after correction) and POST
   let listCalls = 0
   server.use(
-    http.get('/api/measurements/calibrating', () => {
+    http.get('/api/plants/measurements/calibrating', () => {
       listCalls += 1
       return listCalls === 1 ? HttpResponse.json([plant]) : HttpResponse.json([])
     }),
-    http.post('/api/measurements/corrections', async ({ request }) => {
+    http.post('/api/plants/:plant_id/measurements/corrections', async ({ request, params }) => {
       const body = await request.json()
-      // Assert payload shape from the component
+      // Assert payload shape from the component (plant_id is stripped from body by calibrationApi.correct and sent in the URL)
+      expect(params.plant_id).toBe('p-2')
       expect(body).toMatchObject({
-        plant_id: 'p-2',
         cap: 'capacity',
         edit_last_wet: true,
         from_ts: '2025-02-02 10:00:00',
@@ -238,8 +238,8 @@ test('shows formatted error when correction API fails with object detail', async
     },
   }
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
-    http.post('/api/measurements/corrections', () =>
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
       HttpResponse.json({ detail: { error: 'boom' } }, { status: 400 }),
     ),
   )
@@ -257,7 +257,7 @@ test('shows formatted error when correction API fails with object detail', async
 test('unmount cleans up fetch (AbortController) without noise', async () => {
   // Return a delayed response so we can unmount before it resolves
   server.use(
-    http.get('/api/measurements/calibrating', async () => {
+    http.get('/api/plants/measurements/calibrating', async () => {
       await new Promise((r) => setTimeout(r, 50))
       return HttpResponse.json([])
     }),
@@ -311,7 +311,7 @@ test('"Last" toggle ensures latest zero-under row is visible even when hidden by
       ],
     },
   }
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('Peace Lily')
   const table = screen.getByRole('table')
@@ -351,7 +351,7 @@ test('most negative entry is re-inserted when zero filter would hide it, and fal
     max_water_weight_g: 50,
     calibration: { max_water_retained: [duplicate, mostNeg, twinOfMostNeg] },
   }
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('Fiddle')
   // With default filters, rows with under_g 0 are hidden, BUT code re-inserts most negative entry
@@ -403,7 +403,7 @@ test('summary shows Maximum Weight dash when values missing and positive diff sh
   }
   // Ensure no leftover handlers interfere with this case
   server.resetHandlers()
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   // Ensure at least one row is visible so the card renders
   const underToggle = await screen.findByLabelText(/underwatered/i)
@@ -433,7 +433,7 @@ test('coerces non-array payload from list() to [] and shows EmptyState (covers s
   server.resetHandlers()
   server.use(
     // Return an object instead of an array to exercise Array.isArray(data) === false
-    http.get('/api/measurements/calibrating', () => HttpResponse.json({ foo: 1 })),
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json({ foo: 1 })),
   )
   renderPage()
   // Loader first
@@ -447,7 +447,7 @@ test('initial load error (non-abort) sets error message (covers error branch)', 
   server.resetHandlers()
   server.use(
     // Return a non-2xx JSON response so the client throws
-    http.get('/api/measurements/calibrating', () =>
+    http.get('/api/plants/measurements/calibrating', () =>
       HttpResponse.json({ detail: 'boom' }, { status: 500 }),
     ),
   )
@@ -489,8 +489,8 @@ test('min-diff selection skips entries with non-number weights (covers continue 
   let corrected = false
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
-    http.post('/api/measurements/corrections', async ({ request }) => {
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/plants/:plant_id/measurements/corrections', async ({ request }) => {
       const body = await request.json()
       // Ensure the min-diff entry was chosen (id n1)
       expect(body).toMatchObject({ start_measurement_id: 'n1' })
@@ -543,7 +543,7 @@ test('parseMs handles null, space-form date, and invalid values for sorting (cov
     },
   }
   server.resetHandlers()
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('SortCheck')
   // Show all rows regardless of diff to avoid filter interference
@@ -576,7 +576,7 @@ test('table renders em dashes when values are missing (covers measured_at, diff,
     },
   }
   server.resetHandlers()
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   // Ensure controls are enabled first so the row becomes visible
   const underwatered = await screen.findByLabelText(/underwatered/i)
@@ -614,8 +614,8 @@ test('correction error prefers string detail from server', async () => {
     },
   }
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant1])),
-    http.post('/api/measurements/corrections', () =>
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant1])),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
       HttpResponse.json({ detail: 'Too bad' }, { status: 400 }),
     ),
   )
@@ -649,11 +649,13 @@ test('correction error falls back to generic message when detail is empty', asyn
     },
   }
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant2])),
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant2])),
     // Return a JSON empty string body (""), which parses to '' (empty string).
     // ApiClient will set ApiError.body = '' and message = 'Request failed...'.
     // In Calibration catch, detail becomes '' (via e.body) so it falls through to e.message branch (81-82).
-    http.post('/api/measurements/corrections', () => HttpResponse.text('""', { status: 500 })),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
+      HttpResponse.text('""', { status: 500 }),
+    ),
   )
   renderPage()
   await screen.findByText('B')
@@ -702,7 +704,7 @@ test('does not duplicate most-negative row when a value-identical twin is alread
     calibration: { max_water_retained: [incomplete, mostNegHidden, twinVisible] },
   }
   server.resetHandlers()
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   await screen.findByText('NoDup')
   // Enable 'underwatered' to include all rows regardless of numeric completeness
@@ -725,7 +727,7 @@ test('initial load error (non-abort) shows ErrorNotice with message', async () =
   // Simulate backend failure on initial list load
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () =>
+    http.get('/api/plants/measurements/calibrating', () =>
       HttpResponse.json({ detail: 'Load failed' }, { status: 500 }),
     ),
   )
@@ -760,8 +762,8 @@ test('correction without measurable entries sends minimal payload (minDiffEntry 
   let postCalled = false
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
-    http.post('/api/measurements/corrections', async ({ request }) => {
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/plants/:plant_id/measurements/corrections', async ({ request }) => {
       postCalled = true
       const body = await request.json()
       // Should not include from_ts/start ids when there are no measurable entries
@@ -795,7 +797,7 @@ test('list rendering with missing calibration still shows header/button but no t
     calibration: {},
   }
   server.resetHandlers()
-  server.use(http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])))
+  server.use(http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])))
   renderPage()
   // Plant header should be visible
   await screen.findByText('NoCal')
@@ -825,11 +827,13 @@ test('post-correction refresh tolerates non-array response (covers false branch 
   let calls = 0
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () => {
+    http.get('/api/plants/measurements/calibrating', () => {
       calls += 1
       return calls === 1 ? HttpResponse.json([plant]) : HttpResponse.json({ ok: true })
     }),
-    http.post('/api/measurements/corrections', () => HttpResponse.json({ ok: true })),
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
+      HttpResponse.json({ ok: true }),
+    ),
   )
   renderPage()
   await screen.findByText('NonArray')
@@ -930,8 +934,8 @@ test('handleCorrectOverfill uses [] when entries missing (covers line 46 default
   let called = false
   server.resetHandlers()
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
-    http.post('/api/measurements/corrections', async ({ request }) => {
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.post('/api/plants/:plant_id/measurements/corrections', async ({ request }) => {
       called = true
       const body = await request.json()
       // With no calibration entries, payload should not include from_ts/start_* fields
@@ -980,9 +984,9 @@ test('correction error uses body string when present (covers e.body branch at li
     },
   }
   server.use(
-    http.get('/api/measurements/calibrating', () => HttpResponse.json([plant])),
+    http.get('/api/plants/measurements/calibrating', () => HttpResponse.json([plant])),
     // Return a non-empty raw text body so api client surfaces e.body as a non-empty string
-    http.post('/api/measurements/corrections', () =>
+    http.post('/api/plants/:plant_id/measurements/corrections', () =>
       HttpResponse.text('Meaningful body message', { status: 500 }),
     ),
   )

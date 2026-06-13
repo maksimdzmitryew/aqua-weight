@@ -133,9 +133,9 @@ describe('pages/MeasurementCreate', () => {
   test('create flow: preselects plant from query and submits successfully', async () => {
     let called = false
     server.use(
-      http.post('/api/measurements/weight', async ({ request }) => {
+      http.post('/api/plants/:plantId/measurements/weight', async ({ params, request }) => {
         const payload = await request.json()
-        expect(payload.plant_id).toBe('u1')
+        expect(params.plantId).toBe('u1')
         // measured_weight_g converts to number or null; we did not fill it → null
         expect(payload.measured_weight_g).toBe(null)
         called = true
@@ -160,7 +160,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('edit flow loads existing by id and updates via PUT', async () => {
     server.use(
-      http.get('/api/measurements/:id', ({ params }) => {
+      http.get('/api/plants/:plantId/measurements/:id', ({ params }) => {
         expect(params.id).toBe('500')
         return HttpResponse.json({
           id: 500,
@@ -173,16 +173,16 @@ describe('pages/MeasurementCreate', () => {
           note: 'old',
         })
       }),
-      http.put('/api/measurements/weight/:id', async ({ params, request }) => {
+      http.put('/api/plants/:plantId/measurements/weight/:id', async ({ params, request }) => {
         expect(params.id).toBe('500')
         const payload = await request.json()
-        // plant_id should remain the same and select disabled
-        expect(payload.plant_id).toBe('u2')
+        // plant_id is sent via URL param, not body (API layer strips it)
+        expect(params.plantId).toBe('u2')
         return HttpResponse.json({ ok: true })
       }),
     )
 
-    renderWithRouter(['/edit?id=500'])
+    renderWithRouter(['/edit?id=500&plant=u2'])
 
     // Wait for plant select and ensure disabled in edit mode
     const plantSelect = await screen.findByLabelText(/plant/i)
@@ -205,7 +205,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('edit flow: handles null values in load and submit', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:plantId/measurements/:id', () =>
         HttpResponse.json({
           id: 501,
           plant_id: 'u2',
@@ -217,14 +217,17 @@ describe('pages/MeasurementCreate', () => {
           note: null,
         }),
       ),
-      http.put('/api/measurements/weight/:id', async ({ request }) => {
+      http.put('/api/plants/:plantId/measurements/weight/:id', async ({ request }) => {
         const payload = await request.json()
         return HttpResponse.json({ ok: true, payload })
       }),
     )
 
-    renderWithRouter(['/edit?id=501'])
-    await screen.findByLabelText(/plant/i)
+    renderWithRouter(['/edit?id=501&plant=u2'])
+
+    // Wait for loadExisting to populate the form (plant_id = 'u2')
+    const plantSelect = await screen.findByLabelText(/plant/i)
+    await waitFor(() => expect(plantSelect).toHaveValue('u2'))
 
     const submit = screen.getByRole('button', { name: /update measurement/i })
     fireEvent.click(submit)
@@ -234,7 +237,7 @@ describe('pages/MeasurementCreate', () => {
   test('edit flow: loadExisting failure is ignored (catch path executed)', async () => {
     // Force GET to fail to cover the catch branch in loadExisting
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:plantId/measurements/:id', () =>
         HttpResponse.json({ message: 'nope' }, { status: 500 }),
       ),
     )
@@ -254,7 +257,7 @@ describe('pages/MeasurementCreate', () => {
     // Delay the GET so we can unmount first and hit the `if (cancelled) return` path
     server.use(
       http.get(
-        '/api/measurements/:id',
+        '/api/plants/:plantId/measurements/:id',
         () =>
           new Promise((resolve) => {
             setTimeout(
@@ -295,7 +298,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('edit flow with missing fields uses fallbacks in form values', async () => {
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:plantId/measurements/:id', () =>
         HttpResponse.json({
           id: 777,
           plant_id: '', // missing plant id should fallback to current form value (empty)
@@ -331,7 +334,9 @@ describe('pages/MeasurementCreate', () => {
 
   test('submit with location.state.from navigates to that path', async () => {
     server.use(
-      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/weight', () =>
+        HttpResponse.json({ id: 1 }, { status: 201 }),
+      ),
     )
 
     renderWithRouter([{ pathname: '/new', search: '?plant=u1', state: { from: '/custom-path' } }])
@@ -344,7 +349,7 @@ describe('pages/MeasurementCreate', () => {
   })
 
   test('edit flow: API returns null data', async () => {
-    server.use(http.get('/api/measurements/:id', () => HttpResponse.json(null)))
+    server.use(http.get('/api/plants/:plantId/measurements/:id', () => HttpResponse.json(null)))
 
     renderWithRouter(['/edit?id=123'])
 
@@ -361,7 +366,7 @@ describe('pages/MeasurementCreate', () => {
     // Return a measured_at that cannot be parsed by toLocalISOMinutes to hit the `|| form.values.measured_at` branch
     // and also cover the branch where data?.measured_at is truthy but toLocalISOMinutes returns falsy (empty string)
     server.use(
-      http.get('/api/measurements/:id', () =>
+      http.get('/api/plants/:plantId/measurements/:id', () =>
         HttpResponse.json({
           id: 909,
           plant_id: 'u1',
@@ -400,7 +405,7 @@ describe('pages/MeasurementCreate', () => {
 
   test('save error renders message', async () => {
     server.use(
-      http.post('/api/measurements/weight', () =>
+      http.post('/api/plants/:plantId/measurements/weight', () =>
         HttpResponse.json({ message: 'nope' }, { status: 500 }),
       ),
     )
@@ -418,7 +423,9 @@ describe('pages/MeasurementCreate', () => {
     } catch {}
     // success handlers
     server.use(
-      http.post('/api/measurements/weight', () => HttpResponse.json({ id: 1 }, { status: 201 })),
+      http.post('/api/plants/:plantId/measurements/weight', () =>
+        HttpResponse.json({ id: 1 }, { status: 201 }),
+      ),
     )
     renderWithRouter(['/new?plant=u1'])
 

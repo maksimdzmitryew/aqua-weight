@@ -127,10 +127,49 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
 
+  deploy-check:
+    name: Backend Deployment Check
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Generate GitHub CI self-signed TLS certs
+        run: |
+          set -euo pipefail
+          mkdir -p ssl
+          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            -keyout ssl/github-ci.privkey.pem \
+            -out ssl/github-ci.fullchain.pem \
+            -subj "/CN=aw.max" \
+            -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
+      - name: Start backend stack
+        run: docker compose -f docker-compose.test.yml up -d db backend nginx
+        env:
+          SSL_CERT_FILE: ./ssl/github-ci.fullchain.pem
+          SSL_KEY_FILE: ./ssl/github-ci.privkey.pem
+      - name: Verify Backend Health
+        run: |
+          echo "Waiting for backend health..."
+          for i in {1..30}; do
+            if curl -sSf http://127.0.0.1:5080/api/health | grep -q '"ok"'; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend deployment check failed"
+          docker compose -f docker-compose.test.yml logs backend
+          exit 1
+      - name: Teardown
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
+
   e2e:
     name: E2E (Playwright via docker-compose stack)
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    timeout-minutes: 30
+    needs: [backend, frontend, deploy-check]
     defaults:
       run:
         shell: bash
@@ -138,33 +177,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Setup Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: "24"
-
-      - name: Install Playwright binaries
-        working-directory: frontend
-        run: |
-          if [ -f package-lock.json ]; then npm ci; else npm install; fi
-          npx playwright install chromium --with-deps
-
       - name: Generate GitHub CI self-signed TLS certs
         run: |
           set -euo pipefail
           mkdir -p ssl
-          # Use a more standard openssl command for generating self-signed certs
           openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
             -keyout ssl/github-ci.privkey.pem \
             -out ssl/github-ci.fullchain.pem \
             -subj "/CN=aw.max" \
             -addext "subjectAltName=DNS:aw.max,DNS:localhost,IP:127.0.0.1"
-          # Verify the certificates are not empty and have correct headers
-          head -n 1 ssl/github-ci.privkey.pem
-          head -n 1 ssl/github-ci.fullchain.pem
 
       - name: Start test stack (docker-compose)
-        run: docker compose -f docker-compose.test.yml up -d --build db backend frontend nginx
+        run: docker compose -f docker-compose.test.yml up -d db backend frontend nginx e2e
         env:
           SSL_CERT_FILE: ./ssl/github-ci.fullchain.pem
           SSL_KEY_FILE: ./ssl/github-ci.privkey.pem
@@ -172,67 +196,27 @@ jobs:
       - name: Wait for services (backend + frontend)
         run: |
           set -euo pipefail
-
-          dump_logs() {
-            docker compose -f docker-compose.test.yml ps || true
-            docker compose -f docker-compose.test.yml logs --no-color nginx || true
-            docker compose -f docker-compose.test.yml logs --no-color backend || true
-            docker compose -f docker-compose.test.yml logs --no-color frontend || true
-          }
-
           echo "Waiting for backend health via nginx..."
-          backend_ready=0
-          for i in {1..90}; do
+          for i in {1..60}; do
             if curl -sSf http://127.0.0.1:5080/api/health | grep -q '"ok"'; then
-              backend_ready=1
               echo "Backend is up"
               break
             fi
-            echo "Waiting for backend..."
-            sleep 5
+            sleep 2
           done
-
           echo "Waiting for frontend root via nginx..."
-          frontend_ready=0
-          for i in {1..90}; do
+          for i in {1..60}; do
             if curl -sSf http://127.0.0.1:5080/ >/dev/null; then
-              frontend_ready=1
               echo "Frontend is up"
               break
             fi
-            echo "Waiting for frontend..."
-            sleep 5
+            sleep 2
           done
 
-          # Debug info before tests
-          echo "Service status:"
-          docker compose -f docker-compose.test.yml ps
-          echo "Network status:"
-          sudo netstat -tunlp | grep 5080 || true
-
-          if [ "$backend_ready" -ne 1 ] || [ "$frontend_ready" -ne 1 ]; then
-            echo "Stack not reachable after wait; dumping container logs..."
-            dump_logs
-            exit 1
-          fi
-
-          if ! curl -sSf http://127.0.0.1:5080/api/health >/dev/null; then
-            echo "Backend final probe failed; dumping container logs..."
-            dump_logs
-            exit 1
-          fi
-
-          if ! curl -sSf http://127.0.0.1:5080/ >/dev/null; then
-            echo "Frontend final probe failed; dumping container logs..."
-            dump_logs
-            exit 1
-          fi
-
-      - name: Run Playwright tests
-        working-directory: frontend
+      - name: Run Playwright tests (containerized)
+        run: docker compose -f docker-compose.test.yml exec -T e2e npx playwright test --config ./playwright.config.ts
         env:
-          E2E_BASE_URL: http://127.0.0.1:5080
-        run: npx playwright test --config ./playwright.config.ts
+          E2E_BASE_URL: https://aw.max
 
       - name: Upload Playwright report
         if: ${{ always() }}

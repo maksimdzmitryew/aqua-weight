@@ -1,11 +1,9 @@
-import datetime
-import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException
-from pytz import timezone
+from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, bin_to_hex, get_conn
+from ..db import HEX_RE, bin_to_hex, get_conn_factory
 from ..helpers.last_plant_event import LastPlantEvent
 from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..schemas.measurement import (
@@ -13,6 +11,8 @@ from ..schemas.measurement import (
     RepottingResponse,
     RepottingUpdateRequest,
 )
+from ..security import require_plant_access
+from ..services.auth_service import generate_ulid_bytes
 from ..services.measurements import (
     DerivedWeights,
     compute_water_losses,
@@ -30,15 +30,18 @@ def get_last_watering_event(cursor, plant_id_hex):
     return _get_last_watering_event(cursor, plant_id_hex)
 
 
-@app.post("/measurements/repotting", response_model=RepottingResponse)
-async def create_repotting_event(payload: RepottingCreateRequest):
-    required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
+@app.post("/plants/{plant_id}/repotting", response_model=RepottingResponse)
+async def create_repotting_event(
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    payload: RepottingCreateRequest,
+    get_conn_fn=Depends(get_conn_factory),
+):
+    required_fields = ["measured_at", "measured_weight_g", "last_wet_weight_g"]
 
     for field in required_fields:
         if not getattr(payload, field):
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
-    plant_id = payload.plant_id
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     repotted_weight_g = payload.last_wet_weight_g
@@ -47,17 +50,14 @@ async def create_repotting_event(payload: RepottingCreateRequest):
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
 
-    conn = get_conn()
-
     def do_insert():
+        conn = get_conn_fn()
         try:
-
             with conn.cursor() as cur:
-
                 # Optionally retrieve last watering event if needed in future; not used in current logic
 
                 # Fetch previous last record for this plant using the helper class
-                last_plant_event = LastPlantEvent.get_last_event(payload.plant_id)
+                last_plant_event = LastPlantEvent.get_last_event(plant_id)
                 if last_plant_event:
                     prev_measured_weight = last_plant_event["measured_weight_g"]
                     prev_last_dry = last_plant_event["last_dry_weight_g"]
@@ -70,7 +70,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -118,7 +118,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
 
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=200)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -127,7 +127,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                     ),
                     (
                         new_id,
-                        payload.plant_id,
+                        plant_id,
                         measured_at_shift,
                         None,
                         prev_last_dry,
@@ -146,7 +146,7 @@ async def create_repotting_event(payload: RepottingCreateRequest):
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=300)
                 new_measured_weight_g = repotted_weight_g - (prev_last_water or 0)
 
-                new_id = uuid.uuid4().bytes
+                new_id = generate_ulid_bytes()
 
                 cur.execute(
                     (
@@ -184,60 +184,75 @@ async def create_repotting_event(payload: RepottingCreateRequest):
     return await run_in_threadpool(do_insert)
 
 
-@app.put("/measurements/repotting/{id_hex}", response_model=RepottingResponse)
-async def update_repotting_event(id_hex: str, payload: RepottingUpdateRequest):
-    required_fields = ["plant_id", "measured_at", "measured_weight_g", "last_wet_weight_g"]
+@app.put("/plants/{plant_id}/repotting/{id_hex}", response_model=RepottingResponse)
+async def update_repotting_event(
+    plant_id: Annotated[str, Depends(require_plant_access)],
+    id_hex: str,
+    payload: RepottingUpdateRequest,
+    get_conn_fn=Depends(get_conn_factory),
+):
+    required_fields = ["measured_at", "measured_weight_g", "last_wet_weight_g"]
 
     for field in required_fields:
         if getattr(payload, field, None) is None:
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
-    plant_id = payload.__dict__.get(
-        "plant_id"
-    )  # RepottingUpdateRequest may not include plant_id per schema; ensure retrieved if present
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     last_wet_weight_g = payload.last_wet_weight_g
     note = payload.note or ""
 
-    # Convert measured_at from string to datetime object in UTC, then convert to local timezone
-    utc_tz = datetime.timezone.utc
-    dt_object = datetime.datetime.fromisoformat(measured_at).replace(tzinfo=utc_tz)
-    local_dt = dt_object.astimezone(tz=timezone("US/Eastern"))
+    local_dt = parse_timestamp_local(measured_at)
 
-    conn = get_conn()
-    try:
-        with conn.cursor() as cursor:
-            # Legacy table update retained
-            water_loss_total_g = None
-
-            query = """
-                    UPDATE repotting_events
-                    SET plant_id=%s, measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
-                    WHERE id=%s
-                    """
-            data = (
-                plant_id,
-                local_dt,
-                measured_weight_g,
-                last_wet_weight_g,
-                water_loss_total_g,
-                note,
-                id_hex,
-            )
-            cursor.execute(query, data)
-
-            result = {
-                "id": id_hex,
-                "plant_id": plant_id,
-                "measured_at": measured_at,
-                "measured_weight_g": measured_weight_g,
-                "last_wet_weight_g": last_wet_weight_g,
-                "note": note,
-            }
-            return result
-    finally:
+    def do_update():
+        conn = get_conn_fn()
         try:
-            conn.close()
-        except Exception:
-            pass
+            with conn.cursor() as cursor:
+                # Ownership check
+                cursor.execute(
+                    "SELECT plant_id FROM plants_measurements WHERE id=UNHEX(%s)", (id_hex,)
+                )
+                row = cursor.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="Not found")
+
+                db_plant_id = (
+                    row[0].hex() if isinstance(row[0], (bytes, bytearray)) else str(row[0])
+                )
+                if db_plant_id.lower() != plant_id.lower():
+                    raise HTTPException(status_code=404, detail="Not found")
+
+                water_loss_total_g = None
+
+                query = """
+                        UPDATE plants_measurements
+                        SET plant_id=UNHEX(%s), measured_at=%s, measured_weight_g=%s, last_wet_weight_g=%s, water_loss_total_g=%s, note=%s
+                        WHERE id=UNHEX(%s)
+                        """
+                data = (
+                    plant_id,
+                    local_dt,
+                    measured_weight_g,
+                    last_wet_weight_g,
+                    water_loss_total_g,
+                    note,
+                    id_hex,
+                )
+                cursor.execute(query, data)
+
+                result = {
+                    "id": id_hex,
+                    "plant_id": plant_id,
+                    "measured_at": measured_at,
+                    "measured_weight_g": measured_weight_g,
+                    "last_wet_weight_g": last_wet_weight_g,
+                    "note": note,
+                }
+                return result
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+    return await run_in_threadpool(do_update)

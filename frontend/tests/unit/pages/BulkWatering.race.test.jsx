@@ -9,6 +9,16 @@ import { vi } from 'vitest'
 import { measurementsApi } from '../../../src/api/measurements'
 import { paginatedPlantsHandler } from '../msw/paginate.js'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { global_role: 'admin' },
+    isAuthenticated: true,
+    status: 'authenticated',
+  }),
+}))
+
 // Mock the table to trigger commits manually
 let mockOnCommitValue
 vi.mock('../../../src/components/BulkMeasurementTable.jsx', async () => {

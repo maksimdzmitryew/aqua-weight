@@ -10,6 +10,16 @@ import { vi } from 'vitest'
 import { measurementsApi } from '../../../src/api/measurements'
 import { plantsApi } from '../../../src/api/plants'
 
+// Mock AuthContext to avoid react-hot-toast resolution issues
+vi.mock('../../../src/context/AuthContext.jsx', () => ({
+  AuthProvider: ({ children }) => children,
+  useAuth: () => ({
+    user: { global_role: 'admin' },
+    isAuthenticated: true,
+    status: 'authenticated',
+  }),
+}))
+
 vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
   default: ({ title, children }) => (
     <div data-testid="mock-dashboard-layout" data-title={title}>
@@ -179,6 +189,7 @@ describe('pages/PlantDetails', () => {
         return HttpResponse.json([
           {
             id: 501,
+            type: 'Weight',
             measured_at: '2025-01-05T12:00:00',
             measured_weight_g: 100,
             water_added_g: 0,
@@ -186,6 +197,7 @@ describe('pages/PlantDetails', () => {
           },
           {
             id: 502,
+            type: 'Watering',
             measured_at: '2025-01-06T12:00:00',
             measured_weight_g: null,
             last_wet_weight_g: 200,
@@ -204,18 +216,18 @@ describe('pages/PlantDetails', () => {
     expect(bodyRows.length).toBe(2)
 
     // Edit navigation path depends on measured_weight_g
-    fireEvent.click(within(bodyRows[0]).getByRole('button', { name: /edit measurement/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight?id=501')
+    fireEvent.click(within(bodyRows[0]).getByRole('button', { name: /edit/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/weight?id=501&plant=u9')
     mockNavigate.mockClear()
-    fireEvent.click(within(bodyRows[1]).getByRole('button', { name: /edit measurement/i }))
-    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering?id=502')
+    fireEvent.click(within(bodyRows[1]).getByRole('button', { name: /edit/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/measurement/watering?id=502&plant=u9')
 
     // Delete opens dialog and calls DELETE then refetches
-    const delBtn = within(bodyRows[0]).getByRole('button', { name: /delete measurement/i })
+    const delBtn = within(bodyRows[0]).getByRole('button', { name: /delete/i })
     // Spy delete and subsequent refetch
     let deleted = 0
     server.use(
-      http.delete('/api/measurements/:id', ({ params }) => {
+      http.delete('/api/plants/:uuid/measurements/:id', ({ params }) => {
         deleted = Number(params.id)
         return HttpResponse.json({ ok: true })
       }),
@@ -276,7 +288,7 @@ describe('pages/PlantDetails', () => {
     )
     const delSpy = vi.fn()
     server.use(
-      http.delete('/api/measurements/:id', () => {
+      http.delete('/api/plants/:uuid/measurements/:id', () => {
         delSpy()
         return HttpResponse.json({ ok: true })
       }),
@@ -284,10 +296,10 @@ describe('pages/PlantDetails', () => {
     renderWithRoute([init])
     const row = (await screen.findAllByRole('row')).slice(1)[0]
     // Edit with missing id should not navigate
-    fireEvent.click(within(row).getByRole('button', { name: /edit measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /edit/i }))
     expect(mockNavigate).not.toHaveBeenCalled()
     // Delete path
-    fireEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /delete/i }))
     const dlg = await screen.findByRole('dialog')
     fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
     // No API call was made
@@ -360,7 +372,7 @@ describe('pages/PlantDetails', () => {
           { id: 1, measured_at: '2025-01-07T00:00:00', measured_weight_g: 1 },
         ])
       }),
-      http.delete('/api/measurements/:id', () =>
+      http.delete('/api/plants/:uuid/measurements/:id', () =>
         HttpResponse.json({ oops: true }, { status: 500 }),
       ),
     )
@@ -368,7 +380,7 @@ describe('pages/PlantDetails', () => {
     renderWithRoute([init])
 
     const row = (await screen.findAllByRole('row')).slice(1)[0]
-    fireEvent.click(within(row).getByRole('button', { name: /delete measurement/i }))
+    fireEvent.click(within(row).getByRole('button', { name: /delete/i }))
     const dlg = await screen.findByRole('dialog')
     fireEvent.click(within(dlg).getByRole('button', { name: /delete/i }))
 
@@ -426,14 +438,14 @@ describe('pages/PlantDetails', () => {
     const rows = within(table).getAllByRole('row')
     const row = rows[1]
     const cells = within(row).getAllByRole('cell')
-    // Index 6 is water_loss_total_pct column
-    expect(cells[6]).toHaveTextContent('7%')
-    // Index 8 is water_loss_day_pct column => em dash
-    expect(cells[8]).toHaveTextContent('2%')
+    // Index 8 is water_loss_total_pct column
+    expect(cells[8]).toHaveTextContent('7%')
+    // Index 10 is water_loss_day_pct column
+    expect(cells[10]).toHaveTextContent('2%')
     // Second row has null day pct -> em dash
     const row2 = rows[2]
     const cells2 = within(row2).getAllByRole('cell')
-    expect(cells2[8]).toHaveTextContent('—')
+    expect(cells2[10]).toHaveTextContent('—')
 
     // Also verify falsy branch for min/max weight renders em dash
     const init2 = {

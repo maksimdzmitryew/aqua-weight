@@ -5,14 +5,17 @@ from httpx import AsyncClient
 from backend.app.db import get_conn
 
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
+
 @pytest.mark.anyio
 async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClient):
     # Reset DB to a clean state
-    r = await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/test/reset", headers=_API_KEY)
     assert r.status_code == 200
 
     # 1) Create plant without any hex fields provided -> hex_to_bytes(None) path is exercised
-    r = await async_client.post("/api/plants", json={"name": "No Hex Fields"})
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "No Hex Fields"})
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
@@ -30,6 +33,7 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
 
     r = await async_client.post(
         "/api/plants",
+        headers=_API_KEY,
         json={
             "name": "With Location",
             "location_id": location_hex,
@@ -39,17 +43,17 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
     assert r.json()["ok"] is True
 
     # Confirm the created plant appears in the list (paginated response)
-    lr = await async_client.get("/api/plants")
+    lr = await async_client.get("/api/plants", headers=_API_KEY)
     assert lr.status_code == 200
     items = lr.json()["items"]
     assert any(it["name"] == "With Location" for it in items)
 
 
 async def _create_plant_and_get_uuid(async_client: AsyncClient, name: str) -> str:
-    r = await async_client.post("/api/plants", json={"name": name})
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": name})
     assert r.status_code == 200
     # Find uuid via list endpoint (paginated response)
-    lr = await async_client.get("/api/plants")
+    lr = await async_client.get("/api/plants", headers=_API_KEY)
     assert lr.status_code == 200
     for it in lr.json()["items"]:
         if it["name"] == name:
@@ -60,7 +64,7 @@ async def _create_plant_and_get_uuid(async_client: AsyncClient, name: str) -> st
 @pytest.mark.anyio
 async def test_update_plant_uses_hex_to_bytes_with_valid_location(async_client: AsyncClient):
     # Reset DB
-    r = await async_client.post("/api/test/reset")
+    r = await async_client.post("/api/test/reset", headers=_API_KEY)
     assert r.status_code == 200
 
     # Create initial plant
@@ -81,6 +85,7 @@ async def test_update_plant_uses_hex_to_bytes_with_valid_location(async_client: 
     # Update: provide location_id (valid hex) to exercise hex_to_bytes regex/convert path
     ur = await async_client.patch(
         f"/api/plants/{plant_uuid}",
+        headers=_API_KEY,
         json={
             "name": "Updater v2",
             "location_id": new_loc_hex,
@@ -90,7 +95,7 @@ async def test_update_plant_uses_hex_to_bytes_with_valid_location(async_client: 
     assert ur.json()["ok"] is True
 
     # Verify using GET that location was updated and uuid stays the same
-    gr = await async_client.get(f"/api/plants/{plant_uuid}")
+    gr = await async_client.get(f"/api/plants/{plant_uuid}", headers=_API_KEY)
     assert gr.status_code == 200
     item = gr.json()
     assert item["uuid"] == plant_uuid

@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup } from './utils/seed'
+import { seed, cleanup, login } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
 test.describe('Session Timeout & Re-authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
+    await login(page, ORIGIN)
     await seed(ORIGIN)
   })
 
@@ -13,10 +14,22 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
   })
 
   test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
-    // Intercept all API calls and return 401 to simulate expired session
+    // Generate a dummy access token for the mocked refresh response
+    const dummyAccessToken = 'e2e-dummy-access-token'
+
+    // Intercept all API calls (except test/*) and return 401 to simulate expired session.
+    // The /api/auth/refresh endpoint is mocked to succeed so the API client refreshes
+    // its token, retries the original request, gets 401 again, and surfaces the error
+    // instead of redirecting to the login page.
     await page.route('**', async (route) => {
       const url = new URL(route.request().url())
-      if (url.pathname.startsWith('/api/')) {
+      if (url.pathname.startsWith('/api/auth/refresh')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ access_token: dummyAccessToken, token_type: 'bearer' }),
+        })
+      } else if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/test/')) {
         await route.fulfill({
           status: 401,
           contentType: 'application/json',

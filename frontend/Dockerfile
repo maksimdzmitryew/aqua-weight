@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install dependencies for canvas or other native modules if needed
 RUN apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates && \
-    npm install -g npm@11.13.0 && \
+    npm install -g npm@11.16.0 && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,7 +16,7 @@ COPY frontend/package.json frontend/package-lock.json ./
 # For dev, we skip npm ci here because we do it in docker-compose for dev flexibility,
 # but for a "solid fix" we might want to do it here eventually.
 # As it is here, we have a faster container start
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 
 EXPOSE 5173
 

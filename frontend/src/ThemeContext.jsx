@@ -44,8 +44,14 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const el = document.documentElement
     el.setAttribute('data-theme', effectiveTheme)
+    if (effectiveTheme === 'dark') {
+      el.classList.add('dark')
+    } else {
+      el.classList.remove('dark')
+    }
     return () => {
       el.removeAttribute('data-theme')
+      el.classList.remove('dark')
     }
   }, [effectiveTheme])
 

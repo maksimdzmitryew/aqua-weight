@@ -29,6 +29,7 @@ export default function WateringCreate() {
     last_dry_weight_g: '',
     last_wet_weight_g: '',
     water_added_g: '',
+    note: '',
   })
 
   useEffect(() => {
@@ -41,7 +42,7 @@ export default function WateringCreate() {
     async function loadExisting() {
       if (!isEdit) return
       try {
-        const data = await measurementsApi.getById(editId)
+        const data = await measurementsApi.getById(preselect, editId)
         if (cancelled) return
         const measured_at = data?.measured_at
           ? toLocalISOFull(data.measured_at) || form.values.measured_at
@@ -58,6 +59,7 @@ export default function WateringCreate() {
           last_dry_weight_g: data?.last_dry_weight_g != null ? String(data.last_dry_weight_g) : '',
           last_wet_weight_g: data?.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
           water_added_g: data?.water_added_g != null ? String(data.water_added_g) : '',
+          note: data?.note || '',
         })
       } catch (_) {
         // ignore
@@ -92,26 +94,26 @@ export default function WateringCreate() {
             : vals.water_added_g !== ''
               ? Number(vals.water_added_g)
               : null,
+          note: vals.note || null,
         }
-        await measurementsApi.watering.update(editId, payload)
+        await measurementsApi.watering.update(vals.plant_id, editId, payload)
       } else {
         // Adding new
         if (operationMode === 'vacation') {
-          await measurementsApi.watering.createVacation({
-            plant_id: vals.plant_id,
+          await measurementsApi.watering.createVacation(vals.plant_id, {
             measured_at: vals.measured_at,
           })
         } else {
           const payload = {
-            plant_id: vals.plant_id,
             measured_at: vals.measured_at,
             last_dry_weight_g:
               vals.last_dry_weight_g !== '' ? Number(vals.last_dry_weight_g) : null,
             last_wet_weight_g:
               vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
             water_added_g: vals.water_added_g !== '' ? Number(vals.water_added_g) : null,
+            note: vals.note || null,
           }
-          await measurementsApi.watering.create(payload)
+          await measurementsApi.watering.create(vals.plant_id, payload)
         }
       }
       const from = location.state?.from
@@ -173,6 +175,17 @@ export default function WateringCreate() {
               />
             </>
           )}
+          <div style={{ gridColumn: '1 / -1' }}>
+            <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
+              Note
+            </label>
+            <textarea
+              id="note"
+              {...form.register('note')}
+              className="input"
+              style={{ height: 100 }}
+            />
+          </div>
         </div>
         <div style={{ marginTop: 16 }}>
           <button disabled={!form.valid || saving} type="submit" className="btn btn-primary">

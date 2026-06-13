@@ -90,7 +90,7 @@ services:
       [
         "bash",
         "-lc",
-        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm ci --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm ci' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
+        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm install --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm install' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
       ]
 
   nginx:
@@ -152,13 +152,12 @@ services:
       - nginx
     environment:
       - E2E_BASE_URL=https://aw.max
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     volumes:
       - ./frontend:/app
       - fe_node_modules_test:/app/node_modules
-    # Ensure dev dependencies are installed (including newly added ones)
-    # If vitest binary is missing, run npm ci, then keep container running
-    # Use npm ci to enforce lockfile consistency for deterministic test deps
-    command: ["sh", "-c", "npm install -g npm@11.13.0 && tail -f /dev/null"]
+    # Use a simple wait command; the actual test run will be triggered via docker compose exec
+    command: ["tail", "-f", "/dev/null"]
     networks:
       - aw-tests-net
 

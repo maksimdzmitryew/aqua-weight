@@ -47,6 +47,7 @@ export default function BulkWeightMeasurement() {
   const [todoUuids, setTodoUuids] = useState(null)
   const [doneUuids, setDoneUuids] = useState(null)
   const [allUuids, setAllUuids] = useState(null)
+  const [wateringUuids, setWateringUuids] = useState(null)
   const [plants, setPlants] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -65,27 +66,32 @@ export default function BulkWeightMeasurement() {
 
   // 1. Initial Load: Fetch stable UUID lists for both tabs and approximations
   useEffect(() => {
-    if (operationMode === 'vacation') return
-
     async function init() {
       try {
         setLoading(true)
-        const [todo, done, all, approxData] = await Promise.all([
-          apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`),
-          apiClient.get(`/plants/uuids?needs_weighing=false&${commonParams}`),
-          apiClient.get(`/plants/uuids?${commonParams}`),
-          apiClient.get('/measurements/approximation/watering'),
-        ])
-        setTodoUuids(todo || [])
-        setDoneUuids(done || [])
-        setAllUuids(all || [])
+        const promises = [apiClient.get(`/plants/uuids?needs_watering=true&${commonParams}`)]
+        if (operationMode !== 'vacation') {
+          promises.push(apiClient.get(`/plants/uuids?needs_weighing=true&${commonParams}`))
+          promises.push(apiClient.get(`/plants/uuids?needs_weighing=false&${commonParams}`))
+          promises.push(apiClient.get(`/plants/uuids?${commonParams}`))
+          promises.push(apiClient.get('/plants/measurements/approximation/watering'))
+        }
 
-        const approxItems = approxData?.items || []
-        const approxMap = approxItems.reduce((acc, item) => {
-          acc[item.plant_uuid] = item
-          return acc
-        }, {})
-        setApproximations(approxMap)
+        const [watering, todo, done, all, approxData] = await Promise.all(promises)
+        setWateringUuids(watering || [])
+        setError(null)
+        if (operationMode !== 'vacation') {
+          setTodoUuids(todo || [])
+          setDoneUuids(done || [])
+          setAllUuids(all || [])
+
+          const approxItems = approxData?.items || []
+          const approxMap = approxItems.reduce((acc, item) => {
+            acc[item.plant_uuid] = item
+            return acc
+          }, {})
+          setApproximations(approxMap)
+        }
       } catch (err) {
         setError('Failed to initialize plant lists')
       } finally {
@@ -93,7 +99,7 @@ export default function BulkWeightMeasurement() {
       }
     }
     init()
-  }, [operationMode])
+  }, [operationMode, commonParams])
 
   // 2. Data Fetching: Load full objects for the current page of UUIDs
   useEffect(() => {
@@ -121,6 +127,7 @@ export default function BulkWeightMeasurement() {
           `/plants?uuids=${pageUuids.join(',')}&limit=${currentLimit}&${commonParams}`,
         )
         setPlants(response.items || [])
+        setError(null)
       } catch (err) {
         setError('Failed to load page data')
       } finally {
@@ -237,9 +244,9 @@ export default function BulkWeightMeasurement() {
 
       let data
       if (existingId) {
-        data = await measurementsApi.weight.update(existingId, payload, controller.signal)
+        data = await measurementsApi.weight.update(plantId, existingId, payload, controller.signal)
       } else {
-        data = await measurementsApi.weight.create(payload, controller.signal)
+        data = await measurementsApi.weight.create(plantId, payload, controller.signal)
       }
 
       // If a newer request has been started for this plant, ignore this response
@@ -282,6 +289,34 @@ export default function BulkWeightMeasurement() {
     }
   }
 
+  async function handleWeightDelete(plantId, measurementId) {
+    setInputStatus((prev) => ({ ...prev, [plantId]: 'saving' }))
+    try {
+      await measurementsApi.delete(plantId, measurementId)
+
+      // Remove from progress buffer
+      setProgressBuffer((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+
+      setMeasurementIds((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+      setInputStatus((prev) => {
+        const next = { ...prev }
+        delete next[plantId]
+        return next
+      })
+    } catch (err) {
+      console.error('Error deleting measurement:', err)
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
+    }
+  }
+
   const deemphasizePredicate = (p) => {
     return !p.needs_weighing
   }
@@ -311,6 +346,27 @@ export default function BulkWeightMeasurement() {
         onBack={() => navigate('/daily')}
         titleBack="Daily Care"
       />
+
+      <div
+        className="actions"
+        style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}
+      >
+        <button className="btn btn-primary" disabled={true}>
+          Bulk measurement
+          {todoUuids && todoUuids.filter((id) => !measurementIds[id]).length > 0
+            ? ` (${todoUuids.filter((id) => !measurementIds[id]).length})`
+            : ''}
+        </button>
+        <button
+          className="btn"
+          disabled={loading}
+          style={{ background: '#2c4fff', color: 'white' }}
+          onClick={() => navigate('/measurements/bulk/watering')}
+        >
+          Bulk watering
+          {wateringUuids && wateringUuids.length > 0 ? ` (${wateringUuids.length})` : ''}
+        </button>
+      </div>
 
       <WateringTimeBar wateringTime={wateringTime} />
 
@@ -351,9 +407,13 @@ export default function BulkWeightMeasurement() {
             <button
               style={getTabStyle(activeTab === TAB_TODO)}
               onClick={() => handleTabChange(TAB_TODO)}
-              aria-label={todoUuids ? `To-Do (${todoUuids.length})` : 'To-Do'}
+              aria-label={
+                todoUuids
+                  ? `To-Do (${todoUuids.filter((id) => !measurementIds[id]).length})`
+                  : 'To-Do'
+              }
             >
-              To-Do {todoUuids && `(${todoUuids.length})`}
+              To-Do {todoUuids && `(${todoUuids.filter((id) => !measurementIds[id]).length})`}
             </button>
             <button
               style={getTabStyle(activeTab === TAB_DONE)}
@@ -389,6 +449,8 @@ export default function BulkWeightMeasurement() {
               plants={filteredPlants}
               inputStatus={inputStatus}
               onCommitValue={handleWeightMeasurement}
+              onDeleteWatering={handleWeightDelete}
+              measurementIds={measurementIds}
               onViewPlant={(p) => navigate(`/plants/${p.uuid}`, { state: { plant: p } })}
               firstColumnLabel="Weight gr, Water %"
               firstColumnTooltip="Enter the new total plant weight (in grams). We’ll compute updated water retention (%) after you finish input and leave the field."

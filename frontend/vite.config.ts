@@ -21,6 +21,9 @@ export default defineConfig({
     ],
   },
   server: {
+    // Allow proxying through nginx with Host aw.max and listening on all interfaces
+    host: true,
+    allowedHosts: ['aw.max'],
     fs: {
       // Restrict file serving to the project root by default
       strict: true,

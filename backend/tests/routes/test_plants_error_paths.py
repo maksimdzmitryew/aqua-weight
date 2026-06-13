@@ -3,6 +3,8 @@ from httpx import AsyncClient
 
 # We will monkeypatch backend.app.routes.plants.get_conn to simulate DB failures
 
+_API_KEY = {"X-API-Key": "test_api_key_for_testing"}
+
 
 class Boom(Exception):
     pass
@@ -83,7 +85,7 @@ async def test_create_plant_db_error_triggers_rollback_inner_except(
     async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):
     # Arrange: reset and patch connection to fail on first INSERT execute and rollback raising
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
 
     from backend.app import routes as routes_pkg
     import backend.app.routes.plants as plants_mod
@@ -95,7 +97,7 @@ async def test_create_plant_db_error_triggers_rollback_inner_except(
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
     # Act
-    resp = await async_client.post("/api/plants", json={"name": "Boomy"})
+    resp = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "Boomy"})
 
     # Assert: internal error due to raised Boom, but rollback inner except executed
     assert resp.status_code >= 500
@@ -105,7 +107,7 @@ async def test_create_plant_db_error_triggers_rollback_inner_except(
 async def test_reorder_plants_db_error_rollback_inner_except(
     async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
     import backend.app.routes.plants as plants_mod
 
     def fake_get_conn():
@@ -115,7 +117,9 @@ async def test_reorder_plants_db_error_rollback_inner_except(
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
     # Non-empty list so code enters try and hits failing execute
-    resp = await async_client.put("/api/plants/order", json={"ordered_ids": ["1" * 32]})
+    resp = await async_client.put(
+        "/api/plants/order", headers=_API_KEY, json={"ordered_ids": ["1" * 32]}
+    )
     assert resp.status_code >= 500
 
 
@@ -123,12 +127,12 @@ async def test_reorder_plants_db_error_rollback_inner_except(
 async def test_update_plant_db_error_triggers_rollback_inner_except(
     async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
     # First, create a plant normally (without patch)
-    r = await async_client.post("/api/plants", json={"name": "ToUpdate"})
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "ToUpdate"})
     assert r.status_code == 200
     # Find its uuid (paginated response)
-    lst = await async_client.get("/api/plants")
+    lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "ToUpdate")
 
     import backend.app.routes.plants as plants_mod
@@ -162,18 +166,20 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(
 
     monkeypatch.setattr(plants_mod, "get_conn", staticmethod(fake_get_conn))
 
-    resp = await async_client.patch(f"/api/plants/{uid}", json={"description": "x"})
+    resp = await async_client.patch(
+        f"/api/plants/{uid}", headers=_API_KEY, json={"description": "x"}
+    )
     assert resp.status_code >= 500
 
 
 @pytest.mark.anyio
 async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncClient):
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
     # Create a plant
-    r = await async_client.post("/api/plants", json={"name": "Timey"})
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "Timey"})
     assert r.status_code == 200
     # Get id (paginated response)
-    lst = await async_client.get("/api/plants")
+    lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "Timey")
 
     # Send empty strings for datetime fields to trigger to_dt's early None path
@@ -182,31 +188,33 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
         "substrate_last_refresh_at": "",
         "fertilized_last_at": "",
     }
-    resp = await async_client.patch(f"/api/plants/{uid}", json=payload)
+    resp = await async_client.patch(f"/api/plants/{uid}", headers=_API_KEY, json=payload)
     # Even with empty strings, should be ok 200
     assert resp.status_code == 200
 
 
 @pytest.mark.anyio
 async def test_update_plant_empty_payload_returns_ok(async_client: AsyncClient):
-    await async_client.post("/api/test/reset")
-    r = await async_client.post("/api/plants", json={"name": "EmptyUpdate"})
+    await async_client.post("/api/test/reset", headers=_API_KEY)
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "EmptyUpdate"})
     assert r.status_code == 200
-    lst = await async_client.get("/api/plants")
+    lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "EmptyUpdate")
-    resp = await async_client.patch(f"/api/plants/{uid}", json={})
+    resp = await async_client.patch(f"/api/plants/{uid}", headers=_API_KEY, json={})
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
 
 
 @pytest.mark.anyio
 async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncClient):
-    await async_client.post("/api/test/reset")
-    r = await async_client.post("/api/plants", json={"name": "HexNone"})
+    await async_client.post("/api/test/reset", headers=_API_KEY)
+    r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "HexNone"})
     assert r.status_code == 200
-    lst = await async_client.get("/api/plants")
+    lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "HexNone")
-    resp = await async_client.patch(f"/api/plants/{uid}", json={"location_id": None})
+    resp = await async_client.patch(
+        f"/api/plants/{uid}", headers=_API_KEY, json={"location_id": None}
+    )
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
 
@@ -214,7 +222,7 @@ async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncC
 @pytest.mark.anyio
 async def test_validate_and_update_order_count_mismatch_hits_135(async_client: AsyncClient):
     # Ensure empty DB for plants
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
     from backend.app.routes.plants import _validate_and_update_order
 
     with pytest.raises(Exception) as excinfo:
@@ -227,7 +235,7 @@ async def test_validate_and_update_order_count_mismatch_hits_135(async_client: A
 async def test_validate_and_update_order_rollback_inner_except(
     async_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):
-    await async_client.post("/api/test/reset")
+    await async_client.post("/api/test/reset", headers=_API_KEY)
     import backend.app.routes.plants as plants_mod
 
     class FailConn(FakeConn):
@@ -298,7 +306,7 @@ async def test_list_plant_names_returns_plants(
 
     monkeypatch.setattr(plants_mod, "get_conn", lambda: FakeConnNames(rows=rows))
 
-    resp = await async_client.get("/api/plants/names")
+    resp = await async_client.get("/api/plants/names", headers=_API_KEY)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 2
@@ -322,7 +330,7 @@ async def test_list_plant_names_skips_invalid_entries(
 
     monkeypatch.setattr(plants_mod, "get_conn", lambda: FakeConnNames(rows=rows))
 
-    resp = await async_client.get("/api/plants/names")
+    resp = await async_client.get("/api/plants/names", headers=_API_KEY)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -342,7 +350,7 @@ async def test_list_plant_names_close_exception(
     monkeypatch.setattr(plants_mod, "get_conn", lambda: FakeConnNames(rows=rows, close_raises=True))
 
     # Should not raise, exception is caught
-    resp = await async_client.get("/api/plants/names")
+    resp = await async_client.get("/api/plants/names", headers=_API_KEY)
     assert resp.status_code == 200
     data = resp.json()
     assert len(data) == 1
@@ -355,7 +363,7 @@ async def test_list_plant_names_empty(async_client: AsyncClient, monkeypatch: py
 
     monkeypatch.setattr(plants_mod, "get_conn", lambda: FakeConnNames(rows=[]))
 
-    resp = await async_client.get("/api/plants/names")
+    resp = await async_client.get("/api/plants/names", headers=_API_KEY)
     assert resp.status_code == 200
     data = resp.json()
     assert data == []
@@ -367,7 +375,7 @@ async def test_list_plant_names_empty(async_client: AsyncClient, monkeypatch: py
 @pytest.mark.anyio
 async def test_list_plants_page_less_than_one(async_client: AsyncClient):
     """Test list_plants raises 400 when page < 1 (line 77)."""
-    resp = await async_client.get("/api/plants?page=0")
+    resp = await async_client.get("/api/plants?page=0", headers=_API_KEY)
     assert resp.status_code == 400
     assert "page must be >= 1" in resp.json()["detail"]
 
@@ -375,7 +383,7 @@ async def test_list_plants_page_less_than_one(async_client: AsyncClient):
 @pytest.mark.anyio
 async def test_list_plants_limit_less_than_one(async_client: AsyncClient):
     """Test list_plants raises 400 when limit < 1 (line 79)."""
-    resp = await async_client.get("/api/plants?limit=0")
+    resp = await async_client.get("/api/plants?limit=0", headers=_API_KEY)
     assert resp.status_code == 400
     assert "limit must be between 1 and 100" in resp.json()["detail"]
 
@@ -383,6 +391,6 @@ async def test_list_plants_limit_less_than_one(async_client: AsyncClient):
 @pytest.mark.anyio
 async def test_list_plants_limit_greater_than_100(async_client: AsyncClient):
     """Test list_plants raises 400 when limit > 100 (line 79)."""
-    resp = await async_client.get("/api/plants?limit=101")
+    resp = await async_client.get("/api/plants?limit=101", headers=_API_KEY)
     assert resp.status_code == 400
     assert "limit must be between 1 and 100" in resp.json()["detail"]
