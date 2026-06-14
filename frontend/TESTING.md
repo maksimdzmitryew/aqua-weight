@@ -13,7 +13,8 @@ This guide describes how we test the frontend and how to run Storybook for compo
   - Install browsers: `npm run e2e:install`
   - Run headless: `npm run e2e`
   - Run headed: `npm run e2e:headed`
-  - Show last report: `npm run e2e:report`
+  - Show last report: `npm run e2e:report` (also `make e2e-report`)
+    - NOTE: This command is **blocking** — it starts a report web server ("Serving HTML report at http://localhost:… Press Ctrl+C to quit.") and waits for a human to press Ctrl+C. The AI assistant MUST NOT run it, as it never returns control. Use `npm run e2e` / `make test-e2e` to run tests; the report is written to `playwright-report/` for later human viewing.
 
 - Storybook (component docs and visual spot checks):
   - Start: `npm run storybook`
