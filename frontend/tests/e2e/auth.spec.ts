@@ -13,14 +13,14 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     await cleanup(ORIGIN)
   })
 
-  test('UI handles 401 Unauthorized by showing error message', async ({ page }) => {
+  test('UI handles 401 Unauthorized by redirecting to login', async ({ page }) => {
     // Generate a dummy access token for the mocked refresh response
     const dummyAccessToken = 'e2e-dummy-access-token'
 
     // Intercept all API calls (except test/*) and return 401 to simulate expired session.
     // The /api/auth/refresh endpoint is mocked to succeed so the API client refreshes
-    // its token, retries the original request, gets 401 again, and surfaces the error
-    // instead of redirecting to the login page.
+    // its token, retries the original request, gets 401 again, and redirects to login
+    // instead of leaving the user on a protected page with an inline error.
     await page.route('**', async (route) => {
       const url = new URL(route.request().url())
       if (url.pathname.startsWith('/api/auth/refresh')) {
@@ -41,14 +41,10 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     })
 
     await page.goto('/dashboard')
-    // Wait for at least one API request to respond with 401 and for any loading indicator to finish
+    // Wait for the mocked expired-session API response. The API client refreshes
+    // once, retries the original request, then the session manager redirects.
     await page.waitForResponse((res) => res.url().includes('/api/') && res.status() === 401)
-    await expect(page.getByRole('status', { name: /loading/i })).not.toBeVisible()
-
-    // Verification: Ensure the UI shows a "Session Expired" notification or equivalent error message
-    // Based on Dashboard.jsx code: {error && <ErrorNotice message={error} />}
-    const errorNotice = page.locator('[role="alert"]')
-    await expect(errorNotice).toBeVisible()
-    await expect(errorNotice).toContainText(/session expired/i)
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByRole('heading', { name: /login/i })).toBeVisible()
   })
 })
