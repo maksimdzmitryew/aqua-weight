@@ -41,6 +41,8 @@ test.describe('Settings', () => {
 
     // 3. Operation Mode - verify the select option changes in the UI
     await page.goto('/settings', { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { name: /settings/i })).toBeVisible()
+    await page.getByRole('tab', { name: /advanced/i }).click()
     await page.getByLabel(/operation mode/i).selectOption('vacation')
     await page.getByRole('button', { name: /save/i }).click()
     await page.waitForTimeout(2000)

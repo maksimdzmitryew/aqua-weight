@@ -136,7 +136,7 @@ const ApiDocs = () => {
               </span>
             </div>
             <p className="font-label-sm text-label-sm text-on-surface-variant dark:text-outline mt-2">
-              © 2024 Aqua Weight IoT Systems. All rights reserved.
+              © 2024 Aqua Weight AI IoT Systems. All rights reserved.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">

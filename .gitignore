@@ -88,3 +88,6 @@ coverage.xml
 # Local dev TLS certs
 ssl/dev.fullchain.pem
 ssl/dev.privkey.pem
+
+# Compliance command logs
+.claude/compliance-logs/

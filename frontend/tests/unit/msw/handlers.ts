@@ -88,8 +88,14 @@ export const handlers = [
     return HttpResponse.json({ uuid: 'new', id: 999 }, { status: 201 })
   }),
 
-  http.put('/api/plants/:uuid', async () => {
-    return HttpResponse.json({ ok: true })
+  http.patch('/api/plants/:uuid', async ({ request, params }) => {
+    const payload = await request.json()
+    const index = plants.findIndex((p) => p.uuid === params.uuid)
+    if (index === -1) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+
+    const updated = { ...plants[index], ...payload }
+    plants[index] = updated
+    return HttpResponse.json(updated)
   }),
 
   http.delete('/api/plants/:uuid', async () => {

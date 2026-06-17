@@ -15,7 +15,9 @@ test.describe('Plants CRUD', () => {
     await cleanup(ORIGIN)
   })
 
-  test('create plant → list shows plant → edit → delete', async ({ page }) => {
+  test('create plant → list shows plant → edit updates details and list → delete', async ({
+    page,
+  }) => {
     // Go to plants list
     await page.goto('/plants', { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { name: /plants/i })).toBeVisible()
@@ -23,6 +25,7 @@ test.describe('Plants CRUD', () => {
     // Create Plant
     await page.getByRole('button', { name: /\+\s*Create/i }).click()
     await page.getByLabel(/name/i).fill('Test Fern')
+    await page.getByLabel(/notes/i).fill('Original notes')
     // Wait for locations to load and then select by label to avoid hard-coded UUIDs
     const locationSelect = page.getByLabel(/location/i)
     await expect(locationSelect).toBeEnabled()
@@ -51,11 +54,20 @@ test.describe('Plants CRUD', () => {
       .getByRole('button', { name: /edit/i })
       .click()
     await page.getByLabel(/description/i).fill('Updated description')
+    await page.getByLabel(/notes/i).fill('Updated notes')
     await page.getByRole('button', { name: /save/i }).click()
+
+    // Verify the edit persisted on the details page before returning to the list.
+    await expect(page).toHaveURL(/\/plants\/[a-f0-9-]{32,36}/, { timeout: 10000 })
+    await expect(page.getByText('Description', { exact: true })).toBeVisible()
+    await expect(page.getByText('Updated description')).toBeVisible()
+
     // Wait for the update to complete and the row to be visible again
     // Re-navigating to /plants to ensure the list is refreshed
     await page.goto('/plants', { waitUntil: 'commit' })
-    await expect(page.getByRole('row', { name: /test fern/i })).toBeVisible({ timeout: 10000 })
+    const updatedRow = page.getByRole('row', { name: /test fern/i })
+    await expect(updatedRow).toBeVisible({ timeout: 10000 })
+    await expect(updatedRow).toContainText('Updated notes')
 
     // Delete
     await page

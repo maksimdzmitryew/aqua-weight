@@ -88,7 +88,9 @@ export default function PlantEdit() {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const initialTab = searchParams.get('tab')
-  const [activeTab, setActiveTab] = useState(plantTabValues.has(initialTab) ? initialTab : 'general')
+  const [activeTab, setActiveTab] = useState(
+    plantTabValues.has(initialTab) ? initialTab : 'general',
+  )
 
   useEffect(() => {
     const tab = searchParams.get('tab')

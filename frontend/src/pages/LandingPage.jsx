@@ -35,11 +35,7 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 w-full z-50 bg-surface/80 dark:bg-on-background/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm px-margin-mobile md:px-margin-desktop py-4">
         <div className="max-w-container-max mx-auto flex justify-between items-center h-12">
           <div className="flex items-center gap-3">
-            <img
-              alt="Aqua Weight Logo"
-              className="h-10 w-10 object-contain"
-              src={landingLogo}
-            />
+            <img alt="Aqua Weight Logo" className="h-10 w-10 object-contain" src={landingLogo} />
             <span className="text-headline-md font-headline-md font-bold text-on-background dark:text-surface-bright whitespace-nowrap">
               Aqua Weight
             </span>
@@ -506,7 +502,7 @@ const LandingPage = () => {
               </span>
             </div>
             <p className="font-label-sm text-label-sm text-on-surface-variant dark:text-outline mt-2">
-              © 2024 Aqua Weight IoT Systems. All rights reserved.
+              © 2024 Aqua Weight AI IoT Systems. All rights reserved.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
