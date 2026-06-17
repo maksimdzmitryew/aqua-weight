@@ -6,11 +6,24 @@ import SudoMode from '../components/auth/SudoMode.jsx'
 import { apiClient } from '../api/client.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import { Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
+import Tabs from '../components/Tabs.jsx'
+
+const settingsTabs = [
+  { value: 'preferences', label: 'Preferences' },
+  { value: 'advanced', label: 'Advanced' },
+  { value: 'security', label: 'Security' },
+  { value: 'profile', label: 'Profile' },
+]
+
+const settingsTabValues = new Set(settingsTabs.map((tab) => tab.value))
 
 export default function Settings() {
   const { theme, effectiveTheme, setTheme } = useTheme()
   const { settings, loading, updateSettings } = useSettings()
+  const [searchParams, setSearchParams] = useSearchParams()
 
+  const [activeTab, setActiveTab] = useState('preferences')
   const [name, setName] = useState('')
   const [dtFormat, setDtFormat] = useState('europe')
   const [operationMode, setOperationMode] = useState('manual')
@@ -30,6 +43,11 @@ export default function Settings() {
     }
   }, [settings])
 
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    setActiveTab(settingsTabValues.has(tab) ? tab : 'preferences')
+  }, [searchParams])
+
   const [showSudo, setShowSudo] = useState(false)
   const [newCodes, setNewCodes] = useState(null)
   const [error, setError] = useState('')
@@ -38,6 +56,15 @@ export default function Settings() {
     const t = setTimeout(() => setSaved(''), 1500)
     return () => clearTimeout(t)
   }, [saved])
+
+  function selectTab(tab) {
+    setActiveTab(tab)
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('tab', tab)
+      return next
+    })
+  }
 
   function normalizeThreshold(value) {
     if (value === '') {
@@ -123,102 +150,170 @@ export default function Settings() {
       <p>Update your preferences. These settings are synced to your account.</p>
 
       <form onSubmit={save} style={{ maxWidth: 520 }}>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="display_name">
-            Display name
-          </label>
-          <input
-            id="display_name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            style={styles.input}
-          />
-        </div>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="theme">
-            Theme
-          </label>
-          <select
-            id="theme"
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            style={styles.input}
-          >
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="system">System</option>
-          </select>
-        </div>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="dt_format">
-            Date/Time format
-          </label>
-          <select
-            id="dt_format"
-            value={dtFormat}
-            onChange={(e) => setDtFormat(e.target.value)}
-            style={styles.input}
-          >
-            <option value="europe">Europe (DD/MM/YYYY 24h)</option>
-            <option value="usa">USA (MM/DD/YYYY 12h)</option>
-          </select>
-        </div>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="page_size">
-            Items per page
-          </label>
-          <select
-            id="page_size"
-            value={pageSize}
-            onChange={(e) => setPageSize(e.target.value)}
-            style={styles.input}
-          >
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="operation_mode">
-            Operation mode
-          </label>
-          <select
-            id="operation_mode"
-            value={operationMode}
-            onChange={(e) => setOperationMode(e.target.value)}
-            style={styles.input}
-          >
-            <option value="automatic">Automatic</option>
-            <option value="manual">Manual</option>
-            <option value="vacation">Vacation</option>
-          </select>
-        </div>
-        <div style={fieldRow}>
-          <label style={label} htmlFor="default_threshold">
-            Default Watering Threshold (%)
-          </label>
-          <input
-            id="default_threshold"
-            type="number"
-            min="0"
-            max="100"
-            value={defaultThreshold}
-            onChange={(e) => {
-              const { value, error } = normalizeThreshold(e.target.value)
-              setDefaultThreshold(value)
-              setThresholdError(error)
+        <Tabs
+          tabs={settingsTabs}
+          activeTab={activeTab}
+          onChange={selectTab}
+          ariaLabel="Settings tabs"
+        />
+
+        {activeTab === 'profile' && (
+          <div style={fieldRow}>
+            <label style={label} htmlFor="display_name">
+              Display name
+            </label>
+            <input
+              id="display_name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              style={styles.input}
+            />
+          </div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="theme">
+                Theme
+              </label>
+              <select
+                id="theme"
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                style={styles.input}
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="dt_format">
+                Date/Time format
+              </label>
+              <select
+                id="dt_format"
+                value={dtFormat}
+                onChange={(e) => setDtFormat(e.target.value)}
+                style={styles.input}
+              >
+                <option value="europe">Europe (DD/MM/YYYY 24h)</option>
+                <option value="usa">USA (MM/DD/YYYY 12h)</option>
+              </select>
+            </div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="page_size">
+                Items per page
+              </label>
+              <select
+                id="page_size"
+                value={pageSize}
+                onChange={(e) => setPageSize(e.target.value)}
+                style={styles.input}
+              >
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'advanced' && (
+          <div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="operation_mode">
+                Operation mode
+              </label>
+              <select
+                id="operation_mode"
+                value={operationMode}
+                onChange={(e) => setOperationMode(e.target.value)}
+                style={styles.input}
+              >
+                <option value="automatic">Automatic</option>
+                <option value="manual">Manual</option>
+                <option value="vacation">Vacation</option>
+              </select>
+            </div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="default_threshold">
+                Default Watering Threshold (%)
+              </label>
+              <input
+                id="default_threshold"
+                type="number"
+                min="0"
+                max="100"
+                value={defaultThreshold}
+                onChange={(e) => {
+                  const { value, error } = normalizeThreshold(e.target.value)
+                  setDefaultThreshold(value)
+                  setThresholdError(error)
+                }}
+                style={styles.input}
+              />
+              {thresholdError && (
+                <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
+                  {thresholdError}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'security' && (
+          <div
+            style={{
+              padding: 16,
+              border: '1px solid #ef4444',
+              borderRadius: 8,
+              background: effectiveTheme === 'dark' ? '#111827' : '#fef2f2',
+              maxWidth: 520,
             }}
-            style={styles.input}
-          />
-          {thresholdError && (
-            <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
-              {thresholdError}
-            </span>
-          )}
-        </div>
+          >
+            <h3 style={{ marginTop: 0, color: '#ef4444' }}>Regenerate Recovery Codes</h3>
+            <p style={{ fontSize: '0.9em', marginBottom: 16 }}>
+              Generating new recovery codes will invalidate all of your current codes and log you out
+              fromm all other devices except for the current one. You can only do this once every 24
+              hours.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setError('')
+                setShowSudo(true)
+              }}
+              style={{ ...styles.button, background: '#ef4444' }}
+            >
+              Regenerate Codes
+            </button>
+            {error && <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>}
+
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #ef4444' }}>
+              <h3 style={{ marginTop: 0, color: '#ef4444' }}>Device Management</h3>
+              <p style={{ fontSize: '0.9em', marginBottom: 12 }}>
+                View and manage devices that have access to your account.
+              </p>
+              <Link
+                to="/devices"
+                style={{
+                  ...styles.button,
+                  display: 'inline-block',
+                  textDecoration: 'none',
+                  textAlign: 'center',
+                }}
+              >
+                Manage Devices
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div style={{ marginTop: 16 }}>
           <button type="submit" style={styles.button}>
             Save
@@ -226,54 +321,6 @@ export default function Settings() {
           {saved && <span style={{ marginLeft: 12, color: 'seagreen' }}>{saved}</span>}
         </div>
       </form>
-
-      {/* Security Section */}
-      <h2 style={{ marginTop: 32 }}>Security</h2>
-      <div
-        style={{
-          padding: 16,
-          border: '1px solid #ef4444',
-          borderRadius: 8,
-          background: effectiveTheme === 'dark' ? '#111827' : '#fef2f2',
-          maxWidth: 520,
-        }}
-      >
-        <h3 style={{ marginTop: 0, color: '#ef4444' }}>Regenerate Recovery Codes</h3>
-        <p style={{ fontSize: '0.9em', marginBottom: 16 }}>
-          Generating new recovery codes will invalidate all of your current codes and log you out
-          fromm all other devices except for the current one. You can only do this once every 24
-          hours.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            setError('')
-            setShowSudo(true)
-          }}
-          style={{ ...styles.button, background: '#ef4444' }}
-        >
-          Regenerate Codes
-        </button>
-        {error && <div style={{ color: '#ef4444', fontSize: '0.9em', marginTop: 12 }}>{error}</div>}
-
-        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #ef4444' }}>
-          <h3 style={{ marginTop: 0, color: '#ef4444' }}>Device Management</h3>
-          <p style={{ fontSize: '0.9em', marginBottom: 12 }}>
-            View and manage devices that have access to your account.
-          </p>
-          <Link
-            to="/devices"
-            style={{
-              ...styles.button,
-              display: 'inline-block',
-              textDecoration: 'none',
-              textAlign: 'center',
-            }}
-          >
-            Manage Devices
-          </Link>
-        </div>
-      </div>
 
       <SudoMode
         open={showSudo}

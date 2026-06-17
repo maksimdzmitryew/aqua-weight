@@ -208,11 +208,11 @@ CREATE TABLE IF NOT EXISTS plants (
   plant_type VARCHAR(150) NULL,
   identify_hint VARCHAR(150) NULL,
   typical_action VARCHAR(150) NULL,
-  description VARCHAR(255) NULL,
+  description VARCHAR(2000) NULL,
   notes TEXT NULL,
   location_id BINARY(16) NULL,
   owner_id BINARY(16) NULL,
-  photo_url VARCHAR(255) NULL,
+  photo_url VARCHAR(2048) NULL,
   -- Service
   default_measurement_method_id BINARY(16) NULL,
   scale_id BINARY(16) NULL,
@@ -245,6 +245,7 @@ CREATE TABLE IF NOT EXISTS plants (
 
   PRIMARY KEY (id),
   KEY idx_plants_location (location_id),
+  KEY idx_plants_owner (owner_id),
   KEY idx_plants_sort (sort_order),
   KEY idx_plants_health (health_status_id),
   KEY idx_plants_archive (archive),
@@ -259,6 +260,10 @@ CREATE TABLE IF NOT EXISTS plants (
   CONSTRAINT fk_plants_scale FOREIGN KEY (scale_id) REFERENCES scales(id) ON UPDATE CASCADE ON DELETE SET NULL,
   CONSTRAINT fk_plants_default_method FOREIGN KEY (default_measurement_method_id) REFERENCES measurement_methods(id) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+ALTER TABLE plants
+  MODIFY COLUMN description VARCHAR(2000) NULL,
+  MODIFY COLUMN photo_url VARCHAR(2048) NULL;
 
 -- Time-series measurements of weight and water events
 CREATE TABLE IF NOT EXISTS plants_measurements (
