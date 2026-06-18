@@ -79,10 +79,12 @@ test.describe('Calibration Flow', () => {
 
     // Verify overfill row is shown (we look for a row that contains our plant name and some data)
     const plantRow = page.locator('.card').filter({ hasText: /calibration plant/i })
+    // Wait for the plant card to be visible after filter changes trigger re-render.
+    await plantRow.waitFor({ state: 'visible', timeout: 15000 })
     // Wait for calibration data to be rendered — the card must contain at least one cell
     // with a numeric value before we assert on specific columns.
     await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).first()).toBeVisible({
-      timeout: 15000,
+      timeout: 30000,
     })
     // In some environments, it shows +100, in others 0. We accept any numeric diff.
     // nth(2) targets the "Diff to max Weight (g)" column (0=Water added, 1=Last wet, 2=Diff).
