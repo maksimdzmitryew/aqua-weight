@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate, useParams, Link } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, Link, useSearchParams } from 'react-router-dom'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useTheme } from '../ThemeContext.jsx'
 import DateTimeText from '../components/DateTimeText.jsx'
@@ -7,6 +7,18 @@ import { plantsApi } from '../api/plants'
 import { locationsApi } from '../api/locations'
 import { referenceApi } from '../api/reference'
 import { toLocalISOFull } from '../utils/datetime'
+import Tabs from '../components/Tabs.jsx'
+
+const plantTabs = [
+  { value: 'general', label: 'General' },
+  { value: 'service', label: 'Service' },
+  { value: 'care', label: 'Care' },
+  { value: 'advanced', label: 'Advanced' },
+  { value: 'health', label: 'Health' },
+  { value: 'calculated', label: 'Calculated' },
+]
+
+const plantTabValues = new Set(plantTabs.map((tab) => tab.value))
 
 export function buildUpdatePayload(plant) {
   if (!plant) throw new Error('Missing plant')
@@ -73,8 +85,17 @@ export default function PlantEdit() {
   const location = useLocation()
   const { effectiveTheme } = useTheme()
   const isDark = effectiveTheme === 'dark'
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [activeTab, setActiveTab] = useState('general')
+  const initialTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState(
+    plantTabValues.has(initialTab) ? initialTab : 'general',
+  )
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    setActiveTab(plantTabValues.has(tab) ? tab : 'general')
+  }, [searchParams])
 
   const initialPlant = useMemo(() => location.state?.plant || null, [location.state])
   const isFromDetails = useMemo(() => {
@@ -229,7 +250,7 @@ export default function PlantEdit() {
     e.preventDefault()
     const name = (plant.name || '').trim()
     if (!name) {
-      setActiveTab('general')
+      selectTab('general')
       setFieldErrors({ name: 'Name is required' })
       return
     }
@@ -269,6 +290,15 @@ export default function PlantEdit() {
     }
   }
 
+  function selectTab(tab) {
+    setActiveTab(tab)
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('tab', tab)
+      return next
+    })
+  }
+
   const labelStyle = { display: 'block', fontWeight: 600, marginBottom: 6 }
   const inputStyle = {
     width: '100%',
@@ -294,20 +324,6 @@ export default function PlantEdit() {
     border: '1px solid transparent',
     cursor: 'pointer',
   }
-  const tabsWrap = {
-    display: 'flex',
-    gap: 8,
-    borderBottom: `1px solid ${isDark ? '#1f2937' : '#e5e7eb'}`,
-    marginBottom: 16,
-  }
-  const tabBtn = (active) => ({
-    ...btn,
-    background: active ? (isDark ? '#111827' : '#111827') : 'transparent',
-    color: active ? 'white' : isDark ? '#9ca3af' : '#374151',
-    borderColor: active ? 'transparent' : isDark ? '#374151' : '#d1d5db',
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-  })
 
   return (
     <DashboardLayout title="Edit Plant">
@@ -323,62 +339,12 @@ export default function PlantEdit() {
 
       {!loading && !error && plant && (
         <form onSubmit={onSave} style={boxStyle}>
-          <div style={tabsWrap} role="tablist" aria-label="Edit plant tabs">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'general'}
-              onClick={() => setActiveTab('general')}
-              style={tabBtn(activeTab === 'general')}
-            >
-              General
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'service'}
-              onClick={() => setActiveTab('service')}
-              style={tabBtn(activeTab === 'service')}
-            >
-              Service
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'care'}
-              onClick={() => setActiveTab('care')}
-              style={tabBtn(activeTab === 'care')}
-            >
-              Care
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'advanced'}
-              onClick={() => setActiveTab('advanced')}
-              style={tabBtn(activeTab === 'advanced')}
-            >
-              Advanced
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'health'}
-              onClick={() => setActiveTab('health')}
-              style={tabBtn(activeTab === 'health')}
-            >
-              Health
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'calculated'}
-              onClick={() => setActiveTab('calculated')}
-              style={tabBtn(activeTab === 'calculated')}
-            >
-              Calculated
-            </button>
-          </div>
+          <Tabs
+            tabs={plantTabs}
+            activeTab={activeTab}
+            onChange={selectTab}
+            ariaLabel="Edit plant tabs"
+          />
 
           {activeTab === 'general' && (
             <div>

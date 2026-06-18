@@ -42,7 +42,7 @@ describe('hooks/useDocumentTitle', () => {
         </Routes>
       </MemoryRouter>,
     )
-    expect(document.title).toBe('Plants – Aqua Weight')
+    expect(document.title).toBe('Plants ❯ Aqua Weight')
   })
 
   test('re-applies same title on route change to counter late writers; reacts to location key changes', async () => {
@@ -58,7 +58,7 @@ describe('hooks/useDocumentTitle', () => {
     )
 
     // Initially applied
-    expect(document.title).toBe('Same – Aqua Weight')
+    expect(document.title).toBe('Same ❯ Aqua Weight')
 
     // Simulate some other code messing with title
     document.title = 'Corrupted'
@@ -68,7 +68,7 @@ describe('hooks/useDocumentTitle', () => {
     await user.click(screen.getByRole('button', { name: /go/i }))
 
     // Effect should have re-applied the proper title after navigation
-    expect(document.title).toBe('Same – Aqua Weight')
+    expect(document.title).toBe('Same ❯ Aqua Weight')
   })
 
   test('restores previous title on unmount when restoreOnUnmount is true', () => {
@@ -83,7 +83,7 @@ describe('hooks/useDocumentTitle', () => {
     )
 
     // While mounted
-    expect(document.title).toBe('Page – Aqua Weight')
+    expect(document.title).toBe('Page ❯ Aqua Weight')
 
     // Unmount should restore
     unmount()

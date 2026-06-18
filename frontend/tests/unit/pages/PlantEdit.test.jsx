@@ -642,10 +642,17 @@ describe('pages/PlantEdit', () => {
       pathname: '/plants/uNorm/edit',
       state: { plant: { uuid: 'uNorm', name: 'N', species_name: 'S', species: 'Ignore' } },
     }
-    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    server.use(
+      http.get('/api/plants/:uuid', () =>
+        HttpResponse.json({ uuid: 'uNorm', name: 'N', species_name: 'S', species: 'Ignore' }),
+      ),
+      http.get('/api/locations', () => HttpResponse.json([])),
+    )
     renderWithRoute([init])
-    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
-    expect(screen.getByDisplayValue('S')).toBeInTheDocument()
+    const advTab = await screen.findByRole('tab', { name: /advanced/i })
+    fireEvent.click(advTab)
+    const speciesInput = await screen.findByLabelText(/species name/i)
+    expect(speciesInput).toHaveValue('S')
   })
 
   test('calculated tab and normalize location fallback', async () => {
@@ -711,13 +718,13 @@ describe('pages/PlantEdit', () => {
     // Check Care tab
     const careTab = await screen.findByRole('tab', { name: /care/i })
     fireEvent.click(careTab)
-    expect(await screen.findByLabelText(/recommended water threshold/i)).toHaveValue(null)
+    expect((await screen.findByLabelText(/recommended water threshold/i)).value).toBe('')
 
     // Check Calculated tab
     const calcTab = await screen.findByRole('tab', { name: /calculated/i })
     fireEvent.click(calcTab)
-    expect(screen.getByLabelText(/min dry weight/i)).toHaveValue(null)
-    expect(screen.getByLabelText(/max water weight/i)).toHaveValue(null)
+    expect(screen.getByLabelText(/min dry weight/i).value).toBe('')
+    expect(screen.getByLabelText(/max water weight/i).value).toBe('')
 
     // Check Health tab with empty values
     fireEvent.click(screen.getByRole('tab', { name: /health/i }))
@@ -783,7 +790,7 @@ describe('pages/PlantEdit', () => {
     fireEvent.change(threshold, {
       target: { value: '', name: 'recommended_water_threshold_pct', type: 'number' },
     })
-    expect(threshold).toHaveValue(null)
+    expect(threshold.value).toBe('')
 
     // coverage for lines 221-226: API error detail array
     server.use(

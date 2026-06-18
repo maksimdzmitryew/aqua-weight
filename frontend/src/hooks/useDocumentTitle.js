@@ -32,7 +32,7 @@ export default function useDocumentTitle(title, options = {}) {
 
     const base = APP_NAME
     const safeTitle = typeof title === 'string' && title.trim().length > 0 ? title.trim() : ''
-    const next = safeTitle ? `${safeTitle} – ${base}` : base
+    const next = safeTitle ? `${safeTitle} ❯ ${base}` : base
 
     if (doc.title !== next) {
       doc.title = next

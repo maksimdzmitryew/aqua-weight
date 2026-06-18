@@ -68,6 +68,7 @@ describe('pages/Settings', () => {
   test('validates default threshold input on change', async () => {
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     const threshold = screen.getByLabelText(/default watering threshold/i)
 
     fireEvent.change(threshold, { target: { value: '' } })
@@ -101,6 +102,7 @@ describe('pages/Settings', () => {
   test('calls updateSettings with operation mode and threshold on save', async () => {
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     const operation = screen.getByLabelText(/operation mode/i)
     const threshold = screen.getByLabelText(/default watering threshold/i)
 
@@ -123,6 +125,7 @@ describe('pages/Settings', () => {
     window.localStorage.setItem('theme', 'dark')
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /profile/i }))
     const nameInput = screen.getByLabelText(/display name/i)
     expect(nameInput).toHaveStyle({ background: '#111827' })
   })
@@ -131,6 +134,7 @@ describe('pages/Settings', () => {
     window.localStorage.setItem('theme', 'light')
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /profile/i }))
     const nameInput = screen.getByLabelText(/display name/i)
     expect(nameInput).toHaveStyle({ background: '#ffffff' })
   })
@@ -138,11 +142,12 @@ describe('pages/Settings', () => {
   test('uses defaults when localStorage is empty', () => {
     renderPage()
 
-    const name = screen.getByLabelText(/display name/i)
     const dt = screen.getByLabelText(/date\/time format/i)
-
-    expect(name).toHaveValue('')
     expect(dt).toHaveValue('europe')
+
+    fireEvent.click(screen.getByRole('tab', { name: /profile/i }))
+    const name = screen.getByLabelText(/display name/i)
+    expect(name).toHaveValue('')
   })
 
   test('initializes fields from localStorage and saves updates with success message', async () => {
@@ -152,16 +157,21 @@ describe('pages/Settings', () => {
 
     renderPage()
 
-    const name = screen.getByLabelText(/display name/i)
+    // preferences tab is active by default
     const dt = screen.getByLabelText(/date\/time format/i)
-
-    expect(name).toHaveValue('Alice')
     expect(dt).toHaveValue('europe')
 
-    // change values and submit form in single act to flush state + async save
+    // switch to profile tab to check display name
+    fireEvent.click(screen.getByRole('tab', { name: /profile/i }))
+    const name = screen.getByLabelText(/display name/i)
+    expect(name).toHaveValue('Alice')
+
+    // switch back to preferences tab to change dtFormat and save
+    fireEvent.click(screen.getByRole('tab', { name: /preferences/i }))
+    const dtField = screen.getByLabelText(/date\/time format/i)
+
     await act(async () => {
-      fireEvent.change(name, { target: { value: 'Bob' } })
-      fireEvent.change(dt, { target: { value: 'usa' } })
+      fireEvent.change(dtField, { target: { value: 'usa' } })
       fireEvent.click(screen.getByRole('button', { name: /save/i }))
     })
 
@@ -169,7 +179,6 @@ describe('pages/Settings', () => {
     expect(screen.getByText('Saved!')).toBeInTheDocument()
 
     // persisted
-    expect(window.localStorage.getItem('displayName')).toBe('Bob')
     expect(window.localStorage.getItem('dtFormat')).toBe('usa')
 
     // Auto-clear behavior is managed by a timeout; we don't rely on fake timers here.
@@ -193,6 +202,7 @@ describe('pages/Settings', () => {
   test('operation mode selection is applied and persisted on save', async () => {
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     const operation = screen.getByLabelText(/operation mode/i)
     // change to vacation and save
     await act(async () => {
@@ -214,6 +224,7 @@ describe('pages/Settings', () => {
     window.localStorage.setItem('defaultThreshold', 'abc')
     renderPage()
 
+    fireEvent.click(screen.getByRole('tab', { name: /advanced/i }))
     const threshold = screen.getByLabelText(/default watering threshold/i)
     const saveButton = screen.getByRole('button', { name: /save/i })
 

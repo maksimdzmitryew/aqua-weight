@@ -6,6 +6,10 @@ from fastapi import FastAPI
 
 from backend.app.db import get_conn_factory
 from backend.app.routes import measurements as measurements_routes
+import backend.app.db.core as db_core
+import backend.app.db.deps as db_deps
+import backend.app.db as db_module
+import backend.app.security as security_mod
 
 
 _API_KEY = {"X-API-Key": "test_api_key_for_testing"}
@@ -39,8 +43,8 @@ class _SeqCursor:
             if self.raise_on_update:
                 raise RuntimeError("update failed")
         else:
-            # noop for others
-            pass
+            # Reset to avoid stale data from a previous query
+            self._next_one = None
 
     def fetchone(self):
         return self._next_one
@@ -178,7 +182,9 @@ async def test_list_plants_for_calibration_skips_missing_uuid_and_close_except(
 
 
 @pytest.mark.asyncio
-async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: AsyncClient):
+async def test_apply_corrections_invalids_and_noops(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     # invalid plant (path param validated by require_plant_access -> 400)
     r_bad = await async_client.post(
         "/api/plants/nothex/measurements/corrections", headers=_API_KEY, json={}
@@ -197,7 +203,10 @@ async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: 
     # plant not found
     cur = _SeqCursor(plant_row=None)
     conn = _SeqConn(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
     r_nf = await async_client.post(
         "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
     )
@@ -211,7 +220,7 @@ async def test_apply_corrections_invalids_and_noops(app: FastAPI, async_client: 
     assert r_noop.status_code == 200
     assert r_noop.json()["updated"] == 0
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()
 
 
 @pytest.mark.asyncio
@@ -238,7 +247,10 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     m2 = (bytes.fromhex("22" * 16), datetime(2025, 1, 3, 0, 0, 0), 10, 150)  # no excess
     cur = _SeqCursor(plant_row=plant_row, meas_rows=[m1, m2])
     conn = _SeqConn(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
 
     # capacity mode, edit_last_wet true (default)
     r1 = await async_client.post(
@@ -264,7 +276,7 @@ async def test_apply_corrections_capacity_and_retained_ratio(
         "set water_added_g" in sql and "last_wet_weight_g" not in sql for sql, _ in cur.update_calls
     )
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()
 
 
 @pytest.mark.asyncio
@@ -280,16 +292,11 @@ async def test_apply_corrections_window_build_no_rows_and_exceptions(
 
     # Plant present; no measurement rows
     cur = _SeqCursor(plant_row=(100, 50, 80), meas_rows=[])
-
-    class _ConnCloseFail(_SeqConn):
-        def __init__(self, c):
-            super().__init__(c)
-
-        def close(self):
-            raise RuntimeError("close fail")
-
-    conn = _ConnCloseFail(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    conn = _SeqConn(cur)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
 
     # Provide from_ts and to_ts to engage where_parts appends (283-286, 287-288)
     payload = {
@@ -302,7 +309,7 @@ async def test_apply_corrections_window_build_no_rows_and_exceptions(
     assert r.status_code == 200
     assert r.json()["updated"] == 0  # no rows => line 312
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()
 
 
 @pytest.mark.asyncio
@@ -325,7 +332,10 @@ async def test_apply_corrections_update_failure_triggers_rollback_and_close_exce
             raise RuntimeError("close fail")
 
     conn = _ConnRBAndCloseFail(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
 
     r = await async_client.post(
         "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
@@ -333,7 +343,7 @@ async def test_apply_corrections_update_failure_triggers_rollback_and_close_exce
     # Update fails -> exception path triggers rollback (355-360) and close except (368-369)
     assert r.status_code >= 500
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()
 
 
 @pytest.mark.asyncio
@@ -349,7 +359,10 @@ async def test_apply_corrections_default_window_parse_error_branch(
 
     cur = _SeqCursor(plant_row=(100, 50, 80), meas_rows=[])
     conn = _SeqConn(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
 
     r = await async_client.post(
         "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
@@ -357,7 +370,7 @@ async def test_apply_corrections_default_window_parse_error_branch(
     assert r.status_code == 200
     assert r.json()["updated"] == 0
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()
 
 
 @pytest.mark.asyncio
@@ -376,11 +389,14 @@ async def test_apply_corrections_update_failure_rollback_raises(
             super().__init__(c, raise_on_rollback=True)
 
     conn = _ConnRBFail(cur)
-    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn)
 
     r = await async_client.post(
         "/api/plants/" + "aa" * 16 + "/measurements/corrections", headers=_API_KEY, json={}
     )
     assert r.status_code >= 500
 
-    app.dependency_overrides.pop(get_conn_factory, None)
+    monkeypatch.undo()

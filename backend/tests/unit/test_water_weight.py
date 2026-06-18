@@ -17,6 +17,9 @@ class _FakeCursor:
     def fetchall(self):
         return []
 
+    def fetchone(self):
+        return (None, None)
+
 
 class _FakeConn:
     def __init__(self, fail=False):

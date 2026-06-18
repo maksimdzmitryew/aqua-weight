@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import landingLogo from '../aqua-weight-logo.png'
+import heroIllustration from '../aqua-weight-hero.png'
 
 const LandingPage = () => {
   useEffect(() => {
@@ -33,11 +35,7 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 w-full z-50 bg-surface/80 dark:bg-on-background/80 backdrop-blur-md border-b border-outline-variant/30 shadow-sm px-margin-mobile md:px-margin-desktop py-4">
         <div className="max-w-container-max mx-auto flex justify-between items-center h-12">
           <div className="flex items-center gap-3">
-            <img
-              alt="Aqua Weight Logo"
-              className="h-10 w-10 object-contain"
-              src="https://lh3.googleusercontent.com/aida/AP1WRLtnLgqpmsXcbAsEpFXMMoPZ9NAe6jAZRQSID_f9etZIdIue-JPD4jmMEeLh0rNf05y3CKtwgsbjtrn18JZavy_Zvq3ISzvrodrOgGnxo_V4eXncs20Uy4OGlDsWzlPS4L0hW_Td19eq2192_KJBFX0yGg3Uwlv7bXMkkUHJjq4hFjct24Tp5jdZLbaEQ69QB8Z-hIzm70tOUO8tMSXwwk2AEYoCVkqkmyojUgHFOcvs_bKZjcSpoSOC7uTO"
-            />
+            <img alt="Aqua Weight Logo" className="h-10 w-10 object-contain" src={landingLogo} />
             <span className="text-headline-md font-headline-md font-bold text-on-background dark:text-surface-bright whitespace-nowrap">
               Aqua Weight
             </span>
@@ -88,7 +86,7 @@ const LandingPage = () => {
                 <span className="font-label-caps text-label-caps">Next-Gen Plant Care</span>
               </div>
               <h1 className="font-headline-xl text-headline-xl md:text-6xl text-gradient leading-tight mt-4 block py-2">
-                <span className="block mb-4">Precision. Plant. Care.</span>
+                <span className="block mb-4">Precision Plant Care.</span>
                 <span className="block">Powered by Gravity.</span>
               </h1>
               <p className="font-body-lg text-body-lg text-on-surface-variant max-w-lg mt-8">
@@ -114,7 +112,7 @@ const LandingPage = () => {
               <img
                 alt="Plant on Aqua Weight Smart Base"
                 className="w-[90%] ml-auto h-auto rounded-[32px] shadow-2xl ring-1 ring-outline-variant/30 object-cover block"
-                src="https://lh3.googleusercontent.com/aida/AP1WRLs2HnNoCUuJZPoXUTOejH5Efhn2bhAFwQ7c_qQ2NX8F8O9RrNzP1wjn96Au9V_hE3oThQRjBhX4JaGHhWmPs81g_bB3XvC_qwzu3v6Wns3sWIEjFUJHO5qi5QjEsivpPQEb-O7rHHZLNkuYtjWIlTgHPdAhimp73Sw2h_1QtKOSv_kTMRLhNeUPd00K_s1_TYyA7MIvd9pAFXFDKxgmvLBanQNrBKIaTWJ6vVSs3dcYcnIFRJiZucaGcEJf"
+                src={heroIllustration}
               />
             </div>
           </div>
@@ -497,14 +495,14 @@ const LandingPage = () => {
               <img
                 alt="Aqua Weight Logo Small"
                 className="h-8 w-8 object-contain"
-                src="https://lh3.googleusercontent.com/aida/AP1WRLtnLgqpmsXcbAsEpFXMMoPZ9NAe6jAZRQSID_f9etZIdIue-JPD4jmMEeLh0rNf05y3CKtwgsbjtrn18JZavy_Zvq3ISzvrodrOgGnxo_V4eXncs20Uy4OGlDsWzlPS4L0hW_Td19eq2192_KJBFX0yGg3Uwlv7bXMkkUHJjq4hFjct24Tp5jdZLbaEQ69QB8Z-hIzm70tOUO8tMSXwwk2AEYoCVkqkmyojUgHFOcvs_bKZjcSpoSOC7uTO"
+                src={landingLogo}
               />
               <span className="font-headline-md text-headline-md font-black text-on-surface dark:text-surface-bright">
                 Aqua Weight
               </span>
             </div>
             <p className="font-label-sm text-label-sm text-on-surface-variant dark:text-outline mt-2">
-              © 2024 Aqua Weight IoT Systems. All rights reserved.
+              © 2024 Aqua Weight AI IoT Systems. All rights reserved.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">

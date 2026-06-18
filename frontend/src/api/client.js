@@ -198,9 +198,14 @@ export class ApiClient {
               i--
               continue
             } catch {
-              this.onUnauthenticated?.()
-              // Fall through to normal error handling
+              // Fall through to terminal 401 handling below
             }
+          }
+          if (res.status === 401) {
+            // Terminal 401: refresh was unavailable or did not recover the
+            // session. Notify so SessionManager redirects to /login instead of
+            // leaving the user on a protected page with an inline error.
+            this.onUnauthenticated?.()
           }
           const detail =
             typeof data === 'object' && data && (data.detail || data.message)
