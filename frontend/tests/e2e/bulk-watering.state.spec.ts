@@ -49,7 +49,7 @@ test.describe('Bulk Watering State', () => {
     // to settle before looking for the row on slow CI runners.
     await page.waitForLoadState('networkidle')
 
-    const row = page.getByRole('row', { name: /seed fern/i })
+    const row = page.locator('tr').filter({ hasText: /seed fern/i })
     await row.waitFor({ state: 'visible', timeout: 30000 })
 
     // Initially should not be deemphasized if it needs water.
