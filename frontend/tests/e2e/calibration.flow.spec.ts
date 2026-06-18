@@ -81,11 +81,21 @@ test.describe('Calibration Flow', () => {
     const plantRow = page.locator('.card').filter({ hasText: /calibration plant/i })
     // Wait for the plant card to be visible after filter changes trigger re-render.
     await plantRow.waitFor({ state: 'visible', timeout: 15000 })
-    // Wait for calibration data to be rendered — the card must contain at least one cell
-    // with a numeric value before we assert on specific columns.
-    await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).first()).toBeVisible({
-      timeout: 30000,
-    })
+    // Wait for calibration data cells to actually contain numeric content. The
+    // component renders an em-dash '—' as a placeholder before the re-render
+    // flushes, so on a slow CI runner the card can be visible while cells still
+    // show '—'. Polling for a cell with a numeric value avoids the race.
+    await page.waitForFunction(
+      (card) => {
+        const cells = card.querySelectorAll('td')
+        for (const c of cells) {
+          if (/[+-]?\d+/.test(c.textContent || '')) return true
+        }
+        return false
+      },
+      await plantRow.elementHandle(),
+      { timeout: 30000, polling: 200 },
+    )
     // In some environments, it shows +100, in others 0. We accept any numeric diff.
     // nth(2) targets the "Diff to max Weight (g)" column (0=Water added, 1=Last wet, 2=Diff).
     await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).nth(2)).toBeVisible({
