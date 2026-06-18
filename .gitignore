@@ -11,6 +11,7 @@ Thumbs.db
 .ai
 .claude/
 .junie/
+.backlog/
 
 # Python
 __pycache__/

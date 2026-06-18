@@ -12,17 +12,28 @@ def update_min_dry_weight_and_max_watering_added_g(
     new_added_watering_g: Optional[int],
 ) -> None:
     """
-    Always update the plant's min_dry_weight_g because the plant might not
-    have a minimum weight yet or unrelated measurements (in the middle of
-    measurements list) changed. PostgreSQL will itself save the effort
-    and will not update the row when the value unchanged.
-    Returns the new min_dry_weight_g value or None if no update was made.
+    Update the plant's min_dry_weight_g and max_water_weight_g based on
+    measurement data, but only when the user has not explicitly set these
+    values. If the plant already has non-None values for min_dry_weight_g or
+    max_water_weight_g, they are preserved as the user's intentional
+    configuration. PostgreSQL will itself save the effort and will not
+    update the row when the value unchanged.
     """
     try:
+        # Check if the user has explicitly set these values
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
+                (plant_id_hex,),
+            )
+            row = cur.fetchone()
+            user_min_dry = row[0] if row else None
+            user_max_water = row[1] if row else None
+
         # First, find the last repotting event
         last_repotting = get_last_repotting_event(conn, plant_id_hex)
 
-        # Get current minimum
+        # Get current minimum from measurements
         current_weight_min = calculate_min_dry_weight_g(conn, plant_id_hex, last_repotting)
         current_watering_max = calculate_max_watering_added_g(conn, plant_id_hex, last_repotting)
 
@@ -36,6 +47,12 @@ def update_min_dry_weight_and_max_watering_added_g(
             new_added_watering_g is not None and new_added_watering_g > current_watering_max
         ):
             current_watering_max = new_added_watering_g
+
+        # Respect user-set values: don't overwrite explicit configuration
+        if user_min_dry is not None:
+            current_weight_min = user_min_dry
+        if user_max_water is not None:
+            current_watering_max = user_max_water
 
         # Update the plant's min_dry_weight_g and max_water_weight_g
         with conn.cursor() as cur:
