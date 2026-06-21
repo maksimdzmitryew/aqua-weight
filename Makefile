@@ -76,6 +76,7 @@ help:
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
 	@echo "  make dep-audit         - Audit dependencies for vulnerable/drifting versions"
+	@echo "  make token-test        - Get Auth token for Test environment"
 	@echo ""
 	@echo "Developer workflow:"
 	$(WORKFLOW_HINT)
@@ -355,3 +356,8 @@ install-hooks:
 .PHONY: dep-audit
 dep-audit:
 	bash scripts/dependency-audit.sh
+
+.PHONY: token-test
+token-test:
+	TOKEN=$(docker compose -f docker-compose.test.yml exec e2e curl -sk https://aw.max/api/test/login -X POST 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+	@echo $TOKEN

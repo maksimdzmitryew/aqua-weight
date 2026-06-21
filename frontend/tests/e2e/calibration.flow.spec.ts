@@ -57,17 +57,17 @@ test.describe('Calibration Flow', () => {
   })
 
   test('full overfill correction flow', async ({ page }) => {
-    // 5. Navigate to calibration — wait for the calibration API response so the
-    //    table is populated before we assert on cells. networkidle alone is not
-    //    sufficient because the API call fires from a useEffect *after* mount and
-    //    on a slow CI runner networkidle can resolve before the response arrives.
-    await Promise.all([
-      page.waitForResponse(
-        (r) => r.url().includes('/plants/measurements/calibrating') && r.status() === 200,
-        { timeout: 15000 },
-      ),
-      page.goto('/calibration', { waitUntil: 'commit' }),
-    ])
+    // 5. Navigate to calibration. The calibrating API fires from a useEffect
+    //    *after* mount. In React strict mode (dev) the effect runs twice; the
+    //    first call may be aborted by the cleanup before state is set, so
+    //    waiting for a single response can race with the second (state-bearing)
+    //    call. We therefore wait for the UI to actually show data.
+    const calibratingPromise = page.waitForResponse(
+      (r) => r.url().includes('/plants/measurements/calibrating') && r.status() === 200,
+      { timeout: 30000 },
+    )
+    await page.goto('/calibration', { waitUntil: 'commit' })
+    await calibratingPromise
 
     // To see overfills (where under_g is 0), we MUST check this filter
     await page.getByLabel(/zero Below Max Water, all/i).check()
@@ -80,22 +80,15 @@ test.describe('Calibration Flow', () => {
     // Verify overfill row is shown (we look for a row that contains our plant name and some data)
     const plantRow = page.locator('.card').filter({ hasText: /calibration plant/i })
     // Wait for the plant card to be visible after filter changes trigger re-render.
-    await plantRow.waitFor({ state: 'visible', timeout: 15000 })
-    // Wait for calibration data cells to actually contain numeric content. The
-    // component renders an em-dash '—' as a placeholder before the re-render
-    // flushes, so on a slow CI runner the card can be visible while cells still
-    // show '—'. Polling for a cell with a numeric value avoids the race.
-    await page.waitForFunction(
-      (card) => {
-        const cells = card.querySelectorAll('td')
-        for (const c of cells) {
-          if (/[+-]?\d+/.test(c.textContent || '')) return true
-        }
-        return false
-      },
-      await plantRow.elementHandle(),
-      { timeout: 30000, polling: 200 },
-    )
+    await plantRow.waitFor({ state: 'visible', timeout: 30000 })
+    // Wait for the calibration table to render inside the card. The table only
+    // appears when sorted.length > 0. On a slow CI runner the component may
+    // render the card skeleton first and flush the table rows in a subsequent
+    // paint, so we poll for a cell with numeric content — the cells render as
+    // '—' placeholders before data fills in.
+    await expect(plantRow.getByRole('cell', { name: /[+-]?\d+/ }).first()).toBeVisible({
+      timeout: 30000,
+    })
     // In some environments, it shows +100, in others 0. We accept any numeric diff.
     // nth(2) targets the "Diff to max Weight (g)" column (0=Water added, 1=Last wet, 2=Diff).
     await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).nth(2)).toBeVisible({
