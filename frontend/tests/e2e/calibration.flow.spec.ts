@@ -68,6 +68,12 @@ test.describe('Calibration Flow', () => {
     )
     await page.goto('/calibration', { waitUntil: 'commit' })
     await calibratingPromise
+    // The component renders a <Loader> while loading. In React strict mode (dev),
+    // the useEffect fires twice — the first call may be aborted by cleanup before
+    // state is set. waitForResponse may resolve on the first (aborted) response.
+    // Wait for the loader to disappear so we know data has actually rendered.
+    await expect(page.getByText(/loading plants/i)).not.toBeVisible({ timeout: 30000 })
+    await page.waitForLoadState('networkidle')
 
     // To see overfills (where under_g is 0), we MUST check this filter
     await page.getByLabel(/zero Below Max Water, all/i).check()
@@ -86,12 +92,12 @@ test.describe('Calibration Flow', () => {
     // render the card skeleton first and flush the table rows in a subsequent
     // paint, so we poll for a cell with numeric content — the cells render as
     // '—' placeholders before data fills in.
-    await expect(plantRow.getByRole('cell', { name: /[+-]?\d+/ }).first()).toBeVisible({
+    await expect(plantRow.getByRole('cell', { name: /^[\+\-]?\d+$/ }).first()).toBeVisible({
       timeout: 30000,
     })
     // In some environments, it shows +100, in others 0. We accept any numeric diff.
     // nth(2) targets the "Diff to max Weight (g)" column (0=Water added, 1=Last wet, 2=Diff).
-    await expect(plantRow.getByRole('cell', { name: /\+?\d+/ }).nth(2)).toBeVisible({
+    await expect(plantRow.getByRole('cell', { name: /^[\+\-]?\d+$/ }).nth(2)).toBeVisible({
       timeout: 15000,
     })
 
