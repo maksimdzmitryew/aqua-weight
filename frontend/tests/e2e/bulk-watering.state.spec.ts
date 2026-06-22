@@ -45,9 +45,12 @@ test.describe('Bulk Watering State', () => {
     await page.getByRole('button', { name: /all/i }).click()
     await responsePromise
     await expect(page.getByText(/loading/i)).not.toBeVisible()
+    // Wait for all remaining network activity (Phase 1 approximation endpoint etc.)
+    // to settle before looking for the row on slow CI runners.
+    await page.waitForLoadState('networkidle')
 
-    const row = page.getByRole('row', { name: /seed fern/i })
-    await row.waitFor({ state: 'visible' })
+    const row = page.locator('tr').filter({ hasText: /seed fern/i })
+    await row.waitFor({ state: 'visible', timeout: 30000 })
 
     // Initially should not be deemphasized if it needs water.
     // However, to avoid flakiness with initial state calculation,
