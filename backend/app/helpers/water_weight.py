@@ -43,15 +43,17 @@ def update_min_dry_weight_and_max_watering_added_g(
         ):
             current_weight_min = new_measured_weight_g
 
-        if current_watering_max is None or (
-            new_added_watering_g is not None and new_added_watering_g > current_watering_max
+        if (
+            new_added_watering_g is not None
+            and new_added_watering_g > 0
+            and (current_watering_max is None or new_added_watering_g > current_watering_max)
         ):
             current_watering_max = new_added_watering_g
 
         # Respect user-set values: don't overwrite explicit configuration
         if user_min_dry is not None:
             current_weight_min = user_min_dry
-        if user_max_water is not None:
+        if user_max_water is not None and user_max_water > 0:
             current_watering_max = user_max_water
 
         # Update the plant's min_dry_weight_g and max_water_weight_g

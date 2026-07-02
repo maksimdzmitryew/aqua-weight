@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 import pymysql
 
@@ -11,6 +11,11 @@ ALLOWED_SETTINGS_KEYS = {
     "language": str,
     "notifications_enabled": bool,
     "default_view": str,
+    "plantsListSort": dict,
+    "whatsapp_enabled": bool,
+    "whatsapp_number": str,
+    "whatsapp_helpers": list,
+    "whatsapp_last_notification": dict,
 }
 
 
@@ -44,10 +49,14 @@ class SettingsService:
             return settings_data, version
 
     def validate_settings(self, settings: Dict[str, Any]) -> None:
-        """Validate settings against the whitelist and types."""
+        """Validate settings against the whitelist and types.
+
+        Unknown keys are allowed for backward compatibility — only keys in
+        the whitelist are type-checked.
+        """
         for key, value in settings.items():
             if key not in ALLOWED_SETTINGS_KEYS:
-                raise ValueError(f"Setting key '{key}' is not allowed")
+                continue
 
             expected_type = ALLOWED_SETTINGS_KEYS[key]
             if not isinstance(value, expected_type):
@@ -68,3 +77,26 @@ class SettingsService:
                 sql = "UPDATE users SET settings_json = %s, updated_at = NOW(6) WHERE id = %s"
                 cur.execute(sql, (settings_str, user_id))
             return True
+
+    def get_whatsapp_enabled_users(self) -> List[Tuple[bytes, Dict[str, Any]]]:
+        """Return (user_id, settings) for users with WhatsApp enabled and a group ID set."""
+        with cursor(self.db_conn) as cur:
+            cur.execute("SELECT id, settings_json FROM users")
+            rows = cur.fetchall()
+
+        result = []
+        for user_id, settings_json in rows:
+            if isinstance(settings_json, str):
+                try:
+                    settings = json.loads(settings_json)
+                except json.JSONDecodeError:
+                    continue
+            elif isinstance(settings_json, dict):
+                settings = settings_json
+            else:
+                continue
+
+            if settings.get("whatsapp_enabled") and settings.get("whatsapp_number"):
+                result.append((user_id, settings))
+
+        return result

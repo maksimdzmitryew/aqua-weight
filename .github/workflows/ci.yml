@@ -67,6 +67,66 @@ jobs:
         if: ${{ always() }}
         run: docker compose -f docker-compose.test.yml down -v
 
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: [backend]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Start test stack (db + runner)
+        run: docker compose -f docker-compose.test.yml up -d db runner
+
+      - name: Wait for DB healthy
+        run: |
+          for i in {1..30}; do
+            if docker compose -f docker-compose.test.yml exec -T db mariadb-admin \
+              ping -h 127.0.0.1 --protocol=TCP -uroot -p"${MARIADB_ROOT_PASSWORD:-rootpass}" --silent; then
+              echo "DB OK"; break; fi; echo "Waiting for DB..."; sleep 3; done
+
+      - name: Run integration tests
+        run: |
+          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+            "pytest -q backend/tests/integration -v -m integration"
+
+      - name: Teardown test stack
+        if: ${{ always() }}
+        run: docker compose -f docker-compose.test.yml down -v
+
+  api-contract-tests:
+    name: API Contract Tests
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Start test stack (db + runner)
+        run: docker compose -f docker-compose.test.yml up -d db runner
+
+      - name: Wait for DB healthy
+        run: |
+          for i in {1..30}; do
+            if docker compose -f docker-compose.test.yml exec -T db mariadb-admin \
+              ping -h 127.0.0.1 --protocol=TCP -uroot -p"${MARIADB_ROOT_PASSWORD:-rootpass}" --silent; then
+              echo "DB OK"; break; fi; echo "Waiting for DB..."; sleep 3; done
+
+      - name: Run API contract tests
+        run: |
+          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+            "pytest -q backend/tests/integration/test_api_contract.py -v --tb=short"
+
+      - name: Teardown test stack
+        if: ${{ always() }}
+        run: docker compose -f docker-compose.test.yml down -v
+
   frontend:
     name: Frontend (lint, format, unit tests, coverage)
     runs-on: ubuntu-latest
@@ -126,6 +186,15 @@ jobs:
         with:
           name: frontend-coverage
           path: frontend/coverage
+
+  dep-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    needs: [backend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dependency audit
+        run: make dep-audit-ci
 
   deploy-check:
     name: Backend Deployment Check

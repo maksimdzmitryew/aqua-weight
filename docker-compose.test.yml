@@ -162,6 +162,21 @@ services:
     networks:
       - aw-tests-net
 
+  storybook:
+    image: node:20-slim
+    container_name: aw_test_storybook
+    working_dir: /app/frontend
+    volumes:
+      - ./frontend:/app/frontend
+      - fe_node_modules_test:/app/frontend/node_modules
+    ports:
+      - "6006:6006"
+    command: npx storybook dev -p 6006 --no-open --ci
+    networks:
+      - aw-tests-net
+    profiles:
+      - storybook
+
 volumes:
   mariadb_data_test_appdbtest:
   fe_node_modules_test:

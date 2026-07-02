@@ -25,6 +25,7 @@ from ..security import (
 )
 from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
+from ..metrics import plants_with_prediction
 
 app = APIRouter()
 
@@ -191,6 +192,8 @@ async def list_plants(
     defaultThreshold: str | None = None,  # Try query param first
     operationModeCookie: str | None = Cookie(None, alias="operationMode"),
     defaultThresholdCookie: str | None = Cookie(None, alias="defaultThreshold"),
+    sortBy: str | None = None,
+    sortDir: str | None = None,
 ) -> PaginatedPlantsResponse:
     # Validate and sanitize pagination parameters
     if page < 1:
@@ -232,7 +235,13 @@ async def list_plants(
             needs_weighing_filter=needs_weighing,
             uuids=uuid_list,
             current_user=current_user,
+            sort_by=sortBy,
+            sort_dir=sortDir,
         )
+
+        # Record Prometheus metric for plants needing watering
+        thirsty_count = sum(1 for p in items if p.get("needs_watering_prediction"))
+        plants_with_prediction.set(thirsty_count)
 
         return PaginatedPlantsResponse(
             items=items,
@@ -315,35 +324,7 @@ async def list_plant_uuids(
         )
 
         if needs_watering is not None:
-
-            def check_needs_water(p):
-                if mode == "vacation":
-                    return p["days_offset"] is not None and p["days_offset"] <= 0
-
-                retained = p["water_retained_pct"]
-
-                # If the plant was just watered (signature: water_loss_total_pct is 0),
-                # it doesn't need water in manual/automatic mode.
-                if p["water_loss_total_pct"] == 0 and (retained is None or retained > 0):
-                    return False
-
-                if retained is not None:
-                    # Use default threshold if plant doesn't have one
-                    thresh = p["recommended_water_threshold_pct"]
-                    if thresh is None:
-                        thresh = def_thr
-
-                    return (thresh is not None and retained <= thresh) or p.get(
-                        "needs_watering_prediction", False
-                    )
-
-                # If we have no weight data, and no approximation, we assume it needs attention
-                # (weighing/watering) by default to avoid missing plants.
-                if p["days_offset"] is not None:
-                    return p["days_offset"] <= 0
-                return True or p.get("needs_watering_prediction", False)
-
-            items = [item for item in items if check_needs_water(item) == needs_watering]
+            items = [item for item in items if item.get("needs_water", False) == needs_watering]
 
         return [p["uuid"] for p in items]
 

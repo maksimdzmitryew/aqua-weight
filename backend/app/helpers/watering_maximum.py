@@ -19,7 +19,7 @@ def get_added_waterings_since_repotting(
                     SELECT water_added_g
                     FROM plants_measurements
                     WHERE plant_id = UNHEX(%s)
-                      AND water_added_g IS NOT NULL
+                      AND water_added_g > 0
                     ORDER BY measured_at ASC
                     """,
                     (plant_id_hex,),
@@ -37,7 +37,7 @@ def get_added_waterings_since_repotting(
                     FROM plants_measurements
                     WHERE plant_id = UNHEX(%s)
                       AND measured_at >= %s
-                      AND water_added_g IS NOT NULL
+                      AND water_added_g > 0
                     ORDER BY measured_at ASC
                     """,
                     (plant_id_hex, last_repotting.measured_at),

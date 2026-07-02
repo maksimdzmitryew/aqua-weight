@@ -34,12 +34,20 @@ help:
 	@echo "  make run-logs          - Show runtime logs"
 	@echo "  make run-ps            - Status of runtime containers"
 	@echo ""
+	@echo "Scheduler targets (WhatsApp daily digest):"
+	@echo "  make scheduler-up      - Start scheduler container"
+	@echo "  make scheduler-down    - Stop scheduler container"
+	@echo "  make scheduler-restart - Restart scheduler container"
+	@echo "  make scheduler-logs    - Show scheduler logs"
+	@echo ""
 	@echo "Test targets (docker-compose.test.yml):"
 	@echo "  make test-build        - Build test containers"
 	@echo "  make test-up           - Start test stack (detached)"
 	@echo "  make test-up-f         - Start test stack (foreground)"
 	@echo "  make test-down         - Stop test stack"
 	@echo "  make test-be           - Run backend tests (pytest)"
+	@echo "  make test-integration  - Run integration tests"
+	@echo "  make test-api          - Run API contract tests"
 	@echo "  make test-logs         - Show test logs"
 	@echo "  make test-ps           - Status of test containers"
 	@echo ""
@@ -57,6 +65,10 @@ help:
 	@echo "  make test-fe-ci        - Run frontend unit tests in GitHub CI parity mode (Node 24 + npm ci + CI=true)"
 	@echo "  make fe-sb             - Start Storybook (local)"
 	@echo "  make fe-sb-build       - Build static Storybook (local)"
+	@echo "  make sb-up             - Start Storybook in Docker"
+	@echo "  make sb-down           - Stop Storybook in Docker"
+	@echo "  make sb-build          - Build static Storybook in Docker"
+	@echo "  make sb-test           - Run Storybook tests in Docker"
 	@echo "  make fe-clean          - Clear Vite cache and restart frontend container"
 	@echo "  make fe-fmt-fix        - Auto-fix frontend formatting with Prettier"
 	@echo "  make fe-lint-fix       - Auto-fix frontend ESLint issues"
@@ -76,6 +88,8 @@ help:
 	@echo "Utility:"
 	@echo "  make certs             - Generate dev certificates"
 	@echo "  make dep-audit         - Audit dependencies for vulnerable/drifting versions"
+	@echo "  make load-test         - Run Locust load test (headless, 60s)"
+	@echo "  make load-test-ui      - Start Locust web UI"
 	@echo "  make token-test        - Get Auth token for Test environment"
 	@echo ""
 	@echo "Developer workflow:"
@@ -115,6 +129,22 @@ run-logs:
 run-ps:
 	docker compose -f $(RUN_COMPOSE) ps
 
+.PHONY: scheduler-up
+scheduler-up:
+	docker compose -f $(RUN_COMPOSE) up -d scheduler
+
+.PHONY: scheduler-down
+scheduler-down:
+	docker compose -f $(RUN_COMPOSE) stop scheduler
+
+.PHONY: scheduler-restart
+scheduler-restart:
+	docker compose -f $(RUN_COMPOSE) restart scheduler
+
+.PHONY: scheduler-logs
+scheduler-logs:
+	docker compose -f $(RUN_COMPOSE) logs -f scheduler
+
 # --- Test stack ---
 .PHONY: test-build
 test-build:
@@ -153,6 +183,15 @@ test-be:
 	docker compose -f $(TEST_COMPOSE) up -d runner
 	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
 	$(WORKFLOW_HINT)
+
+.PHONY: test-integration
+test-integration: test-up
+	docker compose -f $(TEST_COMPOSE) exec runner pytest -q backend/tests/integration -v
+
+.PHONY: test-api
+test-api: test-up
+	docker compose -f $(TEST_COMPOSE) exec runner \
+		pytest -q backend/tests/integration/test_api_contract.py -v --tb=short
 
 .PHONY: test-full
 test-full:
@@ -248,6 +287,26 @@ fe-sb:
 .PHONY: fe-sb-build
 fe-sb-build:
 	npm run build-storybook --prefix frontend
+
+# Storybook in Docker
+.PHONY: sb-up
+sb-up: test-up
+	docker compose -f $(TEST_COMPOSE) --profile storybook up -d storybook
+	@echo "Storybook running at http://localhost:6006"
+
+.PHONY: sb-down
+sb-down:
+	docker compose -f $(TEST_COMPOSE) --profile storybook stop storybook
+
+.PHONY: sb-build
+sb-build: test-up
+	docker compose -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
+		npx storybook build --output-dir /app/frontend/storybook-static
+
+.PHONY: sb-test
+sb-test: test-up
+	docker compose -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
+		npx test-storybook --ci
 
 .PHONY: fe-clean
 fe-clean: ## Clear Vite cache and restart frontend container
@@ -356,6 +415,32 @@ install-hooks:
 .PHONY: dep-audit
 dep-audit:
 	bash scripts/dependency-audit.sh
+
+.PHONY: dep-audit-ci
+dep-audit-ci:
+	docker compose -f $(TEST_COMPOSE) exec runner bash -c \
+		"pip-audit -r backend/requirements.txt && cd /app/frontend && npm audit --omit=dev"
+
+# --- Load testing ---
+.PHONY: load-test
+load-test: test-up
+	@echo "Starting load test against test stack..."
+	@echo "This will run for 60 seconds with 10 concurrent users."
+	cd backend && locust -f tests/load/locustfile.py \
+		--host=http://localhost:8000/api \
+		--users 10 \
+		--spawn-rate 2 \
+		--run-time 60s \
+		--headless \
+		--html=tests/load/report.html \
+		--json=tests/load/report.json
+	@echo "Load test complete. Report: backend/tests/load/report.html"
+
+.PHONY: load-test-ui
+load-test-ui: test-up
+	@echo "Starting Locust web UI at http://localhost:8089"
+	cd backend && locust -f tests/load/locustfile.py \
+		--host=http://localhost:8000/api
 
 .PHONY: token-test
 token-test:

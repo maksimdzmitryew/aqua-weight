@@ -68,6 +68,7 @@ test.describe('Plants CRUD', () => {
     const updatedRow = page.getByRole('row', { name: /test fern/i })
     await expect(updatedRow).toBeVisible({ timeout: 10000 })
     await expect(updatedRow).toContainText('Updated notes')
+    await expect(updatedRow).not.toContainText('Original notes')
 
     // Delete
     await page

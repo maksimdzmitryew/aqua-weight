@@ -41,6 +41,7 @@ from ..services.measurements import (
     validate_water_loss,
 )
 from ..utils.settings_defaults import parse_default_threshold
+from ..metrics import watering_events_total, measurements_total
 
 # Ensure router is defined before any @app.* decorators are used
 app = APIRouter()
@@ -196,6 +197,9 @@ async def create_vacation_watering(
                     ),
                 )
                 conn.commit()
+
+                # Record Prometheus metric
+                watering_events_total.labels(mode="vacation").inc()
 
                 # Compute water retained percentage for response
                 water_retained_pct = _compute_water_retained_for_plant(
@@ -913,6 +917,12 @@ async def create_measurement(
                 )
                 latest_at = cur.fetchone()[0]
                 needs_weighing_val = needs_weighing(latest_at, mode)
+
+                # Record Prometheus metrics
+                if loss_calc.is_watering_event:
+                    watering_events_total.labels(mode="manual").inc()
+                else:
+                    measurements_total.inc()
 
                 return {
                     "status": "success",

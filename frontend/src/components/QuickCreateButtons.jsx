@@ -16,19 +16,19 @@ export default function QuickCreateButtons({ plantUuid, plantName, compact = fal
   return (
     <span style={{ display: 'inline-flex', gap: spacing }}>
       <IconButton
-        icon="beaker"
+        icon="scale"
         label={`Measurement for ${plantName || 'plant'}`}
         onClick={() => openPlant('weight')}
         variant="primary"
       />
       <IconButton
-        icon="droplet"
+        icon="waves"
         label={`Watering for ${plantName || 'plant'}`}
         onClick={() => openPlant('watering')}
         variant="primary"
       />
       <IconButton
-        icon="box"
+        icon="pot"
         label={`Repotting for ${plantName || 'plant'}`}
         onClick={() => openPlant('repotting')}
         variant="primary"

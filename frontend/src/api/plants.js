@@ -1,11 +1,13 @@
 import { apiClient, ApiError } from './client'
 
 export const plantsApi = {
-  list({ page = 1, limit = 20, search = '', status = 'active', signal } = {}) {
+  list({ page = 1, limit = 20, search = '', status = 'active', signal, sortBy, sortDir } = {}) {
     const params = new URLSearchParams({ page: String(page), limit: String(limit), status })
     if (search && search.trim()) {
       params.append('search', search.trim())
     }
+    if (sortBy) params.append('sortBy', sortBy)
+    if (sortDir) params.append('sortDir', sortDir)
     return apiClient.get(`/plants?${params}`, { signal })
   },
   listNames(signal) {

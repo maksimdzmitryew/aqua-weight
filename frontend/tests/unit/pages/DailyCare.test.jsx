@@ -135,6 +135,7 @@ test('shows tasks table with water indicators', async () => {
             water_retained_pct: 10,
             recommended_water_threshold_pct: 30,
             needs_weighing: false,
+            needs_water: true,
           },
         ],
       }),
@@ -169,6 +170,7 @@ test('renders empty state when no tasks are due', async () => {
         id: 1,
         name: 'Fern',
         latest_at: '2999-01-01T00:00:00',
+        needs_water: false,
       },
     ]),
     http.get('/api/plants/measurements/approximation/watering', () =>
@@ -238,6 +240,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
             water_retained_pct: 10,
             recommended_water_threshold_pct: 30,
             needs_weighing: false,
+            needs_water: true,
           },
           {
             uuid: 'b',
@@ -248,6 +251,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
             water_retained_pct: 80,
             recommended_water_threshold_pct: 30,
             needs_weighing: false,
+            needs_water: false,
           },
         ],
       }),
@@ -293,6 +297,7 @@ test('header actions: refresh reloads data; buttons navigate and show counts', a
             status: 'active',
             latest_at: '2999-01-01T00:00:00',
             needs_weighing: false,
+            needs_water: false,
           },
         ],
       }),
@@ -319,7 +324,7 @@ test('handle reload error (line 111) and refetch usage', async () => {
       HttpResponse.json({ items: [] }),
     ),
     ...paginatedPlantsHandler([
-      { uuid: 'p1', name: 'Plant 1', status: 'active', needs_weighing: true },
+      { uuid: 'p1', name: 'Plant 1', status: 'active', needs_weighing: true, needs_water: true },
     ]),
   )
   renderPage()
@@ -343,7 +348,7 @@ test('handle reload error (line 111) and refetch usage', async () => {
 test('missing approximation data results in no tasks', async () => {
   server.use(
     ...paginatedPlantsHandler([
-      { uuid: 'x', id: 10, name: 'Ivy', latest_at: '2020-01-01T00:00:00' },
+      { uuid: 'x', id: 10, name: 'Ivy', latest_at: '2020-01-01T00:00:00', needs_water: true },
     ]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({ items: [] }),
@@ -365,7 +370,7 @@ test('missing latest_at results in no measurement icon and potentially needs wat
       HttpResponse.json({ items: [] }),
     ),
     ...paginatedPlantsHandler([
-      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false },
+      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false, needs_water: true },
     ]),
   )
   renderPage('vacation')
@@ -399,6 +404,7 @@ test('fallback rendering: water task from approximation and name/notes/location 
         location: 'Shelf',
         status: 'active',
         needs_weighing: false,
+        needs_water: true,
       },
       {
         uuid: 'p2',
@@ -407,6 +413,7 @@ test('fallback rendering: water task from approximation and name/notes/location 
         scheduled_for: '2024-12-12T12:00:00',
         status: 'active',
         needs_weighing: false,
+        needs_water: true,
       },
     ]),
   )
@@ -479,7 +486,7 @@ test('bulk watering button shows count when plants need water', async () => {
       HttpResponse.json({ items: [] }),
     ),
     ...paginatedPlantsHandler([
-      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
+      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true, needs_water: true },
     ]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
@@ -499,7 +506,7 @@ test('shows weight column and enables bulk measurement in manual mode', async ()
       HttpResponse.json({ items: [] }),
     ),
     ...paginatedPlantsHandler([
-      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true },
+      { uuid: 'a', id: 1, name: 'Aloe', status: 'active', needs_weighing: true, needs_water: true },
     ]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({

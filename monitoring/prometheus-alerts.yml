@@ -1,0 +1,37 @@
+groups:
+  - name: aw-api-alerts
+    rules:
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket{handler=~"/api/.*"}[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency exceeds 1 second"
+          description: "The 95th percentile latency for {{ $labels.handler }} is {{ $value }}s"
+
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate exceeds 5%"
+          description: "Error rate is {{ $value | humanizePercentage }} for {{ $labels.handler }}"
+
+      - alert: HighRequestDuration
+        expr: |
+          rate(http_request_duration_seconds_sum[5m])
+          /
+          rate(http_request_duration_seconds_count[5m]) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API average latency exceeds 500ms"

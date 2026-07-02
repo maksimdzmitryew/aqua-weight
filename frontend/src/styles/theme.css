@@ -247,7 +247,51 @@
   font-weight: 600;
 }
 
-/* Responsive adjustments */
+/* Table header tooltip popover */
+.th-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.4;
+  max-width: 260px;
+  width: max-content;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  pointer-events: auto;
+}
+.th-popover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: var(--border);
+}
+.th-popover::after {
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 1px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--bg);
+}
+
+/* Mobile-only icon: hidden on desktop, shown at ≤640px */
+.mobile-only-icon {
+  display: none;
+}
+
 @media (max-width: 640px) {
   .layout {
     flex-direction: column;
@@ -261,6 +305,13 @@
   }
   .grid-cols-2 {
     grid-template-columns: 1fr;
+  }
+  /* On mobile: hide badge text, show icon */
+  .badge-text-desktop {
+    display: none;
+  }
+  .mobile-only-icon {
+    display: inline-flex !important;
   }
 }
 

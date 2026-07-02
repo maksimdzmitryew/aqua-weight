@@ -5,8 +5,10 @@ import {
 } from '../utils/water_retained_colors.js'
 import Badge from './Badge.jsx'
 import DateTimeText from './DateTimeText.jsx'
+import StatusIcon from './StatusIcon.jsx'
 import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering'
 import WaterDropIcon from './icons/WaterDropIcon.jsx'
+import { useTheme } from '../ThemeContext.jsx'
 import PlantsTableBase, { TableHeader } from './PlantsTableBase.jsx'
 
 export default function BulkMeasurementTable({
@@ -30,15 +32,18 @@ export default function BulkMeasurementTable({
   defaultThreshold = 40,
   approximations = {},
   noPlantsMessage = 'No plants found',
+  // Which icon takes precedence when both actions are applicable:
+  // 'measure' (bulk measurement page) or 'water' (bulk watering page).
+  priorityIcon = 'measure',
 }) {
   const computeWaterLossStyle = waterLossCellStyle || defaultWaterLossCellStyle
 
   const renderHeaders = () => (
     <>
-      <TableHeader title={firstColumnTooltip}>{firstColumnLabel}</TableHeader>
-      <TableHeader title="Watering threshold — water when retained ≤ value">Thresh</TableHeader>
-      <TableHeader title="Plant name">Name</TableHeader>
-      <TableHeader title="Notes">Notes</TableHeader>
+      <TableHeader title={firstColumnTooltip} style={{ minWidth: 165 }}>{firstColumnLabel}</TableHeader>
+      <TableHeader title="Watering threshold — water when retained ≤ value" style={{ minWidth: 95 }}>Thresh</TableHeader>
+      <TableHeader title="Plant name" style={{ minWidth: 190 }}>Name</TableHeader>
+      <TableHeader title="Notes" style={{ minWidth: 240 }}>Notes</TableHeader>
       <TableHeader title="Location" className="th hide-column-phone">
         Location
       </TableHeader>
@@ -46,8 +51,9 @@ export default function BulkMeasurementTable({
         title={
           operationMode === 'vacation'
             ? 'Projected water loss based on frequency (100 - retained %)'
-            : 'Water loss since last watering based on weight'
+            : 'Water loss of the last water amount added'
         }
+        className="th hide-column-phone"
       >
         Water loss
       </TableHeader>
@@ -60,8 +66,9 @@ export default function BulkMeasurementTable({
   )
 
   const renderRow = (p) => {
-    const approx = approximations[p.uuid || p.id]
-    const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
+    const key = p.uuid || p.id
+    const approx = approximations[key]
+    const needsWater = checkNeedsWater(p)
     const needsMeasure = p.needs_weighing
 
     const retained = getWaterRetainedPct(p, operationMode, approx)
@@ -76,9 +83,33 @@ export default function BulkMeasurementTable({
 
     const displayWaterLossText = typeof displayWaterLoss === 'number' ? `${displayWaterLoss}%` : '—'
 
-    const status = inputStatus[p.uuid || p.id]
-    const mId = measurementIds[p.uuid || p.id]
+    const status = inputStatus[key]
+    const mId = measurementIds[key]
     const isSaving = status === 'saving'
+
+    // Icon state machine for mobile icons:
+    // - initial (no commit): show the priority icon when both apply, else whichever applies
+    // - saving (API in progress): show empty placeholder (hide weight icon)
+    // - success (API responded): show water icon if API says needs_water, else empty placeholder
+    // - cleared (after delete): re-evaluate from current plant state
+    const apiResponded = status === 'success'
+    let iconToUse = null
+    if (!apiResponded) {
+      // Initial state: when both actions apply, priorityIcon wins;
+      // otherwise show whichever single action applies.
+      const bothApply = needsMeasure && needsWater
+      if (bothApply && priorityIcon === 'water') {
+        iconToUse = 'water'
+      } else if (bothApply) {
+        iconToUse = 'measure'
+      } else if (needsMeasure) {
+        iconToUse = 'measure'
+      } else if (needsWater) {
+        iconToUse = 'water'
+      }
+    } else if (apiResponded && needsWater) {
+      iconToUse = 'water'
+    }
 
     let dropColor = '#3b82f6' // blue-500
     if (status === 'success' || mId) dropColor = '#10b981' // green-500
@@ -109,6 +140,7 @@ export default function BulkMeasurementTable({
                   className={`input ${status === 'success' ? 'bg-success' : ''} ${
                     status === 'error' ? 'bg-error' : ''
                   }`}
+                  disabled={isSaving}
                   defaultValue={p.current_weight || ''}
                   onBlur={(e) => {
                     if (e.target.value && (p.uuid || p.id))
@@ -125,10 +157,12 @@ export default function BulkMeasurementTable({
                       border: 'none',
                       cursor: isSaving ? 'wait' : 'pointer',
                       padding: '2px 4px',
-                      fontSize: 16,
+                      fontSize: 24,
                       color: '#ef4444',
                       fontWeight: 'bold',
                       borderRadius: 4,
+                      width: 18,
+                      textAlign: 'center',
                     }}
                     className="hover-bg-muted"
                     title="Delete this watering entry"
@@ -171,8 +205,22 @@ export default function BulkMeasurementTable({
                 />
               </button>
             )}
+            <span
+              className="mobile-only-icon"
+              style={{
+                display: 'none',
+                // When a measurement exists, the cross-delete button is the spacer —
+                // collapse this area to zero so we don't double up gaps.
+                // Otherwise reserve one icon-width slot (icon or hidden placeholder).
+                minWidth: mId ? 0 : 28,
+                ...(iconToUse || mId || needsWater ? {} : { visibility: 'hidden' }),
+              }}
+            >
+              {!mId && (iconToUse === 'water' || (apiResponded && needsWater)) && <StatusIcon type="water" active={true} />}
+              {!mId && iconToUse === 'measure' && <StatusIcon type="measure" active={true} />}
+            </span>
             {retained !== 'N/A' && (
-              <span style={{ fontSize: '0.9em', color: '#6b7280' }}>{displayRetained}</span>
+              <span style={{ fontSize: '0.9em', color: '#6b7280', width: 36, textAlign: 'right', display: 'inline-block' }}>{displayRetained}</span>
             )}
             {operationMode === 'vacation' && approx?.next_watering_at && (
               <span
@@ -199,28 +247,43 @@ export default function BulkMeasurementTable({
               </span>
             )}
             {needsWater && (
-              <Badge
-                tone="warning"
-                title={
-                  operationMode === 'vacation'
-                    ? 'Needs water based on approximation'
-                    : 'Needs water based on threshold'
-                }
-              >
-                Needs water
-              </Badge>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span className="badge-text-desktop">
+                  <Badge
+                    tone="warning"
+                    title={
+                      operationMode === 'vacation'
+                        ? 'Needs water based on approximation'
+                        : 'Needs water based on threshold'
+                    }
+                  >
+                    Needs water
+                  </Badge>
+                </span>
+              </span>
             )}
             {needsMeasure && (
-              <Badge tone="info" title="Needs weighing (>18h since last update)">
-                Needs weight
-              </Badge>
+              <span className="badge-text-desktop">
+                <Badge tone="info" title="Needs weighing (>18h since last update)">
+                  Needs weight
+                </Badge>
+              </span>
             )}
           </div>
         </td>
-        <td className="td">
-          {typeof p.recommended_water_threshold_pct === 'number'
-            ? `${p.recommended_water_threshold_pct}%`
-            : '—'}
+        <td className="td" style={{ whiteSpace: 'nowrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {typeof p.recommended_water_threshold_pct === 'number'
+              ? `${p.recommended_water_threshold_pct}%`
+              : '—'}
+            {needsWater && (
+              <WaterDropIcon
+                color={status === 'error' ? '#ef4444' : '#f97316'} // orange-500 for water icon
+                size={16}
+                title="Water needed"
+              />
+            )}
+          </span>
         </td>
         <td
           className="td"
@@ -261,7 +324,7 @@ export default function BulkMeasurementTable({
         </td>
         <td className="td hide-column-phone">{p.location || '—'}</td>
         <td
-          className="td"
+          className="td hide-column-phone"
           style={computeWaterLossStyle?.(displayWaterLoss)}
           title={p.uuid ? 'View plant' : undefined}
         >

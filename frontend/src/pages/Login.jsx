@@ -1,5 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { toast } from 'react-hot-toast'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import useDocumentTitle from '../hooks/useDocumentTitle.js'
 import TextInput from '../components/form/fields/TextInput.jsx'
@@ -8,7 +9,7 @@ import { useForm, required } from '../components/form/useForm'
 import ErrorNotice from '../components/feedback/ErrorNotice.jsx'
 
 export default function Login() {
-  const { login, verifyMfa, isAuthenticated } = useAuth()
+  const { login, verifyMfa, isAuthenticated, sessionExpired, setSessionExpired } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [error, setError] = useState('')
@@ -16,6 +17,13 @@ export default function Login() {
   const [mfaData, setMfaData] = useState(null)
 
   useDocumentTitle('Login')
+
+  useEffect(() => {
+    if (sessionExpired) {
+      toast.error('Your session has expired. Please log in again.')
+      setSessionExpired(false)
+    }
+  }, [sessionExpired, setSessionExpired])
 
   const from = location.state?.from?.pathname || '/dashboard'
 

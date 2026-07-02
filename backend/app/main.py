@@ -16,7 +16,9 @@ from .routes.plants import app as plants_app
 from .routes.repotting import app as repotting_app
 from .routes.settings import router as settings_router
 from .routes.test_admin import app as test_admin_app
+from .routes.whatsapp import router as whatsapp_router
 from .security import require_authenticated_user
+from prometheus_fastapi_instrumentator import Instrumentator
 
 APP_ENV = _os.getenv("APP_ENV", "development").lower()
 TEST_MODE = _os.getenv("TEST_MODE") == "1"
@@ -72,6 +74,7 @@ internal_auth_router.include_router(locations_app)
 internal_auth_router.include_router(measurements_app)
 internal_auth_router.include_router(settings_router)
 internal_auth_router.include_router(admin_router)
+internal_auth_router.include_router(whatsapp_router)
 
 # Versioned router (v1)
 v1 = APIRouter()
@@ -105,3 +108,6 @@ app.include_router(v1, prefix="/api")
 
 # Also mount infrastructure routes at root for top-level /health consolidation
 app.include_router(infrastructure_router)
+
+# Prometheus instrumentation
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)

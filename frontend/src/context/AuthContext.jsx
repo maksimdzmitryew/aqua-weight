@@ -47,6 +47,8 @@ export const AuthProvider = ({ children }) => {
   const accessTokenRef = useRef(accessToken)
   const deviceIdRef = useRef(null)
 
+  const [sessionExpired, setSessionExpired] = useState(false)
+
   const [deviceId, setDeviceId] = useState(() => {
     try {
       let id = localStorage.getItem('aw_device_id')
@@ -84,6 +86,7 @@ export const AuthProvider = ({ children }) => {
 
   // 2. Define auth lifecycle callbacks for the ApiClient.
   const handleUnauthenticated = useCallback(() => {
+    setSessionExpired(true)
     accessTokenRef.current = null
     setUser(null)
     setAccessToken(null)
@@ -241,8 +244,10 @@ export const AuthProvider = ({ children }) => {
       login,
       verifyMfa,
       logout,
+      sessionExpired,
+      setSessionExpired,
     }),
-    [user, accessToken, status, deviceId, login, verifyMfa, logout],
+    [user, accessToken, status, deviceId, login, verifyMfa, logout, sessionExpired],
   )
 
   // Prevent flicker by showing a loader during the initial session check.

@@ -286,12 +286,20 @@ export default function BulkWatering() {
         const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
         const prevData = prev[plantId] || currentPlant || {}
         const now = wateringTime.getCommitDateTime()
+        // Derive needs_water from fresh water_retained_pct + threshold (mirrors BE logic in plants_list.py).
+        const threshold =
+          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
+        const derivedNeedsWater =
+          responseData?.water_retained_pct !== undefined && responseData?.water_retained_pct !== null
+            ? responseData.water_retained_pct <= threshold
+            : prevData?.needs_water
         return {
           ...prev,
           [plantId]: {
             ...prevData,
             ...responseData,
             current_weight: numeric,
+            needs_water: derivedNeedsWater,
             latest_at:
               responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
@@ -354,9 +362,18 @@ export default function BulkWatering() {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: measurement.id }))
         setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
 
+        const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
+        const threshold =
+          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
+        const derivedNeedsWater =
+          measurement?.water_retained_pct !== undefined && measurement?.water_retained_pct !== null
+            ? measurement.water_retained_pct <= threshold
+            : undefined
+
         const updatedData = {
           water_loss_total_pct: measurement.water_loss_total_pct,
           water_retained_pct: measurement.water_retained_pct,
+          needs_water: derivedNeedsWater,
           latest_at:
             measurement.latest_at || measurement.measured_at || wateringTime.getCommitDateTime(),
           measured_at: measurement.measured_at,
@@ -364,7 +381,10 @@ export default function BulkWatering() {
 
         setProgressBuffer((prev) => ({
           ...prev,
-          [plantId]: updatedData,
+          [plantId]: {
+            ...prev[plantId],
+            ...updatedData,
+          },
         }))
 
         // Refresh approximations for this plant
@@ -429,8 +449,14 @@ export default function BulkWatering() {
   }
 
   const deemphasizePredicate = (p) => {
-    const approx = approximations[p.uuid]
-    return !checkNeedsWater(p, operationMode, approx, defaultThreshold)
+    if (operationMode === 'vacation') {
+      const approx = approximations[p.uuid || p.id]
+      if (approx?.days_offset !== undefined && approx?.days_offset !== null) {
+        return approx.days_offset > 0
+      }
+    }
+    // Backend is source of truth for needs_water; missing data means needs water (True)
+    return !checkNeedsWater(p)
   }
 
   // Styles for tabs
@@ -553,7 +579,7 @@ export default function BulkWatering() {
             onDeleteVacationWatering={handleVacationWateringDelete}
             measurementIds={measurementIds}
             onViewPlant={(p) => navigate(`/plants/${p.uuid}`, { state: { plant: p } })}
-            firstColumnLabel="Water: Retained %, Next date"
+            firstColumnLabel="Weight gr, Water"
             firstColumnTooltip="Manual/Automatic: Enter weight in grams. Vacation: Record watering icon. Column also shows water retained (%) and next scheduled watering."
             waterLossCellStyle={waterLossCellStyle}
             showUpdatedColumn={true}
@@ -562,6 +588,7 @@ export default function BulkWatering() {
             approximations={approximations}
             deemphasizePredicate={deemphasizePredicate}
             noPlantsMessage={showAll ? 'No plants available' : 'No plants need watering'}
+            priorityIcon="water"
           />
         )}
       </>

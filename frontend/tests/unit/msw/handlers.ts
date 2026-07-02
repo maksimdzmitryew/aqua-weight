@@ -216,4 +216,12 @@ export const handlers = [
     const payload = await request.json()
     return HttpResponse.json({ ok: true, ...payload })
   }),
+
+  // Catch-all: fail tests for unexpected method/URL combinations
+  http.all('/api/*', ({ request }) => {
+    return new HttpResponse(
+      JSON.stringify({ detail: `Unexpected ${request.method} request` }),
+      { status: 405, headers: { 'Content-Type': 'application/json' } }
+    )
+  }),
 ]

@@ -48,17 +48,41 @@ export default function StatusIcon({ type, active, label }) {
   return (
     <span role="img" aria-label={title} title={title} style={containerStyle}>
       {type === 'water' ? (
-        // Filled droplet for better legibility
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M12 2.5S6 9 6 13a6 6 0 1 0 12 0c0-4-6-10.5-6-10.5z" />
+        // Waves for an unambiguous "water" metaphor (replaces the droplet)
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path>
+          <path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path>
         </svg>
       ) : (
-        // Simplified filled beaker/flask
-        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="currentColor"
-            d="M14 3h1a1 1 0 1 1 0 2v4.2l4.07 6.52c.9 1.45-.12 3.28-1.85 3.28H6.78c-1.73 0-2.75-1.83-1.85-3.28L9 9.2V5a1 1 0 0 1 0-2h1v2h4V3zM8 15h8v2H8v-2z"
-          />
+        // Balance-scale icon (measurement / weight) — classic two-pan law scale
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M12 3v3"></path>
+          <path d="M12 6l-5 9h10L12 6z"></path>
+          <path d="M7 15a2 2 0 1 0 4 0"></path>
+          <path d="M13 15a2 2 0 1 0 4 0"></path>
+          <path d="M3 21h18"></path>
+          <path d="M7 15l-4 6"></path>
+          <path d="M17 15l4 6"></path>
         </svg>
       )}
     </span>

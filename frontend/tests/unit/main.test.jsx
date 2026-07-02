@@ -178,6 +178,7 @@ describe('src/main.jsx bootstrap', () => {
       '/measurements/bulk/weight',
       '/measurements/bulk/watering',
       '/mfa/setup',
+      '/settings/whatsapp-helpers',
       '/admin',
     ]
 

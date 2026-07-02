@@ -16,6 +16,7 @@ import { getWaterRetainCellStyle } from '../utils/water_retained_colors.js'
 import { checkNeedsWater, getWaterRetainedPct } from '../utils/watering.js'
 import '../styles/plants-list.css'
 import Badge from '../components/Badge.jsx'
+import StatusIcon from '../components/StatusIcon.jsx'
 import SearchField from '../components/SearchField.jsx'
 import Pagination from '../components/Pagination.jsx'
 import DriftNotification from '../components/DriftNotification.jsx'
@@ -36,6 +37,17 @@ import {
   useSortable,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+
+const SORTABLE_COLUMNS = {
+  'care': { label: 'Care', field: 'water_retained_pct' },
+  'thresh': { label: 'Thresh', field: 'recommended_water_threshold_pct' },
+  'freq': { label: 'Freq', field: 'frequency_days' },
+  'next': { label: 'Next', field: 'next_watering_at' },
+  'name': { label: 'Name', field: 'name' },
+  'notes': { label: 'Notes', field: 'notes' },
+  'location': { label: 'Location', field: 'location' },
+  'updated': { label: 'Updated', field: 'latest_at' },
+}
 
 function SortablePlantRow({
   p,
@@ -62,7 +74,7 @@ function SortablePlantRow({
 
   const retained = getWaterRetainedPct(p, operationMode, p._approximation)
   const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
-  const needsWater = checkNeedsWater(p, operationMode, p._approximation, defaultThreshold)
+  const needsWater = checkNeedsWater(p)
 
   return (
     <tr ref={setNodeRef} style={style} className={isDragging ? 'plant-row-dragging' : ''}>
@@ -83,22 +95,36 @@ function SortablePlantRow({
             </Badge>
           ) : (
             needsWater && (
-              <Badge
-                tone="warning"
-                title={
-                  operationMode === 'vacation'
-                    ? 'Needs water based on approximation'
-                    : 'Needs water based on threshold'
-                }
-              >
-                Needs water
-              </Badge>
+              <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <span className="badge-text-desktop">
+                  <Badge
+                    tone="warning"
+                    title={
+                      operationMode === 'vacation'
+                        ? 'Needs water based on approximation'
+                        : 'Needs water based on threshold'
+                    }
+                  >
+                    Needs water
+                  </Badge>
+                </span>
+                <span className="mobile-only-icon">
+                  <StatusIcon type="water" active={true} />
+                </span>
+              </span>
             )
           )}
           {p.archive !== 1 && p.needs_weighing && (
-            <Badge tone="info" title="Needs weighing (>18h since last update)">
-              Needs weight
-            </Badge>
+            <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <span className="badge-text-desktop">
+                <Badge tone="info" title="Needs weighing (>18h since last update)">
+                  Needs weight
+                </Badge>
+              </span>
+              <span className="mobile-only-icon">
+                <StatusIcon type="measure" active={true} />
+              </span>
+            </span>
           )}
         </span>
       </td>
@@ -240,6 +266,14 @@ export default function PlantsList() {
   const [error, setError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [showDriftNotification, setShowDriftNotification] = useState(false)
+  const [sortConfig, setSortConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('plantsListSort')
+      return saved ? JSON.parse(saved) : { column: 'sort_order', direction: 'asc' }
+    } catch {
+      return { column: 'sort_order', direction: 'asc' }
+    }
+  })
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -315,6 +349,8 @@ export default function PlantsList() {
           search: searchQuery,
           status,
           signal: controller.signal,
+          sortBy: sortConfig.column,
+          sortDir: sortConfig.direction,
         })
 
         // Check for drift using global_total (unfiltered count of all active plants)
@@ -373,7 +409,7 @@ export default function PlantsList() {
     return () => {
       controller.abort()
     }
-  }, [page, limit, searchQuery, status])
+  }, [page, limit, searchQuery, status, sortConfig])
 
   useEffect(() => {
     const updated = routerLocation.state && routerLocation.state.updatedPlant
@@ -435,6 +471,22 @@ export default function PlantsList() {
 
   const handleDismissDrift = () => {
     setShowDriftNotification(false)
+  }
+
+  function handleSort(column) {
+    setSortConfig((prev) => {
+      // Third click on same column (already desc) → reset to default sort
+      if (prev.column === column && prev.direction === 'desc') {
+        localStorage.removeItem('plantsListSort')
+        return { column: 'sort_order', direction: 'asc' }
+      }
+      const newConfig = {
+        column,
+        direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc',
+      }
+      localStorage.setItem('plantsListSort', JSON.stringify(newConfig))
+      return newConfig
+    })
   }
 
   function handleView(p) {
@@ -533,7 +585,6 @@ export default function PlantsList() {
 
       <p>List of all available plants.</p>
 
-      {loading && <Loader label="Loading plants..." />}
       {error && !loading && (
         <ErrorNotice message={error} onRetry={() => window.location.reload()} />
       )}
@@ -597,7 +648,27 @@ export default function PlantsList() {
       )}
 
       {!error && (
-        <div style={loading ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
+        <div style={{ position: 'relative' }}>
+          {loading && (
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10,
+                background: 'rgba(255,255,255,0.7)',
+                backdropFilter: 'blur(1px)',
+              }}
+            >
+              <Loader label="Loading plants..." />
+            </div>
+          )}
+          <div style={loading ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
           {/* Active filter indicator */}
           {searchQuery && (
             <div
@@ -694,39 +765,82 @@ export default function PlantsList() {
                           className="th"
                           scope="col"
                           title="Current retained water percentage and quick actions"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('care')}
                         >
                           Care, Water retained{' '}
+                          {sortConfig.column === 'care' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                           <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
                         <th
                           className="th"
                           scope="col"
                           title="Watering threshold — water when retained ≤ value"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('thresh')}
                         >
-                          Thresh <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          Thresh {sortConfig.column === 'thresh' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
-                        <th className="th" scope="col" title="Watering frequency">
-                          Freq <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Watering frequency"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('freq')}
+                        >
+                          Freq {sortConfig.column === 'freq' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
-                        <th className="th" scope="col" title="Next planned watering date">
-                          Next <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Next planned watering date"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('next')}
+                        >
+                          Next {sortConfig.column === 'next' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
-                        <th className="th" scope="col" title="Plant name" style={{ width: 180 }}>
-                          Name <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Plant name"
+                          style={{ width: 180, cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('name')}
+                        >
+                          Name {sortConfig.column === 'name' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
-                        <th className="th" scope="col" title="Notes">
-                          Notes <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        <th
+                          className="th"
+                          scope="col"
+                          title="Notes"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('notes')}
+                        >
+                          Notes {sortConfig.column === 'notes' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
-                        <th className="th hide-column-phone" scope="col" title="Location">
-                          Location <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        <th
+                          className="th hide-column-phone"
+                          scope="col"
+                          title="Location"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('location')}
+                        >
+                          Location {sortConfig.column === 'location' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
                         <th
                           className="th hide-column-tablet"
                           scope="col"
                           title="Last update time"
-                          style={{ width: 100 }}
+                          style={{ width: 100, cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('updated')}
                         >
-                          Updated <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          Updated {sortConfig.column === 'updated' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
                         <th className="th right" scope="col" title="Row actions">
                           Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
@@ -767,6 +881,7 @@ export default function PlantsList() {
               />
             </div>
           )}
+        </div>
         </div>
       )}
       <ConfirmDialog

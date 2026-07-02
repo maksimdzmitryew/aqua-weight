@@ -142,4 +142,28 @@ describe('plantsApi', () => {
     expect(spy).toHaveBeenCalledWith('/plants/abc-123', { signal: ac.signal })
     expect(res).toBe(ok)
   })
+
+  it('create uses POST method, not PUT', async () => {
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ uuid: 'new' } as any)
+    const putSpy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce({ ok: false } as any)
+    await plantsApi.create({ name: 'Test' }, undefined)
+    expect(postSpy).toHaveBeenCalled()
+    expect(putSpy).not.toHaveBeenCalled()
+  })
+
+  it('remove uses DELETE method, not POST', async () => {
+    const deleteSpy = vi.spyOn(apiClient, 'delete').mockResolvedValueOnce({ ok: true } as any)
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ ok: false } as any)
+    await plantsApi.remove('abc', undefined)
+    expect(deleteSpy).toHaveBeenCalled()
+    expect(postSpy).not.toHaveBeenCalled()
+  })
+
+  it('reorder uses PUT method, not POST', async () => {
+    const putSpy = vi.spyOn(apiClient, 'put').mockResolvedValueOnce({ ok: true } as any)
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({ ok: false } as any)
+    await plantsApi.reorder(['a', 'b'], undefined)
+    expect(putSpy).toHaveBeenCalled()
+    expect(postSpy).not.toHaveBeenCalled()
+  })
 })

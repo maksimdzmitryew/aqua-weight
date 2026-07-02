@@ -30,6 +30,7 @@ import Calibration from './pages/Calibration.jsx'
 import AdminDashboard from './pages/AdminDashboard.jsx'
 import MFASetup from './pages/MFASetup.jsx'
 import ApiDocs from './pages/ApiDocs.jsx'
+import WhatsappHelpers from './pages/WhatsappHelpers.jsx'
 import { Navigate, Outlet } from 'react-router-dom'
 import './styles/theme.css'
 
@@ -151,6 +152,7 @@ createRoot(document.getElementById('root')).render(
                 <Route path="/measurements/bulk/weight" element={<BulkWeightMeasurement />} />
                 <Route path="/measurements/bulk/watering" element={<BulkWatering />} />
                 <Route path="/mfa/setup" element={<MFASetup />} />
+                <Route path="/settings/whatsapp-helpers" element={<WhatsappHelpers />} />
 
                 <Route element={<RequireAdmin />}>
                   <Route path="/admin" element={<AdminDashboard />} />

@@ -115,6 +115,7 @@ test('integrated: renders plants with various states and handles header actions'
         identify_hint: 'Spiky',
         water_retained_pct: 20,
         recommended_water_threshold_pct: 30,
+        needs_water: true,
         latest_at: '2025-01-01T00:00:00',
         notes: 'N',
         location: 'Loc',
@@ -124,6 +125,7 @@ test('integrated: renders plants with various states and handles header actions'
         name: 'Monstera',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 40,
+        needs_water: false,
         frequency_days: 7,
       },
       {
@@ -131,6 +133,7 @@ test('integrated: renders plants with various states and handles header actions'
         name: 'NoFreq',
         water_retained_pct: 20,
         recommended_water_threshold_pct: 30,
+        needs_water: true,
         frequency_days: undefined,
       },
       {
@@ -139,6 +142,7 @@ test('integrated: renders plants with various states and handles header actions'
         location: 'Somewhere',
         water_retained_pct: 10,
         recommended_water_threshold_pct: 30,
+        needs_water: true,
         latest_at: '2025-01-01T00:00:00',
       },
     ]),
@@ -221,6 +225,7 @@ test('navigation: handleView and handleEdit navigate with state', async () => {
     name: 'Navigator',
     water_retained_pct: 10,
     recommended_water_threshold_pct: 30,
+    needs_water: true,
   }
   server.use(mockPlantsHandler([plant]))
   renderPage()
@@ -347,7 +352,7 @@ test('EmptyState for search result with zero items (lines 349-357)', async () =>
 
 test('vacation mode styling without localstorage', async () => {
   server.use(
-    mockPlantsHandler([{ uuid: 'v1', name: 'Vacation' }]),
+    mockPlantsHandler([{ uuid: 'v1', name: 'Vacation', needs_water: true }]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'v1', days_offset: -1, next_watering_at: '2025-01-01T00:00:00Z' }],
@@ -369,7 +374,7 @@ test('Pagination page change updates URL', async () => {
     mockPlantsHandler(
       Array(100)
         .fill(0)
-        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })),
+        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}`, needs_water: true })),
     ),
   )
   renderPage(['/plants?page=1&limit=20'])
@@ -388,7 +393,7 @@ test('Pagination page size change resets to page 1', async () => {
     mockPlantsHandler(
       Array(100)
         .fill(0)
-        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}` })),
+        .map((_, i) => ({ uuid: `p${i}`, name: `Plant ${i}`, needs_water: true })),
     ),
   )
   renderPage(['/plants?page=3&limit=10'])
@@ -404,11 +409,11 @@ test('numeric search filters by threshold (<= query)', async () => {
   // Provide custom plants including thresholds to exercise numeric filter branch
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'Low', recommended_water_threshold_pct: 20 },
-      { uuid: 'b', name: 'Edge', recommended_water_threshold_pct: 30 },
-      { uuid: 'c', name: 'High', recommended_water_threshold_pct: 45 },
+      { uuid: 'a', name: 'Low', recommended_water_threshold_pct: 20, needs_water: true },
+      { uuid: 'b', name: 'Edge', recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'c', name: 'High', recommended_water_threshold_pct: 45, needs_water: true },
       // Non-numeric threshold should be ignored for numeric filtering (NaN path)
-      { uuid: 'd', name: 'NonNum', recommended_water_threshold_pct: 'N/A' },
+      { uuid: 'd', name: 'NonNum', recommended_water_threshold_pct: 'N/A', needs_water: true },
     ]),
   )
   renderPage()
@@ -439,7 +444,7 @@ test('applies updatedPlant from router state without crashing (effect path exerc
     <ThemeProvider>
       <MemoryRouter
         initialEntries={[
-          { pathname: '/plants', state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED' } } },
+          { pathname: '/plants', state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED', needs_water: true } } },
         ]}
       >
         <PlantsList />
@@ -455,9 +460,9 @@ test('applies updatedPlant from router state without crashing (effect path exerc
 test('reordering integration: handles drag-and-drop and move buttons', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
+      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
     ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
   )
@@ -494,7 +499,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 1) Missing uuid case
   server.use(
     mockPlantsHandler([
-      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
   )
 
@@ -518,7 +523,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 2) API error case
   server.use(
     mockPlantsHandler([
-      { uuid: 'x1', name: 'X', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+      { uuid: 'x1', name: 'X', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
   )
@@ -541,7 +546,7 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 3) Success removes row
   server.use(
     mockPlantsHandler([
-      { uuid: 'y1', name: 'Y', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+      { uuid: 'y1', name: 'Y', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true })),
   )
@@ -568,6 +573,7 @@ test('limits list to PAGE_LIMIT and shows meta count', async () => {
     name: `P${i + 1}`,
     water_retained_pct: 10,
     recommended_water_threshold_pct: 30,
+    needs_water: true,
   }))
   server.use(mockPlantsHandler(many))
 
@@ -592,6 +598,7 @@ test('text search filters by name/notes/location and disables drag & move button
         location: 'Kitchen',
         water_retained_pct: 35,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
       {
         uuid: 'n2',
@@ -601,6 +608,7 @@ test('text search filters by name/notes/location and disables drag & move button
         location: 'Balcony',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
       {
         uuid: 'n3',
@@ -609,6 +617,7 @@ test('text search filters by name/notes/location and disables drag & move button
         location: 'Living room',
         water_retained_pct: 45,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
     ]),
   )
@@ -656,7 +665,7 @@ test('treats non-array response as empty and shows EmptyState', async () => {
 test('delete failure with null/empty error shows generic message branch', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'd1', name: 'Del', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+      { uuid: 'd1', name: 'Del', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
   )
 
@@ -690,6 +699,7 @@ test('persistOrder early-return when row has missing uuid', async () => {
         location: 'loc',
         water_retained_pct: 10,
         recommended_water_threshold_pct: 30,
+        needs_water: true,
       },
       {
         name: 'NonNum',
@@ -697,6 +707,7 @@ test('persistOrder early-return when row has missing uuid', async () => {
         location: 'xyz',
         water_retained_pct: 15,
         recommended_water_threshold_pct: 'N/A',
+        needs_water: true,
       },
     ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
@@ -739,9 +750,9 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
   // Arrange three predictable items
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
-      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30 },
+      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
     ]),
     http.put('/api/plants/order', async ({ request }) => {
       const body = await request.json()
@@ -815,7 +826,7 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
   // Re-require PlantsList after mocking? Not necessary because component imports function at render call time
   server.use(
     mockPlantsHandler([
-      { uuid: 's1', name: 'Styled', water_retained_pct: 12, recommended_water_threshold_pct: 30 },
+      { uuid: 's1', name: 'Styled', water_retained_pct: 12, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
   )
   render(
@@ -841,6 +852,7 @@ test('Cancel in delete dialog triggers closeDialog without deleting', async () =
         name: 'Cancelable',
         water_retained_pct: 10,
         recommended_water_threshold_pct: 30,
+        needs_water: true,
       },
     ]),
   )
@@ -862,8 +874,8 @@ test('Cancel in delete dialog triggers closeDialog without deleting', async () =
 test('persistOrder generic error branch when reorder rejects with empty error object', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
+      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
   )
 
@@ -976,8 +988,8 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
 test('persistOrder shows error when plants are missing identifiers', async () => {
   server.use(
     mockPlantsHandler([
-      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30 },
+      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
     ]),
   )
   renderPage()
@@ -994,7 +1006,7 @@ test('persistOrder shows error when plants are missing identifiers', async () =>
 test('logs error and continues when approximations fail to load', async () => {
   const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   server.use(
-    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe', needs_water: true }]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({ message: 'Approximation error' }, { status: 500 }),
     ),
@@ -1011,7 +1023,7 @@ test('logs error and continues when approximations fail to load', async () => {
 
 test('handles null/missing approximation items gracefully', async () => {
   server.use(
-    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe', needs_water: true }]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({ items: null }),
     ),
@@ -1023,7 +1035,7 @@ test('handles null/missing approximation items gracefully', async () => {
 test('applies vacation mode warning style for negative days_offset', async () => {
   localStorage.setItem('operationMode', 'vacation')
   server.use(
-    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe' }]),
+    mockPlantsHandler([{ uuid: 'u1', name: 'Aloe', needs_water: true }]),
     http.get('/api/plants/measurements/approximation/watering', () =>
       HttpResponse.json({
         items: [{ plant_uuid: 'u1', days_offset: -2, next_watering_at: '2025-01-01T00:00:00Z' }],
@@ -1051,6 +1063,7 @@ test('applies updatedPlant from router state - FULL coverage', async () => {
         identify_hint: '',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
       {
         uuid: 'u2',
@@ -1058,6 +1071,7 @@ test('applies updatedPlant from router state - FULL coverage', async () => {
         identify_hint: '',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
     ]),
   )
@@ -1073,6 +1087,7 @@ test('applies updatedPlant from router state - FULL coverage', async () => {
               name: 'Updated Name',
               water_retained_pct: 50,
               recommended_water_threshold_pct: 30,
+              needs_water: false,
             },
           }}
         >
@@ -1103,6 +1118,7 @@ test('integrated: line 272 coverage - handles total update and Math.max', async 
         identify_hint: '',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
     ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true })),
@@ -1130,6 +1146,7 @@ test('integrated: line 274 coverage - handles delete error without message', asy
         identify_hint: '',
         water_retained_pct: 50,
         recommended_water_threshold_pct: 30,
+        needs_water: false,
       },
     ]),
   )
@@ -1157,7 +1174,7 @@ test('integrated: line 437 coverage - badge titles', async () => {
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
-            { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+            { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
           ],
           total: 1,
           global_total: 1,
@@ -1182,7 +1199,7 @@ test('integrated: line 437 coverage - badge titles', async () => {
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
-            { uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30 },
+            { uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
           ],
           total: 1,
           global_total: 1,
@@ -1221,6 +1238,7 @@ test('integrated: line 187-191 and 534-538 coverage - status filters and archive
       archive: 1,
       water_retained_pct: 10,
       recommended_water_threshold_pct: 30,
+      needs_water: true,
     },
     {
       uuid: 'p-active-needs-water',
@@ -1228,6 +1246,7 @@ test('integrated: line 187-191 and 534-538 coverage - status filters and archive
       archive: 0,
       water_retained_pct: 10,
       recommended_water_threshold_pct: 30,
+      needs_water: true,
     },
     {
       uuid: 'p-active-full',
@@ -1235,6 +1254,7 @@ test('integrated: line 187-191 and 534-538 coverage - status filters and archive
       archive: 0,
       water_retained_pct: 80,
       recommended_water_threshold_pct: 30,
+      needs_water: false,
     },
   ]
   server.use(mockPlantsHandler(plants))

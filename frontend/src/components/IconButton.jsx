@@ -56,8 +56,8 @@ const ICONS = {
       <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
     </svg>
   ),
-  beaker: (
-    // Beaker/Flask icon (measurement)
+  scale: (
+    // Balance-scale icon (measurement / weight) — classic two-pan law scale
     <svg
       width="18"
       height="18"
@@ -69,13 +69,17 @@ const ICONS = {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M9 3h6"></path>
-      <path d="M10 3v6.5l-5.5 8.8A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.7L14 9.5V3"></path>
-      <path d="M8 15h8"></path>
+      <path d="M12 3v3"></path>
+      <path d="M12 6l-5 9h10L12 6z"></path>
+      <path d="M7 15a2 2 0 1 0 4 0"></path>
+      <path d="M13 15a2 2 0 1 0 4 0"></path>
+      <path d="M3 21h18"></path>
+      <path d="M7 15l-4 6"></path>
+      <path d="M17 15l4 6"></path>
     </svg>
   ),
-  droplet: (
-    // Droplet icon (watering)
+  waves: (
+    // Waves icon (watering)
     <svg
       width="18"
       height="18"
@@ -87,11 +91,12 @@ const ICONS = {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M12 2.5C12 2.5 6 9 6 13a6 6 0 1 0 12 0c0-4-6-10.5-6-10.5z"></path>
+      <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path>
+      <path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path>
     </svg>
   ),
-  box: (
-    // Box icon (repotting)
+  pot: (
+    // Pot icon (repotting) — a plant pot
     <svg
       width="18"
       height="18"
@@ -103,9 +108,9 @@ const ICONS = {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-      <path d="M3.27 6.96L12 12l8.73-5.04"></path>
-      <path d="M12 22V12"></path>
+      <path d="M8 8h8l-1 10a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2L8 8z"></path>
+      <path d="M5 8h14"></path>
+      <path d="M10 5h4"></path>
     </svg>
   ),
 }

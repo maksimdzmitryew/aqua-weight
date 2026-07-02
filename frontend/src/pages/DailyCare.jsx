@@ -34,7 +34,7 @@ export default function DailyCare() {
       : null) || 'manual'
 
   // Use shared usePlants hook for consistent data fetching
-  const { plants: allPlants, loading: plantsLoading, error: plantsError } = usePlants()
+  const { plants: allPlants, loading: plantsLoading, error: plantsError, refetch: refetchPlants } = usePlants()
 
   const [tasks, setTasks] = useState([])
   const [approxLoading, setApproxLoading] = useState(false)
@@ -103,7 +103,7 @@ export default function DailyCare() {
     const plantsWithTasks = allPlants
       .map((p) => {
         const approx = approxMap[p.uuid]
-        const needsWater = checkNeedsWater(p, operationMode, approx, defaultThreshold)
+        const needsWater = checkNeedsWater(p)
 
         // Now we use the backend-provided needs_weighing property
         const needsMeasure = p.needs_weighing ?? false
@@ -133,7 +133,8 @@ export default function DailyCare() {
   ])
 
   const load = useCallback(async () => {
-    // Reload is handled by usePlants hook, just reload approximations
+    // Reload plants (to get updated needs_water) and approximations
+    refetchPlants()
     try {
       const [wateringData, weightData] = await Promise.all([
         plantsApi.getApproximation(),
@@ -144,7 +145,7 @@ export default function DailyCare() {
     } catch (e) {
       console.error('Failed to reload approximations', e)
     }
-  }, [])
+  }, [refetchPlants])
 
   const isLoading = plantsLoading || approxLoading
 

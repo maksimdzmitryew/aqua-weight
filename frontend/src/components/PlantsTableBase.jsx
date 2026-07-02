@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 /**
  * PlantsTableBase - Base component for plant tables
@@ -90,17 +90,66 @@ export default function PlantsTableBase({
  * @param {string} props.className - Additional CSS classes (optional)
  * @param {string} props.scope - Scope attribute (default: "col")
  */
-export function TableHeader({ title, children, className = 'th', scope = 'col' }) {
+export function TableHeader({ title, children, className = 'th', scope = 'col', style }) {
+  const [open, setOpen] = useState(false)
+  const popoverRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleOutside = (e) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [open])
+
+  const handleIconClick = () => setOpen((v) => !v)
+
+  const handleIconKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      setOpen((v) => !v)
+    }
+  }
+
   return (
-    <th className={className} scope={scope} title={title}>
+    <th className={className} scope={scope} style={{ position: 'relative', ...style }}>
       <span style={{ pointerEvents: 'none' }}>{children}</span>
       {title && (
         <span
-          aria-hidden="true"
-          style={{ marginLeft: 6, color: '#6b7280', cursor: 'help', pointerEvents: 'none' }}
+          role="button"
+          tabIndex={0}
+          aria-expanded={open}
+          aria-label={title}
+          onClick={handleIconClick}
+          onKeyDown={handleIconKeyDown}
+          style={{
+            marginLeft: 6,
+            color: '#6b7280',
+            cursor: 'pointer',
+            fontSize: 12,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            border: '1px solid #6b7280',
+          }}
         >
           ⓘ
         </span>
+      )}
+      {open && (
+        <div
+          ref={popoverRef}
+          className="th-popover"
+          role="tooltip"
+        >
+          {title}
+        </div>
       )}
     </th>
   )

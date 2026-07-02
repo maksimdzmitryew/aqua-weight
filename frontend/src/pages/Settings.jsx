@@ -12,6 +12,7 @@ import Tabs from '../components/Tabs.jsx'
 const settingsTabs = [
   { value: 'preferences', label: 'Preferences' },
   { value: 'advanced', label: 'Advanced' },
+  { value: 'notifications', label: 'Notifications' },
   { value: 'security', label: 'Security' },
   { value: 'profile', label: 'Profile' },
 ]
@@ -32,6 +33,9 @@ export default function Settings() {
 
   const [thresholdError, setThresholdError] = useState('')
   const [saved, setSaved] = useState('')
+  const [testMessageStatus, setTestMessageStatus] = useState('')
+  const [testMessageError, setTestMessageError] = useState('')
+  const [testMessageLoading, setTestMessageLoading] = useState(false)
 
   useEffect(() => {
     if (settings) {
@@ -112,6 +116,27 @@ export default function Settings() {
       setNewCodes(data.recovery_codes)
     } catch (err) {
       setError(err.detail || 'Failed to regenerate recovery codes')
+    }
+  }
+
+  async function handleSendTestMessage() {
+    setTestMessageStatus('')
+    setTestMessageError('')
+    setTestMessageLoading(true)
+
+    try {
+      const result = await apiClient.post('/whatsapp/send-test', {
+        to: settings?.whatsapp_number || '',
+      })
+      setTestMessageStatus(result.message || 'Test message sent successfully!')
+      setTimeout(() => setTestMessageStatus(''), 3000)
+    } catch (err) {
+      // err is an ApiError with { status, detail, body }
+      const errorMsg = err.detail || err.message || (err.body && JSON.stringify(err.body)) || 'Failed to send test message'
+      setTestMessageError(`${err.status ? `[${err.status}] ` : ''}${errorMsg}`)
+      setTimeout(() => setTestMessageError(''), 8000)
+    } finally {
+      setTestMessageLoading(false)
     }
   }
 
@@ -220,6 +245,61 @@ export default function Settings() {
                 <option value="100">100</option>
               </select>
             </div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="sort_column">
+                Default sort column
+              </label>
+              <select
+                id="sort_column"
+                value={settings?.plantsListSort?.column || 'sort_order'}
+                onChange={(e) => {
+                  const column = e.target.value
+                  const direction = settings?.plantsListSort?.direction || 'asc'
+                  updateSettings({ plantsListSort: { column, direction } })
+                }}
+                style={styles.input}
+              >
+                <option value="sort_order">Default (Sort Order)</option>
+                <option value="name">Name</option>
+                <option value="water_retained_pct">Water Retained</option>
+                <option value="recommended_water_threshold_pct">Threshold</option>
+                <option value="frequency_days">Frequency</option>
+                <option value="next_watering_at">Next Watering</option>
+                <option value="notes">Notes</option>
+                <option value="location">Location</option>
+                <option value="latest_at">Last Updated</option>
+              </select>
+            </div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="sort_direction">
+                Default sort direction
+              </label>
+              <select
+                id="sort_direction"
+                value={settings?.plantsListSort?.direction || 'asc'}
+                onChange={(e) => {
+                  const direction = e.target.value
+                  const column = settings?.plantsListSort?.column || 'sort_order'
+                  updateSettings({ plantsListSort: { column, direction } })
+                }}
+                style={styles.input}
+              >
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+              </select>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('plantsListSort')
+                  updateSettings({ plantsListSort: null })
+                }}
+                style={{ ...styles.button, background: '#6b7280', fontSize: '0.85em', padding: '6px 10px' }}
+              >
+                Reset to default sort
+              </button>
+            </div>
           </div>
         )}
 
@@ -262,6 +342,60 @@ export default function Settings() {
                   {thresholdError}
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div>
+            <div style={fieldRow}>
+              <label style={label} htmlFor="whatsapp_number">
+                WhatsApp Number
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  id="whatsapp_number"
+                  type="text"
+                  value={settings?.whatsapp_number || ''}
+                  onChange={(e) => updateSettings({ whatsapp_number: e.target.value })}
+                  placeholder="e.g., +1234567890 or group ID"
+                  style={{ ...styles.input, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSendTestMessage}
+                  disabled={testMessageLoading || !settings?.whatsapp_number}
+                  style={{ ...styles.button, fontSize: '0.85em', padding: '8px 12px', whiteSpace: 'nowrap' }}
+                >
+                  {testMessageLoading ? 'Sending...' : 'Send Test Message'}
+                </button>
+              </div>
+              {testMessageStatus && (
+                <span style={{ marginTop: 6, color: 'seagreen', fontSize: '0.9em' }}>
+                  {testMessageStatus}
+                </span>
+              )}
+              {testMessageError && (
+                <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
+                  {testMessageError}
+                </span>
+              )}
+            </div>
+            <div style={fieldRow}>
+              <label style={label}>
+                <input
+                  type="checkbox"
+                  checked={settings?.whatsapp_enabled || false}
+                  onChange={(e) => updateSettings({ whatsapp_enabled: e.target.checked })}
+                  style={{ marginRight: 8 }}
+                />
+                Enable WhatsApp Notifications
+              </label>
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Link to="/settings/whatsapp-helpers" className="btn btn-secondary">
+                Manage Helpers
+              </Link>
             </div>
           </div>
         )}

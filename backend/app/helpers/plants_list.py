@@ -29,6 +29,8 @@ class PlantsList:
         needs_weighing_filter: bool | None = None,
         uuids: list[str] | None = None,
         current_user: dict | None = None,
+        sort_by: str | None = None,
+        sort_dir: str | None = None,
     ) -> list[dict]:
         mode = mode or "manual"
         conn = get_conn()
@@ -125,7 +127,23 @@ class PlantsList:
                             [search_pattern, search_pattern, search_pattern, search_pattern]
                         )
 
-                query += " ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC"
+                SORTABLE_COLUMNS = {
+                    'name': 'p.name',
+                    'water_retained_pct': 'latest_pm.water_retained_pct',
+                    'recommended_water_threshold_pct': 'p.recommended_water_threshold_pct',
+                    'frequency_days': 'frequency_days',
+                    'next_watering_at': 'next_watering_at',
+                    'notes': 'p.notes',
+                    'location': 'l.name',
+                    'latest_at': 'latest_pm.measured_at',
+                    'sort_order': 'p.sort_order',
+                }
+                if sort_by and sort_by in SORTABLE_COLUMNS:
+                    direction = 'DESC' if sort_dir == 'desc' else 'ASC'
+                    query += f" ORDER BY {SORTABLE_COLUMNS[sort_by]} {direction}"
+                    query += ", p.sort_order ASC"
+                else:
+                    query += " ORDER BY p.sort_order ASC, p.created_at DESC, p.name ASC"
 
                 # Add pagination
                 if limit is not None:
@@ -286,8 +304,8 @@ class PlantsList:
 
                     # Prediction component
                     needs_watering_prediction = False
+                    standard_needs_water = False
                     if mode != "vacation":
-                        standard_needs_water = False
                         thresh_val = (
                             recommended_water_threshold_pct
                             if recommended_water_threshold_pct is not None
@@ -303,10 +321,27 @@ class PlantsList:
                         ):
                             standard_needs_water = False
 
-                        if not standard_needs_water:
-                            needs_watering_prediction = PlantsList._check_watering_prediction(
-                                conn, uuid_hex
+                    if not standard_needs_water:
+                        needs_watering_prediction = PlantsList._check_watering_prediction(
+                            conn, uuid_hex
+                        )
+
+                    # Final needs_water: threshold-based, single source of truth for UI.
+                    # Combines standard_needs_water (non-vacation) with vacation mode projection.
+                    needs_water = False
+                    if mode == "vacation":
+                        if days_offset is not None and days_offset <= 0:
+                            needs_water = True
+                        elif water_retained_pct is not None:
+                            vac_thresh = (
+                                recommended_water_threshold_pct
+                                if recommended_water_threshold_pct is not None
+                                else default_threshold
                             )
+                            if vac_thresh is not None:
+                                needs_water = water_retained_pct <= vac_thresh
+                    else:
+                        needs_water = standard_needs_water
 
                     results.append(
                         {
@@ -345,6 +380,7 @@ class PlantsList:
                             "days_offset": days_offset,
                             "needs_weighing": needs_weighing_val,
                             "needs_watering_prediction": needs_watering_prediction,
+                            "needs_water": needs_water,
                             "archive": archive,
                             "sort_order": sort_order,
                         }
@@ -374,34 +410,40 @@ class PlantsList:
         try:
             last_repot = get_last_repotting_event(conn, plant_id_hex)
             if not last_repot or not last_repot.measured_at:
-                return False
+                # No repotting: use plant created_at as reference
+                with conn.cursor() as cur:
+                    cur.execute("SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,))
+                    row = cur.fetchone()
+                    ref_at = row[0] if row else None
+                if not ref_at:
+                    return False
+            else:
+                from datetime import datetime
 
-            from datetime import datetime
+                # Convert ISO string to datetime
+                repot_at_str = last_repot.measured_at.replace(" ", "T")
+                repot_at = datetime.fromisoformat(repot_at_str)
 
-            # Convert ISO string to datetime
-            repot_at_str = last_repot.measured_at.replace(" ", "T")
-            repot_at = datetime.fromisoformat(repot_at_str)
-
-            # Get last watering event since repot
-            ref_at = repot_at
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT measured_at
-                    FROM plants_measurements
-                    WHERE plant_id = UNHEX(%s)
-                      AND measured_weight_g IS NULL
-                      AND water_loss_total_pct = 0
-                      AND water_added_g > 0
-                      AND measured_at > %s
-                    ORDER BY measured_at DESC
-                    LIMIT 1
-                """,
-                    (plant_id_hex, repot_at),
-                )
-                row = cur.fetchone()
-                if row:
-                    ref_at = row[0]
+                # Get last watering event since repot
+                ref_at = repot_at
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT measured_at
+                        FROM plants_measurements
+                        WHERE plant_id = UNHEX(%s)
+                          AND measured_weight_g IS NULL
+                          AND water_loss_total_pct = 0
+                          AND water_added_g > 0
+                          AND measured_at > %s
+                        ORDER BY measured_at DESC
+                        LIMIT 1
+                    """,
+                        (plant_id_hex, repot_at),
+                    )
+                    row = cur.fetchone()
+                    if row:
+                        ref_at = row[0]
 
             # Fetch numeric weight measurements since ref_at
             with conn.cursor() as cur:

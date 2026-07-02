@@ -261,6 +261,15 @@ export default function BulkWeightMeasurement() {
         const currentPlant = plants.find((p) => String(p.uuid || p.id) === String(plantId))
         const prevData = prev[plantId] || currentPlant || {}
         const now = wateringTime.getCommitDateTime()
+        // Derive needs_water from fresh water_retained_pct + threshold (mirrors BE logic in plants_list.py).
+        const threshold =
+          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
+        const waterRetained = responseData?.water_retained_pct
+        // Backend is source of truth: missing data means needs water (True), not "preserve previous"
+        const derivedNeedsWater =
+          waterRetained !== undefined && waterRetained !== null && threshold !== undefined && threshold !== null
+            ? waterRetained <= threshold
+            : true
         return {
           ...prev,
           [plantId]: {
@@ -268,6 +277,7 @@ export default function BulkWeightMeasurement() {
             ...responseData,
             current_weight: numeric,
             needs_weighing: false,
+            needs_water: derivedNeedsWater,
             latest_at:
               responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
