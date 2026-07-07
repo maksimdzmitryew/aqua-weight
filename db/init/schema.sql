@@ -100,6 +100,17 @@ CREATE TABLE IF NOT EXISTS users (
   CONSTRAINT chk_users_settings_json CHECK (JSON_VALID(settings_json))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
+CREATE TABLE IF NOT EXISTS system_settings (
+  id TINYINT UNSIGNED NOT NULL,
+  settings_json JSON NOT NULL DEFAULT '{}',
+  settings_schema_version INT UNSIGNED NOT NULL DEFAULT 1,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id),
+  CONSTRAINT chk_system_settings_singleton CHECK (id = 1),
+  CONSTRAINT chk_system_settings_json CHECK (JSON_VALID(settings_json))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 CREATE TABLE IF NOT EXISTS invite_tokens (
   token_hash BINARY(32) NOT NULL,
   user_id BINARY(16) NOT NULL,

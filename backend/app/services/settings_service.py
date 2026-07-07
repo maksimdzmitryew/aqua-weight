@@ -18,35 +18,47 @@ ALLOWED_SETTINGS_KEYS = {
     "whatsapp_last_notification": dict,
 }
 
+SYSTEM_SETTINGS_ID = 1
+
 
 class SettingsService:
     def __init__(self, db_conn: pymysql.connections.Connection):
         self.db_conn = db_conn
 
-    def get_settings(self, user_id: bytes) -> Tuple[Dict[str, Any], int]:
-        """Fetch user settings and schema version from the database."""
+    def _ensure_system_settings(self) -> None:
         with cursor(self.db_conn) as cur:
-            sql = "SELECT settings_json, settings_schema_version FROM users WHERE id = %s"
-            cur.execute(sql, (user_id,))
+            cur.execute(
+                """
+                INSERT IGNORE INTO system_settings (id, settings_json, settings_schema_version)
+                VALUES (%s, %s, %s)
+                """,
+                (SYSTEM_SETTINGS_ID, "{}", 1),
+            )
+
+    def _parse_settings_json(self, settings_json: Any) -> Dict[str, Any]:
+        # Handle potential variations in how PyMySQL/MariaDB returns JSON columns.
+        if isinstance(settings_json, str):
+            try:
+                return json.loads(settings_json)
+            except json.JSONDecodeError:
+                logging.error("Failed to decode system settings_json")
+                return {}
+        if isinstance(settings_json, dict):
+            return settings_json
+        return {}
+
+    def get_settings(self, user_id: bytes) -> Tuple[Dict[str, Any], int]:
+        """Fetch system settings and schema version from the database."""
+        self._ensure_system_settings()
+        with cursor(self.db_conn) as cur:
+            sql = "SELECT settings_json, settings_schema_version FROM system_settings WHERE id = %s"
+            cur.execute(sql, (SYSTEM_SETTINGS_ID,))
             result = cur.fetchone()
             if not result:
                 return {}, 1
 
             settings_json, version = result
-
-            # Handle potential variations in how PyMySQL/MariaDB returns JSON columns
-            if isinstance(settings_json, str):
-                try:
-                    settings_data = json.loads(settings_json)
-                except json.JSONDecodeError:
-                    logging.error(f"Failed to decode settings_json for user {user_id.hex()}")
-                    settings_data = {}
-            elif isinstance(settings_json, dict):
-                settings_data = settings_json
-            else:
-                settings_data = {}
-
-            return settings_data, version
+            return self._parse_settings_json(settings_json), version
 
     def validate_settings(self, settings: Dict[str, Any]) -> None:
         """Validate settings against the whitelist and types.
@@ -65,17 +77,18 @@ class SettingsService:
     def update_settings(
         self, user_id: bytes, settings: Dict[str, Any], version: int | None = None
     ) -> bool:
-        """Update user settings with full replacement."""
+        """Update system settings with full replacement."""
         self.validate_settings(settings)
+        self._ensure_system_settings()
         with cursor(self.db_conn) as cur:
             # MariaDB JSON column accepts a JSON string
             settings_str = json.dumps(settings)
             if version is not None:
-                sql = "UPDATE users SET settings_json = %s, settings_schema_version = %s, updated_at = NOW(6) WHERE id = %s"
-                cur.execute(sql, (settings_str, version, user_id))
+                sql = "UPDATE system_settings SET settings_json = %s, settings_schema_version = %s, updated_at = NOW(6) WHERE id = %s"
+                cur.execute(sql, (settings_str, version, SYSTEM_SETTINGS_ID))
             else:
-                sql = "UPDATE users SET settings_json = %s, updated_at = NOW(6) WHERE id = %s"
-                cur.execute(sql, (settings_str, user_id))
+                sql = "UPDATE system_settings SET settings_json = %s, updated_at = NOW(6) WHERE id = %s"
+                cur.execute(sql, (settings_str, SYSTEM_SETTINGS_ID))
             return True
 
     def get_whatsapp_enabled_users(self) -> List[Tuple[bytes, Dict[str, Any]]]:

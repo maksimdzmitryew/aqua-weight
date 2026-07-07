@@ -6,6 +6,7 @@ from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 
+from .db import get_conn
 from .errors import register_exception_handlers
 from .routes.admin import router as admin_router
 from .routes.auth import router as auth_router
@@ -32,6 +33,18 @@ app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 
 # Register global exception handlers
 register_exception_handlers(app)
+
+
+@app.on_event("startup")
+async def startup():
+    """Initialize database tables on startup."""
+    # Ensure WhatsApp credentials table exists
+    from .helpers.whatsapp_notify import ensure_whatsapp_credentials_table
+    conn = get_conn()
+    try:
+        ensure_whatsapp_credentials_table(conn)
+    finally:
+        conn.close()
 
 # Allow frontend served at https://aw.max
 origins = [

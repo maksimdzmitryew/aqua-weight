@@ -14,9 +14,8 @@ services:
       - PYTHONUNBUFFERED=1
       - APP_ENV=development
       - MAX_BODY_BYTES=1048576
-      - WHATSAPP_API_URL=${WHATSAPP_API_URL}
-      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN}
       - WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME:-jaspers_market_plain_text_v1}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
     volumes:
       - ./backend/app:/app/app
     command:
@@ -52,9 +51,8 @@ services:
       - aw-net
     environment:
       - PYTHONUNBUFFERED=1
-      - WHATSAPP_API_URL=${WHATSAPP_API_URL}
-      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN}
       - WHATSAPP_TEMPLATE_NAME=${WHATSAPP_TEMPLATE_NAME:-jaspers_market_plain_text_v1}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
     command: ["python3", "-m", "app.services.whatsapp_scheduler"]
 
   frontend:

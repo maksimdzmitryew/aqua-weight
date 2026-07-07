@@ -7,12 +7,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import pytz
 
+from ..db.core import cursor
 from ..db.core import get_conn
 from ..helpers.whatsapp_notify import (
     get_thirsty_plants,
-    format_digest_message,
-    send_whatsapp_message,
+    record_whatsapp_send_log,
+    render_placeholders,
+    send_whatsapp_text_message,
     should_skip_notification,
+    SETTINGS_KEY_DAILY_DIGEST,
 )
 from ..services.settings_service import SettingsService
 
@@ -21,36 +24,119 @@ logger = logging.getLogger(__name__)
 _scheduler = None
 
 
-def _send_digest_for_user(conn, user_id: bytes, settings: dict):
-    """Send daily digest to a single user's WhatsApp group.
+def _fetch_username(conn, user_id: bytes) -> str:
+    with cursor(conn) as cur:
+        cur.execute("SELECT username FROM users WHERE id = %s", (user_id,))
+        row = cur.fetchone()
+        return row[0] if row else ""
+
+
+def _build_thirsty_list(thirsty_plants: list[dict]) -> str:
+    if not thirsty_plants:
+        return "All plants are happy. No watering needed today."
+
+    lines: list[str] = []
+    for plant in thirsty_plants:
+        name = plant.get("name") or "Unknown"
+        location = plant.get("location") or "Unknown"
+        retained = plant.get("water_retained_pct")
+        retained_str = f"{retained}%" if retained is not None else "N/A"
+        lines.append(f"- {name} ({location}) water retained: {retained_str}")
+    return "\n".join(lines)
+
+
+def _send_digest_for_admin(conn, user_id: bytes, settings: dict):
+    """Send daily digest to the admin user's WhatsApp number.
 
     Settings are read from the user's settings_json (not a dedicated table).
     """
     try:
+        triggered_by = "scheduled"
+        username = _fetch_username(conn, user_id)
+
         if should_skip_notification(settings):
-            logger.info(f"Skipping notification for user {user_id.hex()} (helping user requested recently)")
+            msg = "Skipped (helping user requested recently)"
+            logger.info(f"Skipping digest for user {user_id.hex()} ({username}) - {msg}")
+            record_whatsapp_send_log(
+                conn,
+                user_id=user_id,
+                to_number=settings.get("whatsapp_number") or "",
+                message_type="text",
+                triggered_by=triggered_by,
+                body=None,
+                success=True,
+                error_message=msg,
+            )
             return
 
         whatsapp_number = settings.get("whatsapp_number")
         if not whatsapp_number:
-            logger.warning(f"No whatsapp_number for user {user_id.hex()}, skipping")
+            err = "WhatsApp number not configured"
+            logger.warning(f"{err} for user {user_id.hex()} ({username})")
+            record_whatsapp_send_log(
+                conn,
+                user_id=user_id,
+                to_number="",
+                message_type="text",
+                triggered_by=triggered_by,
+                body=None,
+                success=False,
+                error_message=err,
+            )
+            return
+
+        digest_template = (settings.get(SETTINGS_KEY_DAILY_DIGEST) or "").strip()
+        if not digest_template:
+            err = "Daily digest is empty"
+            logger.warning(f"{err} for user {user_id.hex()} ({username}) - refusing to send")
+            record_whatsapp_send_log(
+                conn,
+                user_id=user_id,
+                to_number=whatsapp_number,
+                message_type="text",
+                triggered_by=triggered_by,
+                body=None,
+                success=False,
+                error_message=err,
+            )
             return
 
         helpers = settings.get("whatsapp_helpers", [])
         thirsty_plants = get_thirsty_plants(conn, user_id)
-        message = format_digest_message(thirsty_plants, helpers_count=len(helpers))
-        sent, _ = send_whatsapp_message(whatsapp_number, message)
+
+        now_berlin = datetime.now(pytz.timezone("Europe/Berlin"))
+        values = {
+            "date": now_berlin.strftime("%Y-%m-%d"),
+            "thirsty_count": str(len(thirsty_plants)),
+            "thirsty_list": _build_thirsty_list(thirsty_plants),
+            "helpers_count": str(len(helpers)),
+            "admin_username": username,
+        }
+
+        message = render_placeholders(digest_template, values)
+        sent, error = send_whatsapp_text_message(whatsapp_number, message, conn=conn)
+
+        record_whatsapp_send_log(
+            conn,
+            user_id=user_id,
+            to_number=whatsapp_number,
+            message_type="text",
+            triggered_by=triggered_by,
+            body=message,
+            success=sent,
+            error_message=error or None,
+        )
 
         if not sent:
-            logger.warning(f"WhatsApp send failed for user {user_id.hex()} — not recording timestamp")
+            logger.warning(f"WhatsApp digest send failed for user {user_id.hex()} ({username})")
             return
 
-        # Record last notification timestamp in settings_json (replaces notification_sessions table)
+        # Record last notification timestamp in settings_json (kept for legacy skip logic).
         service = SettingsService(conn)
         settings["whatsapp_last_notification"] = {
             "sent_at": datetime.now(timezone.utc).isoformat(),
             "triggered_by": "scheduled",
-            "thirsty_plants": [p["name"] for p in thirsty_plants],
+            "thirsty_plants": [p.get("name") for p in thirsty_plants if p.get("name")],
         }
         service.update_settings(user_id, settings)
     except Exception as e:
@@ -58,14 +144,19 @@ def _send_digest_for_user(conn, user_id: bytes, settings: dict):
 
 
 def _daily_digest_job():
-    """Scheduled job: send daily digest to all users with WhatsApp enabled."""
+    """Scheduled job: send daily digest to admin users."""
     logger.info("Running daily WhatsApp digest job")
     try:
         conn = get_conn()
         try:
             service = SettingsService(conn)
-            for user_id, settings in service.get_whatsapp_enabled_users():
-                _send_digest_for_user(conn, user_id, settings)
+            with cursor(conn) as cur:
+                cur.execute("SELECT id FROM users WHERE global_role = 'admin'")
+                admin_rows = cur.fetchall()
+
+            for (admin_id,) in admin_rows:
+                settings, _ = service.get_settings(admin_id)
+                _send_digest_for_admin(conn, admin_id, settings)
         finally:
             conn.close()
     except Exception as e:
