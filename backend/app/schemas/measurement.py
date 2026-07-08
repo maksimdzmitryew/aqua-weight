@@ -41,6 +41,7 @@ class RepottingCreateRequest(BaseModel):
     measured_at: Annotated[str, StringConstraints(strip_whitespace=True, max_length=32)]
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
+    confirm_small_pot: bool = False
     note: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None
 
 

@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
+import { ApiError } from '../api/client'
 import { nowLocalISOFull, toLocalISOFull } from '../utils/datetime.js'
 import { useForm, required, minNumber } from '../components/form/useForm.js'
 import DateTimeLocal from '../components/form/fields/DateTimeLocal.jsx'
 import PlantSelect from '../components/PlantSelect.jsx'
 import NumberInput from '../components/form/fields/NumberInput.jsx'
+import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
 const RepottingCreate = () => {
   const [search] = useSearchParams()
@@ -18,6 +20,9 @@ const RepottingCreate = () => {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const isEdit = !!editId
+  const [smallPotDialogOpen, setSmallPotDialogOpen] = useState(false)
+  const [pendingSmallPotConfirm, setPendingSmallPotConfirm] = useState(null)
+  const smallPotNoBtnRef = useRef(null)
 
   const form = useForm({
     plant_id: preselect || '',
@@ -58,11 +63,24 @@ const RepottingCreate = () => {
     if (preselect && !isEdit) form.setValue('plant_id', preselect)
   }, [preselect, isEdit])
 
+  useEffect(() => {
+    if (!smallPotDialogOpen) return
+    const t = setTimeout(() => {
+      try {
+        smallPotNoBtnRef.current?.focus?.()
+      } catch {
+        // ignore
+      }
+    }, 0)
+    return () => clearTimeout(t)
+  }, [smallPotDialogOpen])
+
   const onSubmit = form.handleSubmit(async (vals) => {
     setSaving(true)
     setError('')
+    let payload = null
     try {
-      const payload = {
+      payload = {
         plant_id: vals.plant_id,
         measured_at: vals.measured_at,
         measured_weight_g:
@@ -79,7 +97,20 @@ const RepottingCreate = () => {
       if (from) navigate(from)
       else navigate(`/plants/${vals.plant_id}`)
     } catch (e) {
-      setError(e.message || 'Failed to save')
+      const msg = (e && typeof e === 'object' && (e.detail || e.message)) || ''
+      if (
+        !isEdit &&
+        payload &&
+        e instanceof ApiError &&
+        e.status === 409 &&
+        typeof msg === 'string' &&
+        msg.startsWith('Moved to a very small pot?')
+      ) {
+        setPendingSmallPotConfirm({ plantId: vals.plant_id, payload })
+        setSmallPotDialogOpen(true)
+        return
+      }
+      setError((typeof msg === 'string' && msg) || 'Failed to save')
     } finally {
       setSaving(false)
     }
@@ -88,6 +119,79 @@ const RepottingCreate = () => {
   return (
     <DashboardLayout title={isEdit ? 'Edit Repotting' : 'Repotting'}>
       <form onSubmit={onSubmit} style={{ maxWidth: 640 }}>
+        <ConfirmDialog
+          open={smallPotDialogOpen}
+          title="Moved to a very small pot?"
+          message="Last time you added more water than current plant weight. Clamp the derived dry weight to 0 and continue?"
+          tone="warning"
+          disabled={saving}
+          onCancel={() => {
+            // Treat overlay click / Escape as "No".
+            setSmallPotDialogOpen(false)
+            setPendingSmallPotConfirm(null)
+            setError('')
+          }}
+          // ConfirmDialog styles the confirm button as primary by default.
+          // Override buttons so "No" is black/primary and "Yes" is white/secondary.
+          buttons={[
+            {
+              key: 'no',
+              text: 'No',
+              ref: smallPotNoBtnRef,
+              disabled: saving,
+              style: {
+                padding: '8px 12px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                background: 'var(--button-primary-bg)',
+                border: '1px solid var(--button-primary-bg)',
+                color: 'var(--button-primary-text)',
+              },
+              onClick: () => {
+                setSmallPotDialogOpen(false)
+                setPendingSmallPotConfirm(null)
+                setError('')
+              },
+            },
+            {
+              key: 'yes',
+              text: 'Yes',
+              disabled: saving,
+              style: {
+                padding: '8px 12px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                background: 'var(--button-secondary-bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--button-secondary-text)',
+              },
+              onClick: async () => {
+                if (!pendingSmallPotConfirm) return
+                setSaving(true)
+                setError('')
+                try {
+                  await measurementsApi.repotting.create(pendingSmallPotConfirm.plantId, {
+                    ...pendingSmallPotConfirm.payload,
+                    confirm_small_pot: true,
+                  })
+                  setSmallPotDialogOpen(false)
+                  setPendingSmallPotConfirm(null)
+                  const from = location.state?.from
+                  if (from) navigate(from)
+                  else navigate(`/plants/${pendingSmallPotConfirm.plantId}`)
+                } catch (e) {
+                  const msg = (e && typeof e === 'object' && (e.detail || e.message)) || ''
+                  setSmallPotDialogOpen(false)
+                  setPendingSmallPotConfirm(null)
+                  setError((typeof msg === 'string' && msg) || 'Failed to save')
+                } finally {
+                  setSaving(false)
+                }
+              },
+            },
+          ]}
+          onConfirm={() => {}}
+        />
         {error && <div style={{ color: 'tomato', marginBottom: 12 }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
           <PlantSelect

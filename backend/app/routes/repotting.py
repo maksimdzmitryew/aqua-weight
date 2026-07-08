@@ -39,13 +39,27 @@ async def create_repotting_event(
     required_fields = ["measured_at", "measured_weight_g", "last_wet_weight_g"]
 
     for field in required_fields:
-        if not getattr(payload, field):
+        # NOTE: "0" is a valid value for weights (schema uses ge=0), so check only for None.
+        if getattr(payload, field, None) is None:
             raise HTTPException(status_code=400, detail="Missing required field: " + field)
 
     measured_at = payload.measured_at
     measured_weight_g = payload.measured_weight_g
     repotted_weight_g = payload.last_wet_weight_g
     note = payload.note if payload.note is not None else None
+    confirm_small_pot = bool(payload.confirm_small_pot)
+
+    SMALLINT_UNSIGNED_MAX = 65535
+    if measured_weight_g is not None and measured_weight_g > SMALLINT_UNSIGNED_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"measured_weight_g must be <= {SMALLINT_UNSIGNED_MAX}",
+        )
+    if repotted_weight_g is not None and repotted_weight_g > SMALLINT_UNSIGNED_MAX:
+        raise HTTPException(
+            status_code=400,
+            detail=f"last_wet_weight_g must be <= {SMALLINT_UNSIGNED_MAX}",
+        )
 
     if not HEX_RE.match(plant_id or ""):
         raise HTTPException(status_code=400, detail="Invalid plant_id")
@@ -66,6 +80,22 @@ async def create_repotting_event(
                 else:
                     prev_measured_weight, prev_last_dry, prev_last_wet = None, None, None
                     raise HTTPException(status_code=404, detail="Last Plant event not found")
+
+                # Pre-check derived dry weight BEFORE any writes.
+                # If the user does not confirm, abort with 409 so no repotting-related
+                # measurement rows are created for this request.
+                derived_last_dry_weight_g = repotted_weight_g - (prev_last_water or 0)
+                if derived_last_dry_weight_g < 0:
+                    if not confirm_small_pot:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(
+                                "Moved to a very small pot? "
+                                "If yes, re-submit with confirm_small_pot=true to clamp dry weight to 0. "
+                                "If no, the previous water_added_g is greater than the new total weight."
+                            ),
+                        )
+                    derived_last_dry_weight_g = 0
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
@@ -144,7 +174,7 @@ async def create_repotting_event(
                 )
 
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=300)
-                new_measured_weight_g = repotted_weight_g - (prev_last_water or 0)
+                new_measured_weight_g = derived_last_dry_weight_g
 
                 new_id = generate_ulid_bytes()
 
