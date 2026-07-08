@@ -13,7 +13,11 @@ RUN apt-get update && \
         git \
         ca-certificates \
         curl \
-        libatomic1 && \
+        libatomic1 \
+        gcc \
+        libssl-dev \
+        libffi-dev \
+        python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

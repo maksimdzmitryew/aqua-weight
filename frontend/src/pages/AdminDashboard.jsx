@@ -15,12 +15,35 @@ const adminTabs = [
   { value: 'whatsapp', label: 'WhatsApp' },
 ]
 
-const DAILY_DIGEST_PLACEHOLDERS = [
+// Common placeholders shared between templates
+const COMMON_PLACEHOLDERS = [
   { key: 'date', label: '{{date}}' },
+  { key: 'app_name', label: '{{app_name}}' },
+  { key: 'admin_username', label: '{{admin_username}}' },
+]
+
+// Daily digest specific placeholders
+const DAILY_DIGEST_PLACEHOLDERS = [
   { key: 'thirsty_count', label: '{{thirsty_count}}' },
   { key: 'thirsty_list', label: '{{thirsty_list}}' },
   { key: 'helpers_count', label: '{{helpers_count}}' },
-  { key: 'admin_username', label: '{{admin_username}}' },
+  { key: 'weight_plants_list', label: '{{weight_plants_list}}' },
+]
+
+// Thirsty list sub-template placeholders
+const THIRSTY_LIST_PLACEHOLDERS = [
+  { key: 'name', label: '{{name}}' },
+  { key: 'location', label: '{{location}}' },
+  { key: 'water_retained_pct', label: '{{water_retained_pct}}' },
+  { key: 'min_water_retention', label: '{{min_water_retention}}' },
+]
+
+// Weight plants sub-template placeholders
+const WEIGHT_PLANTS_PLACEHOLDERS = [
+  { key: 'name', label: '{{name}}' },
+  { key: 'location', label: '{{location}}' },
+  { key: 'measured_weight_g', label: '{{measured_weight_g}}' },
+  { key: 'days_since_last_weigh', label: '{{days_since_last_weigh}}' },
 ]
 
 export default function AdminDashboard() {
@@ -40,7 +63,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('users')
 
   // WhatsApp credentials state
-  const [credentials, setCredentials] = useState({ api_url: '', api_token: '', template_name: '' })
+  const [credentials, setCredentials] = useState({ api_url: '', api_token: '', template_name: '', phone_number_id: '' })
   const [credsLoading, setCredsLoading] = useState(true)
   const [savingCreds, setSavingCreds] = useState(false)
   const [credsError, setCredsError] = useState('')
@@ -58,6 +81,14 @@ export default function AdminDashboard() {
   const [sendingDigestTest, setSendingDigestTest] = useState(false)
   const [digestTestError, setDigestTestError] = useState('')
   const [digestTestSent, setDigestTestSent] = useState('')
+
+  // WhatsApp sub-templates state
+  const [thirstyListTemplate, setThirstyListTemplate] = useState('')
+  const [weightPlantsTemplate, setWeightPlantsTemplate] = useState('')
+  const [savingThirstyList, setSavingThirstyList] = useState(false)
+  const [savingWeightPlants, setSavingWeightPlants] = useState(false)
+  const [thirstyListSaved, setThirstyListSaved] = useState('')
+  const [weightPlantsSaved, setWeightPlantsSaved] = useState('')
 
   const styles = useMemo(() => {
     const isDark = effectiveTheme === 'dark'
@@ -157,11 +188,30 @@ export default function AdminDashboard() {
         api_url: data.api_url || '',
         api_token: data.api_token || '',
         template_name: data.template_name || '',
+        phone_number_id: data.phone_number_id || '',
       })
     } catch (err) {
       setCredsError(err.detail || 'Failed to load credentials')
     } finally {
       setCredsLoading(false)
+    }
+  }
+
+  const loadThirstyListTemplate = async () => {
+    try {
+      const data = await apiClient.get('/whatsapp/thirsty-list')
+      setThirstyListTemplate(data?.thirsty_list_template || '')
+    } catch (err) {
+      console.error('Failed to load thirsty list template:', err)
+    }
+  }
+
+  const loadWeightPlantsTemplate = async () => {
+    try {
+      const data = await apiClient.get('/whatsapp/weight-plants')
+      setWeightPlantsTemplate(data?.weight_plants_template || '')
+    } catch (err) {
+      console.error('Failed to load weight plants template:', err)
     }
   }
 
@@ -239,18 +289,89 @@ export default function AdminDashboard() {
   }
 
   const handleInsertDigestPlaceholder = (placeholderLabel) => {
-    setDailyDigest((prev) => {
-      const next = (prev || '').trimEnd()
-      if (!next) return placeholderLabel
-      // Keep insertion simple: append placeholder on a new line.
-      return `${next}\n${placeholderLabel}`
-    })
+    // Insert placeholder at cursor position
+    const textarea = document.getElementById('daily_digest')
+    if (textarea && textarea.selectionStart !== undefined) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText = dailyDigest.slice(0, start) + placeholderLabel + dailyDigest.slice(end)
+      setDailyDigest(newText)
+      // Restore cursor position after the inserted text
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholderLabel.length, start + placeholderLabel.length)
+      }, 0)
+    } else {
+      setDailyDigest((prev) => {
+        const next = (prev || '').trimEnd()
+        if (!next) return placeholderLabel
+        return `${next}\n${placeholderLabel}`
+      })
+    }
+  }
+
+  const handleInsertThirstyListPlaceholder = (placeholderLabel) => {
+    const textarea = document.getElementById('thirsty_list_template')
+    if (textarea && textarea.selectionStart !== undefined) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText = thirstyListTemplate.slice(0, start) + placeholderLabel + thirstyListTemplate.slice(end)
+      setThirstyListTemplate(newText)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholderLabel.length, start + placeholderLabel.length)
+      }, 0)
+    }
+  }
+
+  const handleInsertWeightPlantsPlaceholder = (placeholderLabel) => {
+    const textarea = document.getElementById('weight_plants_template')
+    if (textarea && textarea.selectionStart !== undefined) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText = weightPlantsTemplate.slice(0, start) + placeholderLabel + weightPlantsTemplate.slice(end)
+      setWeightPlantsTemplate(newText)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholderLabel.length, start + placeholderLabel.length)
+      }, 0)
+    }
+  }
+
+  const handleSaveThirstyListTemplate = async (e) => {
+    e.preventDefault()
+    setSavingThirstyList(true)
+    try {
+      await apiClient.post('/whatsapp/thirsty-list', { thirsty_list_template: thirstyListTemplate })
+      setThirstyListSaved('Saved!')
+      setTimeout(() => setThirstyListSaved(''), 2000)
+    } catch (err) {
+      alert(err.detail || 'Failed to save thirsty list template')
+    } finally {
+      setSavingThirstyList(false)
+    }
+  }
+
+  const handleSaveWeightPlantsTemplate = async (e) => {
+    e.preventDefault()
+    setSavingWeightPlants(true)
+    try {
+      await apiClient.post('/whatsapp/weight-plants', { weight_plants_template: weightPlantsTemplate })
+      setWeightPlantsSaved('Saved!')
+      setTimeout(() => setWeightPlantsSaved(''), 2000)
+    } catch (err) {
+      alert(err.detail || 'Failed to save weight plants template')
+    } finally {
+      setSavingWeightPlants(false)
+    }
   }
 
   useEffect(() => {
     if (activeTab === 'whatsapp') {
       loadWhatsAppCredentials()
       loadDailyDigest()
+      loadThirstyListTemplate()
+      loadWeightPlantsTemplate()
     }
   }, [activeTab])
 
@@ -388,7 +509,7 @@ export default function AdminDashboard() {
       {activeTab === 'whatsapp' && (
         <div>
           <section className="card" style={{ marginBottom: 32 }}>
-            <h3 style={{ marginBottom: 12 }}>Daily Digest (Free Text)</h3>
+            <h3 style={{ marginBottom: 12 }}>Daily Digest Template</h3>
             <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
               Configure the daily digest message template. Use placeholders like{' '}
               <code>{'{'}{'{'}date{'}'}{'}'}</code> to inject values.
@@ -400,7 +521,7 @@ export default function AdminDashboard() {
               <form onSubmit={handleSaveDailyDigest} style={{ maxWidth: 720 }}>
                 <div style={fieldRow}>
                   <label style={label} htmlFor="daily_digest">
-                    Template
+                    Daily Digest Template
                   </label>
                   <textarea
                     id="daily_digest"
@@ -412,6 +533,16 @@ export default function AdminDashboard() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {COMMON_PLACEHOLDERS.map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleInsertDigestPlaceholder(p.label)}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                   {DAILY_DIGEST_PLACEHOLDERS.map((p) => (
                     <button
                       key={p.key}
@@ -419,7 +550,7 @@ export default function AdminDashboard() {
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleInsertDigestPlaceholder(p.label)}
                     >
-                      Insert {p.label}
+                      {p.label}
                     </button>
                   ))}
                 </div>
@@ -446,6 +577,90 @@ export default function AdminDashboard() {
             )}
           </section>
 
+          {/* Thirsty List Sub-template */}
+          <section className="card" style={{ marginBottom: 32 }}>
+            <h3 style={{ marginBottom: 12 }}>Thirsty List Sub-template</h3>
+            <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
+              Configure how each thirsty plant appears in the digest. Use placeholders to customize.
+            </p>
+
+            <form onSubmit={handleSaveThirstyListTemplate} style={{ maxWidth: 720 }}>
+              <div style={fieldRow}>
+                <label style={label} htmlFor="thirsty_list_template">
+                  Thirsty List Template
+                </label>
+                <textarea
+                  id="thirsty_list_template"
+                  value={thirstyListTemplate}
+                  onChange={(e) => setThirstyListTemplate(e.target.value)}
+                  placeholder="- {{name}} ({{location}}) water retained: {{water_retained_pct}}"
+                  style={{ ...styles.input, maxWidth: 720, minHeight: 100, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {THIRSTY_LIST_PLACEHOLDERS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleInsertThirstyListPlaceholder(p.label)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {thirstyListSaved && <p style={{ color: 'seagreen' }}>{thirstyListSaved}</p>}
+
+              <button type="submit" style={styles.button} disabled={savingThirstyList}>
+                {savingThirstyList ? 'Saving...' : 'Save Template'}
+              </button>
+            </form>
+          </section>
+
+          {/* Weight Plants Sub-template */}
+          <section className="card" style={{ marginBottom: 32 }}>
+            <h3 style={{ marginBottom: 12 }}>Weight Plants Sub-template</h3>
+            <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
+              Configure how each plant appears in the weight plants list. Use placeholders to customize.
+            </p>
+
+            <form onSubmit={handleSaveWeightPlantsTemplate} style={{ maxWidth: 720 }}>
+              <div style={fieldRow}>
+                <label style={label} htmlFor="weight_plants_template">
+                  Weight Plants Template
+                </label>
+                <textarea
+                  id="weight_plants_template"
+                  value={weightPlantsTemplate}
+                  onChange={(e) => setWeightPlantsTemplate(e.target.value)}
+                  placeholder="- {{name}} ({{location}}): {{measured_weight_g}}, last weighed: {{days_since_last_weigh}}"
+                  style={{ ...styles.input, maxWidth: 720, minHeight: 100, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {WEIGHT_PLANTS_PLACEHOLDERS.map((p) => (
+                  <button
+                    key={p.key}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleInsertWeightPlantsPlaceholder(p.label)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {weightPlantsSaved && <p style={{ color: 'seagreen' }}>{weightPlantsSaved}</p>}
+
+              <button type="submit" style={styles.button} disabled={savingWeightPlants}>
+                {savingWeightPlants ? 'Saving...' : 'Save Template'}
+              </button>
+            </form>
+          </section>
+
           <section style={{ marginBottom: 32 }}>
             <h3 style={{ marginBottom: 16 }}>API Credentials</h3>
             {credsLoading ? (
@@ -454,21 +669,21 @@ export default function AdminDashboard() {
               <form onSubmit={handleSaveCredentials} style={{ maxWidth: 520 }}>
                 <div style={fieldRow}>
                   <label style={label} htmlFor="api_url">
-                    API URL
+                    API URL *
                   </label>
                   <input
                     id="api_url"
                     type="text"
                     value={credentials.api_url}
                     onChange={(e) => setCredentials({ ...credentials, api_url: e.target.value })}
-                    placeholder="https://graph.facebook.com/v18.0/..."
+                    placeholder="https://graph.facebook.com/v18.0/{phone_number_id}/messages"
                     style={styles.input}
                   />
                 </div>
 
                 <div style={fieldRow}>
                   <label style={label} htmlFor="api_token">
-                    API Token
+                    API Token *
                   </label>
                   <input
                     id="api_token"
@@ -490,6 +705,20 @@ export default function AdminDashboard() {
                     value={credentials.template_name}
                     onChange={(e) => setCredentials({ ...credentials, template_name: e.target.value })}
                     placeholder="jaspers_market_plain_text_v1"
+                    style={styles.input}
+                  />
+                </div>
+
+                <div style={fieldRow}>
+                  <label style={label} htmlFor="phone_number_id">
+                    Phone Number ID
+                  </label>
+                  <input
+                    id="phone_number_id"
+                    type="text"
+                    value={credentials.phone_number_id}
+                    onChange={(e) => setCredentials({ ...credentials, phone_number_id: e.target.value })}
+                    placeholder="Your WhatsApp phone number ID"
                     style={styles.input}
                   />
                 </div>

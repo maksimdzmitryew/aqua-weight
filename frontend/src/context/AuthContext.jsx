@@ -171,7 +171,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [sessionExpired])
 
   // 5. Auth Actions
   const login = useCallback(

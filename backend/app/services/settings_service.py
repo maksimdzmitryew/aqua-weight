@@ -16,6 +16,8 @@ ALLOWED_SETTINGS_KEYS = {
     "whatsapp_number": str,
     "whatsapp_helpers": list,
     "whatsapp_last_notification": dict,
+    "whatsapp_thirsty_list_template": str,
+    "whatsapp_weight_plants_template": str,
 }
 
 SYSTEM_SETTINGS_ID = 1

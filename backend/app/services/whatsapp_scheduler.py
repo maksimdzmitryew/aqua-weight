@@ -11,13 +11,19 @@ from ..db.core import cursor
 from ..db.core import get_conn
 from ..helpers.whatsapp_notify import (
     get_thirsty_plants,
+    get_weight_plants,
     record_whatsapp_send_log,
     render_placeholders,
     send_whatsapp_text_message,
     should_skip_notification,
     SETTINGS_KEY_DAILY_DIGEST,
+    _build_thirsty_list,
+    _build_weight_plants_list,
 )
 from ..services.settings_service import SettingsService
+
+SETTINGS_KEY_THIRSTY_LIST_TEMPLATE = "whatsapp_thirsty_list_template"
+SETTINGS_KEY_WEIGHT_PLANTS_TEMPLATE = "whatsapp_weight_plants_template"
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +37,7 @@ def _fetch_username(conn, user_id: bytes) -> str:
         return row[0] if row else ""
 
 
-def _build_thirsty_list(thirsty_plants: list[dict]) -> str:
-    if not thirsty_plants:
-        return "All plants are happy. No watering needed today."
-
-    lines: list[str] = []
-    for plant in thirsty_plants:
-        name = plant.get("name") or "Unknown"
-        location = plant.get("location") or "Unknown"
-        retained = plant.get("water_retained_pct")
-        retained_str = f"{retained}%" if retained is not None else "N/A"
-        lines.append(f"- {name} ({location}) water retained: {retained_str}")
-    return "\n".join(lines)
+# _build_thirsty_list is now imported from whatsapp_notify.py
 
 
 def _send_digest_for_admin(conn, user_id: bytes, settings: dict):
@@ -101,16 +96,23 @@ def _send_digest_for_admin(conn, user_id: bytes, settings: dict):
             )
             return
 
+        thirsty_list_template = settings.get(SETTINGS_KEY_THIRSTY_LIST_TEMPLATE) or None
+        weight_plants_template = settings.get(SETTINGS_KEY_WEIGHT_PLANTS_TEMPLATE) or None
+
         helpers = settings.get("whatsapp_helpers", [])
         thirsty_plants = get_thirsty_plants(conn, user_id)
+        weight_plants = get_weight_plants(conn, user_id)
 
         now_berlin = datetime.now(pytz.timezone("Europe/Berlin"))
         values = {
             "date": now_berlin.strftime("%Y-%m-%d"),
+            "app_name": "Aqua Weight",
             "thirsty_count": str(len(thirsty_plants)),
-            "thirsty_list": _build_thirsty_list(thirsty_plants),
+            "thirsty_list": _build_thirsty_list(thirsty_plants, thirsty_list_template),
             "helpers_count": str(len(helpers)),
             "admin_username": username,
+            "weight_plants_list": _build_weight_plants_list(weight_plants, weight_plants_template),
+            "phone_number_id": whatsapp_number,
         }
 
         message = render_placeholders(digest_template, values)

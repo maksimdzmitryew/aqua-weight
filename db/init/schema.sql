@@ -321,3 +321,15 @@ CREATE TABLE IF NOT EXISTS plants_events (
   CONSTRAINT fk_events_type FOREIGN KEY (event_type_id) REFERENCES event_types(id) ON UPDATE CASCADE ON DELETE RESTRICT,
   CONSTRAINT fk_events_location FOREIGN KEY (related_location_id) REFERENCES locations(id) ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- Encryption key storage for WhatsApp credentials
+CREATE TABLE IF NOT EXISTS encryption_keys (
+  id BINARY(16) NOT NULL,
+  version VARCHAR(20) NOT NULL DEFAULT 'v1',
+  encrypted_key TEXT NOT NULL,
+  salt BINARY(32) NOT NULL,
+  key_label VARCHAR(100) NULL,
+  created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;

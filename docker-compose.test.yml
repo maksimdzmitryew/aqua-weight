@@ -50,6 +50,7 @@ services:
       - DB_HOST=db
       - DB_USER=appuser
       - DB_PASSWORD=apppass
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY}
     volumes:
       - ./backend/app:/app/app
     command:
