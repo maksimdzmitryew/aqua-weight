@@ -9,11 +9,14 @@ import Badge from '../components/Badge.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import Tabs from '../components/Tabs.jsx'
 import { useTheme } from '../ThemeContext.jsx'
+import { useSearchParams } from 'react-router-dom'
 
 const adminTabs = [
   { value: 'users', label: 'Users' },
   { value: 'whatsapp', label: 'WhatsApp' },
 ]
+
+const adminTabValues = new Set(adminTabs.map((tab) => tab.value))
 
 // Common placeholders shared between templates
 const COMMON_PLACEHOLDERS = [
@@ -55,6 +58,7 @@ const WEIGHT_PLANTS_PLACEHOLDERS = [
 export default function AdminDashboard() {
   const { effectiveTheme } = useTheme()
   const { user: currentUser } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -67,6 +71,20 @@ export default function AdminDashboard() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState('users')
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    setActiveTab(adminTabValues.has(tab) ? tab : 'users')
+  }, [searchParams])
+
+  function selectTab(tab) {
+    setActiveTab(tab)
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params)
+      next.set('tab', tab)
+      return next
+    })
+  }
 
   // WhatsApp credentials state
   const [credentials, setCredentials] = useState({ api_url: '', api_token: '', template_name: '', phone_number_id: '' })
@@ -451,7 +469,7 @@ export default function AdminDashboard() {
     <DashboardLayout>
       <PageHeader title="Admin Dashboard" subtitle="Manage users and WhatsApp settings" />
 
-      <Tabs tabs={adminTabs} activeTab={activeTab} onChange={setActiveTab} ariaLabel="Admin tabs" />
+      <Tabs tabs={adminTabs} activeTab={activeTab} onChange={selectTab} ariaLabel="Admin tabs" />
 
       {/* Users Tab */}
       {activeTab === 'users' && (
