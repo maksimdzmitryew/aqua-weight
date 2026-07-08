@@ -14,6 +14,7 @@ import httpx
 
 from ..db.core import cursor
 from ..db.core import get_conn
+from .plants_list import PlantsList
 from .credential_manager import (
     get_whatsapp_credentials as get_whatsapp_credentials_from_manager,
     save_whatsapp_credentials as save_whatsapp_credentials_from_manager,
@@ -85,10 +86,26 @@ def render_placeholders(template_text: str, values: Dict[str, str]) -> str:
     if not template_text:
         return ""
 
+    # Backwards/forwards compatible placeholder aliases.
+    # This lets us rename placeholders in templates/UI without breaking stored templates.
+    aliases: dict[str, str] = {
+        # Daily digest
+        "weight_count": "weight_plants_count",
+        "weight_plants_count": "weight_count",
+        "weight_list": "weight_plants_list",
+        "weight_plants_list": "weight_list",
+        # Sub-templates
+        "location_count": "location_group_count",
+        "location_group_count": "location_count",
+    }
+
     def _replace(match: re.Match) -> str:
         key = match.group(1)
         if key in values:
             return str(values[key])
+        alias = aliases.get(key)
+        if alias and alias in values:
+            return str(values[alias])
         return match.group(0)
 
     return _PLACEHOLDER_RE.sub(_replace, template_text)
@@ -163,45 +180,39 @@ def record_whatsapp_send_log(
 def get_thirsty_plants(conn, owner_user_id: bytes) -> List[Dict[str, Any]]:
     """Query plants that need watering for the owner.
 
-    Uses the latest measurement from ``plants_measurements`` to derive
-    ``water_retained_pct`` (approximated as 100 - water_loss_total_pct).
-    Falls back to "needs water" when no measurement exists.
-    Plants are ordered by sort_order, then by name for stable ordering.
+    This is intentionally aligned with the UI's plants list logic (Bulk watering / Daily care),
+    which uses the backend-computed ``needs_water`` field as the single source of truth.
+    That prevents the WhatsApp digest from disagreeing with the app UI.
     """
-    with cursor(conn) as cur:
-        cur.execute(
-            """
-            SELECT p.id, p.name, p.identify_hint, p.recommended_water_threshold_pct,
-                   latest_pm.water_loss_total_pct, l.name AS location_name,
-                   latest_pm.measured_at
-            FROM plants p
-            LEFT JOIN locations l ON p.location_id = l.id
-            LEFT JOIN (
-                SELECT plant_id, water_loss_total_pct, measured_at,
-                       ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
-                FROM plants_measurements
-            ) latest_pm ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
-            WHERE p.owner_id = %s
-              AND p.archive = 0
-              AND (
-                latest_pm.water_loss_total_pct IS NULL
-                OR (100 - latest_pm.water_loss_total_pct) <= COALESCE(p.recommended_water_threshold_pct, 40)
-              )
-            ORDER BY p.sort_order ASC, p.name ASC
-            """,
-            (owner_user_id,),
+    # NOTE: keep the existing signature to avoid touching callers. `conn` is not used here
+    # because PlantsList manages its own connection lifecycle.
+    current_user = {"id": owner_user_id, "global_role": "user"}
+    default_threshold = float(DEFAULT_WATER_THRESHOLD_PCT)
+
+    items = PlantsList.fetch_all(
+        status="active",
+        mode="manual",
+        default_threshold=default_threshold,
+        current_user=current_user,
+    )
+
+    thirsty_items = [p for p in items if p.get("needs_water", False)]
+
+    results: list[dict[str, Any]] = []
+    for plant in thirsty_items:
+        threshold = plant.get("recommended_water_threshold_pct")
+        if threshold is None:
+            threshold = DEFAULT_WATER_THRESHOLD_PCT
+
+        results.append(
+            {
+                "name": plant.get("name"),
+                "location": plant.get("location") or "Unknown",
+                "water_retained_pct": plant.get("water_retained_pct"),
+                "min_water_retention": threshold,
+            }
         )
-        rows = cur.fetchall()
-    return [
-        {
-            "name": row[1],
-            "location": row[5] or "Unknown",
-            "water_retained_pct": round(100 - row[3], 1) if row[3] is not None else None,
-            "min_water_retention": row[3],
-            "measured_at": row[6],
-        }
-        for row in rows
-    ]
+    return results
 
 
 def _build_thirsty_list(thirsty_plants: list[dict], template: str | None = None) -> str:
@@ -210,33 +221,86 @@ def _build_thirsty_list(thirsty_plants: list[dict], template: str | None = None)
     Template placeholders:
     - {{name}} - plant name
     - {{location}} - plant location
+    - {{location_group}} - location header (only rendered for first plant in each location group)
+    - {{location_group_count}} - number of plants in the location group
     - {{water_retained_pct}} - water retained percentage
     - {{min_water_retention}} - minimum required water retention value
     """
     if not thirsty_plants:
-        default_template = "All plants are happy. No watering needed today."
-        return template if template else default_template
+        # Even if a per-plant template is configured, an empty list should not render
+        # placeholder-laden plant rows. Return a plain message instead.
+        return "All plants are watered. No watering needed today."
+
+    header_template: str | None = None
+    item_template: str | None = template
+    if template and "[[AW_LOCATION_GROUP_HEADER]]" in template:
+        # Combined template string encoded by the Admin UI.
+        # Format:
+        # [[AW_LOCATION_GROUP_HEADER]]
+        # <header template>
+        # [[AW_ITEM_TEMPLATE]]
+        # <item template>
+        #
+        # If the item template is missing, fall back to empty.
+        after_header = template.split("[[AW_LOCATION_GROUP_HEADER]]", 1)[1]
+        if "[[AW_ITEM_TEMPLATE]]" in after_header:
+            header_part, item_part = after_header.split("[[AW_ITEM_TEMPLATE]]", 1)
+            header_template = header_part.strip("\n")
+            item_template = item_part.strip("\n")
+        else:
+            header_template = after_header.strip("\n")
+            item_template = ""
+
+    # Group by first occurrence of each location, preserving overall order.
+    # This intentionally reorders plants to cluster by location for better readability in WhatsApp.
+    grouped_by_location: dict[str, list[dict]] = {}
+    location_order: list[str] = []
+    for plant in thirsty_plants:
+        location_key = (plant.get("location") or "").strip() or "no location"
+        if location_key not in grouped_by_location:
+            grouped_by_location[location_key] = []
+            location_order.append(location_key)
+        grouped_by_location[location_key].append(plant)
 
     lines: list[str] = []
-    for plant in thirsty_plants:
-        name = plant.get("name") or "Unknown"
-        location = plant.get("location") or "Unknown"
-        retained = plant.get("water_retained_pct")
-        retained_str = f"{retained}%" if retained is not None else "N/A"
-        min_retention = plant.get("min_water_retention")
-        min_retention_str = f"{min_retention}%" if min_retention is not None else "N/A"
+    for location_key in location_order:
+        plants = grouped_by_location[location_key]
+        group_count_str = str(len(plants))
 
-        if template:
-            plant_values = {
-                "name": name,
-                "location": location,
-                "water_retained_pct": retained_str,
-                "min_water_retention": min_retention_str,
+        if header_template:
+            header_values = {
+                "location_group": location_key,
+                "location_count": group_count_str,
             }
-            line = render_placeholders(template, plant_values)
-            lines.append(line)
-        else:
-            lines.append(f"- {name} ({location}) water retained: {retained_str}")
+            header_rendered = render_placeholders(header_template, header_values).strip("\n")
+            if header_rendered:
+                lines.append(header_rendered)
+
+        for idx, plant in enumerate(plants):
+            name = plant.get("name") or "Unknown"
+            # Keep the original "Unknown" behavior for per-plant location placeholder,
+            # while grouping uses "no location" as requested.
+            location = plant.get("location") or "Unknown"
+            retained = plant.get("water_retained_pct")
+            retained_str = f"{retained}%" if retained is not None else "N/A"
+            min_retention = plant.get("min_water_retention")
+            min_retention_str = f"{min_retention}%" if min_retention is not None else "N/A"
+
+            if item_template:
+                plant_values = {
+                    "name": name,
+                    "location": location,
+                    # Kept for backwards compatibility, but "moved" to the header template in the UI.
+                    "location_group": location_key if idx == 0 else "",
+                    "location_count": group_count_str if idx == 0 else "",
+                    "water_retained_pct": retained_str,
+                    "min_water_retention": min_retention_str,
+                }
+                rendered = render_placeholders(item_template, plant_values)
+                lines.append(rendered)
+            else:
+                # Default remains per-plant; grouping only applies to templates.
+                lines.append(f"- {name} ({location}) water retained: {retained_str}")
     return "\n".join(lines)
 
 
@@ -295,6 +359,8 @@ def _build_weight_plants_list(weight_plants: list[dict], template: str | None = 
     Template placeholders:
     - {{name}} - plant name
     - {{location}} - plant location
+    - {{location_group}} - location header (only rendered for first plant in each location group)
+    - {{location_group_count}} - number of plants in the location group
     - {{measured_weight_g}} - last measured weight in grams
     - {{days_since_last_weigh}} - days since last weighing
     """
@@ -302,26 +368,67 @@ def _build_weight_plants_list(weight_plants: list[dict], template: str | None = 
         default_template = "No weighing data available yet."
         return template if template else default_template
 
-    lines: list[str] = []
-    for plant in weight_plants:
-        name = plant.get("name") or "Unknown"
-        location = plant.get("location") or "Unknown"
-        weight = plant.get("measured_weight_g")
-        weight_str = f"{weight}g" if weight is not None else "N/A"
-        days_since = plant.get("days_since_last_weigh")
-        days_str = f"{days_since} day(s)" if days_since is not None else "N/A"
-
-        if template:
-            plant_values = {
-                "name": name,
-                "location": location,
-                "measured_weight_g": weight_str,
-                "days_since_last_weigh": days_str,
-            }
-            line = render_placeholders(template, plant_values)
-            lines.append(line)
+    header_template: str | None = None
+    item_template: str | None = template
+    if template and "[[AW_LOCATION_GROUP_HEADER]]" in template:
+        after_header = template.split("[[AW_LOCATION_GROUP_HEADER]]", 1)[1]
+        if "[[AW_ITEM_TEMPLATE]]" in after_header:
+            header_part, item_part = after_header.split("[[AW_ITEM_TEMPLATE]]", 1)
+            header_template = header_part.strip("\n")
+            item_template = item_part.strip("\n")
         else:
-            lines.append(f"- {name} ({location}): {weight_str}, last weighed: {days_str}")
+            header_template = after_header.strip("\n")
+            item_template = ""
+
+    # Group by first occurrence of each location, preserving overall order.
+    grouped_by_location: dict[str, list[dict]] = {}
+    location_order: list[str] = []
+    for plant in weight_plants:
+        location_key = (plant.get("location") or "").strip() or "no location"
+        if location_key not in grouped_by_location:
+            grouped_by_location[location_key] = []
+            location_order.append(location_key)
+        grouped_by_location[location_key].append(plant)
+
+    lines: list[str] = []
+    for location_key in location_order:
+        plants = grouped_by_location[location_key]
+        group_count_str = str(len(plants))
+
+        if header_template:
+            header_values = {
+                "location_group": location_key,
+                "location_group_count": group_count_str,
+            }
+            header_rendered = render_placeholders(header_template, header_values).strip("\n")
+            if header_rendered:
+                lines.append(header_rendered)
+
+        for idx, plant in enumerate(plants):
+            name = plant.get("name") or "Unknown"
+            # Keep original per-plant placeholder behavior.
+            location = plant.get("location") or "Unknown"
+            weight = plant.get("measured_weight_g")
+            weight_str = f"{weight}g" if weight is not None else "N/A"
+            days_since = plant.get("days_since_last_weigh")
+            # Templates often use "... {{days_since_last_weigh}} days ago".
+            # Return a bare number string to avoid "day(s) days ago".
+            days_str = str(days_since) if days_since is not None else "N/A"
+
+            if item_template:
+                plant_values = {
+                    "name": name,
+                    "location": location,
+                    "location_group": location_key if idx == 0 else "",
+                    "location_count": group_count_str if idx == 0 else "",
+                    "measured_weight_g": weight_str,
+                    "days_since_last_weigh": days_str,
+                }
+                rendered = render_placeholders(item_template, plant_values)
+                lines.append(rendered)
+            else:
+                # Default remains per-plant; grouping only applies to templates.
+                lines.append(f"- {name} ({location}): {weight_str}, last weighed: {days_str}")
     return "\n".join(lines)
 
 

@@ -27,7 +27,8 @@ const DAILY_DIGEST_PLACEHOLDERS = [
   { key: 'thirsty_count', label: '{{thirsty_count}}' },
   { key: 'thirsty_list', label: '{{thirsty_list}}' },
   { key: 'helpers_count', label: '{{helpers_count}}' },
-  { key: 'weight_plants_list', label: '{{weight_plants_list}}' },
+  { key: 'weight_list', label: '{{weight_list}}' },
+  { key: 'weight_count', label: '{{weight_count}}' },
 ]
 
 // Thirsty list sub-template placeholders
@@ -36,6 +37,11 @@ const THIRSTY_LIST_PLACEHOLDERS = [
   { key: 'location', label: '{{location}}' },
   { key: 'water_retained_pct', label: '{{water_retained_pct}}' },
   { key: 'min_water_retention', label: '{{min_water_retention}}' },
+]
+
+const LOCATION_GROUP_HEADER_PLACEHOLDERS = [
+  { key: 'location_group', label: '{{location_group}}' },
+  { key: 'location_count', label: '{{location_count}}' },
 ]
 
 // Weight plants sub-template placeholders
@@ -84,7 +90,9 @@ export default function AdminDashboard() {
 
   // WhatsApp sub-templates state
   const [thirstyListTemplate, setThirstyListTemplate] = useState('')
+  const [thirstyListHeaderTemplate, setThirstyListHeaderTemplate] = useState('')
   const [weightPlantsTemplate, setWeightPlantsTemplate] = useState('')
+  const [weightPlantsHeaderTemplate, setWeightPlantsHeaderTemplate] = useState('')
   const [savingThirstyList, setSavingThirstyList] = useState(false)
   const [savingWeightPlants, setSavingWeightPlants] = useState(false)
   const [thirstyListSaved, setThirstyListSaved] = useState('')
@@ -200,7 +208,21 @@ export default function AdminDashboard() {
   const loadThirstyListTemplate = async () => {
     try {
       const data = await apiClient.get('/whatsapp/thirsty-list')
-      setThirstyListTemplate(data?.thirsty_list_template || '')
+      const raw = data?.thirsty_list_template || ''
+      if (raw.includes('[[AW_LOCATION_GROUP_HEADER]]')) {
+        const afterHeader = raw.split('[[AW_LOCATION_GROUP_HEADER]]', 2)[1] || ''
+        if (afterHeader.includes('[[AW_ITEM_TEMPLATE]]')) {
+          const parts = afterHeader.split('[[AW_ITEM_TEMPLATE]]', 2)
+          setThirstyListHeaderTemplate((parts[0] || '').replace(/^\n+|\n+$/g, ''))
+          setThirstyListTemplate((parts[1] || '').replace(/^\n+|\n+$/g, ''))
+        } else {
+          setThirstyListHeaderTemplate(afterHeader.replace(/^\n+|\n+$/g, ''))
+          setThirstyListTemplate('')
+        }
+      } else {
+        setThirstyListHeaderTemplate('')
+        setThirstyListTemplate(raw)
+      }
     } catch (err) {
       console.error('Failed to load thirsty list template:', err)
     }
@@ -209,7 +231,21 @@ export default function AdminDashboard() {
   const loadWeightPlantsTemplate = async () => {
     try {
       const data = await apiClient.get('/whatsapp/weight-plants')
-      setWeightPlantsTemplate(data?.weight_plants_template || '')
+      const raw = data?.weight_plants_template || ''
+      if (raw.includes('[[AW_LOCATION_GROUP_HEADER]]')) {
+        const afterHeader = raw.split('[[AW_LOCATION_GROUP_HEADER]]', 2)[1] || ''
+        if (afterHeader.includes('[[AW_ITEM_TEMPLATE]]')) {
+          const parts = afterHeader.split('[[AW_ITEM_TEMPLATE]]', 2)
+          setWeightPlantsHeaderTemplate((parts[0] || '').replace(/^\n+|\n+$/g, ''))
+          setWeightPlantsTemplate((parts[1] || '').replace(/^\n+|\n+$/g, ''))
+        } else {
+          setWeightPlantsHeaderTemplate(afterHeader.replace(/^\n+|\n+$/g, ''))
+          setWeightPlantsTemplate('')
+        }
+      } else {
+        setWeightPlantsHeaderTemplate('')
+        setWeightPlantsTemplate(raw)
+      }
     } catch (err) {
       console.error('Failed to load weight plants template:', err)
     }
@@ -324,6 +360,21 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleInsertThirstyListHeaderPlaceholder = (placeholderLabel) => {
+    const textarea = document.getElementById('thirsty_list_header_template')
+    if (textarea && textarea.selectionStart !== undefined) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText =
+        thirstyListHeaderTemplate.slice(0, start) + placeholderLabel + thirstyListHeaderTemplate.slice(end)
+      setThirstyListHeaderTemplate(newText)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholderLabel.length, start + placeholderLabel.length)
+      }, 0)
+    }
+  }
+
   const handleInsertWeightPlantsPlaceholder = (placeholderLabel) => {
     const textarea = document.getElementById('weight_plants_template')
     if (textarea && textarea.selectionStart !== undefined) {
@@ -338,11 +389,27 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleInsertWeightPlantsHeaderPlaceholder = (placeholderLabel) => {
+    const textarea = document.getElementById('weight_plants_header_template')
+    if (textarea && textarea.selectionStart !== undefined) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const newText =
+        weightPlantsHeaderTemplate.slice(0, start) + placeholderLabel + weightPlantsHeaderTemplate.slice(end)
+      setWeightPlantsHeaderTemplate(newText)
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + placeholderLabel.length, start + placeholderLabel.length)
+      }, 0)
+    }
+  }
+
   const handleSaveThirstyListTemplate = async (e) => {
     e.preventDefault()
     setSavingThirstyList(true)
     try {
-      await apiClient.post('/whatsapp/thirsty-list', { thirsty_list_template: thirstyListTemplate })
+      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(thirstyListHeaderTemplate || '').trim()}\n[[AW_ITEM_TEMPLATE]]\n${(thirstyListTemplate || '').trim()}`
+      await apiClient.post('/whatsapp/thirsty-list', { thirsty_list_template: combined })
       setThirstyListSaved('Saved!')
       setTimeout(() => setThirstyListSaved(''), 2000)
     } catch (err) {
@@ -356,7 +423,8 @@ export default function AdminDashboard() {
     e.preventDefault()
     setSavingWeightPlants(true)
     try {
-      await apiClient.post('/whatsapp/weight-plants', { weight_plants_template: weightPlantsTemplate })
+      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(weightPlantsHeaderTemplate || '').trim()}\n[[AW_ITEM_TEMPLATE]]\n${(weightPlantsTemplate || '').trim()}`
+      await apiClient.post('/whatsapp/weight-plants', { weight_plants_template: combined })
       setWeightPlantsSaved('Saved!')
       setTimeout(() => setWeightPlantsSaved(''), 2000)
     } catch (err) {
@@ -586,6 +654,32 @@ export default function AdminDashboard() {
 
             <form onSubmit={handleSaveThirstyListTemplate} style={{ maxWidth: 720 }}>
               <div style={fieldRow}>
+                <label style={label} htmlFor="thirsty_list_header_template">
+                  Thirsty List Location Group Header
+                </label>
+                <textarea
+                  id="thirsty_list_header_template"
+                  value={thirstyListHeaderTemplate}
+                  onChange={(e) => setThirstyListHeaderTemplate(e.target.value)}
+                  placeholder="{{location_group}}"
+                  style={{ ...styles.input, maxWidth: 720, minHeight: 70, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {LOCATION_GROUP_HEADER_PLACEHOLDERS.map((p) => (
+                  <button
+                    key={`thirsty_header_${p.key}`}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleInsertThirstyListHeaderPlaceholder(p.label)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={fieldRow}>
                 <label style={label} htmlFor="thirsty_list_template">
                   Thirsty List Template
                 </label>
@@ -627,6 +721,32 @@ export default function AdminDashboard() {
             </p>
 
             <form onSubmit={handleSaveWeightPlantsTemplate} style={{ maxWidth: 720 }}>
+              <div style={fieldRow}>
+                <label style={label} htmlFor="weight_plants_header_template">
+                  Weight Plants Location Group Header
+                </label>
+                <textarea
+                  id="weight_plants_header_template"
+                  value={weightPlantsHeaderTemplate}
+                  onChange={(e) => setWeightPlantsHeaderTemplate(e.target.value)}
+                  placeholder="{{location_group}}"
+                  style={{ ...styles.input, maxWidth: 720, minHeight: 70, fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                {LOCATION_GROUP_HEADER_PLACEHOLDERS.map((p) => (
+                  <button
+                    key={`weight_header_${p.key}`}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleInsertWeightPlantsHeaderPlaceholder(p.label)}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
               <div style={fieldRow}>
                 <label style={label} htmlFor="weight_plants_template">
                   Weight Plants Template

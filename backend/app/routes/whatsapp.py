@@ -303,6 +303,7 @@ async def send_daily_digest_test(
         "helpers_count": str(len(helpers)),
         "admin_username": current_user.get("username", ""),
         "weight_plants_list": _build_weight_plants_list(weight_plants, weight_plants_template or None),
+        "weight_plants_count": str(len(weight_plants)),
         "phone_number_id": settings.get("whatsapp_number") or "",
     }
 

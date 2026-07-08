@@ -112,6 +112,7 @@ def _send_digest_for_admin(conn, user_id: bytes, settings: dict):
             "helpers_count": str(len(helpers)),
             "admin_username": username,
             "weight_plants_list": _build_weight_plants_list(weight_plants, weight_plants_template),
+            "weight_plants_count": str(len(weight_plants)),
             "phone_number_id": whatsapp_number,
         }
 
