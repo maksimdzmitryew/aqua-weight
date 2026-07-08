@@ -84,18 +84,22 @@ async def create_repotting_event(
                 # Pre-check derived dry weight BEFORE any writes.
                 # If the user does not confirm, abort with 409 so no repotting-related
                 # measurement rows are created for this request.
-                derived_last_dry_weight_g = repotted_weight_g - (prev_last_water or 0)
-                if derived_last_dry_weight_g < 0:
+                prev_last_water_g = prev_last_water or 0
+                effective_water_added_g = prev_last_water_g
+                if repotted_weight_g - prev_last_water_g < 0:
                     if not confirm_small_pot:
                         raise HTTPException(
                             status_code=409,
                             detail=(
                                 "Moved to a very small pot? "
-                                "If yes, re-submit with confirm_small_pot=true to clamp dry weight to 0. "
+                                "If yes, re-submit with confirm_small_pot=true to reset water_added_g to 0 and continue. "
                                 "If no, the previous water_added_g is greater than the new total weight."
                             ),
                         )
-                    derived_last_dry_weight_g = 0
+                    # User confirmed: record the repotting with water_added_g reset to 0.
+                    effective_water_added_g = 0
+
+                derived_last_dry_weight_g = repotted_weight_g - effective_water_added_g
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
@@ -114,7 +118,7 @@ async def create_repotting_event(
                         measured_weight_g,
                         None,
                         None,
-                        prev_last_water,
+                        effective_water_added_g,
                     ),
                 )
 
@@ -122,9 +126,9 @@ async def create_repotting_event(
                 derived = DerivedWeights(
                     last_dry_weight_g=prev_last_dry,
                     last_wet_weight_g=prev_last_wet,
-                    water_added_g=prev_last_water or 0,
+                    water_added_g=effective_water_added_g,
                     prev_measured_weight=prev_measured_weight,
-                    last_watering_water_added=prev_last_water or 0,
+                    last_watering_water_added=effective_water_added_g,
                 )
                 loss_calc = compute_water_losses(
                     cursor=cur,
@@ -162,7 +166,7 @@ async def create_repotting_event(
                         None,
                         prev_last_dry,
                         prev_last_wet,
-                        prev_last_water,
+                        effective_water_added_g,
                         loss_calc.water_loss_total_pct,
                         loss_calc.water_loss_total_g,
                         loss_calc.water_loss_day_pct,
@@ -190,9 +194,24 @@ async def create_repotting_event(
                         repotted_weight_g,
                         new_measured_weight_g,
                         repotted_weight_g,
-                        prev_last_water,
+                        effective_water_added_g,
                         note,
                     ),
+                )
+
+                # Repotting invalidates the plant's previous dry/minimum and max-water assumptions.
+                # Reset the calculated fields as agreed:
+                # - max_water_weight_g -> 0
+                # - min_dry_weight_g -> measured_weight_g (repot form field)
+                cur.execute(
+                    """
+                    UPDATE plants
+                    SET
+                        min_dry_weight_g = %s,
+                        max_water_weight_g = %s
+                    WHERE id = UNHEX(%s)
+                    """,
+                    (repotted_weight_g, 0, plant_id),
                 )
 
                 result = {
@@ -269,6 +288,18 @@ async def update_repotting_event(
                     id_hex,
                 )
                 cursor.execute(query, data)
+
+                # Keep plant-level calculated fields consistent when a repotting event is edited.
+                cursor.execute(
+                    """
+                    UPDATE plants
+                    SET
+                        min_dry_weight_g = %s,
+                        max_water_weight_g = %s
+                    WHERE id = UNHEX(%s)
+                    """,
+                    (last_wet_weight_g, 0, plant_id),
+                )
 
                 result = {
                     "id": id_hex,

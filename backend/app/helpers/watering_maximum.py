@@ -1,69 +1,52 @@
-from typing import List, Optional
+from typing import Optional
 
 from ..schemas.measurement import MeasurementItem
-
-
-def get_added_waterings_since_repotting(
-    conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]
-) -> List[float]:
-    """
-    Get all water_added_g values for a plant since the last repotting event.
-    If there's no repotting event, get all measured_weight_g values.
-    """
-    try:
-        # If there's no repotting event, get all measurements
-        if not last_repotting:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT water_added_g
-                    FROM plants_measurements
-                    WHERE plant_id = UNHEX(%s)
-                      AND water_added_g > 0
-                    ORDER BY measured_at ASC
-                    """,
-                    (plant_id_hex,),
-                )
-                rows = cur.fetchall()
-
-                return [row[0] for row in rows if row[0] is not None]
-        else:
-            # might be inaccurate if repotting evevnt is the only one holding the water amount info
-            # Get measurements since the last repotting event
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT water_added_g
-                    FROM plants_measurements
-                    WHERE plant_id = UNHEX(%s)
-                      AND measured_at >= %s
-                      AND water_added_g > 0
-                    ORDER BY measured_at ASC
-                    """,
-                    (plant_id_hex, last_repotting.measured_at),
-                )
-                rows = cur.fetchall()
-                return [row[0] for row in rows if row[0] is not None]
-    except Exception as e:
-        print(
-            "Could not read waterings added",
-            e,
-        )
-        return []
 
 
 def calculate_max_watering_added_g(
     conn, plant_id_hex: str, last_repotting: Optional[MeasurementItem]
 ) -> Optional[float]:
     """
-    Calculate the minimum measured_weight_g for a plant since last repotting.
-    If there's no repotting event, calculate from all measurements.
+    Calculate max daily watering amount (sum of water_added_g per date) since
+    the last repotting event.
+
+    Cutoff behavior:
+      - If last_repotting is present: only include events with measured_at > repot_at (strict).
+      - If no repotting: include all history.
+
+    If no qualifying watering events exist, return None.
     """
     try:
-        # Get maximum water that this weight is able to retain
-        waterings = get_added_waterings_since_repotting(conn, plant_id_hex, last_repotting)
-        if not waterings:
-            return None
-        return max(waterings)
+        params = [plant_id_hex]
+        repot_clause = ""
+        if last_repotting and last_repotting.measured_at:
+            repot_clause = " AND measured_at > %s"
+            params.append(last_repotting.measured_at)
+
+        # Watering event signature matches the backend's documented storage signature.
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT MAX(daily_sum)
+                FROM (
+                    SELECT DATE(measured_at) AS d, SUM(water_added_g) AS daily_sum
+                    FROM plants_measurements
+                    WHERE plant_id = UNHEX(%s)
+                      AND measured_weight_g IS NULL
+                      AND water_loss_total_pct = 0
+                      AND water_loss_total_g IS NULL
+                      AND water_loss_day_pct IS NULL
+                      AND water_loss_day_g IS NULL
+                      AND last_dry_weight_g IS NOT NULL
+                      AND last_wet_weight_g IS NOT NULL
+                      AND water_added_g > 0
+                      {repot_clause}
+                    GROUP BY DATE(measured_at)
+                ) t
+                """,
+                params,
+            )
+            row = cur.fetchone()
+            return row[0] if row and row[0] is not None else None
     except Exception:
         return None

@@ -122,7 +122,7 @@ const RepottingCreate = () => {
         <ConfirmDialog
           open={smallPotDialogOpen}
           title="Moved to a very small pot?"
-          message="Last time you added more water than current plant weight. Clamp the derived dry weight to 0 and continue?"
+          message="Last time you added more water than current plant weight. Save this repotting with water_added_g reset to 0 and continue?"
           tone="warning"
           disabled={saving}
           onCancel={() => {

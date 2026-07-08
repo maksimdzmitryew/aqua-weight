@@ -51,6 +51,7 @@ class PlantsList:
                            p.updated_at,
                            latest_pm.measured_at,
                            latest_pm.measured_weight_g,
+                           latest_pm.last_dry_weight_g,
                            latest_pm.last_wet_weight_g,
                            latest_pm.water_loss_total_pct,
                            p.archive,
@@ -59,7 +60,7 @@ class PlantsList:
                     FROM plants p
                              LEFT JOIN locations l ON l.id = p.location_id
                              LEFT JOIN (SELECT measured_at, plant_id,
-                                               measured_weight_g, last_wet_weight_g, water_loss_total_pct,
+                                               measured_weight_g, last_dry_weight_g, last_wet_weight_g, water_loss_total_pct,
                                                ROW_NUMBER() OVER (PARTITION BY plant_id ORDER BY measured_at DESC) AS rn
                                         FROM plants_measurements) latest_pm
                                        ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
@@ -164,14 +165,14 @@ class PlantsList:
                 now = datetime.utcnow()
                 for idx, row in enumerate(rows, start=1):
                     # Support both the full DB row and a simplified 9-column test row.
-                    # Full shape (18 columns):
+                    # Full shape (20 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
                     #   7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive, 17 sort_order
+                    #   11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_dry_weight_g, 15 last_wet_weight_g, 16 water_loss_total_pct, 17 archive, 18 sort_order, 19 description
                     # Simplified test shape (9 columns):
                     #   0 id, 1 name, 2 notes, 3 species_name, 4 location_id, 5 location_name,
                     #   6 created_at, 7 measured_at, 8 water_loss_total_pct
-                    if len(row) >= 18:
+                    if len(row) >= 19:
                         pid = row[0]
                         name = row[1]
                         notes = row[2]
@@ -186,11 +187,12 @@ class PlantsList:
                         updated_at_db = row[11]
                         measured_at_db = row[12]
                         measured_weight_g = row[13]
-                        last_wet_weight_g = row[14]
-                        water_loss_total_pct = row[15]
-                        archive = row[16]
-                        sort_order = row[17]
-                        description = row[18] if len(row) >= 19 else row[2]
+                        latest_last_dry_weight_g = row[14]
+                        last_wet_weight_g = row[15]
+                        water_loss_total_pct = row[16]
+                        archive = row[17]
+                        sort_order = row[18]
+                        description = row[19] if len(row) >= 20 else row[2]
                     else:
                         # Fallback mapping for simplified rows used in tests
                         pid = row[0]
@@ -209,6 +211,7 @@ class PlantsList:
                         measured_at_db = row[7]
                         updated_at_db = row[6]
                         measured_weight_g = None
+                        latest_last_dry_weight_g = None
                         last_wet_weight_g = None
                         water_loss_total_pct = row[8]
                         archive = 0
@@ -218,10 +221,31 @@ class PlantsList:
                     candidates = [dt for dt in (measured_at_db, updated_at_db) if dt]
                     latest_at_pref = max(candidates) if candidates else (created_at_db or now)
 
-                    # Calculate water retained percentage using the helper
+                    # Calculate water retained percentage using the helper.
+                    # For repotting, the latest measurement row can carry a new baseline
+                    # (last_dry_weight_g + last_wet_weight_g) while the plant table may still
+                    # hold pre-repot calibration. If that row has NULL water_loss_total_pct,
+                    # treat it as a repot "snapshot" and compute retained using that baseline
+                    # so the plant doesn't incorrectly show as needing water immediately.
+                    effective_min_dry_weight_g = min_dry_weight_g
+                    effective_max_water_weight_g = max_water_weight_g
+                    if (
+                        measured_weight_g is not None
+                        and latest_last_dry_weight_g is not None
+                        and last_wet_weight_g is not None
+                        and water_loss_total_pct is None
+                    ):
+                        try:
+                            derived_capacity_g = float(last_wet_weight_g) - float(latest_last_dry_weight_g)
+                            if derived_capacity_g > 0:
+                                effective_min_dry_weight_g = latest_last_dry_weight_g
+                                effective_max_water_weight_g = derived_capacity_g
+                        except Exception:
+                            pass
+
                     water_retained_calc = calculate_water_retained(
-                        min_dry_weight_g=min_dry_weight_g,
-                        max_water_weight_g=max_water_weight_g,
+                        min_dry_weight_g=effective_min_dry_weight_g,
+                        max_water_weight_g=effective_max_water_weight_g,
                         measured_weight_g=measured_weight_g,
                         last_wet_weight_g=last_wet_weight_g,
                         water_loss_total_pct=water_loss_total_pct,
