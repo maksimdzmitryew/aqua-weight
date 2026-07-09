@@ -40,7 +40,6 @@ import { CSS } from '@dnd-kit/utilities'
 
 const SORTABLE_COLUMNS = {
   'care': { label: 'Care', field: 'water_retained_pct' },
-  'thresh': { label: 'Thresh', field: 'recommended_water_threshold_pct' },
   'freq': { label: 'Freq', field: 'frequency_days' },
   'next': { label: 'Next', field: 'next_watering_at' },
   'name': { label: 'Name', field: 'name' },
@@ -73,22 +72,30 @@ function SortablePlantRow({
   }
 
   const retained = getWaterRetainedPct(p, operationMode, p._approximation)
-  const displayRetained = typeof retained === 'number' ? `${retained}%` : retained
+  const minThreshPct = p?.recommended_water_threshold_pct
+  const minThreshText = typeof minThreshPct === 'number' ? `${minThreshPct}` : '—'
+  const retainedText = typeof retained === 'number' ? `${retained}` : '—'
+  const minWithRetainedText = `${minThreshText}/${retainedText}`
   const needsWater = checkNeedsWater(p)
 
   return (
     <tr ref={setNodeRef} style={style} className={isDragging ? 'plant-row-dragging' : ''}>
-      <td className="td" title={p.uuid ? 'View plant' : undefined}>
+      <td className="td" title={p.uuid ? 'View plant' : undefined} style={{ minWidth: 215 }}>
         <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
           {p.archive !== 1 && (
-            <QuickCreateButtons plantUuid={p.uuid} plantName={p.name} compact={true} />
+            <QuickCreateButtons
+              plantUuid={p.uuid}
+              plantName={p.name}
+              compact={true}
+              highlightWater={needsWater}
+            />
           )}
           {p.archive === 1 && (
             <span title="Archived" style={{ fontSize: '1.2em' }}>
               📦
             </span>
           )}
-          {p.archive !== 1 && displayRetained}
+          {p.archive !== 1 && minWithRetainedText}
           {p.archive === 1 ? (
             <Badge tone="subtle" title="Plant is archived">
               Archived
@@ -108,9 +115,6 @@ function SortablePlantRow({
                     Needs water
                   </Badge>
                 </span>
-                <span className="mobile-only-icon">
-                  <StatusIcon type="water" active={true} />
-                </span>
               </span>
             )
           )}
@@ -128,8 +132,29 @@ function SortablePlantRow({
           )}
         </span>
       </td>
-      <td className="td">{p.recommended_water_threshold_pct}%</td>
-      <td className="td">
+      <td
+        className="td"
+        style={{ minWidth: 190, width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
+        title={p.uuid ? 'View plant' : undefined}
+      >
+        {p.uuid ? (
+          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+            {p.identify_hint} {p.name}
+          </Link>
+        ) : (
+          p.name
+        )}
+      </td>
+      <td className="td" title={p.uuid ? 'View plant' : undefined}>
+        {p.uuid ? (
+          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
+            {p.notes || '—'}
+          </Link>
+        ) : (
+          p.notes || '—'
+        )}
+      </td>
+      <td className="td hide-column-phone">
         {Number.isFinite(p?.frequency_days) ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             {p.frequency_days} d
@@ -153,7 +178,7 @@ function SortablePlantRow({
         )}
       </td>
       <td
-        className="td"
+        className="td hide-column-phone"
         style={operationMode === 'vacation' && p.days_offset < 0 ? { background: '#fecaca' } : {}}
       >
         <DateTimeText
@@ -165,32 +190,10 @@ function SortablePlantRow({
           <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>({p.days_offset}d)</span>
         )}
       </td>
-      <td
-        className="td"
-        style={{ width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
-        title={p.uuid ? 'View plant' : undefined}
-      >
-        {p.uuid ? (
-          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-            {p.identify_hint} {p.name}
-          </Link>
-        ) : (
-          p.name
-        )}
-      </td>
-      <td className="td" title={p.uuid ? 'View plant' : undefined}>
-        {p.uuid ? (
-          <Link to={`/plants/${p.uuid}`} state={{ plant: p }} className="block-link">
-            {p.notes || '—'}
-          </Link>
-        ) : (
-          p.notes || '—'
-        )}
-      </td>
-      <td className="td hide-column-phone" style={{ width: 100 }}>
+      <td className="td hide-column-phone" style={{ minWidth: 90, width: 100 }}>
         {p.location || '—'}
       </td>
-      <td className="td hide-column-tablet" style={{ width: 80 }}>
+      <td className="td hide-column-tablet" style={{ minWidth: 100, width: 100 }}>
         <DateTimeText value={p.latest_at} mode="shortdatetime" />
       </td>
       <td className="td text-right nowrap">
@@ -269,7 +272,10 @@ export default function PlantsList() {
   const [sortConfig, setSortConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('plantsListSort')
-      return saved ? JSON.parse(saved) : { column: 'sort_order', direction: 'asc' }
+      const parsed = saved ? JSON.parse(saved) : { column: 'sort_order', direction: 'asc' }
+      // Backward compatibility: if a removed column was saved, fall back to a visible one.
+      if (parsed?.column === 'thresh') return { column: 'care', direction: 'asc' }
+      return parsed
     } catch {
       return { column: 'sort_order', direction: 'asc' }
     }
@@ -765,48 +771,18 @@ export default function PlantsList() {
                           className="th"
                           scope="col"
                           title="Current retained water percentage and quick actions"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          style={{ minWidth: 215, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('care')}
                         >
-                          Care, Water retained{' '}
+                          Water min/retained{' '}
                           {sortConfig.column === 'care' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
                           <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
                         </th>
                         <th
                           className="th"
                           scope="col"
-                          title="Watering threshold — water when retained ≤ value"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('thresh')}
-                        >
-                          Thresh {sortConfig.column === 'thresh' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th"
-                          scope="col"
-                          title="Watering frequency"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('freq')}
-                        >
-                          Freq {sortConfig.column === 'freq' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th"
-                          scope="col"
-                          title="Next planned watering date"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('next')}
-                        >
-                          Next {sortConfig.column === 'next' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th"
-                          scope="col"
                           title="Plant name"
-                          style={{ width: 180, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ minWidth: 160, width: 180, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('name')}
                         >
                           Name {sortConfig.column === 'name' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
@@ -816,7 +792,7 @@ export default function PlantsList() {
                           className="th"
                           scope="col"
                           title="Notes"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          style={{ minWidth: 160, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('notes')}
                         >
                           Notes {sortConfig.column === 'notes' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
@@ -825,8 +801,28 @@ export default function PlantsList() {
                         <th
                           className="th hide-column-phone"
                           scope="col"
-                          title="Location"
+                          title="Watering frequency"
                           style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('freq')}
+                        >
+                          Freq {sortConfig.column === 'freq' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th
+                          className="th hide-column-phone"
+                          scope="col"
+                          title="Next planned watering date"
+                          style={{ cursor: 'pointer', userSelect: 'none' }}
+                          onClick={() => handleSort('next')}
+                        >
+                          Next {sortConfig.column === 'next' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                        </th>
+                        <th
+                          className="th hide-column-phone"
+                          scope="col"
+                          title="Location"
+                          style={{ minWidth: 90, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('location')}
                         >
                           Location {sortConfig.column === 'location' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
@@ -836,7 +832,7 @@ export default function PlantsList() {
                           className="th hide-column-tablet"
                           scope="col"
                           title="Last update time"
-                          style={{ width: 100, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ minWidth: 100, width: 100, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('updated')}
                         >
                           Updated {sortConfig.column === 'updated' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}

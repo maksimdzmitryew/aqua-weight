@@ -17,6 +17,15 @@
   }
 }
 
+@media (max-width: 640px) {
+  /* On mobile: highlight the watering quick action when a plant needs water. */
+  .qc-water.qc-water--needs button {
+    background: var(--button-primary-bg) !important;
+    border-color: var(--button-primary-bg) !important;
+    color: #ffffff !important;
+  }
+}
+
 .drag-handle {
   cursor: grab;
   touch-action: none;

@@ -44,7 +44,7 @@ export default function BulkMeasurementTable({
       <TableHeader title="Watering threshold — water when retained ≤ value" style={{ minWidth: 95 }}>Thresh</TableHeader>
       <TableHeader title="Plant name" style={{ minWidth: 190 }}>Name</TableHeader>
       <TableHeader title="Notes" style={{ minWidth: 240 }}>Notes</TableHeader>
-      <TableHeader title="Location" className="th hide-column-phone">
+      <TableHeader title="Location" className="th hide-column-phone" style={{ minWidth: 90 }}>
         Location
       </TableHeader>
       <TableHeader
@@ -58,7 +58,7 @@ export default function BulkMeasurementTable({
         Water loss
       </TableHeader>
       {showUpdatedColumn && (
-        <TableHeader title="Last update time" className="th hide-column-tablet">
+        <TableHeader title="Last update time" className="th hide-column-tablet" style={{ minWidth: 100 }}>
           Updated
         </TableHeader>
       )}
@@ -322,7 +322,9 @@ export default function BulkMeasurementTable({
             p.notes || '—'
           )}
         </td>
-        <td className="td hide-column-phone">{p.location || '—'}</td>
+        <td className="td hide-column-phone" style={{ minWidth: 90 }}>
+          {p.location || '—'}
+        </td>
         <td
           className="td hide-column-phone"
           style={computeWaterLossStyle?.(displayWaterLoss)}
@@ -341,10 +343,10 @@ export default function BulkMeasurementTable({
             </a>
           ) : (
             displayWaterLossText
-          )}
-        </td>
-        {showUpdatedColumn && (
-          <td className="td hide-column-tablet">
+        )}
+      </td>
+      {showUpdatedColumn && (
+          <td className="td hide-column-tablet" style={{ minWidth: 100 }}>
             {operationMode === 'vacation' ? (
               '—'
             ) : (
