@@ -80,7 +80,7 @@ function SortablePlantRow({
 
   return (
     <tr ref={setNodeRef} style={style} className={isDragging ? 'plant-row-dragging' : ''}>
-      <td className="td" title={p.uuid ? 'View plant' : undefined} style={{ minWidth: 215 }}>
+      <td className="td" title={p.uuid ? 'View plant' : undefined} style={{ minWidth: 180 }}>
         <span style={{ display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
           {p.archive !== 1 && (
             <QuickCreateButtons
@@ -771,7 +771,7 @@ export default function PlantsList() {
                           className="th"
                           scope="col"
                           title="Current retained water percentage and quick actions"
-                          style={{ minWidth: 215, cursor: 'pointer', userSelect: 'none' }}
+                          style={{ minWidth: 200, cursor: 'pointer', userSelect: 'none' }}
                           onClick={() => handleSort('care')}
                         >
                           Water min/retained{' '}
