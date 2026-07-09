@@ -87,34 +87,35 @@ export default function AdminDashboard() {
   }
 
   // WhatsApp credentials state
-  const [credentials, setCredentials] = useState({ api_url: '', api_token: '', template_name: '', phone_number_id: '' })
+  const [credentials, setCredentials] = useState({
+    api_url: '',
+    api_token: '',
+    template_name: '',
+    phone_number_id: '',
+  })
   const [credsLoading, setCredsLoading] = useState(true)
-  const [savingCreds, setSavingCreds] = useState(false)
-  const [credsError, setCredsError] = useState('')
-  const [credsSaved, setCredsSaved] = useState('')
-  const [sendingTemplateTest, setSendingTemplateTest] = useState(false)
-  const [templateTestError, setTemplateTestError] = useState('')
-  const [templateTestSent, setTemplateTestSent] = useState('')
+  const [credsStatus, setCredsStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'failed'
+  const [templateTestStatus, setTemplateTestStatus] = useState('idle') // 'idle' | 'sending' | 'sent' | 'failed'
 
   // WhatsApp daily digest (free-text template) state
   const [dailyDigest, setDailyDigest] = useState('')
   const [digestLoading, setDigestLoading] = useState(true)
-  const [savingDigest, setSavingDigest] = useState(false)
-  const [digestError, setDigestError] = useState('')
-  const [digestSaved, setDigestSaved] = useState('')
-  const [sendingDigestTest, setSendingDigestTest] = useState(false)
-  const [digestTestError, setDigestTestError] = useState('')
-  const [digestTestSent, setDigestTestSent] = useState('')
+  const [digestStatus, setDigestStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'failed'
+  const [digestTestStatus, setDigestTestStatus] = useState('idle') // 'idle' | 'sending' | 'sent' | 'failed'
 
   // WhatsApp sub-templates state
   const [thirstyListTemplate, setThirstyListTemplate] = useState('')
   const [thirstyListHeaderTemplate, setThirstyListHeaderTemplate] = useState('')
   const [weightPlantsTemplate, setWeightPlantsTemplate] = useState('')
   const [weightPlantsHeaderTemplate, setWeightPlantsHeaderTemplate] = useState('')
-  const [savingThirstyList, setSavingThirstyList] = useState(false)
-  const [savingWeightPlants, setSavingWeightPlants] = useState(false)
-  const [thirstyListSaved, setThirstyListSaved] = useState('')
-  const [weightPlantsSaved, setWeightPlantsSaved] = useState('')
+  const [thirstyListStatus, setThirstyListStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'failed'
+  const [weightPlantsStatus, setWeightPlantsStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'failed'
+
+  const buttonStyle = {
+    padding: '8px 16px',
+    borderRadius: 6,
+    cursor: 'pointer',
+  }
 
   const styles = useMemo(() => {
     const isDark = effectiveTheme === 'dark'
@@ -129,12 +130,7 @@ export default function AdminDashboard() {
         maxWidth: 500,
       },
       button: {
-        padding: '8px 16px',
-        background: isDark ? '#111827' : '#111827',
-        color: 'white',
-        border: 0,
-        borderRadius: 6,
-        cursor: 'pointer',
+        ...buttonStyle,
       },
     }
   }, [effectiveTheme])
@@ -216,8 +212,8 @@ export default function AdminDashboard() {
         template_name: data.template_name || '',
         phone_number_id: data.phone_number_id || '',
       })
-    } catch (err) {
-      setCredsError(err.detail || 'Failed to load credentials')
+    } catch {
+      // Error is shown in UI via credsStatus
     } finally {
       setCredsLoading(false)
     }
@@ -271,42 +267,34 @@ export default function AdminDashboard() {
 
   const handleSaveCredentials = async (e) => {
     e.preventDefault()
-    setSavingCreds(true)
-    setCredsError('')
+    setCredsStatus('saving')
     try {
       await apiClient.post('/whatsapp/credentials', credentials)
-      setCredsSaved('Saved!')
-      setTimeout(() => setCredsSaved(''), 2000)
-    } catch (err) {
-      setCredsError(err.detail || 'Failed to save credentials')
-    } finally {
-      setSavingCreds(false)
+      setCredsStatus('saved')
+      setTimeout(() => setCredsStatus('idle'), 2000)
+    } catch {
+      setCredsStatus('failed')
     }
   }
 
   const handleSendTemplateTest = async () => {
-    setSendingTemplateTest(true)
-    setTemplateTestError('')
-    setTemplateTestSent('')
+    setTemplateTestStatus('sending')
     try {
       await apiClient.post('/whatsapp/credentials/send-test-template', null)
-      setTemplateTestSent('Sent!')
-      setTimeout(() => setTemplateTestSent(''), 2000)
-    } catch (err) {
-      setTemplateTestError(err.detail || 'Failed to send template test')
-    } finally {
-      setSendingTemplateTest(false)
+      setTemplateTestStatus('sent')
+      setTimeout(() => setTemplateTestStatus('idle'), 2000)
+    } catch {
+      setTemplateTestStatus('failed')
     }
   }
 
   const loadDailyDigest = async () => {
     setDigestLoading(true)
-    setDigestError('')
     try {
       const data = await apiClient.get('/whatsapp/daily-digest')
       setDailyDigest(data?.daily_digest || '')
-    } catch (err) {
-      setDigestError(err.detail || 'Failed to load daily digest')
+    } catch {
+      // Error is shown via digestStatus
     } finally {
       setDigestLoading(false)
     }
@@ -314,31 +302,24 @@ export default function AdminDashboard() {
 
   const handleSaveDailyDigest = async (e) => {
     e.preventDefault()
-    setSavingDigest(true)
-    setDigestError('')
+    setDigestStatus('saving')
     try {
       await apiClient.post('/whatsapp/daily-digest', { daily_digest: dailyDigest })
-      setDigestSaved('Saved!')
-      setTimeout(() => setDigestSaved(''), 2000)
-    } catch (err) {
-      setDigestError(err.detail || 'Failed to save daily digest')
-    } finally {
-      setSavingDigest(false)
+      setDigestStatus('saved')
+      setTimeout(() => setDigestStatus('idle'), 2000)
+    } catch {
+      setDigestStatus('failed')
     }
   }
 
   const handleSendDailyDigestTest = async () => {
-    setSendingDigestTest(true)
-    setDigestTestError('')
-    setDigestTestSent('')
+    setDigestTestStatus('sending')
     try {
       await apiClient.post('/whatsapp/daily-digest/send-test', null)
-      setDigestTestSent('Sent!')
-      setTimeout(() => setDigestTestSent(''), 2000)
-    } catch (err) {
-      setDigestTestError(err.detail || 'Failed to send test')
-    } finally {
-      setSendingDigestTest(false)
+      setDigestTestStatus('sent')
+      setTimeout(() => setDigestTestStatus('idle'), 2000)
+    } catch {
+      setDigestTestStatus('failed')
     }
   }
 
@@ -369,7 +350,8 @@ export default function AdminDashboard() {
     if (textarea && textarea.selectionStart !== undefined) {
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
-      const newText = thirstyListTemplate.slice(0, start) + placeholderLabel + thirstyListTemplate.slice(end)
+      const newText =
+        thirstyListTemplate.slice(0, start) + placeholderLabel + thirstyListTemplate.slice(end)
       setThirstyListTemplate(newText)
       setTimeout(() => {
         textarea.focus()
@@ -384,7 +366,9 @@ export default function AdminDashboard() {
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
       const newText =
-        thirstyListHeaderTemplate.slice(0, start) + placeholderLabel + thirstyListHeaderTemplate.slice(end)
+        thirstyListHeaderTemplate.slice(0, start) +
+        placeholderLabel +
+        thirstyListHeaderTemplate.slice(end)
       setThirstyListHeaderTemplate(newText)
       setTimeout(() => {
         textarea.focus()
@@ -398,7 +382,8 @@ export default function AdminDashboard() {
     if (textarea && textarea.selectionStart !== undefined) {
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
-      const newText = weightPlantsTemplate.slice(0, start) + placeholderLabel + weightPlantsTemplate.slice(end)
+      const newText =
+        weightPlantsTemplate.slice(0, start) + placeholderLabel + weightPlantsTemplate.slice(end)
       setWeightPlantsTemplate(newText)
       setTimeout(() => {
         textarea.focus()
@@ -413,7 +398,9 @@ export default function AdminDashboard() {
       const start = textarea.selectionStart
       const end = textarea.selectionEnd
       const newText =
-        weightPlantsHeaderTemplate.slice(0, start) + placeholderLabel + weightPlantsHeaderTemplate.slice(end)
+        weightPlantsHeaderTemplate.slice(0, start) +
+        placeholderLabel +
+        weightPlantsHeaderTemplate.slice(end)
       setWeightPlantsHeaderTemplate(newText)
       setTimeout(() => {
         textarea.focus()
@@ -424,31 +411,31 @@ export default function AdminDashboard() {
 
   const handleSaveThirstyListTemplate = async (e) => {
     e.preventDefault()
-    setSavingThirstyList(true)
+    setThirstyListStatus('saving')
     try {
-      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(thirstyListHeaderTemplate || '').trim()}\n[[AW_ITEM_TEMPLATE]]\n${(thirstyListTemplate || '').trim()}`
+      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(
+        thirstyListHeaderTemplate || ''
+      ).trim()}\n[[AW_ITEM_TEMPLATE]]\n${(thirstyListTemplate || '').trim()}`
       await apiClient.post('/whatsapp/thirsty-list', { thirsty_list_template: combined })
-      setThirstyListSaved('Saved!')
-      setTimeout(() => setThirstyListSaved(''), 2000)
-    } catch (err) {
-      alert(err.detail || 'Failed to save thirsty list template')
-    } finally {
-      setSavingThirstyList(false)
+      setThirstyListStatus('saved')
+      setTimeout(() => setThirstyListStatus('idle'), 2000)
+    } catch {
+      setThirstyListStatus('failed')
     }
   }
 
   const handleSaveWeightPlantsTemplate = async (e) => {
     e.preventDefault()
-    setSavingWeightPlants(true)
+    setWeightPlantsStatus('saving')
     try {
-      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(weightPlantsHeaderTemplate || '').trim()}\n[[AW_ITEM_TEMPLATE]]\n${(weightPlantsTemplate || '').trim()}`
+      const combined = `[[AW_LOCATION_GROUP_HEADER]]\n${(
+        weightPlantsHeaderTemplate || ''
+      ).trim()}\n[[AW_ITEM_TEMPLATE]]\n${(weightPlantsTemplate || '').trim()}`
       await apiClient.post('/whatsapp/weight-plants', { weight_plants_template: combined })
-      setWeightPlantsSaved('Saved!')
-      setTimeout(() => setWeightPlantsSaved(''), 2000)
-    } catch (err) {
-      alert(err.detail || 'Failed to save weight plants template')
-    } finally {
-      setSavingWeightPlants(false)
+      setWeightPlantsStatus('saved')
+      setTimeout(() => setWeightPlantsStatus('idle'), 2000)
+    } catch {
+      setWeightPlantsStatus('failed')
     }
   }
 
@@ -556,7 +543,12 @@ export default function AdminDashboard() {
 
             {inviteToken && (
               <div
-                style={{ marginTop: 24, padding: 16, background: 'var(--sidebar-bg)', borderRadius: 6 }}
+                style={{
+                  marginTop: 24,
+                  padding: 16,
+                  background: 'var(--sidebar-bg)',
+                  borderRadius: 6,
+                }}
               >
                 <p style={{ fontWeight: 600, marginBottom: 8 }}>Invite Link (Valid for 7 days):</p>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -598,7 +590,12 @@ export default function AdminDashboard() {
             <h3 style={{ marginBottom: 12 }}>Daily Digest Template</h3>
             <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
               Configure the daily digest message template. Use placeholders like{' '}
-              <code>{'{'}{'{'}date{'}'}{'}'}</code> to inject values.
+              <code>
+                {'{'}
+                {'{'}date{'}'}
+                {'}'}
+              </code>{' '}
+              to inject values.
             </p>
 
             {digestLoading ? (
@@ -614,7 +611,12 @@ export default function AdminDashboard() {
                     value={dailyDigest}
                     onChange={(e) => setDailyDigest(e.target.value)}
                     placeholder="Example: Daily digest for {{date}}..."
-                    style={{ ...styles.input, maxWidth: 720, minHeight: 160, fontFamily: 'inherit' }}
+                    style={{
+                      ...styles.input,
+                      maxWidth: 720,
+                      minHeight: 160,
+                      fontFamily: 'inherit',
+                    }}
                   />
                 </div>
 
@@ -623,7 +625,8 @@ export default function AdminDashboard() {
                     <button
                       key={p.key}
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '0.85em' }}
                       onClick={() => handleInsertDigestPlaceholder(p.label)}
                     >
                       {p.label}
@@ -633,7 +636,8 @@ export default function AdminDashboard() {
                     <button
                       key={p.key}
                       type="button"
-                      className="btn btn-secondary btn-sm"
+                      className="btn btn-secondary"
+                      style={{ padding: '4px 8px', fontSize: '0.85em' }}
                       onClick={() => handleInsertDigestPlaceholder(p.label)}
                     >
                       {p.label}
@@ -641,22 +645,44 @@ export default function AdminDashboard() {
                   ))}
                 </div>
 
-                {digestError && <p style={{ color: 'crimson' }}>{digestError}</p>}
-                {digestSaved && <p style={{ color: 'seagreen' }}>{digestSaved}</p>}
-                {digestTestError && <p style={{ color: 'crimson' }}>{digestTestError}</p>}
-                {digestTestSent && <p style={{ color: 'seagreen' }}>{digestTestSent}</p>}
-
                 <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-                  <button type="submit" style={styles.button} disabled={savingDigest}>
-                    {savingDigest ? 'Saving...' : 'Save Template'}
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{
+                      ...styles.button,
+                      backgroundColor:
+                        digestStatus === 'saved'
+                          ? '#10b981'
+                          : digestStatus === 'failed'
+                            ? '#ef4444'
+                            : undefined,
+                      minWidth: '120px',
+                    }}
+                    disabled={digestStatus === 'saving'}
+                  >
+                    {digestStatus === 'saving'
+                      ? 'Saving...'
+                      : digestStatus === 'saved'
+                        ? 'Saved!'
+                        : digestStatus === 'failed'
+                          ? 'Failed'
+                          : 'Save Template'}
                   </button>
                   <button
                     type="button"
                     className="btn btn-secondary"
                     onClick={handleSendDailyDigestTest}
-                    disabled={sendingDigestTest || !dailyDigest.trim()}
+                    disabled={digestTestStatus === 'sending' || !dailyDigest.trim()}
+                    style={{ ...styles.button, minWidth: '120px' }}
                   >
-                    {sendingDigestTest ? 'Sending...' : 'Send Test'}
+                    {digestTestStatus === 'sending'
+                      ? 'Sending...'
+                      : digestTestStatus === 'sent'
+                        ? 'Sent!'
+                        : digestTestStatus === 'failed'
+                          ? 'Failed'
+                          : 'Send Test'}
                   </button>
                 </div>
               </form>
@@ -689,7 +715,8 @@ export default function AdminDashboard() {
                   <button
                     key={`thirsty_header_${p.key}`}
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 8px', fontSize: '0.85em' }}
                     onClick={() => handleInsertThirstyListHeaderPlaceholder(p.label)}
                   >
                     {p.label}
@@ -715,7 +742,8 @@ export default function AdminDashboard() {
                   <button
                     key={p.key}
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 8px', fontSize: '0.85em' }}
                     onClick={() => handleInsertThirstyListPlaceholder(p.label)}
                   >
                     {p.label}
@@ -723,10 +751,28 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {thirstyListSaved && <p style={{ color: 'seagreen' }}>{thirstyListSaved}</p>}
-
-              <button type="submit" style={styles.button} disabled={savingThirstyList}>
-                {savingThirstyList ? 'Saving...' : 'Save Template'}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{
+                  ...styles.button,
+                  backgroundColor:
+                    thirstyListStatus === 'saved'
+                      ? '#10b981'
+                      : thirstyListStatus === 'failed'
+                        ? '#ef4444'
+                        : undefined,
+                  minWidth: '120px',
+                }}
+                disabled={thirstyListStatus === 'saving'}
+              >
+                {thirstyListStatus === 'saving'
+                  ? 'Saving...'
+                  : thirstyListStatus === 'saved'
+                    ? 'Saved!'
+                    : thirstyListStatus === 'failed'
+                      ? 'Failed'
+                      : 'Save Template'}
               </button>
             </form>
           </section>
@@ -735,7 +781,8 @@ export default function AdminDashboard() {
           <section className="card" style={{ marginBottom: 32 }}>
             <h3 style={{ marginBottom: 12 }}>Weight Plants Sub-template</h3>
             <p style={{ marginBottom: 16, color: 'var(--muted)' }}>
-              Configure how each plant appears in the weight plants list. Use placeholders to customize.
+              Configure how each plant appears in the weight plants list. Use placeholders to
+              customize.
             </p>
 
             <form onSubmit={handleSaveWeightPlantsTemplate} style={{ maxWidth: 720 }}>
@@ -757,7 +804,8 @@ export default function AdminDashboard() {
                   <button
                     key={`weight_header_${p.key}`}
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 8px', fontSize: '0.85em' }}
                     onClick={() => handleInsertWeightPlantsHeaderPlaceholder(p.label)}
                   >
                     {p.label}
@@ -783,7 +831,8 @@ export default function AdminDashboard() {
                   <button
                     key={p.key}
                     type="button"
-                    className="btn btn-secondary btn-sm"
+                    className="btn btn-secondary"
+                    style={{ padding: '4px 8px', fontSize: '0.85em' }}
                     onClick={() => handleInsertWeightPlantsPlaceholder(p.label)}
                   >
                     {p.label}
@@ -791,10 +840,28 @@ export default function AdminDashboard() {
                 ))}
               </div>
 
-              {weightPlantsSaved && <p style={{ color: 'seagreen' }}>{weightPlantsSaved}</p>}
-
-              <button type="submit" style={styles.button} disabled={savingWeightPlants}>
-                {savingWeightPlants ? 'Saving...' : 'Save Template'}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                style={{
+                  ...styles.button,
+                  backgroundColor:
+                    weightPlantsStatus === 'saved'
+                      ? '#10b981'
+                      : weightPlantsStatus === 'failed'
+                        ? '#ef4444'
+                        : undefined,
+                  minWidth: '120px',
+                }}
+                disabled={weightPlantsStatus === 'saving'}
+              >
+                {weightPlantsStatus === 'saving'
+                  ? 'Saving...'
+                  : weightPlantsStatus === 'saved'
+                    ? 'Saved!'
+                    : weightPlantsStatus === 'failed'
+                      ? 'Failed'
+                      : 'Save Template'}
               </button>
             </form>
           </section>
@@ -841,7 +908,9 @@ export default function AdminDashboard() {
                     id="template_name"
                     type="text"
                     value={credentials.template_name}
-                    onChange={(e) => setCredentials({ ...credentials, template_name: e.target.value })}
+                    onChange={(e) =>
+                      setCredentials({ ...credentials, template_name: e.target.value })
+                    }
                     placeholder="jaspers_market_plain_text_v1"
                     style={styles.input}
                   />
@@ -855,29 +924,53 @@ export default function AdminDashboard() {
                     id="phone_number_id"
                     type="text"
                     value={credentials.phone_number_id}
-                    onChange={(e) => setCredentials({ ...credentials, phone_number_id: e.target.value })}
+                    onChange={(e) =>
+                      setCredentials({ ...credentials, phone_number_id: e.target.value })
+                    }
                     placeholder="Your WhatsApp phone number ID"
                     style={styles.input}
                   />
                 </div>
 
-                {credsError && <p style={{ color: 'crimson' }}>{credsError}</p>}
-                {credsSaved && <p style={{ color: 'seagreen' }}>{credsSaved}</p>}
-                {templateTestError && <p style={{ color: 'crimson' }}>{templateTestError}</p>}
-                {templateTestSent && <p style={{ color: 'seagreen' }}>{templateTestSent}</p>}
-
                 <div style={{ marginTop: 16 }}>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="submit" style={styles.button} disabled={savingCreds}>
-                      {savingCreds ? 'Saving...' : 'Save Credentials'}
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      style={{
+                        ...styles.button,
+                        backgroundColor:
+                          credsStatus === 'saved'
+                            ? '#10b981'
+                            : credsStatus === 'failed'
+                              ? '#ef4444'
+                              : undefined,
+                        minWidth: '160px',
+                      }}
+                      disabled={credsStatus === 'saving'}
+                    >
+                      {credsStatus === 'saving'
+                        ? 'Saving...'
+                        : credsStatus === 'saved'
+                          ? 'Saved!'
+                          : credsStatus === 'failed'
+                            ? 'Failed'
+                            : 'Save Credentials'}
                     </button>
                     <button
                       type="button"
                       className="btn btn-secondary"
                       onClick={handleSendTemplateTest}
-                      disabled={sendingTemplateTest}
+                      disabled={templateTestStatus === 'sending'}
+                      style={{ ...styles.button, minWidth: '160px' }}
                     >
-                      {sendingTemplateTest ? 'Sending...' : 'Send Template Test'}
+                      {templateTestStatus === 'sending'
+                        ? 'Sending...'
+                        : templateTestStatus === 'sent'
+                          ? 'Sent!'
+                          : templateTestStatus === 'failed'
+                            ? 'Failed'
+                            : 'Send Template Test'}
                     </button>
                   </div>
                 </div>

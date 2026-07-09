@@ -32,7 +32,6 @@ export default function Settings() {
   const [pageSize, setPageSize] = useState('20')
 
   const [thresholdError, setThresholdError] = useState('')
-  const [saved, setSaved] = useState('')
   const [testMessageStatus, setTestMessageStatus] = useState('')
   const [testMessageError, setTestMessageError] = useState('')
   const [testMessageLoading, setTestMessageLoading] = useState(false)
@@ -55,11 +54,8 @@ export default function Settings() {
   const [showSudo, setShowSudo] = useState(false)
   const [newCodes, setNewCodes] = useState(null)
   const [error, setError] = useState('')
-
-  useEffect(() => {
-    const t = setTimeout(() => setSaved(''), 1500)
-    return () => clearTimeout(t)
-  }, [saved])
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saved' | 'failed'
 
   function selectTab(tab) {
     setActiveTab(tab)
@@ -93,6 +89,7 @@ export default function Settings() {
     }
     setThresholdError('')
 
+    setIsSaving(true)
     try {
       await updateSettings({
         displayName: name,
@@ -102,11 +99,21 @@ export default function Settings() {
         pageSize,
         theme, // include theme in sync
       })
-      setSaved('Saved!')
+      setSaveStatus('saved')
     } catch (err) {
+      setSaveStatus('failed')
       setError(err.detail || 'Failed to save settings')
+    } finally {
+      setIsSaving(false)
     }
   }
+
+  useEffect(() => {
+    if (saveStatus === 'saved' || saveStatus === 'failed') {
+      const t = setTimeout(() => setSaveStatus('idle'), 2000)
+      return () => clearTimeout(t)
+    }
+  }, [saveStatus])
 
   async function handleRegenerate(password) {
     setError('')
@@ -132,7 +139,11 @@ export default function Settings() {
       setTimeout(() => setTestMessageStatus(''), 3000)
     } catch (err) {
       // err is an ApiError with { status, detail, body }
-      const errorMsg = err.detail || err.message || (err.body && JSON.stringify(err.body)) || 'Failed to send test message'
+      const errorMsg =
+        err.detail ||
+        err.message ||
+        (err.body && JSON.stringify(err.body)) ||
+        'Failed to send test message'
       setTestMessageError(`${err.status ? `[${err.status}] ` : ''}${errorMsg}`)
       setTimeout(() => setTestMessageError(''), 8000)
     } finally {
@@ -295,7 +306,12 @@ export default function Settings() {
                   localStorage.removeItem('plantsListSort')
                   updateSettings({ plantsListSort: null })
                 }}
-                style={{ ...styles.button, background: '#6b7280', fontSize: '0.85em', padding: '6px 10px' }}
+                style={{
+                  ...styles.button,
+                  background: '#6b7280',
+                  fontSize: '0.85em',
+                  padding: '6px 10px',
+                }}
               >
                 Reset to default sort
               </button>
@@ -365,7 +381,12 @@ export default function Settings() {
                   type="button"
                   onClick={handleSendTestMessage}
                   disabled={testMessageLoading || !settings?.whatsapp_number}
-                  style={{ ...styles.button, fontSize: '0.85em', padding: '8px 12px', whiteSpace: 'nowrap' }}
+                  style={{
+                    ...styles.button,
+                    fontSize: '0.85em',
+                    padding: '8px 12px',
+                    whiteSpace: 'nowrap',
+                  }}
                 >
                   {testMessageLoading ? 'Sending...' : 'Send Test Message'}
                 </button>
@@ -451,10 +472,17 @@ export default function Settings() {
         )}
 
         <div style={{ marginTop: 16 }}>
-          <button type="submit" style={styles.button}>
-            Save
+          <button
+            type="submit"
+            style={{
+              ...styles.button,
+              backgroundColor: saveStatus === 'saved' ? '#10b981' : saveStatus === 'failed' ? '#ef4444' : undefined,
+              minWidth: '100px',
+            }}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'failed' ? 'Failed' : 'Save'}
           </button>
-          {saved && <span style={{ marginLeft: 12, color: 'seagreen' }}>{saved}</span>}
         </div>
       </form>
 

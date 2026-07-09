@@ -14,10 +14,14 @@
   --border: #e5e7eb;
   --table-row-border: #f3f4f6;
   --table-head-bg: #f9fafb;
-  --button-primary-bg: #111827;
+  /* Buttons */
+  --button-primary-bg: #0b2a4a;
+  --button-primary-bg-hover: #08223d;
   --button-primary-text: #ffffff;
   --button-secondary-bg: #ffffff;
   --button-secondary-text: #111827;
+  --button-secondary-border: #2563eb;
+  --button-focus-ring: #60a5fa;
   --danger: #dc2626;
   --success-bg: #d1fae5;
   --error-bg: #fee2e2;
@@ -41,10 +45,14 @@
   --border: #374151;
   --table-row-border: #1f2937;
   --table-head-bg: #111827;
-  --button-primary-bg: #1f2937;
+  /* Buttons */
+  --button-primary-bg: #0b2a4a;
+  --button-primary-bg-hover: #08223d;
   --button-primary-text: #ffffff;
   --button-secondary-bg: #0b0f16;
   --button-secondary-text: #e5e7eb;
+  --button-secondary-border: #1d4ed8;
+  --button-focus-ring: #60a5fa;
   --input-bg: #1f2937;
   --input-text: #e5e7eb;
 }
@@ -117,23 +125,50 @@
 
 /* Buttons */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 8px 12px;
   border-radius: 6px;
-  border: 1px solid transparent;
+  border: 1px solid var(--button-secondary-border);
   cursor: pointer;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  text-decoration: none;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    filter 120ms ease,
+    box-shadow 120ms ease;
+}
+.btn:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.35);
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 .btn-primary {
   background: var(--button-primary-bg);
   color: var(--button-primary-text);
+  border-color: transparent;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--button-primary-bg-hover);
 }
 .btn-secondary {
   background: var(--button-secondary-bg);
   color: var(--button-secondary-text);
-  border-color: var(--border);
+  border-color: var(--button-secondary-border);
 }
 .btn-danger {
   background: var(--danger);
   color: #fff;
+  border-color: transparent;
 }
 
 /* Tables */

@@ -850,18 +850,16 @@ export default function PlantEdit() {
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="submit"
-              style={{ ...btn, background: isDark ? '#1f2937' : '#111827', color: 'white' }}
+              className="btn btn-primary"
+              style={btn}
             >
               Save
             </button>
             <button
               type="button"
               onClick={onCancel}
-              style={{
-                ...btn,
-                background: 'transparent',
-                borderColor: isDark ? '#374151' : '#d1d5db',
-              }}
+              className="btn btn-secondary"
+              style={btn}
             >
               Cancel
             </button>
