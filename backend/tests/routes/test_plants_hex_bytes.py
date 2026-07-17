@@ -16,7 +16,7 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
 
     # 1) Create plant without any hex fields provided -> hex_to_bytes(None) path is exercised
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "No Hex Fields"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["ok"] is True
 
     # 2) Insert a valid location to satisfy FK and create plant with location_id -> hex_to_bytes(validhex)
@@ -39,7 +39,7 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
             "location_id": location_hex,
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["ok"] is True
 
     # Confirm the created plant appears in the list (paginated response)
@@ -51,7 +51,7 @@ async def test_create_plant_hex_to_bytes_none_and_valid(async_client: AsyncClien
 
 async def _create_plant_and_get_uuid(async_client: AsyncClient, name: str) -> str:
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": name})
-    assert r.status_code == 200
+    assert r.status_code == 201
     # Find uuid via list endpoint (paginated response)
     lr = await async_client.get("/api/plants", headers=_API_KEY)
     assert lr.status_code == 200

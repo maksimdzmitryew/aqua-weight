@@ -50,6 +50,49 @@ vi.mock('../../../src/components/IconButton.jsx', () => ({
   ),
 }))
 
+vi.mock('@dnd-kit/core', async () => {
+  const actual = await vi.importActual('@dnd-kit/core')
+  const OriginalDndContext = actual.DndContext
+  return {
+    ...actual,
+    DndContext: ({ children, onDragEnd, ...props }) => (
+      <OriginalDndContext onDragEnd={onDragEnd} {...props}>
+        {children}
+        <button
+          type="button"
+          onClick={() => onDragEnd?.({ active: { id: 'a' }, over: null })}
+        >
+          Simulate drag without target
+        </button>
+        <button
+          type="button"
+          onClick={() => onDragEnd?.({ active: { id: 'a' }, over: { id: 'a' } })}
+        >
+          Simulate drag onto same plant
+        </button>
+        <button
+          type="button"
+          onClick={() => onDragEnd?.({ active: { id: 'missing' }, over: { id: 'c' } })}
+        >
+          Simulate drag missing active
+        </button>
+        <button
+          type="button"
+          onClick={() => onDragEnd?.({ active: { id: 'a' }, over: { id: 'missing' } })}
+        >
+          Simulate drag missing target
+        </button>
+        <button
+          type="button"
+          onClick={() => onDragEnd?.({ active: { id: 'a' }, over: { id: 'c' } })}
+        >
+          Simulate drag A over C
+        </button>
+      </OriginalDndContext>
+    ),
+  }
+})
+
 /** Helper: creates an MSW handler that simulates server-side pagination & filtering */
 function mockPlantsHandler(allPlants) {
   return http.get('/api/plants', ({ request }) => {
@@ -493,6 +536,109 @@ test('reordering integration: handles drag-and-drop and move buttons', async () 
   rows = screen.getAllByRole('row').slice(1)
   expect(rows[0]).toHaveTextContent('B')
   expect(rows[1]).toHaveTextContent('A')
+})
+
+test('drag-end handler reorders and ignores non-actionable drag events', async () => {
+  server.use(
+    mockPlantsHandler([
+      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
+      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
+    ]),
+    http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
+  )
+
+  renderPage()
+  expect(await screen.findByText('A')).toBeInTheDocument()
+
+  fireEvent.click(screen.getByRole('button', { name: /simulate drag without target/i }))
+  fireEvent.click(screen.getByRole('button', { name: /simulate drag onto same plant/i }))
+  fireEvent.click(screen.getByRole('button', { name: /simulate drag missing active/i }))
+  fireEvent.click(screen.getByRole('button', { name: /simulate drag missing target/i }))
+
+  let rows = screen.getAllByRole('row').slice(1)
+  expect(rows[0]).toHaveTextContent('A')
+  expect(rows[1]).toHaveTextContent('B')
+  expect(rows[2]).toHaveTextContent('C')
+
+  fireEvent.click(screen.getByRole('button', { name: /simulate drag a over c/i }))
+
+  rows = screen.getAllByRole('row').slice(1)
+  expect(rows[0]).toHaveTextContent('B')
+  expect(rows[1]).toHaveTextContent('C')
+  expect(rows[2]).toHaveTextContent('A')
+})
+
+test('sort state handles legacy storage, corrupt storage, and sortable headers', async () => {
+  server.use(
+    mockPlantsHandler([
+      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+    ]),
+  )
+
+  try {
+    localStorage.setItem('plantsListSort', JSON.stringify({ column: 'thresh', direction: 'desc' }))
+    const firstRender = renderPage()
+    expect(await screen.findByText('A')).toBeInTheDocument()
+
+    const careHeader = screen.getByRole('columnheader', { name: /water min\/retained/i })
+    expect(careHeader).toHaveTextContent('↑')
+    fireEvent.click(careHeader)
+    expect(localStorage.getItem('plantsListSort')).toContain('"direction":"desc"')
+    fireEvent.click(careHeader)
+    expect(localStorage.getItem('plantsListSort')).toBeNull()
+
+    const clickHeaderToDesc = (name) => {
+      fireEvent.click(screen.getByRole('columnheader', { name }))
+      fireEvent.click(screen.getByRole('columnheader', { name }))
+      expect(screen.getByRole('columnheader', { name })).toHaveTextContent('↓')
+    }
+
+    clickHeaderToDesc(/name/i)
+    clickHeaderToDesc(/notes/i)
+    clickHeaderToDesc(/freq/i)
+    clickHeaderToDesc(/next/i)
+    clickHeaderToDesc(/location/i)
+    clickHeaderToDesc(/updated/i)
+
+    firstRender.unmount()
+    cleanup()
+
+    localStorage.setItem('plantsListSort', '{')
+    renderPage()
+    expect(await screen.findByText('A')).toBeInTheDocument()
+  } finally {
+    localStorage.removeItem('plantsListSort')
+  }
+})
+
+test('filtered rows without identifiers disable reordering', async () => {
+  server.use(
+    http.get('/api/plants', () =>
+      HttpResponse.json({
+        items: [
+          {
+            name: 'Filtered Plain',
+            water_retained_pct: 10,
+            recommended_water_threshold_pct: 30,
+            needs_water: true,
+          },
+        ],
+        total: 1,
+        total_pages: 1,
+        page: 1,
+        limit: 20,
+        global_total: 1,
+      }),
+    ),
+    http.get('/api/plants/measurements/approximation/watering', () =>
+      HttpResponse.json({ items: [] }),
+    ),
+  )
+
+  renderPage(['/plants?search=plain'])
+  const row = (await screen.findByText('Filtered Plain')).closest('tr')
+  expect(within(row).getByLabelText('Drag to reorder')).toHaveAttribute('tabindex', '-1')
 })
 
 test('delete flow: missing uuid shows saveError; API error shows error; success removes row', async () => {
@@ -1046,8 +1192,8 @@ test('applies vacation mode warning style for negative days_offset', async () =>
     renderPage()
     const aloe = await screen.findByText('Aloe')
     const row = aloe.closest('tr')
-    // Next watering cell is the 4th cell (index 3)
-    const nextWateringCell = within(row).getAllByRole('cell')[3]
+    // Next watering cell follows Water, Name, Notes, and Freq.
+    const nextWateringCell = within(row).getAllByRole('cell')[4]
     expect(nextWateringCell).toHaveStyle('background: #fecaca')
   } finally {
     localStorage.removeItem('operationMode')

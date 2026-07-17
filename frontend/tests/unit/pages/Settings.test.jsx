@@ -252,9 +252,9 @@ describe('pages/Settings', () => {
     // Message appears right after save
     expect(screen.getByText('Saved!')).toBeInTheDocument()
 
-    // Advance timers past 1500ms to trigger the timeout that clears the message
+    // Advance timers past the 2000ms timeout that clears the message
     act(() => {
-      vi.advanceTimersByTime(1600)
+      vi.advanceTimersByTime(2100)
     })
     // After act, the DOM should be updated
     expect(screen.queryByText('Saved!')).not.toBeInTheDocument()

@@ -368,14 +368,17 @@ async def require_plant_access(
             detail="Invalid plant ID format",
         )
 
-    if current_user["global_role"] == "admin":
-        return plant_id
-
-    user_id = current_user["id"]
-    if user_id is None:  # Test mode fallback without a real user
-        return plant_id
-
     with db.cursor() as cur:
+        if current_user["global_role"] == "admin":
+            cur.execute("SELECT 1 FROM plants WHERE id = UNHEX(%s)", (plant_id,))
+            if not cur.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Plant not found",
+                )
+            return plant_id
+
+        user_id = current_user["id"]
         # Check both direct plant ownership and location-inherited ACL
         cur.execute(
             """
@@ -423,14 +426,17 @@ async def require_plant_owner(
             detail="Invalid plant ID format",
         )
 
-    if current_user["global_role"] == "admin":
-        return plant_id
-
-    user_id = current_user["id"]
-    if user_id is None:
-        return plant_id
-
     with db.cursor() as cur:
+        if current_user["global_role"] == "admin":
+            cur.execute("SELECT 1 FROM plants WHERE id = UNHEX(%s)", (plant_id,))
+            if not cur.fetchone():
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Plant not found",
+                )
+            return plant_id
+
+        user_id = current_user["id"]
         cur.execute(
             """
             SELECT p.owner_id, acl.role

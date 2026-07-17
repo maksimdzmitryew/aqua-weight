@@ -20,8 +20,12 @@ def _override_measurements_auth(app: FastAPI):
         "global_role": "admin",
     }
 
+    from fastapi import HTTPException
     def _bypass_plant_access(request: Request) -> str:
-        return request.path_params.get("plant_id", "")
+        plant_id = request.path_params.get("plant_id", "")
+        if plant_id and not measurements_routes.HEX_RE.match(plant_id):
+            raise HTTPException(status_code=400, detail="Invalid plant_id")
+        return plant_id
 
     app.dependency_overrides[require_plant_access] = _bypass_plant_access
     yield
@@ -775,7 +779,7 @@ async def test_create_reported_watering_rollback_and_close_excepts(
 async def test_list_measurements_for_plant_invalid_id(app: FastAPI, async_client: AsyncClient):
     resp = await async_client.get("/api/plants/nothex/measurements")
     assert resp.status_code == 400
-    assert resp.json()["detail"] == "Invalid plant id"
+    assert resp.json()["detail"] == "Invalid plant_id"
 
 
 @pytest.mark.asyncio

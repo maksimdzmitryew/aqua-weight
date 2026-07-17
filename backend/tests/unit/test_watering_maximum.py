@@ -13,6 +13,9 @@ class FakeCursor:
     def fetchall(self):
         return self._rows
 
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
     # context manager protocol
     def __enter__(self):
         return self
@@ -24,35 +27,32 @@ class FakeCursor:
 class FakeConn:
     def __init__(self, rows):
         self.rows = rows
+        self.cursor_instance = None
 
     def cursor(self):
-        return FakeCursor(self.rows)
+        self.cursor_instance = FakeCursor(self.rows)
+        return self.cursor_instance
 
 
 def test_get_added_waterings_without_repotting_branch():
-    from backend.app.helpers.watering_maximum import get_added_waterings_since_repotting
+    from backend.app.helpers.watering_maximum import calculate_max_watering_added_g
 
-    rows = [(10,), (None,), (20,)]
+    rows = [(20,)]
     conn = FakeConn(rows)
-    vals = get_added_waterings_since_repotting(conn, "deadbeef" * 4, last_repotting=None)
-    assert vals == [10, 20]
+    assert calculate_max_watering_added_g(conn, "deadbeef" * 4, last_repotting=None) == 20
+    assert conn.cursor_instance._executed[0][1] == ("deadbeef" * 4,)
 
 
 def test_get_added_waterings_with_repotting_branch_filters_and_orders():
-    from backend.app.helpers.watering_maximum import get_added_waterings_since_repotting
+    from backend.app.helpers.watering_maximum import calculate_max_watering_added_g
 
     class Rep:
         measured_at = "2025-01-02 10:00:00"
 
-    # Includes before/after and None values
-    rows = [
-        (5,),
-        (None,),
-        (7,),
-    ]
+    rows = [(7,)]
     conn = FakeConn(rows)
-    vals = get_added_waterings_since_repotting(conn, "cafebabe" * 4, last_repotting=Rep())
-    assert vals == [5, 7]
+    assert calculate_max_watering_added_g(conn, "cafebabe" * 4, last_repotting=Rep()) == 7
+    assert conn.cursor_instance._executed[0][1] == ("cafebabe" * 4, Rep.measured_at)
 
 
 def test_calculate_max_watering_added_g_returns_none_on_empty_and_error():
@@ -71,15 +71,15 @@ def test_calculate_max_watering_added_g_returns_none_on_empty_and_error():
     assert calculate_max_watering_added_g(conn_boom, "id", last_repotting=None) is None
 
 
-def test_calculate_max_watering_added_g_catches_internal_exception(monkeypatch):
-    # Ensure the exception within calculate_max_watering_added_g is caught
-    # by making the helper it calls raise directly.
-    import app.helpers.watering_maximum as wm
+def test_calculate_max_watering_added_g_catches_internal_exception():
+    from backend.app.helpers.watering_maximum import calculate_max_watering_added_g
 
-    def boom(*args, **kwargs):
-        raise ValueError("unexpected failure")
+    class BoomCursor(FakeCursor):
+        def execute(self, sql, params=None):
+            raise ValueError("unexpected failure")
 
-    monkeypatch.setattr(wm, "get_added_waterings_since_repotting", boom)
+    class BoomConn(FakeConn):
+        def cursor(self):
+            return BoomCursor([])
 
-    # Any conn works because the helper is patched out
-    assert wm.calculate_max_watering_added_g(object(), "id", last_repotting=None) is None
+    assert calculate_max_watering_added_g(BoomConn([]), "id", last_repotting=None) is None

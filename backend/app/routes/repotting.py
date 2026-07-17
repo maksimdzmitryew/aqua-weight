@@ -61,9 +61,6 @@ async def create_repotting_event(
             detail=f"last_wet_weight_g must be <= {SMALLINT_UNSIGNED_MAX}",
         )
 
-    if not HEX_RE.match(plant_id or ""):
-        raise HTTPException(status_code=400, detail="Invalid plant_id")
-
     def do_insert():
         conn = get_conn_fn()
         try:

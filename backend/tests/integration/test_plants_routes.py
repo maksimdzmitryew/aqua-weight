@@ -36,7 +36,7 @@ async def _create_and_get_uuid(async_client: AsyncClient, name: str) -> str:
     resp = await async_client.post(
         "/api/plants", headers={"X-API-Key": API_KEY}, json={"name": name}
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 201
     # Find it by name in list to get uuid (paginated response)
     r = await async_client.get("/api/plants", headers={"X-API-Key": API_KEY})
     data = r.json()
@@ -66,7 +66,7 @@ async def test_list_plants_initially_empty_and_after_create(async_client: AsyncC
     r = await async_client.post(
         "/api/plants", headers={"X-API-Key": API_KEY}, json={"name": "Alpha"}
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     plant_data = r.json()
     assert plant_data.get("ok") is True
     assert plant_data.get("name") == "Alpha"
@@ -96,7 +96,7 @@ async def test_create_plant_validation(async_client: AsyncClient):
             "fertilized_last_at": "2025-01-01T00:00:01",
         },
     )
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["ok"] is True
 
 
@@ -131,13 +131,12 @@ async def test_update_plant_happy_and_errors(async_client: AsyncClient):
     assert r.status_code == 400
     assert r.json()["detail"] == "Invalid plant ID format"
 
-    # Non-existent valid id -> 200 (UPDATE affects 0 rows, no existence check in PATCH)
+    # Non-existent valid id -> 404 (due to existence check in require_plant_owner)
     missing_id = "a" * 32
     r = await async_client.patch(
         f"/api/plants/{missing_id}", headers={"X-API-Key": API_KEY}, json={"description": "d"}
     )
-    assert r.status_code == 200
-    assert r.json()["ok"] is True
+    assert r.status_code == 404
 
     # Empty name -> 400 (validation branch)
     uid = await _create_and_get_uuid(async_client, "Charlie")

@@ -37,7 +37,7 @@ async def test_create_plant_hex_to_bytes_fromhex_exception(
         },
     )
     # Should still succeed with location_id treated as None
-    assert r.status_code == 200
+    assert r.status_code == 201
     assert r.json()["ok"] is True
 
 
@@ -51,7 +51,7 @@ async def test_update_plant_hex_to_bytes_fromhex_exception(
 
     # Create a plant
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "Exc Update"})
-    assert r.status_code == 200
+    assert r.status_code == 201
 
     # Find UUID via list (paginated response)
     lr = await async_client.get("/api/plants", headers=_API_KEY)

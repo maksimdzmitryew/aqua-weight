@@ -42,6 +42,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # p["water_retained_pct"] <= thresh (10 <= 20) -> True
         {
             "uuid": "needs_water",
+            "needs_water": True,
             "water_retained_pct": 10,
             "water_loss_total_pct": 20,
             "recommended_water_threshold_pct": 20,
@@ -50,6 +51,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # p["water_retained_pct"] > thresh (30 > 20) -> False
         {
             "uuid": "no_needs_water",
+            "needs_water": False,
             "water_retained_pct": 30,
             "water_loss_total_pct": 10,
             "recommended_water_threshold_pct": 20,
@@ -58,6 +60,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # p["water_loss_total_pct"] == 0 and retained > 0 -> False
         {
             "uuid": "just_watered",
+            "needs_water": False,
             "water_retained_pct": 100,
             "water_loss_total_pct": 0,
             "recommended_water_threshold_pct": 20,
@@ -66,6 +69,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # p["water_loss_total_pct"] == 0 and retained is None -> False
         {
             "uuid": "just_watered_no_retained",
+            "needs_water": False,
             "water_retained_pct": None,
             "water_loss_total_pct": 0,
             "recommended_water_threshold_pct": 20,
@@ -74,6 +78,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # retained is None, days_offset <= 0 -> True
         {
             "uuid": "no_weight_needs_water",
+            "needs_water": True,
             "water_retained_pct": None,
             "water_loss_total_pct": None,
             "recommended_water_threshold_pct": 20,
@@ -82,6 +87,7 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
         # retained is None, days_offset > 0 -> False
         {
             "uuid": "no_weight_no_needs_water",
+            "needs_water": False,
             "water_retained_pct": None,
             "water_loss_total_pct": None,
             "recommended_water_threshold_pct": 20,
@@ -114,9 +120,9 @@ async def test_list_plant_uuids_needs_watering_manual(async_client: AsyncClient,
 @pytest.mark.anyio
 async def test_list_plant_uuids_needs_watering_vacation(async_client: AsyncClient, monkeypatch):
     mock_data = [
-        {"uuid": "vacation_needs_water", "days_offset": 0},
-        {"uuid": "vacation_no_needs_water", "days_offset": 1},
-        {"uuid": "vacation_none_offset", "days_offset": None},
+        {"uuid": "vacation_needs_water", "needs_water": True, "days_offset": 0},
+        {"uuid": "vacation_no_needs_water", "needs_water": False, "days_offset": 1},
+        {"uuid": "vacation_none_offset", "needs_water": False, "days_offset": None},
     ]
 
     monkeypatch.setattr(
@@ -178,9 +184,12 @@ async def test_list_plant_uuids_thresh_none_uses_default(async_client: AsyncClie
         },
     ]
 
-    monkeypatch.setattr(
-        "backend.app.routes.plants.PlantsList.fetch_all", lambda **kwargs: mock_data
-    )
+    def mock_fetch_all(**kwargs):
+        item = mock_data[0].copy()
+        item["needs_water"] = item["water_retained_pct"] <= kwargs["default_threshold"]
+        return [item]
+
+    monkeypatch.setattr("backend.app.routes.plants.PlantsList.fetch_all", mock_fetch_all)
 
     # defaultThreshold=30, retained=25 -> 25 <= 30 -> True
     resp = await async_client.get(

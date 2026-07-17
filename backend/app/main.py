@@ -1,5 +1,7 @@
 import os as _os
 
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
@@ -29,14 +31,8 @@ API_VERSION = _os.getenv("API_VERSION", "1.0.0")
 if TEST_MODE and APP_ENV not in {"test", "development", "local"}:
     raise RuntimeError("TEST_MODE=1 is only allowed in test/dev environments")
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-
-# Register global exception handlers
-register_exception_handlers(app)
-
-
-@app.on_event("startup")
-async def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Initialize database tables on startup."""
     # Ensure WhatsApp credentials table exists
     from .helpers.whatsapp_notify import ensure_whatsapp_credentials_table
@@ -45,6 +41,13 @@ async def startup():
         ensure_whatsapp_credentials_table(conn)
     finally:
         conn.close()
+    yield
+
+
+app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+
+# Register global exception handlers
+register_exception_handlers(app)
 
 # Allow frontend served at https://aw.max
 origins = [

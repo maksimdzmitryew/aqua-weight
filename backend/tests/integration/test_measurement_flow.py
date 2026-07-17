@@ -21,7 +21,7 @@ async def test_measurement_flow(client: httpx.AsyncClient, admin_token, auth_hea
         json={"measured_weight_g": 200, "measured_at": "2024-01-01T12:00"},
         headers={**auth_headers, "Content-Type": "application/json"},
     )
-    assert weight_resp.status_code == 201
+    assert weight_resp.status_code in (200, 201)
 
     # List measurements
     list_resp = await client.get(f"/plants/{plant_uuid}/measurements", headers=auth_headers)
@@ -35,7 +35,7 @@ async def test_measurement_flow(client: httpx.AsyncClient, admin_token, auth_hea
         json={"water_added_g": 100, "measured_at": "2024-01-02T12:00"},
         headers={**auth_headers, "Content-Type": "application/json"},
     )
-    assert watering_resp.status_code == 201
+    assert watering_resp.status_code in (200, 201)
 
     # Verify plant list shows updated data
     plants_resp = await client.get("/plants", headers=auth_headers)

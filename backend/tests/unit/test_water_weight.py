@@ -1,9 +1,15 @@
+from __future__ import annotations
+
+import pytest
+
 import backend.app.helpers.water_weight as ww
 
 
-class _FakeCursor:
-    def __init__(self):
-        self.executed = []
+class FakeCursor:
+    def __init__(self, *, fetchone_result=None, explode_on_execute: bool = False):
+        self._fetchone_result = fetchone_result
+        self._explode_on_execute = explode_on_execute
+        self.executed: list[tuple[str, tuple | None]] = []
 
     def __enter__(self):
         return self
@@ -11,63 +17,127 @@ class _FakeCursor:
     def __exit__(self, exc_type, exc, tb):
         return False
 
-    def execute(self, sql, params=None):
-        self.executed.append((sql, tuple(params or ())))
-
-    def fetchall(self):
-        return []
+    def execute(self, query: str, params=None):
+        if self._explode_on_execute:
+            raise RuntimeError("db error")
+        self.executed.append((query, tuple(params) if params is not None else None))
+        return 1
 
     def fetchone(self):
-        return (None, None)
+        return self._fetchone_result
 
 
-class _FakeConn:
-    def __init__(self, fail=False):
-        self._cursor = _FakeCursor()
-        self._fail = fail
-        self.committed = False
+class FakeConn:
+    def __init__(self, cursors: list[FakeCursor]):
+        self._cursors = list(cursors)
+        self.seen: list[FakeCursor] = []
+        self.commit_called = False
 
     def cursor(self):
-        if self._fail:
-            raise RuntimeError("boom")
-        return self._cursor
+        cur = self._cursors.pop(0) if self._cursors else FakeCursor()
+        self.seen.append(cur)
+        return cur
 
     def commit(self):
-        self.committed = True
+        self.commit_called = True
 
 
-def test_update_min_dry_and_max_watering_updates_and_commits():
-    conn = _FakeConn()
+def test_update_min_and_max_updates_based_on_new_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: {"id": "x"})
+    monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: 100)
+    monkeypatch.setattr(ww, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: 20)
 
-    # Monkeypatch dependencies
-    orig_get_last = ww.get_last_repotting_event
-    orig_min = ww.calculate_min_dry_weight_g
-    orig_max = ww.calculate_max_watering_added_g
-    try:
-        ww.get_last_repotting_event = lambda c, h: object()  # type: ignore
-        ww.calculate_min_dry_weight_g = lambda c, h, r: 100  # type: ignore
-        ww.calculate_max_watering_added_g = lambda c, h, r: 20  # type: ignore
+    select_cur = FakeCursor(fetchone_result=(None, None))
+    update_cur = FakeCursor()
+    conn = FakeConn([select_cur, update_cur])
 
-        # New measurement lowers min and raises max
-        ww.update_min_dry_weight_and_max_watering_added_g(
-            conn, "aa" * 16, new_measured_weight_g=90, new_added_watering_g=25
-        )
+    ww.update_min_dry_weight_and_max_watering_added_g(
+        conn,
+        plant_id_hex="a" * 32,
+        new_measured_weight_g=90,
+        new_added_watering_g=30,
+    )
 
-        # Verify SQL executed with updated values and commit called
-        assert conn.committed is True
-        assert conn._cursor.executed
-        sql, params = conn._cursor.executed[-1]
-        assert "UPDATE plants" in sql
-        assert params[0] == 90  # min_dry_weight_g
-        assert params[1] == 25  # max_water_weight_g
-        assert params[2] == "aa" * 16
-    finally:
-        ww.get_last_repotting_event = orig_get_last  # type: ignore
-        ww.calculate_min_dry_weight_g = orig_min  # type: ignore
-        ww.calculate_max_watering_added_g = orig_max  # type: ignore
+    assert conn.commit_called is True
+    (_q, params) = update_cur.executed[-1]
+    assert params == (90, 30, "a" * 32)
 
 
-def test_update_min_dry_and_max_watering_handles_exception():
-    conn = _FakeConn(fail=True)
-    # Should not raise
-    ww.update_min_dry_weight_and_max_watering_added_g(conn, "bb" * 16, None, None)
+def test_update_min_and_max_respects_user_set_values(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: None)
+    monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: 100)
+    monkeypatch.setattr(ww, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: 20)
+
+    # User-set values should override derived/current values.
+    select_cur = FakeCursor(fetchone_result=(80, 50))
+    update_cur = FakeCursor()
+    conn = FakeConn([select_cur, update_cur])
+
+    ww.update_min_dry_weight_and_max_watering_added_g(
+        conn,
+        plant_id_hex="a" * 32,
+        new_measured_weight_g=70,
+        new_added_watering_g=30,
+    )
+
+    (_q, params) = update_cur.executed[-1]
+    assert params == (80, 50, "a" * 32)
+
+
+def test_update_min_and_max_handles_none_min_and_non_positive_watering(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: None)
+    monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: None)
+    monkeypatch.setattr(ww, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: None)
+
+    select_cur = FakeCursor(fetchone_result=(None, 0))
+    update_cur = FakeCursor()
+    conn = FakeConn([select_cur, update_cur])
+
+    ww.update_min_dry_weight_and_max_watering_added_g(
+        conn,
+        plant_id_hex="a" * 32,
+        new_measured_weight_g=None,
+        new_added_watering_g=0,
+    )
+
+    (_q, params) = update_cur.executed[-1]
+    assert params == (None, None, "a" * 32)
+
+
+def test_update_min_and_max_keeps_existing_min_when_new_weight_not_lower(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: None)
+    monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: 100)
+    monkeypatch.setattr(ww, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: 20)
+
+    select_cur = FakeCursor(fetchone_result=(None, None))
+    update_cur = FakeCursor()
+    conn = FakeConn([select_cur, update_cur])
+
+    ww.update_min_dry_weight_and_max_watering_added_g(
+        conn,
+        plant_id_hex="a" * 32,
+        new_measured_weight_g=110,
+        new_added_watering_g=None,
+    )
+
+    (_q, params) = update_cur.executed[-1]
+    assert params == (100, 20, "a" * 32)
+
+
+def test_update_min_and_max_swallow_exceptions_and_logs(capsys) -> None:
+    class ExplodingConn:
+        def cursor(self):
+            raise RuntimeError("boom")
+
+        def commit(self):
+            raise AssertionError("commit should not be called")
+
+    ww.update_min_dry_weight_and_max_watering_added_g(
+        ExplodingConn(),
+        plant_id_hex="a" * 32,
+        new_measured_weight_g=1,
+        new_added_watering_g=1,
+    )
+
+    out = capsys.readouterr().out
+    assert "Could not update weight and waterings" in out

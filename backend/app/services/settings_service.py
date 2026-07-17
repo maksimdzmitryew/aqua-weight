@@ -31,6 +31,20 @@ class SettingsService:
         with cursor(self.db_conn) as cur:
             cur.execute(
                 """
+                CREATE TABLE IF NOT EXISTS system_settings (
+                    id TINYINT UNSIGNED NOT NULL,
+                    settings_json JSON NOT NULL DEFAULT '{}',
+                    settings_schema_version INT UNSIGNED NOT NULL DEFAULT 1,
+                    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+                    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+                    PRIMARY KEY (id),
+                    CONSTRAINT chk_system_settings_singleton CHECK (id = 1),
+                    CONSTRAINT chk_system_settings_json CHECK (JSON_VALID(settings_json))
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                """
+            )
+            cur.execute(
+                """
                 INSERT IGNORE INTO system_settings (id, settings_json, settings_schema_version)
                 VALUES (%s, %s, %s)
                 """,

@@ -176,15 +176,19 @@ def make_row_full(
     updated_at: datetime | None = None,
     measured_at: datetime | None = None,
     measured_weight_g: float | None = 150.0,
+    last_dry_weight_g: float | None = 100.0,
     last_wet_weight_g: float | None = 200.0,
     water_loss_total_pct: float | None = 50.0,
     archive: int = 0,
     sort_order: int = 0,
+    description: str | None = None,
 ):
-    # Full shape (18 columns):
+    # Full shape (20 columns):
     # 0 id, 1 name, 2 notes, 3 species_name, 4 min_dry, 5 max_water, 6 thr_pct,
     # 7 identify_hint, 8 location_id, 9 location_name, 10 created_at,
-    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_wet_weight_g, 15 water_loss_total_pct, 16 archive, 17 sort_order
+    # 11 updated_at, 12 measured_at, 13 measured_weight_g, 14 last_dry_weight_g,
+    # 15 last_wet_weight_g, 16 water_loss_total_pct, 17 archive, 18 sort_order,
+    # 19 description
     return (
         pid_bytes,
         name,
@@ -200,10 +204,12 @@ def make_row_full(
         updated_at,
         measured_at,
         measured_weight_g,
+        last_dry_weight_g,
         last_wet_weight_g,
         water_loss_total_pct,
         archive,
         sort_order,
+        description or notes,
     )
 
 
@@ -851,3 +857,797 @@ def test_count_all_uuids(monkeypatch):
     assert "AND p.id IN (UNHEX(%s), UNHEX(%s))" in fake_conn._cursor.last_query
     assert uuids[0] in fake_conn._cursor.last_params
     assert uuids[1] in fake_conn._cursor.last_params
+
+
+# --- Tests for non-admin current_user ACL branch in fetch_all (lines 77-83) ---
+
+
+def test_fetch_all_current_user_non_admin(monkeypatch):
+    """Test non-admin current_user adds owner/ACL filter (lines 77-83)."""
+    fake_conn = FakeConnection(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    current_user = {"id": 7, "global_role": "user"}
+    PlantsList.fetch_all(current_user=current_user)
+    assert "OR p.location_id IN (" in fake_conn._cursor.last_query
+    assert fake_conn._cursor.last_params == [7, 7]
+
+
+def test_fetch_all_current_user_admin_no_filter(monkeypatch):
+    """Admin current_user must not add ACL filter (branch 76->84)."""
+    fake_conn = FakeConnection(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    current_user = {"id": 7, "global_role": "admin"}
+    PlantsList.fetch_all(current_user=current_user)
+    assert "OR p.location_id IN (" not in fake_conn._cursor.last_query
+    assert fake_conn._cursor.last_params == []
+
+
+# --- Tests for sort_by handling (lines 143-145) ---
+
+
+def test_fetch_all_sort_by_desc(monkeypatch):
+    """Test valid sort_by with desc direction (lines 143-145)."""
+    fake_conn = FakeConnection(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.fetch_all(sort_by="name", sort_dir="desc")
+    assert "ORDER BY p.name DESC" in fake_conn._cursor.last_query
+    assert ", p.sort_order ASC" in fake_conn._cursor.last_query
+
+
+def test_fetch_all_sort_by_invalid(monkeypatch):
+    """Invalid sort_by falls back to default ordering (line 147)."""
+    fake_conn = FakeConnection(rows=[])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    PlantsList.fetch_all(sort_by="not_a_column")
+    assert "p.sort_order ASC, p.created_at DESC, p.name ASC" in fake_conn._cursor.last_query
+
+
+# --- Tests for repot snapshot float-conversion exception (lines 238-244) ---
+
+
+def test_fetch_all_repot_snapshot_float_exception(monkeypatch):
+    """Repot snapshot branch where float() conversion raises (lines 238-244)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("11" * 16)
+    # measured_weight_g set, last_dry/wet set, water_loss_total_pct None -> repot snapshot
+    # Use non-numeric strings so float() raises and except branch is hit.
+    row = make_row_full(
+        pid_bytes=pid,
+        name="Repot",
+        measured_at=now,
+        measured_weight_g="bad",
+        last_dry_weight_g="bad",
+        last_wet_weight_g="bad",
+        water_loss_total_pct=None,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    # Avoid calculate_water_retained receiving non-numeric inputs (it would raise
+    # in its own code path); we only want to exercise the float() except at 243-244.
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _NoneRetained())
+
+    items = PlantsList.fetch_all()
+    assert len(items) == 1
+
+
+def test_fetch_all_repot_snapshot_success(monkeypatch):
+    """Repot snapshot: numeric baseline yields effective capacity override (lines 240-242)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("66" * 16)
+    # measured_weight_g set, last_dry/wet set, water_loss_total_pct None -> repot snapshot.
+    # Numeric values so derived_capacity_g > 0 and effective weights are updated.
+    row = make_row_full(
+        pid_bytes=pid,
+        name="RepotOK",
+        measured_at=now,
+        measured_weight_g=150.0,
+        last_dry_weight_g=100.0,
+        last_wet_weight_g=200.0,
+        water_loss_total_pct=None,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    # Capture the effective min/max passed to calculate_water_retained
+    captured = {}
+
+    def _capture(**k):
+        captured["min_dry"] = k["min_dry_weight_g"]
+        captured["max_water"] = k["max_water_weight_g"]
+        return _NoneRetained()
+
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", _capture)
+
+    items = PlantsList.fetch_all()
+    assert len(items) == 1
+    # effective_min_dry_weight_g updated to last_dry_weight_g, max to capacity
+    assert captured["min_dry"] == 100.0
+    assert captured["max_water"] == 100.0  # 200.0 - 100.0
+
+
+def test_fetch_all_repot_snapshot_non_positive_capacity(monkeypatch):
+    """Repot snapshot: derived_capacity_g <= 0 -> effective weights unchanged (branch 240->246)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("aa" * 16)
+    # last_wet < last_dry so capacity is negative -> skip override (lines 240->242).
+    row = make_row_full(
+        pid_bytes=pid,
+        name="RepotNeg",
+        measured_at=now,
+        measured_weight_g=150.0,
+        last_dry_weight_g=200.0,
+        last_wet_weight_g=100.0,
+        water_loss_total_pct=None,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+
+    captured = {}
+
+    def _capture(**k):
+        captured["min_dry"] = k["min_dry_weight_g"]
+        captured["max_water"] = k["max_water_weight_g"]
+        return _NoneRetained()
+
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", _capture)
+
+    items = PlantsList.fetch_all()
+    assert len(items) == 1
+    # effective weights unchanged (original 100.0 / 200.0 from make_row_full)
+    assert captured["min_dry"] == 100.0
+    assert captured["max_water"] == 200.0
+
+
+# --- Tests for standard_needs_water with None water_retained_pct (lines 340->343, 346) ---
+
+
+def test_fetch_all_standard_needs_water_none_retained(monkeypatch):
+    """water_retained_pct None: needs water True when water_loss != 0 (lines 340-341)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("22" * 16)
+    row = make_row_full(
+        pid_bytes=pid,
+        name="NoRetain",
+        measured_at=now,
+        measured_weight_g=150.0,
+        last_dry_weight_g=100.0,
+        last_wet_weight_g=200.0,
+        water_loss_total_pct=10.0,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    # Force water_retained_pct to None via calculate_water_retained mock
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _NoneRetained())
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+
+    items = PlantsList.fetch_all(default_threshold=None)
+    assert items[0]["needs_water"] is True
+
+
+def test_fetch_all_standard_needs_water_zero_loss_suppresses(monkeypatch):
+    """water_loss_total_pct == 0 suppresses needs_water even if retained None (line 346)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("33" * 16)
+    row = make_row_full(
+        pid_bytes=pid,
+        name="ZeroLoss",
+        measured_at=now,
+        measured_weight_g=150.0,
+        last_dry_weight_g=100.0,
+        last_wet_weight_g=200.0,
+        water_loss_total_pct=0,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _NoneRetained())
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+
+    items = PlantsList.fetch_all(default_threshold=None)
+    assert items[0]["needs_water"] is False
+
+
+class _NoneRetained:
+    water_retained_pct = None
+
+
+# --- Tests for vacation needs_water branches (lines 356-366) ---
+
+
+def test_fetch_all_vacation_needs_water_days_offset(monkeypatch):
+    """Vacation: days_offset <= 0 sets needs_water True (line 357)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("44" * 16)
+    row = make_row(pid_bytes=pid, name="Vac", created_at=now)
+
+    # Far enough in the past that first_calculated_at is in the past -> days_offset <= 0
+    last_watering = now - timedelta(days=10)
+
+    class VacCursor(FakeCursor):
+        def __init__(self, rows):
+            super().__init__(rows)
+            self._call_count = 0
+
+        def fetchone(self):
+            self._call_count += 1
+            if self._call_count == 1:
+                return (last_watering,)
+            return (0,)
+
+    class VacConn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = VacCursor(rows)
+            self.closed = False
+
+    fake_conn = VacConn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (7, 1))
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _LowRetained())
+
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
+    assert items[0]["needs_water"] is True
+
+
+def test_fetch_all_vacation_needs_water_retained_threshold(monkeypatch):
+    """Vacation: days_offset None, retained <= threshold sets needs_water (lines 359-366)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("55" * 16)
+    # No last_watering_at -> fetchone returns (0,) so last_watering_at = None,
+    # days_offset stays None, branch 359->370.
+    row = make_row(pid_bytes=pid, name="Vac2", created_at=now)
+
+    class Vac2Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+    class Vac2Conn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = Vac2Cursor(rows)
+            self.closed = False
+
+    fake_conn = Vac2Conn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    # freq_days None keeps days_offset None; retained below threshold -> needs water
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _LowRetained())
+
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
+    assert items[0]["needs_water"] is True
+
+
+class _LowRetained:
+    water_retained_pct = 10.0
+
+
+# --- Tests for exception in fetch_all main try (lines 422-423) ---
+
+
+def test_fetch_all_execute_exception(monkeypatch):
+    """Exception in main query execute returns [] (lines 422-423)."""
+
+    class BoomCursor(FakeCursor):
+        def execute(self, query, params=None):
+            raise RuntimeError("boom")
+
+    class BoomConn(FakeConnection):
+        def __init__(self):
+            self._cursor = BoomCursor()
+            self.closed = False
+
+    fake_conn = BoomConn()
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    items = PlantsList.fetch_all()
+    assert items == []
+
+
+# --- Tests for _check_watering_prediction paths (lines 447-542) ---
+
+
+def _repot_item(measured_at: str):
+    from backend.app.schemas.measurement import MeasurementItem
+
+    return MeasurementItem(
+        id="11" * 16,
+        measured_at=measured_at,
+        measured_weight_g=None,
+        last_dry_weight_g=None,
+        last_wet_weight_g=None,
+        water_added_g=None,
+        water_loss_total_pct=None,
+        water_loss_total_g=None,
+        water_loss_day_pct=None,
+        water_loss_day_g=None,
+    )
+
+
+class PredictionCursor(FakeCursor):
+    """Configurable cursor for _check_watering_prediction sequencing."""
+
+    def __init__(self, rows=None, weight_rows=None, repot_at=None):
+        super().__init__(rows)
+        self._weight_rows = weight_rows or []
+        self._repot_at = repot_at
+        self._state = 0
+
+    def fetchone(self):
+        # Call 1: get_last_repotting_event (handled in test via monkeypatch)
+        # Calls come from _check_watering_prediction inner cursors:
+        #   a) repot branch: SELECT measured_at ... water_added_g > 0 (fetchone)
+        #   b) final: SELECT measured_at, measured_weight_g (fetchall -> rows)
+        self._state += 1
+        if self._state == 1:
+            return (self._repot_at,) if self._repot_at else None
+        return (0,)
+
+    def fetchall(self):
+        return list(self._weight_rows)
+
+
+def test_check_watering_prediction_no_repot_created_at(monkeypatch):
+    """No repot: falls back to plant created_at; rows < 2 -> False (lines 438-445, 489-490)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(rows=[])
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "get_last_repotting_event", lambda *a, **k: None)
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_no_repot_truthy_created_at(monkeypatch):
+    """No repot, created_at is a real datetime -> falls through 444 to weight query (444->475)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    class TruthyCreatedCursor(FakeCursor):
+        def fetchone(self):
+            # First call: created_at query returns a real datetime (truthy)
+            # We only need it to be truthy; weight rows returned below are < 2.
+            return (now - timedelta(days=30),)
+
+        def fetchall(self):
+            return [(now - timedelta(days=1), 200.0)]
+
+    class TruthyCreatedConn(FakeConnection):
+        def __init__(self):
+            self._cursor = TruthyCreatedCursor()
+            self.closed = False
+
+    fake_conn = TruthyCreatedConn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "get_last_repotting_event", lambda *a, **k: None)
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_no_reference(monkeypatch):
+    """No repot and created_at row None -> returns False (lines 443-445)."""
+
+    class NoRefCursor(FakeCursor):
+        def fetchone(self):
+            return None
+
+    class NoRefConn(FakeConnection):
+        def __init__(self):
+            self._cursor = NoRefCursor()
+            self.closed = False
+
+    fake_conn = NoRefConn()
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "get_last_repotting_event", lambda *a, **k: None)
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_repot_watering_since(monkeypatch):
+    """Repot exists; watering-since query returns row; weights < 2 -> False (lines 446-472, 489-490)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    class RepotCursor(FakeCursor):
+        def __init__(self):
+            super().__init__([])
+            self._state = 0
+
+        def fetchone(self):
+            self._state += 1
+            # call 1: watering since repot (returns a row -> ref_at updated)
+            if self._state == 1:
+                return (now - timedelta(days=1),)
+            # call 2: weight measurements fetchall -> returns empty
+            return (0,)
+
+        def fetchall(self):
+            return []
+
+    class RepotConn(FakeConnection):
+        def __init__(self):
+            self._cursor = RepotCursor()
+            self.closed = False
+
+    fake_conn = RepotConn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_check1_losing(monkeypatch):
+    """Losing < 2g/day for 2 consecutive intervals -> True (lines 508-513)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    weights = [
+        (now - timedelta(days=3), 200.0),
+        (now - timedelta(days=2), 199.0),
+        (now - timedelta(days=1), 198.0),
+    ]
+
+    class C1Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+        def fetchall(self):
+            return weights
+
+    class C1Conn(FakeConnection):
+        def __init__(self):
+            self._cursor = C1Cursor()
+            self.closed = False
+
+    fake_conn = C1Conn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is True
+
+
+def test_check_watering_prediction_no_losses(monkeypatch):
+    """delta_t <= 0 for all intervals -> losses empty -> False (lines 501-504)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    # Identical timestamps -> delta_t == 0 -> no loss appended
+    weights = [
+        (now, 200.0),
+        (now, 198.0),
+    ]
+
+    class NLCursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+        def fetchall(self):
+            return weights
+
+    class NLConn(FakeConnection):
+        def __init__(self):
+            self._cursor = NLCursor()
+            self.closed = False
+
+    fake_conn = NLConn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_check2_threshold(monkeypatch):
+    """Consecutive loss < 33% avg for > 2 intervals -> True (lines 518-538)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    # 7 rows -> 6 intervals: losses [3, 3, 3, 50, 50, 3].
+    # check1 (loss < 2) never triggers; remaining (drop min 3, max 50)
+    # avg ~14.75 -> threshold2 ~4.87; first three 3.0 < 4.87 -> returns True.
+    weights = [
+        (now - timedelta(days=6), 100.0),
+        (now - timedelta(days=5), 97.0),
+        (now - timedelta(days=4), 94.0),
+        (now - timedelta(days=3), 91.0),
+        (now - timedelta(days=2), 41.0),
+        (now - timedelta(days=1), -9.0),
+        (now - timedelta(days=0), -12.0),
+    ]
+
+    class C2Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+        def fetchall(self):
+            return weights
+
+    class C2Conn(FakeConnection):
+        def __init__(self):
+            self._cursor = C2Cursor()
+            self.closed = False
+
+    fake_conn = C2Conn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is True
+
+
+def test_check_watering_prediction_repot_no_watering_since(monkeypatch):
+    """Repot exists but watering-since query returns None -> ref_at stays repot (lines 444->446, 471->475)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    class RepotNoSinceCursor(FakeCursor):
+        def fetchone(self):
+            # watering-since query returns None -> ref_at stays repot_at
+            return None
+
+        def fetchall(self):
+            # Not enough weight rows to predict -> False
+            return [(now - timedelta(days=1), 200.0)]
+
+    class RepotNoSinceConn(FakeConnection):
+        def __init__(self):
+            self._cursor = RepotNoSinceCursor()
+            self.closed = False
+
+    fake_conn = RepotNoSinceConn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_fetch_all_standard_needs_water_retained_not_none_thresh_none(monkeypatch):
+    """retained not None but thresh_val None -> needs_water stays False (line 340->343)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("77" * 16)
+    row = make_row_full(
+        pid_bytes=pid,
+        name="RetainNoThresh",
+        measured_at=now,
+        measured_weight_g=150.0,
+        last_dry_weight_g=100.0,
+        last_wet_weight_g=200.0,
+        water_loss_total_pct=10.0,
+        recommended_water_threshold_pct=None,
+    )
+    fake_conn = FakeConnection(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _LowRetained())
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+
+    items = PlantsList.fetch_all(default_threshold=None)
+    assert items[0]["needs_water"] is False
+
+
+def test_fetch_all_vacation_retained_thresh_none(monkeypatch):
+    """Vacation: days_offset None, retained not None, vac_thresh None -> skip (line 359->370)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("88" * 16)
+    row = make_row(pid_bytes=pid, name="Vac3", created_at=now)
+
+    class V3Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+    class V3Conn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = V3Cursor(rows)
+            self.closed = False
+
+    fake_conn = V3Conn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _LowRetained())
+
+    # default_threshold None and rec threshold None -> vac_thresh None
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=None)
+    assert items[0]["needs_water"] is False
+
+
+def test_fetch_all_vacation_retained_threshold_set(monkeypatch):
+    """Vacation: days_offset None, retained not None, vac_thresh set -> needs_water (lines 365->370)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("99" * 16)
+    row = make_row(pid_bytes=pid, name="Vac4", created_at=now)
+
+    class V4Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+    class V4Conn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = V4Cursor(rows)
+            self.closed = False
+
+    fake_conn = V4Conn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _LowRetained())
+
+    # retained 10.0 <= default_threshold 50.0 -> needs_water True
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
+    assert items[0]["needs_water"] is True
+
+
+def test_fetch_all_vacation_retained_none(monkeypatch):
+    """Vacation: days_offset None, retained None -> else branch sets needs_water=standard (359 false arc)."""
+    now = datetime.utcnow()
+    pid = bytes.fromhex("ab" * 16)
+    row = make_row(pid_bytes=pid, name="Vac5", created_at=now)
+
+    class V5Cursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+    class V5Conn(FakeConnection):
+        def __init__(self, rows):
+            self._cursor = V5Cursor(rows)
+            self.closed = False
+
+    fake_conn = V5Conn(rows=[row])
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _NoneRetained())
+
+    items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
+    assert items[0]["needs_water"] is False
+
+
+def test_check_watering_prediction_few_rows_threshold(monkeypatch):
+    """rows <= 4 path uses sum(losses)/len(losses); no consecutive trigger -> False (lines 526-527, 529-538)."""
+    now = datetime.utcnow()
+    from backend.app.helpers import plants_list as pl_mod
+
+    # 3 rows -> 2 intervals, losses large enough not to trigger threshold2
+    weights = [
+        (now - timedelta(days=3), 200.0),
+        (now - timedelta(days=2), 150.0),
+        (now - timedelta(days=1), 100.0),
+    ]
+
+    class FRCursor(FakeCursor):
+        def fetchone(self):
+            return (0,)
+
+        def fetchall(self):
+            return weights
+
+    class FRConn(FakeConnection):
+        def __init__(self):
+            self._cursor = FRCursor()
+            self.closed = False
+
+    fake_conn = FRConn()
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event", lambda *a, **k: _repot_item("2024-01-01 10:00:00")
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+def test_check_watering_prediction_exception(monkeypatch):
+    """Exception during prediction returns False (lines 541-542)."""
+    from backend.app.helpers import plants_list as pl_mod
+
+    fake_conn = FakeConnection(rows=[])
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+    monkeypatch.setattr(
+        pl_mod, "get_last_repotting_event",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+
+    result = PlantsList._check_watering_prediction(fake_conn, "11" * 16)
+    assert result is False
+
+
+# --- Test for count_all non-admin ACL branch (lines 579-585) ---
+
+
+def test_count_all_current_user_non_admin(monkeypatch):
+    """count_all non-admin user adds ACL filter (lines 579-585)."""
+    fake_conn = FakeConnection(count_result=3)
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    current_user = {"id": 9, "global_role": "user"}
+    count = PlantsList.count_all(current_user=current_user)
+    assert count == 3
+    assert "OR p.location_id IN (" in fake_conn._cursor.last_query
+    assert fake_conn._cursor.last_params == [9, 9]
+
+
+def test_count_all_current_user_admin(monkeypatch):
+    """count_all admin user adds no ACL filter (branch 578->576)."""
+    fake_conn = FakeConnection(count_result=4)
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    current_user = {"id": 9, "global_role": "admin"}
+    count = PlantsList.count_all(current_user=current_user)
+    assert count == 4
+    assert "OR p.location_id IN (" not in fake_conn._cursor.last_query
+
+
+# --- Test for count_all execute exception (lines 634-635) ---
+
+
+def test_count_all_execute_exception(monkeypatch):
+    """Exception in count_all execute returns 0 (lines 634-635)."""
+
+    class BoomCursor(FakeCursor):
+        def execute(self, query, params=None):
+            raise RuntimeError("boom")
+
+    class BoomConn(FakeConnection):
+        def __init__(self):
+            self._cursor = BoomCursor()
+            self.closed = False
+
+    fake_conn = BoomConn()
+    from backend.app.helpers import plants_list as pl_mod
+
+    monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
+
+    count = PlantsList.count_all()
+    assert count == 0

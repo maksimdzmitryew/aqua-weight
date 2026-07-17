@@ -16,6 +16,14 @@ def test_needs_weighing_no_last_measurement():
     assert needs_weighing(None, "manual") is True
 
 
+def test_needs_weighing_when_never_measured():
+    # Given a plant that has never been weighed (no last_measured_at timestamp)
+    # When checking in a non-vacation mode
+    # Then it always needs weighing
+    assert needs_weighing(None, "manual") is True
+    assert needs_weighing(None, "automatic") is True
+
+
 def test_needs_weighing_time_thresholds():
     now = datetime.utcnow()
 

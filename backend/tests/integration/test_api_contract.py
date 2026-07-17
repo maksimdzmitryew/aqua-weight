@@ -104,7 +104,7 @@ async def test_settings_update_schema(client: httpx.AsyncClient, auth_headers):
     """PUT /api/settings with valid payload returns 200/204."""
     resp = await client.put(
         "/settings",
-        json={"theme": "dark"},
+        json={"settings": {"theme": "dark"}},
         headers={**auth_headers, "Content-Type": "application/json"},
     )
     assert resp.status_code in (200, 204)
@@ -128,8 +128,9 @@ async def test_measurement_weight_schema(client: httpx.AsyncClient, auth_headers
     )
     assert resp.status_code in (200, 201)
     data = resp.json()
-    assert "id" in data
-    assert "measured_at" in data
+    assert data["status"] == "success"
+    assert "id" in data["data"]
+    assert data["meta"]["timestamp"] == "2024-01-01T12:00:00"
 
 
 @pytest.mark.integration
@@ -150,8 +151,9 @@ async def test_measurement_watering_schema(client: httpx.AsyncClient, auth_heade
     )
     assert resp.status_code in (200, 201)
     data = resp.json()
-    assert "id" in data
-    assert "water_added_g" in data
+    assert data["status"] == "success"
+    assert "id" in data["data"]
+    assert data["meta"]["timestamp"] == "2024-01-01T12:00:00"
 
 
 @pytest.mark.integration

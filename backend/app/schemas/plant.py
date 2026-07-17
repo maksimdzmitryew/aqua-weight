@@ -107,13 +107,13 @@ class PlantCreateRequest(BaseModel):
     notes: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]] = (
         None
     )
-    location_id: Optional[HexID] = None
+    location_id: Optional[str] = None
     photo_url: Optional[
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]
     ] = None
     # Service
     default_measurement_method_id: Optional[HexID] = None
-    scale_id: Optional[HexID] = None
+    scale_id: Optional[str] = None
     sort_order: Optional[int] = Field(default=0, ge=0)
     repotted: Optional[int] = Field(default=0, ge=0, le=1)
     archive: Optional[int] = Field(default=0, ge=0, le=1)
@@ -168,7 +168,7 @@ class PlantUpdateRequest(BaseModel):
     notes: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=4000)]] = (
         None
     )
-    location_id: Optional[HexID] = None
+    location_id: Optional[str] = None
     photo_url: Optional[
         Annotated[str, StringConstraints(strip_whitespace=True, max_length=2048)]
     ] = None

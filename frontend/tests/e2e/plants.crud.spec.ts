@@ -1,7 +1,11 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login } from './utils/seed'
+import { seed, cleanup, login, createApiClient } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
+const SEED_PLANTS = {
+  'Seed Fern': '22222222222222222222222222222222',
+  'Seed Ivy': '33333333333333333333333333333333',
+} as const
 
 test.describe('Plants CRUD', () => {
   test.beforeAll(async () => {
@@ -84,21 +88,20 @@ test.describe('Plants CRUD', () => {
       localStorage.setItem('dtFormat', 'europe')
     })
 
-    const saveMeasurement = async (plantName: string, weight: string, measuredAt: string) => {
-      await page.goto('/measurement/weight', { waitUntil: 'commit' })
-      const plantSelect = page.getByLabel(/plant/i)
-      await expect(plantSelect).toBeEnabled()
-      await expect(async () => {
-        const options = await plantSelect.locator('option').allTextContents()
-        expect(options.join(' ')).toMatch(new RegExp(plantName, 'i'))
-      }).toPass()
-      await plantSelect.selectOption({ label: plantName })
-      await page.getByLabel(/measured weight/i).fill(weight)
-      await page.getByLabel(/measured at/i).fill(measuredAt)
-      const saveButton = page.getByRole('button', { name: /save measurement/i })
-      await expect(saveButton).toBeEnabled()
-      await saveButton.click()
-      await page.waitForURL(/\/plants\/[a-f0-9-]{32,36}/)
+    const saveMeasurement = async (plantName: keyof typeof SEED_PLANTS, weight: string, measuredAt: string) => {
+      const api = await createApiClient(ORIGIN)
+      try {
+        const loginRes = await api.post('/api/test/login')
+        expect(loginRes.ok()).toBeTruthy()
+        const { access_token } = await loginRes.json()
+        const res = await api.post(`/api/plants/${SEED_PLANTS[plantName]}/measurements/weight`, {
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          data: { measured_weight_g: Number(weight), measured_at: measuredAt },
+        })
+        expect(res.ok()).toBeTruthy()
+      } finally {
+        await api.dispose()
+      }
     }
 
     await saveMeasurement('Seed Fern', '123', '2030-01-02T10:00')
@@ -110,14 +113,13 @@ test.describe('Plants CRUD', () => {
     const fernRow = page.getByRole('row', { name: /seed fern/i })
     const fernUpdatedTitle = await fernRow
       .locator('td')
-      .nth(7)
+      .nth(6)
       .locator('span')
       .getAttribute('title')
-    // Title is formatted as "02/01/2030, 10:00:00" in europe locale
     expect(fernUpdatedTitle || '').toMatch(/02\/01\/2030/)
 
     const ivyRow = page.getByRole('row', { name: /seed ivy/i })
-    const ivyUpdatedTitle = await ivyRow.locator('td').nth(7).locator('span').getAttribute('title')
+    const ivyUpdatedTitle = await ivyRow.locator('td').nth(6).locator('span').getAttribute('title')
     expect(ivyUpdatedTitle || '').not.toMatch(/02\/01\/2024/)
   })
 })

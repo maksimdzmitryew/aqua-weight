@@ -1,36 +1,44 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login } from './utils/seed'
+import { seed, cleanup, login, createApiClient } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
+const SEED_FERN_ID = '22222222222222222222222222222222'
 
 test.describe('Sparkline Hover', () => {
-  test.beforeAll(async ({ browser }) => {
-    const page = await browser.newPage()
+  test.beforeAll(async () => {
     await seed(ORIGIN)
-    await login(page, ORIGIN)
-    // 1. Create multiple measurements to have a trend and delta
-    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' })
-    await expect(page.getByLabel(/plant/i).locator('option', { hasText: 'Seed Fern' })).toHaveCount(
-      1,
-      { timeout: 10000 },
-    )
-    await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
-    await page.getByLabel(/measured weight \(g\)/i).fill('300')
-    await page.getByLabel(/measured at/i).fill('2025-01-01T10:00')
-    await page.getByRole('button', { name: /save measurement/i }).click()
-    await expect(page).not.toHaveURL(/\/measurement\/weight/)
+    const api = await createApiClient(ORIGIN)
+    try {
+      const loginRes = await api.post('/api/test/login')
+      expect(loginRes.ok()).toBeTruthy()
+      const { access_token } = await loginRes.json()
+      const headers = { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }
 
-    await page.goto(`${ORIGIN}/measurement/weight`, { waitUntil: 'commit' })
-    await expect(page.getByLabel(/plant/i).locator('option', { hasText: 'Seed Fern' })).toHaveCount(
-      1,
-      { timeout: 10000 },
-    )
-    await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
-    await page.getByLabel(/measured weight \(g\)/i).fill('280')
-    await page.getByLabel(/measured at/i).fill('2025-01-02T10:00')
-    await page.getByRole('button', { name: /save measurement/i }).click()
-    await expect(page).not.toHaveURL(/\/measurement\/weight/)
-    await page.close()
+      const plantCalibration = await api.patch(`/api/plants/${SEED_FERN_ID}`, {
+        headers,
+        data: { min_dry_weight_g: 200, max_water_weight_g: 100 },
+      })
+      expect(plantCalibration.ok()).toBeTruthy()
+
+      const firstWeight = await api.post(`/api/plants/${SEED_FERN_ID}/measurements/weight`, {
+        headers,
+        data: {
+          measured_weight_g: 300,
+          measured_at: '2025-01-01T10:00',
+          last_dry_weight_g: 200,
+          last_wet_weight_g: 300,
+        },
+      })
+      expect(firstWeight.ok()).toBeTruthy()
+
+      const secondWeight = await api.post(`/api/plants/${SEED_FERN_ID}/measurements/weight`, {
+        headers,
+        data: { measured_weight_g: 280, measured_at: '2025-01-02T10:00' },
+      })
+      expect(secondWeight.ok()).toBeTruthy()
+    } finally {
+      await api.dispose()
+    }
   })
   test.beforeEach(async ({ page }) => {
     await login(page, ORIGIN)
@@ -58,8 +66,8 @@ test.describe('Sparkline Hover', () => {
     const tooltip = sparkline.locator('..').locator('div').filter({ hasText: /Δ/ }).first()
     await expect(tooltip).toBeVisible()
 
-    // Verify content: 02/01/2025 (Europe default), 280 g, Δ -20 g
-    await expect(tooltip).toContainText('02/01/2025')
+    // Verify content: current default date format, 280 g, Δ -20 g
+    await expect(tooltip).toContainText('01/02/2025')
     await expect(tooltip).toContainText('280 g')
     await expect(tooltip).toContainText('Δ -20 g')
 

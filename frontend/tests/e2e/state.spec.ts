@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login } from './utils/seed'
+import { seed, cleanup, login, createApiClient } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
 
@@ -13,8 +13,29 @@ test.describe('Persistence & State Sync', () => {
   })
 
   test('theme synchronization across multiple tabs', async ({ context }) => {
+    await seed(ORIGIN)
+    const api = await createApiClient(ORIGIN)
+    try {
+      const loginRes = await api.post('/api/test/login')
+      expect(loginRes.ok()).toBeTruthy()
+      const { access_token } = await loginRes.json()
+      const settingsRes = await api.put('/api/settings', {
+        headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+        data: { settings: { theme: 'light' } },
+      })
+      expect(settingsRes.ok()).toBeTruthy()
+    } finally {
+      await api.dispose()
+    }
+
+    await context.addInitScript(() => {
+      localStorage.setItem('theme', 'light')
+    })
     const page1 = await context.newPage()
     const page2 = await context.newPage()
+
+    await login(page1, ORIGIN)
+    await login(page2, ORIGIN)
 
     await page1.goto('/settings')
     await page2.goto('/dashboard')

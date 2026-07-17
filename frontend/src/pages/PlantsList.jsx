@@ -134,7 +134,7 @@ function SortablePlantRow({
       </td>
       <td
         className="td"
-        style={{ minWidth: 190, width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
+        style={{ minWidth: 200, width: 140, ...(getWaterRetainCellStyle(retained) || {}) }}
         title={p.uuid ? 'View plant' : undefined}
       >
         {p.uuid ? (
@@ -190,10 +190,10 @@ function SortablePlantRow({
           <span style={{ marginLeft: 4, fontSize: '0.9em', opacity: 0.8 }}>({p.days_offset}d)</span>
         )}
       </td>
-      <td className="td hide-column-phone" style={{ minWidth: 90, width: 100 }}>
+      <td className="td hide-column-phone" style={{ minWidth: 110, width: 120 }}>
         {p.location || '—'}
       </td>
-      <td className="td hide-column-tablet" style={{ minWidth: 100, width: 100 }}>
+      <td className="td hide-column-tablet" style={{ minWidth: 120, width: 180 }}>
         <DateTimeText value={p.latest_at} mode="shortdatetime" />
       </td>
       <td className="td text-right nowrap">

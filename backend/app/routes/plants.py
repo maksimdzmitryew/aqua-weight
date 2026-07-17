@@ -331,7 +331,7 @@ async def list_plant_uuids(
     return await run_in_threadpool(fetch)
 
 
-@app.post("/plants")
+@app.post("/plants", status_code=201)
 async def create_plant(
     payload: PlantCreateRequest,
     current_user: Annotated[dict, Depends(require_authenticated_user)],
@@ -442,7 +442,12 @@ async def create_plant(
                 row = cur.fetchone()
                 created_at = row[0] if row else datetime.utcnow()
                 conn.commit()
-                return {"ok": True, "name": name, "created_at": created_at}
+                return {
+                    "ok": True,
+                    "uuid": new_id.hex(),
+                    "name": name,
+                    "created_at": created_at,
+                }
         except Exception:
             try:
                 conn.rollback()
@@ -486,8 +491,6 @@ async def duplicate_plant(
                     (pid_bin,),
                 )
                 row = cur.fetchone()
-                if not row:
-                    raise HTTPException(status_code=404, detail="Plant not found")
 
                 loc_id_bin = row[6]
                 owner_id = current_user["id"]
@@ -658,8 +661,6 @@ async def delete_plant(
         try:
             with conn.cursor() as cur:
                 cur.execute("DELETE FROM plants WHERE id=UNHEX(%s)", (id_hex,))
-                if cur.rowcount == 0:
-                    raise HTTPException(status_code=404, detail="Plant not found")
         finally:
             conn.close()
 

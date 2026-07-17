@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from backend.app.db import core as core_mod
+from backend.app.db import deps as deps_mod
 
 
 class _FakeConn:
@@ -104,3 +105,7 @@ def test_cursor_context_manager_closes_even_on_exception():
             assert c is cur
             raise ValueError("err")
     assert cur.closed is True
+
+
+def test_get_conn_factory_returns_get_conn() -> None:
+    assert deps_mod.get_conn_factory() is core_mod.get_conn

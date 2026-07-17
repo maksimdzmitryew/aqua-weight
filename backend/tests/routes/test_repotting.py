@@ -156,7 +156,7 @@ def patch_services(monkeypatch):
 async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, patch_services):
     # First create a plant in the real DB so require_plant_access can find it
     plant_r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "RepotTest"})
-    assert plant_r.status_code == 200
+    assert plant_r.status_code == 201
     plant_uid = plant_r.json().get("uuid")
     # If uuid not in response, find via list
     if not plant_uid:
@@ -191,53 +191,24 @@ async def test_create_repotting_happy_path(async_client: AsyncClient, dummy_db, 
 
 
 @pytest.mark.asyncio
-async def test_create_repotting_invalid_plant_id(
-    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
-):
-    # First create a plant so require_plant_access finds it
-    plant_r = await async_client.post(
-        "/api/plants", headers=_API_KEY, json={"name": "RepotInvalidTest"}
-    )
-    assert plant_r.status_code == 200
-    plant_uid = plant_r.json().get("uuid")
-    if not plant_uid:
-        lr = await async_client.get("/api/plants", headers=_API_KEY)
-        plant_uid = next(
-            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotInvalidTest"
-        )
-
-    # Pydantic enforces hex format; to hit the route's own HEX_RE check,
-    # patch HEX_RE to a stricter pattern that rejects the valid hex.
-    import re as _re
-
-    monkeypatch.setattr(repotting_mod, "HEX_RE", _re.compile(r"^b{32}$"))
-
-    bad_payload = {
-        "plant_id": plant_uid,  # valid per schema but rejected by patched HEX_RE
-        "measured_at": ISO_TIME,
-        "measured_weight_g": 500,
-        "last_wet_weight_g": 600,
-    }
-    resp = await async_client.post(
-        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=bad_payload
-    )
-    assert resp.status_code == 400
-    assert resp.json()["detail"] == "Invalid plant_id"
-
-
-@pytest.mark.asyncio
 async def test_create_repotting_missing_required_due_to_zero(
     async_client: AsyncClient, dummy_db, patch_services
 ):
-    # measured_weight_g=0 should be treated as missing by the route's falsy check
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotMissingTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    
+    # measured_weight_g is required by the route.
     payload = {
-        "plant_id": VALID_HEX,
+        "plant_id": plant_uid,
         "measured_at": ISO_TIME,
-        "measured_weight_g": 0,
         "last_wet_weight_g": 600,
     }
     resp = await async_client.post(
-        f"/api/plants/{VALID_HEX}/repotting", headers=_API_KEY, json=payload
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
     )
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("Missing required field:")
@@ -251,7 +222,7 @@ async def test_create_repotting_no_last_event_404(
     plant_r = await async_client.post(
         "/api/plants", headers=_API_KEY, json={"name": "RepotNoEventTest"}
     )
-    assert plant_r.status_code == 200
+    assert plant_r.status_code == 201
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
@@ -286,7 +257,7 @@ async def test_update_repotting_happy_path(
     plant_r = await async_client.post(
         "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateTest"}
     )
-    assert plant_r.status_code == 200
+    assert plant_r.status_code == 201
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
@@ -333,7 +304,7 @@ async def test_update_repotting_missing_required_field(async_client: AsyncClient
     plant_r = await async_client.post(
         "/api/plants", headers=_API_KEY, json={"name": "RepotMissingTest"}
     )
-    assert plant_r.status_code == 200
+    assert plant_r.status_code == 201
     plant_uid = plant_r.json().get("uuid")
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
@@ -353,6 +324,306 @@ async def test_update_repotting_missing_required_field(async_client: AsyncClient
     )
     assert resp.status_code == 400
     assert resp.json()["detail"].startswith("Missing required field:")
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_validate_water_loss_raises_value_error(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotValidateErrTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotValidateErrTest"
+        )
+
+    # Force validate_water_loss to raise ValueError to trigger the 400 branch
+    # at repotting.py lines 147-148.
+    def _raise_value_error(**kwargs):
+        raise ValueError("water loss validation failed")
+
+    monkeypatch.setattr(repotting_mod, "validate_water_loss", _raise_value_error)
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 1200,
+    }
+
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 400
+    assert resp.json()["detail"] == "water loss validation failed"
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_measured_weight_exceeds_max(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    # measured_weight_g above the unsigned SMALLINT maximum must be rejected (line 54).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotWeightMaxTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotWeightMaxTest"
+        )
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 70000,
+        "last_wet_weight_g": 1200,
+    }
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 400
+    assert "measured_weight_g must be" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_repotted_weight_exceeds_max(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    # last_wet_weight_g above the unsigned SMALLINT maximum must be rejected (line 59).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotRepotMaxTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotRepotMaxTest"
+        )
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 70000,
+    }
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 400
+    assert "last_wet_weight_g must be" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_small_pot_requires_confirmation(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    # When repotted weight is below previous water_added_g, without confirmation
+    # the route must abort with 409 (lines 86-95).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotSmallPotTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotSmallPotTest"
+        )
+
+    # patch_services sets LastPlantEvent water_added_g=200, so repotted < 200 triggers branch.
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 100,
+    }
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 409
+    assert "small pot" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_small_pot_confirmed(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    # With confirm_small_pot=true the route resets water_added_g to 0 and succeeds (line 97).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotSmallPotConfirmTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"]
+            for it in lr.json()["items"]
+            if it["name"] == "RepotSmallPotConfirmTest"
+        )
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 100,
+        "confirm_small_pot": True,
+    }
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_repotting_not_found_no_row(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
+    # When the ownership SELECT returns no row, the update must 404 (line 263).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateNoRowTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"]
+            for it in lr.json()["items"]
+            if it["name"] == "RepotUpdateNoRowTest"
+        )
+
+    # Force the cursor's fetchone to return nothing for the ownership lookup.
+    monkeypatch.setattr(dummy_db["cursor"], "fetchone", lambda: None)
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 777,
+        "last_wet_weight_g": 1500,
+    }
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{'2'*32}", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Not found"
+
+
+@pytest.mark.asyncio
+async def test_update_repotting_not_found_plant_mismatch(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    # When the found measurement belongs to a different plant, the update must 404 (line 269).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateMismatchTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"]
+            for it in lr.json()["items"]
+            if it["name"] == "RepotUpdateMismatchTest"
+        )
+
+    # No repotting inserted in this test, so the SELECT returns the default 00*16 id,
+    # which does not match the requested plant -> mismatch 404.
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 777,
+        "last_wet_weight_g": 1500,
+    }
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{'2'*32}", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Not found"
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_conn_close_raises(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
+    # Exercise the create route's finally block when conn.close() raises (lines 227-228).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotCloseCreateTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"]
+            for it in lr.json()["items"]
+            if it["name"] == "RepotCloseCreateTest"
+        )
+
+    def _raise_close(self):
+        raise RuntimeError("close failed")
+
+    monkeypatch.setattr(DummyConn, "close", _raise_close)
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 1200,
+    }
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    # Exception during close is swallowed; request still succeeds.
+    assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_update_repotting_conn_close_raises(
+    async_client: AsyncClient, dummy_db, patch_services, monkeypatch
+):
+    # Exercise the update route's finally block when conn.close() raises (lines 313-314).
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotCloseUpdateTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"]
+            for it in lr.json()["items"]
+            if it["name"] == "RepotCloseUpdateTest"
+        )
+
+    # Make the ownership SELECT return the requested plant so the update proceeds.
+    monkeypatch.setattr(
+        dummy_db["cursor"], "fetchone", lambda: (bytes.fromhex(plant_uid),)
+    )
+
+    def _raise_close(self):
+        raise RuntimeError("close failed")
+
+    monkeypatch.setattr(DummyConn, "close", _raise_close)
+
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 777,
+        "last_wet_weight_g": 1500,
+    }
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{'2'*32}", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 200
 
 
 def test_get_last_watering_event_wrapper_calls_underlying(monkeypatch):

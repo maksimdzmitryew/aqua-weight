@@ -519,10 +519,6 @@ async def apply_measurements_corrections(
       If edit_last_wet = true, also set last_wet_weight_g = LEAST(last_wet_weight_g, target).
     Returns a summary with counts and totals per plant.
     """
-    plant_hex = (plant_id or "").strip()
-    if not HEX_RE.match(plant_hex or ""):
-        raise HTTPException(status_code=400, detail="Invalid plant_id")
-
     cap_mode = (payload.cap or "capacity").lower()
     if cap_mode not in ("capacity", "retained_ratio"):
         raise HTTPException(status_code=400, detail="Invalid cap mode")
@@ -538,11 +534,9 @@ async def apply_measurements_corrections(
                     FROM plants
                     WHERE id = UNHEX(%s)
                     """,
-                    (plant_hex,),
+                    (plant_id,),
                 )
                 row = cur.fetchone()
-                if not row:
-                    raise HTTPException(status_code=404, detail="Plant not found")
                 min_dry, max_water, rec_pct = row
                 if min_dry is None or max_water is None or max_water <= 0:
                     # Nothing to do if calibration incomplete
@@ -557,7 +551,7 @@ async def apply_measurements_corrections(
             )
             if not from_dt and not to_dt:
                 # Default: since last repotting
-                last_repot = get_last_repotting_event(conn, plant_hex)
+                last_repot = get_last_repotting_event(conn, plant_id)
                 if last_repot and last_repot.measured_at:
                     try:
                         # parse_timestamp_local accepts str; we may already have a datetime
@@ -570,7 +564,7 @@ async def apply_measurements_corrections(
 
             # Build dynamic WHERE for window
             where_parts = ["plant_id = UNHEX(%s)", "measured_weight_g IS NULL"]
-            params: list = [plant_hex]
+            params: list = [plant_id]
             if from_dt:
                 where_parts.append("measured_at >= %s")
                 params.append(from_dt)
@@ -678,9 +672,6 @@ async def list_measurements_for_plant(
     plant_id: Annotated[str, Depends(require_plant_access)],
     get_conn_fn=Depends(get_conn_factory),
 ):
-    if not HEX_RE.match(plant_id or ""):
-        raise HTTPException(status_code=400, detail="Invalid plant id")
-
     def do_fetch():
         conn = get_conn_fn()
         try:
@@ -747,7 +738,7 @@ async def list_measurements_for_plant(
 
                 # Post-processing: Apply type classification
                 for ts_sec, bucket in buckets.items():
-                    if len(bucket) == 3 and _matches_repotting_triple(bucket):
+                    if _matches_repotting_triple(bucket):
                         for res in bucket:
                             res["type"] = "Repotting"
 
@@ -793,9 +784,6 @@ async def create_measurement(
       - water_loss_day_pct = NULL
       - water_loss_day_g = NULL
     """
-    if not HEX_RE.match(plant_id or ""):
-        raise HTTPException(status_code=400, detail="Invalid plant_id")
-
     # Normalize inputs using services
     try:
         ensure_exclusive_water_vs_weight(payload.measured_weight_g, payload.water_added_g)

@@ -130,7 +130,7 @@ async def test_update_plant_db_error_triggers_rollback_inner_except(
     await async_client.post("/api/test/reset", headers=_API_KEY)
     # First, create a plant normally (without patch)
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "ToUpdate"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     # Find its uuid (paginated response)
     lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "ToUpdate")
@@ -177,7 +177,7 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
     await async_client.post("/api/test/reset", headers=_API_KEY)
     # Create a plant
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "Timey"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     # Get id (paginated response)
     lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "Timey")
@@ -197,7 +197,7 @@ async def test_update_plant_to_dt_empty_string_returns_none(async_client: AsyncC
 async def test_update_plant_empty_payload_returns_ok(async_client: AsyncClient):
     await async_client.post("/api/test/reset", headers=_API_KEY)
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "EmptyUpdate"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "EmptyUpdate")
     resp = await async_client.patch(f"/api/plants/{uid}", headers=_API_KEY, json={})
@@ -209,7 +209,7 @@ async def test_update_plant_empty_payload_returns_ok(async_client: AsyncClient):
 async def test_update_plant_hex_field_none_converts_to_null(async_client: AsyncClient):
     await async_client.post("/api/test/reset", headers=_API_KEY)
     r = await async_client.post("/api/plants", headers=_API_KEY, json={"name": "HexNone"})
-    assert r.status_code == 200
+    assert r.status_code == 201
     lst = await async_client.get("/api/plants", headers=_API_KEY)
     uid = next(it["uuid"] for it in lst.json()["items"] if it["name"] == "HexNone")
     resp = await async_client.patch(

@@ -268,9 +268,12 @@ describe('BulkMeasurementTable', () => {
         firstColumnTooltip="Enter latest value"
       />,
     )
-    // Header first column has the provided title attribute
+    // Header first column exposes the provided tooltip through the info button.
     const firstHeader = screen.getByRole('columnheader', { name: /Value/i })
-    expect(firstHeader).toHaveAttribute('title', 'Enter latest value')
+    expect(firstHeader).toBeInTheDocument()
+    const tooltipButton = screen.getByRole('button', { name: 'Enter latest value' })
+    fireEvent.click(tooltipButton)
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Enter latest value')
 
     // For uuid-present row, certain cells have title="View plant"
     const links = screen.getAllByRole('link')

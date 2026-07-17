@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test'
-import { seed, cleanup, login } from './utils/seed'
+import { seed, cleanup, login, createApiClient } from './utils/seed'
 
 const ORIGIN = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
+const SEED_FERN_ID = '22222222222222222222222222222222'
 
 test.describe('Dashboard Controls', () => {
   test.beforeAll(async () => {
@@ -18,45 +19,51 @@ test.describe('Dashboard Controls', () => {
   })
 
   test('reference line toggles update sparkline', async ({ page }) => {
-    // 1. Setup measurements on different days
-    await page.goto('/measurement/weight', { waitUntil: 'commit' })
-    // Wait for plant options to load, then select
-    const plantSelect = page.getByLabel(/plant/i)
-    await expect(plantSelect).toBeEnabled()
-    await expect(async () => {
-      const options = await plantSelect.locator('option').allTextContents()
-      expect(options.join(' ')).toMatch(/seed fern/i)
-    }).toPass()
-    await plantSelect.selectOption({ label: 'Seed Fern' })
-    await page.getByLabel(/measured weight \(g\)/i).fill('300')
-    await page.getByLabel(/measured at/i).fill('2025-01-01T10:00')
-    await page.getByRole('button', { name: /save measurement/i }).click()
-    await expect(page).not.toHaveURL(/\/measurement\/weight/)
+    const api = await createApiClient(ORIGIN)
+    try {
+      const loginRes = await api.post('/api/test/login')
+      expect(loginRes.ok()).toBeTruthy()
+      const { access_token } = await loginRes.json()
+      const headers = { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }
 
-    await page.goto('/measurement/weight', { waitUntil: 'commit' })
-    // Wait again after re-navigation to ensure options are present
-    const plantSelect2 = page.getByLabel(/plant/i)
-    await expect(plantSelect2).toBeEnabled()
-    await expect(async () => {
-      const options = await plantSelect2.locator('option').allTextContents()
-      expect(options.join(' ')).toMatch(/seed fern/i)
-    }).toPass()
-    await plantSelect2.selectOption({ label: 'Seed Fern' })
-    await page.getByLabel(/measured weight \(g\)/i).fill('280')
-    await page.getByLabel(/measured at/i).fill('2025-01-02T10:00')
-    await page.getByRole('button', { name: /save measurement/i }).click()
-    await expect(page).not.toHaveURL(/\/measurement\/weight/)
+      const plantCalibration = await api.patch(`/api/plants/${SEED_FERN_ID}`, {
+        headers,
+        data: { min_dry_weight_g: 200, max_water_weight_g: 100 },
+      })
+      expect(plantCalibration.ok()).toBeTruthy()
 
-    // 2. Setup watering to establish max_water_weight_g
-    await page.goto('/measurement/watering', { waitUntil: 'commit' })
-    await page.getByLabel(/plant/i).selectOption({ label: 'Seed Fern' })
-    await page.getByLabel(/current weight/i).fill('500') // last_wet_weight_g
-    await page.getByLabel(/weight before watering/i).fill('280') // last_dry_weight_g
-    await page.getByLabel(/water added/i).fill('220')
-    await page.getByRole('button', { name: /save watering/i }).click()
-    await expect(page).not.toHaveURL(/\/measurement\/watering/)
+      const firstWeight = await api.post(`/api/plants/${SEED_FERN_ID}/measurements/weight`, {
+        headers,
+        data: {
+          measured_weight_g: 300,
+          measured_at: '2025-01-01T10:00',
+          last_dry_weight_g: 200,
+          last_wet_weight_g: 300,
+        },
+      })
+      expect(firstWeight.ok()).toBeTruthy()
 
-    // 3. Go to Dashboard and verify sparkline
+      const secondWeight = await api.post(`/api/plants/${SEED_FERN_ID}/measurements/weight`, {
+        headers,
+        data: { measured_weight_g: 280, measured_at: '2025-01-02T10:00' },
+      })
+      expect(secondWeight.ok()).toBeTruthy()
+
+      const watering = await api.post(`/api/plants/${SEED_FERN_ID}/measurements/watering`, {
+        headers,
+        data: {
+          measured_at: '2025-01-03T10:00',
+          last_dry_weight_g: 280,
+          last_wet_weight_g: 500,
+          water_added_g: 220,
+        },
+      })
+      expect(watering.ok()).toBeTruthy()
+    } finally {
+      await api.dispose()
+    }
+
+    // Go to Dashboard and verify sparkline
     await page.goto('/dashboard', { waitUntil: 'commit' })
     // Ensure measurements are loaded before asserting sparkline visibility
     await page.waitForResponse(

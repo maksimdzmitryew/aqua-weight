@@ -42,7 +42,7 @@ export default function BulkMeasurementTable({
     <>
       <TableHeader title={firstColumnTooltip} style={{ minWidth: 165 }}>{firstColumnLabel}</TableHeader>
       <TableHeader title="Watering threshold — water when retained ≤ value" style={{ minWidth: 95 }}>Thresh</TableHeader>
-      <TableHeader title="Plant name" style={{ minWidth: 190 }}>Name</TableHeader>
+      <TableHeader title="Plant name" style={{ minWidth: 200 }}>Name</TableHeader>
       <TableHeader title="Notes" style={{ minWidth: 240 }}>Notes</TableHeader>
       <TableHeader title="Location" className="th hide-column-phone" style={{ minWidth: 90 }}>
         Location

@@ -21,6 +21,9 @@ markers = [
 asyncio_default_fixture_loop_scope = "function"
 # Use automatic asyncio mode for pytest-asyncio
 asyncio_mode = "auto"
+filterwarnings = [
+    "ignore:Accessing argon2.__version__ is deprecated:DeprecationWarning",
+]
 
 [tool.coverage.run]
 source = ["backend/app"]

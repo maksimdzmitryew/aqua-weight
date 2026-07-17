@@ -419,6 +419,8 @@ class PlantsList:
                 except Exception:
                     pass
                 return results
+        except Exception:
+            return []
         finally:
             try:
                 conn.close()
@@ -517,23 +519,19 @@ class PlantsList:
                 sorted_losses = sorted(losses)
                 # Disregard biggest and lowest
                 remaining_losses = sorted_losses[1:-1]
-                if not remaining_losses:
-                    avg_loss = sum(losses) / len(losses)
-                else:
-                    avg_loss = sum(remaining_losses) / len(remaining_losses)
+                avg_loss = sum(remaining_losses) / len(remaining_losses)
             else:
                 avg_loss = sum(losses) / len(losses)
 
-            if avg_loss > 0:
-                threshold2 = 0.33 * avg_loss
-                consecutive_check2 = 0
-                for loss in losses:
-                    if loss < threshold2:
-                        consecutive_check2 += 1
-                        if consecutive_check2 > 2:  # More than 2
-                            return True
-                    else:
-                        consecutive_check2 = 0
+            threshold2 = 0.33 * avg_loss
+            consecutive_check2 = 0
+            for loss in losses:
+                if loss < threshold2:
+                    consecutive_check2 += 1
+                    if consecutive_check2 > 2:  # More than 2
+                        return True
+                else:
+                    consecutive_check2 = 0
 
             return False
         except Exception:
@@ -629,6 +627,8 @@ class PlantsList:
                 cur.execute(query, params)
                 row = cur.fetchone()
                 return row[0] if row else 0
+        except Exception:
+            return 0
         finally:
             try:
                 conn.close()
