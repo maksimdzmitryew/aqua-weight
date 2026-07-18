@@ -13,7 +13,10 @@ from ..helpers.calibration import (
 from ..helpers.last_repotting import get_last_repotting_event
 from ..helpers.plants_list import PlantsList
 from ..helpers.water_loss import WaterLossCalculation
-from ..helpers.water_retained import calculate_water_retained
+from ..helpers.water_retained import (
+    calculate_water_retained,
+    get_last_watering_event_since,
+)
 from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
 )
@@ -53,12 +56,13 @@ def _compute_water_retained_for_plant(
     plant_id_hex: str,
     *,
     measured_weight_g: int | None,
-    last_wet_weight_g: int | None,
     water_loss_total_pct: float | None,
-) -> float:
+) -> float | None:
     """Fetch plant min/max and compute rounded water_retained_pct.
 
-    This mirrors the inline logic used after create/update operations.
+    The wet reference is taken from the last watering event after the reset
+    (plant creation or last repotting) so pre-reset waterings are ignored.
+    Returns None when there is no watering event since the reset.
     """
     cur.execute(
         "SELECT min_dry_weight_g, max_water_weight_g FROM plants WHERE id = UNHEX(%s)",
@@ -67,12 +71,16 @@ def _compute_water_retained_for_plant(
     plant_row = cur.fetchone()
     if not plant_row:
         # Preserve existing behavior expectations (the caller assumes a plant row exists)
-        # We return 0.0 here to avoid unbound variables while keeping semantics simple for tests.
+        # We return None here to avoid unbound variables while keeping semantics simple for tests.
         min_dry_weight_g = None
         max_water_weight_g = None
     else:
         min_dry_weight_g = plant_row[0]
         max_water_weight_g = plant_row[1]
+
+    # Wet reference reset-anchored to the last watering event after creation/repotting.
+    last_watering_ref = get_last_watering_event_since(cur.connection, plant_id_hex)
+    last_wet_weight_g = last_watering_ref[2] if last_watering_ref else None
 
     water_retained_calc = calculate_water_retained(
         min_dry_weight_g=min_dry_weight_g,
@@ -82,7 +90,7 @@ def _compute_water_retained_for_plant(
         water_loss_total_pct=water_loss_total_pct,
     )
     if water_retained_calc.water_retained_pct is None:
-        return 0.0
+        return None
     return round(water_retained_calc.water_retained_pct, 0)
 
 
@@ -206,7 +214,6 @@ async def create_vacation_watering(
                     cur,
                     plant_id,
                     measured_weight_g=None,
-                    last_wet_weight_g=None,
                     water_loss_total_pct=0,
                 )
 
@@ -894,7 +901,6 @@ async def create_measurement(
                     cur,
                     plant_id,
                     measured_weight_g=mw_insert,
-                    last_wet_weight_g=lw_local,
                     water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
 
@@ -1106,7 +1112,6 @@ async def update_measurement(
                     cur,
                     plant_hex,
                     measured_weight_g=mw_eff,
-                    last_wet_weight_g=lw_eff,
                     water_loss_total_pct=loss_calc.water_loss_total_pct,
                 )
 

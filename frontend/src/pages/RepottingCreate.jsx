@@ -10,6 +10,59 @@ import PlantSelect from '../components/PlantSelect.jsx'
 import NumberInput from '../components/form/fields/NumberInput.jsx'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 
+// Two-state switch for choosing the repotting type.
+// Full    = also replaced the soil (fresh soil) -> reset retained water to 0.
+// Partial = kept the soil (default)            -> retain its current water.
+function RepotTypeSwitch({ value, onChange, disabled = false }) {
+  const isFull = value === 'full'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={isFull}
+        aria-disabled={disabled}
+        aria-label="Replace soil type and/or volume"
+        onClick={() => {
+          if (disabled) return
+          onChange(isFull ? 'partial' : 'full')
+        }}
+        style={{
+          position: 'relative',
+          width: 44,
+          height: 24,
+          borderRadius: 999,
+          border: '1px solid var(--border)',
+          background: isFull ? 'var(--button-primary-bg)' : 'var(--surface-2, #e5e7eb)',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.55 : 1,
+          padding: 0,
+          flex: '0 0 auto',
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: 2,
+            left: isFull ? 22 : 2,
+            width: 18,
+            height: 18,
+            borderRadius: '50%',
+            background: '#fff',
+            transition: 'left 0.15s',
+          }}
+        />
+      </button>
+      <div>
+        <div style={{ fontWeight: 600 }}>Replace soil type and/or volume</div>
+        <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>
+          On: fresh soil — resets retained water to 0. Off: kept soil — retains its current water.
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const RepottingCreate = () => {
   const [search] = useSearchParams()
   const preselect = search.get('plant')
@@ -29,8 +82,14 @@ const RepottingCreate = () => {
     measured_at: nowLocalISOFull(),
     weight_before_repotting_g: '',
     last_wet_weight_g: '',
+    repotting_type: 'partial',
     note: '',
   })
+
+  const repotTypeLabel =
+    form.values.repotting_type === 'full'
+      ? 'Full — reset water to 0'
+      : 'Partial — keep current water'
 
   useEffect(() => {
     let cancelled = false
@@ -47,6 +106,9 @@ const RepottingCreate = () => {
               ? String(data.weight_before_repotting_g ?? data.measured_weight_g)
               : '',
           last_wet_weight_g: data.last_wet_weight_g != null ? String(data.last_wet_weight_g) : '',
+          // Infer the original repotting type from the repotting row's water_added_g:
+          // full resets it to 0, partial carries the previous (>0) value forward.
+          repotting_type: data.water_added_g && data.water_added_g > 0 ? 'partial' : 'full',
           note: data.note || '',
         })
       } catch (_) {
@@ -86,6 +148,7 @@ const RepottingCreate = () => {
         measured_weight_g:
           vals.weight_before_repotting_g !== '' ? Number(vals.weight_before_repotting_g) : null,
         last_wet_weight_g: vals.last_wet_weight_g !== '' ? Number(vals.last_wet_weight_g) : null,
+        repotting_type: vals.repotting_type,
         note: vals.note || null,
       }
       if (isEdit) {
@@ -122,7 +185,7 @@ const RepottingCreate = () => {
         <ConfirmDialog
           open={smallPotDialogOpen}
           title="Moved to a very small pot?"
-          message="Last time you added more water than current plant weight. Save this repotting with water_added_g reset to 0 and continue?"
+          message={`This pot seems too small for the current water. Continue with your selected repotting type — ${repotTypeLabel}?`}
           tone="warning"
           disabled={saving}
           onCancel={() => {
@@ -223,6 +286,19 @@ const RepottingCreate = () => {
             min={0}
             validators={[minNumber(0)]}
           />
+          <div style={{ gridColumn: '1 / -1' }}>
+            <RepotTypeSwitch
+              value={form.values.repotting_type}
+              onChange={(v) => form.setValue('repotting_type', v)}
+              disabled={isEdit}
+            />
+            {isEdit && (
+              <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)', marginTop: 4 }}>
+                Repotting type is fixed after creation and cannot be changed. <br />Delete (optionally) all 3 measurements of this repotting and/or create a new
+                one if the soil type/volume changed.
+              </div>
+            )}
+          </div>
           <div style={{ gridColumn: '1 / -1' }}>
             <label htmlFor="note" style={{ display: 'block', marginBottom: 4, fontWeight: 600 }}>
               Note

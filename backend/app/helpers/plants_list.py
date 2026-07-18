@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
 from ..helpers.last_repotting import get_last_repotting_event
-from ..helpers.water_retained import calculate_water_retained
+from ..helpers.water_retained import (
+    calculate_water_retained,
+    get_last_watering_event_since,
+)
 from ..helpers.weighing import needs_weighing
 
 
@@ -187,8 +190,6 @@ class PlantsList:
                         updated_at_db = row[11]
                         measured_at_db = row[12]
                         measured_weight_g = row[13]
-                        latest_last_dry_weight_g = row[14]
-                        last_wet_weight_g = row[15]
                         water_loss_total_pct = row[16]
                         archive = row[17]
                         sort_order = row[18]
@@ -211,8 +212,6 @@ class PlantsList:
                         measured_at_db = row[7]
                         updated_at_db = row[6]
                         measured_weight_g = None
-                        latest_last_dry_weight_g = None
-                        last_wet_weight_g = None
                         water_loss_total_pct = row[8]
                         archive = 0
                         sort_order = 0
@@ -221,31 +220,24 @@ class PlantsList:
                     candidates = [dt for dt in (measured_at_db, updated_at_db) if dt]
                     latest_at_pref = max(candidates) if candidates else (created_at_db or now)
 
-                    # Calculate water retained percentage using the helper.
-                    # For repotting, the latest measurement row can carry a new baseline
-                    # (last_dry_weight_g + last_wet_weight_g) while the plant table may still
-                    # hold pre-repot calibration. If that row has NULL water_loss_total_pct,
-                    # treat it as a repot "snapshot" and compute retained using that baseline
-                    # so the plant doesn't incorrectly show as needing water immediately.
-                    effective_min_dry_weight_g = min_dry_weight_g
-                    effective_max_water_weight_g = max_water_weight_g
-                    if (
-                        measured_weight_g is not None
-                        and latest_last_dry_weight_g is not None
-                        and last_wet_weight_g is not None
-                        and water_loss_total_pct is None
-                    ):
-                        try:
-                            derived_capacity_g = float(last_wet_weight_g) - float(latest_last_dry_weight_g)
-                            if derived_capacity_g > 0:
-                                effective_min_dry_weight_g = latest_last_dry_weight_g
-                                effective_max_water_weight_g = derived_capacity_g
-                        except Exception:
-                            pass
+                    # Last watering event strictly after the reset (plant creation or last
+                    # repotting). Reused as the wet/dry reference for retained % and as the
+                    # projection base date, so pre-reset waterings are ignored.
+                    last_watering_ref = None
+                    try:
+                        last_watering_ref = get_last_watering_event_since(conn, bin_to_hex(pid))
+                    except Exception:
+                        last_watering_ref = None
 
+                    # Calculate water retained percentage using the helper.
+                    # Capacity baselines (min_dry_weight_g / max_water_weight_g) come from the
+                    # plant table, which is recomputed from post-reset measurements/waterings.
+                    # The wet reference comes from the last watering event after the reset; when
+                    # no such event exists, retained % is undefined (None).
+                    last_wet_weight_g = last_watering_ref[2] if last_watering_ref else None
                     water_retained_calc = calculate_water_retained(
-                        min_dry_weight_g=effective_min_dry_weight_g,
-                        max_water_weight_g=effective_max_water_weight_g,
+                        min_dry_weight_g=min_dry_weight_g,
+                        max_water_weight_g=max_water_weight_g,
                         measured_weight_g=measured_weight_g,
                         last_wet_weight_g=last_wet_weight_g,
                         water_loss_total_pct=water_loss_total_pct,
@@ -269,28 +261,9 @@ class PlantsList:
                     except Exception:
                         freq_days, freq_count = None, 0
 
-                    # Find last watering event for fallback/projection
-                    # Note: We include both Manual/Automatic (weights > 0)
-                    # and Vacation (weights are NULL) watering events for the projection base date.
-                    last_watering_at = None
-                    try:
-                        with conn.cursor() as cur2:
-                            cur2.execute(
-                                """
-                                SELECT measured_at
-                                FROM plants_measurements
-                                WHERE plant_id = UNHEX(%s)
-                                  AND measured_weight_g IS NULL
-                                  AND water_loss_total_pct = 0
-                                ORDER BY measured_at DESC
-                                LIMIT 1
-                                """,
-                                (uuid_hex,),
-                            )
-                            last_row = cur2.fetchone()
-                            last_watering_at = last_row[0] if last_row else None
-                    except Exception:
-                        pass
+                    # Last watering event for projection: reuse the reset-anchored reference
+                    # (already fetched above) so it ignores pre-reset waterings.
+                    last_watering_at = last_watering_ref[0] if last_watering_ref else None
 
                     # Implement linear decay for water_retained_pct in vacation mode
                     if mode == "vacation" and last_watering_at and freq_days and freq_days > 0:
@@ -338,7 +311,11 @@ class PlantsList:
                         if water_retained_pct is not None and thresh_val is not None:
                             standard_needs_water = water_retained_pct <= thresh_val
                         elif water_retained_pct is None:
-                            standard_needs_water = True
+                            # No watering event since the reset: decide need via the
+                            # low water-loss/day prediction rule over post-reset measurements.
+                            standard_needs_water = PlantsList._check_watering_prediction(
+                                conn, uuid_hex
+                            )
 
                         if water_loss_total_pct == 0 and (
                             water_retained_pct is None or water_retained_pct > 0

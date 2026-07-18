@@ -6,7 +6,7 @@ from typing import Optional
 
 import pymysql
 
-from ..helpers.watering import get_last_watering_event
+from ..helpers.water_retained import get_last_watering_event_since
 
 
 class WaterLossCalculation:
@@ -92,11 +92,14 @@ def calculate_water_loss(
             exclude_clause = " AND id <> UNHEX(%s)"
             exclude_params = [exclude_measurement_id]
 
-        last_watering_event = get_last_watering_event(cursor, plant_id_hex)
+        # Last watering event strictly after the reset (creation or last repotting),
+        # so loss totals are not computed across the repot boundary. When none exists
+        # yet, the loss total/percentage values are undefined and left null.
+        last_watering_event = get_last_watering_event_since(cursor.connection, plant_id_hex)
         last_watering_water_added = (
-            last_watering_event["water_added_g"] if last_watering_event else 0
+            last_watering_event[3] if last_watering_event else 0
         )
-        last_watered_at = last_watering_event["measured_at"] if last_watering_event else None
+        last_watered_at = last_watering_event[0] if last_watering_event else None
 
         if last_watering_event:
 
@@ -142,9 +145,11 @@ def calculate_water_loss(
                     except Exception:
                         pass
         else:
-            # No prior watering event; leave totals as None
+            # No watering event since the reset: loss totals/percentages cannot be
+            # computed accurately and are left undefined (null).
             result.water_loss_total_g = None
             result.water_loss_total_pct = None
+            result.water_loss_day_pct = None
     except Exception:
         # On any error, keep totals as None
         pass

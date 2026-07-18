@@ -2,7 +2,10 @@
 Helper class for water retained calculations.
 """
 
-from typing import Optional
+from datetime import datetime
+from typing import Any, Optional, Tuple
+
+from ..helpers.last_repotting import get_last_repotting_event
 
 
 class WaterRetainedCalculation:
@@ -33,6 +36,11 @@ def calculate_water_retained(
         WaterRetainedCalculation object with calculated water retained percentage
     """
     result = WaterRetainedCalculation()
+
+    # No capacity means there has been no watering event since the reset
+    # (plant creation or last repotting). Retained % is then undefined.
+    if max_water_weight_g is None:
+        return result
 
     # Could after repotting followed by watering event
     if measured_weight_g is None and water_loss_total_pct == 0:
@@ -83,3 +91,57 @@ def calculate_water_retained(
             result.water_retained_pct = 100
 
     return result
+
+
+def get_last_watering_event_since(
+    conn, plant_id_hex: str
+) -> Optional[Tuple[Any, Any, Any, Any]]:
+    """Return (measured_at, last_dry_weight_g, last_wet_weight_g) of the most recent watering
+    event strictly after the reset boundary (last repotting, or plant creation if none).
+
+    A watering event is identified by:
+      - measured_weight_g IS NULL
+      - water_loss_total_pct = 0
+      - water_added_g > 0
+
+    Returns None when no watering event exists after the reset boundary.
+    """
+    try:
+        last_repot = get_last_repotting_event(conn, plant_id_hex)
+        if last_repot and last_repot.measured_at:
+            try:
+                reset_at = datetime.fromisoformat(last_repot.measured_at.replace(" ", "T"))
+            except Exception:
+                reset_at = last_repot.measured_at
+        else:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,)
+                )
+                row = cur.fetchone()
+                reset_at = row[0] if row else None
+
+        if reset_at is None:
+            return None
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT measured_at, last_dry_weight_g, last_wet_weight_g, water_added_g
+                FROM plants_measurements
+                WHERE plant_id = UNHEX(%s)
+                  AND measured_at > %s
+                  AND measured_weight_g IS NULL
+                  AND water_loss_total_pct = 0
+                  AND water_added_g > 0
+                ORDER BY measured_at DESC
+                LIMIT 1
+                """,
+                (plant_id_hex, reset_at),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return (row[0], row[1], row[2], row[3])
+    except Exception:
+        return None

@@ -81,22 +81,37 @@ async def create_repotting_event(
                 # Pre-check derived dry weight BEFORE any writes.
                 # If the user does not confirm, abort with 409 so no repotting-related
                 # measurement rows are created for this request.
+                # Full vs partial repotting. Default is partial: retain the old
+                # soil's water characteristics (carried water_added_g, and the
+                # plant's max_water_weight_g / min_dry_weight_g left unchanged).
+                # "full" resets them (fresh soil).
+                repotting_type = payload.repotting_type
                 prev_last_water_g = prev_last_water or 0
-                effective_water_added_g = prev_last_water_g
-                if repotted_weight_g - prev_last_water_g < 0:
-                    if not confirm_small_pot:
-                        raise HTTPException(
-                            status_code=409,
-                            detail=(
-                                "Moved to a very small pot? "
-                                "If yes, re-submit with confirm_small_pot=true to reset water_added_g to 0 and continue. "
-                                "If no, the previous water_added_g is greater than the new total weight."
-                            ),
-                        )
-                    # User confirmed: record the repotting with water_added_g reset to 0.
-                    effective_water_added_g = 0
 
-                derived_last_dry_weight_g = repotted_weight_g - effective_water_added_g
+                # Small-pot sanity guard: ask the user to confirm, but do NOT
+                # auto-decide the reset type. Once confirmed, the chosen
+                # repotting_type governs (no automatic enforcement).
+                if (repotted_weight_g - prev_last_water_g) < 0 and not confirm_small_pot:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=(
+                            "Moved to a very small pot? "
+                            "Confirm to proceed with your chosen repotting type: "
+                            "full resets water_added_g to 0, partial retains it. "
+                            "Re-submit with confirm_small_pot=true."
+                        ),
+                    )
+
+                if repotting_type == "full":
+                    effective_water_added_g = 0
+                    do_full_reset = True
+                else:  # partial (default): retain old soil's retained water + capacities
+                    effective_water_added_g = prev_last_water_g
+                    do_full_reset = False
+
+                # Clamp to avoid a negative dry-weight write in the degenerate
+                # tiny-pot + partial case (user confirmed an impossible pot).
+                derived_last_dry_weight_g = max(0, repotted_weight_g - effective_water_added_g)
 
                 # new_dry_weight = repotted_weight_g - last_watering_water_added
                 measured_at_shift = parse_timestamp_local(measured_at, fixed_microseconds=100)
@@ -196,20 +211,20 @@ async def create_repotting_event(
                     ),
                 )
 
-                # Repotting invalidates the plant's previous dry/minimum and max-water assumptions.
-                # Reset the calculated fields as agreed:
-                # - max_water_weight_g -> 0
-                # - min_dry_weight_g -> measured_weight_g (repot form field)
-                cur.execute(
-                    """
-                    UPDATE plants
-                    SET
-                        min_dry_weight_g = %s,
-                        max_water_weight_g = %s
-                    WHERE id = UNHEX(%s)
-                    """,
-                    (repotted_weight_g, 0, plant_id),
-                )
+                # Full repotting invalidates the plant's previous dry/min/max-water
+                # assumptions; partial retains them (user-chosen, no enforcement).
+                if do_full_reset:
+                    cur.execute(
+                        """
+                        UPDATE plants
+                        SET
+                            min_dry_weight_g = %s,
+                            max_water_weight_g = %s
+                        WHERE id = UNHEX(%s)
+                        """,
+                        (repotted_weight_g, 0, plant_id),
+                    )
+                # else (partial): leave min_dry_weight_g and max_water_weight_g unchanged.
 
                 result = {
                     "id": bin_to_hex(new_id),
@@ -247,6 +262,7 @@ async def update_repotting_event(
     measured_weight_g = payload.measured_weight_g
     last_wet_weight_g = payload.last_wet_weight_g
     note = payload.note or ""
+    repotting_type = payload.repotting_type
 
     local_dt = parse_timestamp_local(measured_at)
 
@@ -287,16 +303,19 @@ async def update_repotting_event(
                 cursor.execute(query, data)
 
                 # Keep plant-level calculated fields consistent when a repotting event is edited.
-                cursor.execute(
-                    """
-                    UPDATE plants
-                    SET
-                        min_dry_weight_g = %s,
-                        max_water_weight_g = %s
-                    WHERE id = UNHEX(%s)
-                    """,
-                    (last_wet_weight_g, 0, plant_id),
-                )
+                # Honor the chosen repotting type: full resets capacities, partial retains them.
+                if repotting_type == "full":
+                    cursor.execute(
+                        """
+                        UPDATE plants
+                        SET
+                            min_dry_weight_g = %s,
+                            max_water_weight_g = %s
+                        WHERE id = UNHEX(%s)
+                        """,
+                        (last_wet_weight_g, 0, plant_id),
+                    )
+                # else (partial): retain min_dry_weight_g and max_water_weight_g.
 
                 result = {
                     "id": id_hex,

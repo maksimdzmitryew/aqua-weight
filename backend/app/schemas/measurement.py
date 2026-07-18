@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Annotated, List, Optional
+from typing import TYPE_CHECKING, Annotated, List, Literal, Optional
 
 from pydantic import BaseModel, Field, StringConstraints, constr
 
@@ -42,6 +42,7 @@ class RepottingCreateRequest(BaseModel):
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
     confirm_small_pot: bool = False
+    repotting_type: Literal["full", "partial"] = "partial"
     note: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None
 
 
@@ -51,6 +52,7 @@ class RepottingUpdateRequest(BaseModel):
     ] = None
     measured_weight_g: Optional[int] = Field(default=None, ge=0)
     last_wet_weight_g: Optional[int] = Field(default=None, ge=0)
+    repotting_type: Literal["full", "partial"] = "partial"
     note: Optional[Annotated[str, StringConstraints(strip_whitespace=True, max_length=2000)]] = None
 
 

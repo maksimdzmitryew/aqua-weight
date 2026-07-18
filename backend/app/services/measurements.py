@@ -12,7 +12,7 @@ from typing import Optional
 
 import pymysql
 
-from ..helpers.watering import get_last_watering_event
+from ..helpers.water_retained import get_last_watering_event_since
 from ..utils.date_time import normalize_measured_at, normalize_measured_at_local
 
 # --- Timestamp helpers -------------------------------------------------------
@@ -148,9 +148,12 @@ def derive_weights(
     Uses the previous measurement BEFORE the current measured_at and excludes
     the current record (by id) when updating to avoid zero day loss baselines.
     """
-    # Get last watering event
-    last_watering_event = get_last_watering_event(cursor, plant_id_hex)
-    last_watering_water_added = last_watering_event["water_added_g"] if last_watering_event else 0
+    # Get last watering event strictly after the reset (plant creation or last repotting),
+    # so weighing/watering measurements only derive from post-reset events. When none
+    # exists yet, water_added_g falls back to 0 (the weighing/watering event then carries
+    # no water_added derived from a pre-reset event).
+    last_watering_event = get_last_watering_event_since(cursor.connection, plant_id_hex)
+    last_watering_water_added = last_watering_event[3] if last_watering_event else 0
 
     # Fetch previous measurement BEFORE the current timestamp, excluding current id when provided
     where_exclude = ""

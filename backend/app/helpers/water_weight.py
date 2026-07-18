@@ -27,7 +27,6 @@ def update_min_dry_weight_and_max_watering_added_g(
                 (plant_id_hex,),
             )
             row = cur.fetchone()
-            user_min_dry = row[0] if row else None
             user_max_water = row[1] if row else None
 
         # First, find the last repotting event
@@ -37,12 +36,6 @@ def update_min_dry_weight_and_max_watering_added_g(
         current_weight_min = calculate_min_dry_weight_g(conn, plant_id_hex, last_repotting)
         current_watering_max = calculate_max_watering_added_g(conn, plant_id_hex, last_repotting)
 
-        # If there's no current minimum or the new weight is lower, update it
-        if current_weight_min is None or (
-            new_measured_weight_g is not None and new_measured_weight_g < current_weight_min
-        ):
-            current_weight_min = new_measured_weight_g
-
         if (
             new_added_watering_g is not None
             and new_added_watering_g > 0
@@ -50,9 +43,9 @@ def update_min_dry_weight_and_max_watering_added_g(
         ):
             current_watering_max = new_added_watering_g
 
-        # Respect user-set values: don't overwrite explicit configuration
-        if user_min_dry is not None:
-            current_weight_min = user_min_dry
+        # min_dry_weight_g is always recomputed from measurements since the last repotting
+        # (or since creation), so a lower measurement lowers it and a delete raises it.
+        # Respect a user-set value for max water only: don't overwrite explicit configuration.
         if user_max_water is not None and user_max_water > 0:
             current_watering_max = user_max_water
 

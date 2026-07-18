@@ -622,4 +622,38 @@ describe('pages/RepottingCreate', () => {
     renderWithRouter(['/repotting/edit?id=err'])
     expect(await screen.findByText(/failed to load repotting event/i)).toBeInTheDocument()
   })
+
+  test('repotting type switch: interactive in create mode, locked in edit mode', async () => {
+    // Create mode: switch starts at "partial" (aria-checked=false) and toggles on click.
+    const { unmount } = renderWithRouter([{ pathname: '/repotting/new', search: '?plant=p1' }])
+    const createSwitch = await screen.findByRole('switch', { name: /replace soil/i })
+    expect(createSwitch).toHaveAttribute('aria-checked', 'false')
+    expect(createSwitch).not.toHaveAttribute('aria-disabled', 'true')
+
+    fireEvent.click(createSwitch)
+    expect(createSwitch).toHaveAttribute('aria-checked', 'true')
+
+    // Edit mode: switch is inferred from the loaded event and locked (aria-disabled).
+    unmount()
+    server.use(
+      http.get('/api/plants/:pid/measurements/:id', () =>
+        HttpResponse.json({
+          id: 77,
+          plant_id: 'p1',
+          measured_at: '2025-01-01T10:00',
+          weight_before_repotting_g: 111,
+          last_wet_weight_g: 222,
+          // water_added_g absent -> inferred as "full" (aria-checked=true)
+        }),
+      ),
+    )
+    renderWithRouter(['/repotting/edit?id=77&plant=p1'])
+    const editSwitch = await screen.findByRole('switch', { name: /replace soil/i })
+    expect(editSwitch).toHaveAttribute('aria-checked', 'true')
+    expect(editSwitch).toHaveAttribute('aria-disabled', 'true')
+
+    // Clicking while locked must not change the value.
+    fireEvent.click(editSwitch)
+    expect(editSwitch).toHaveAttribute('aria-checked', 'true')
+  })
 })

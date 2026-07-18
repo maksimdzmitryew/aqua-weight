@@ -52,7 +52,7 @@ def get_measured_weights_since_repotting(
                     SELECT measured_weight_g
                     FROM plants_measurements
                     WHERE plant_id = UNHEX(%s)
-                      AND measured_at > %s
+                      AND measured_at >= %s
                       AND measured_weight_g IS NOT NULL
                     ORDER BY measured_at ASC
                     """,
