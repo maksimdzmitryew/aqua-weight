@@ -256,20 +256,12 @@ export default function BulkWeightMeasurement() {
 
       const responseData = data?.status === 'success' && data?.data ? data.data : data
 
-      // Update progress buffer using functional update for race condition safety
+      // Update progress buffer using functional update for race condition safety.
+      // Do NOT re-derive needs_water here: the backend (plants_list.py) is the single
+      // source of truth. We re-fetch the authoritative plant state below.
       setProgressBuffer((prev) => {
-        const currentPlant = plants.find((p) => String(p.uuid || p.id) === String(plantId))
-        const prevData = prev[plantId] || currentPlant || {}
+        const prevData = prev[plantId] || {}
         const now = wateringTime.getCommitDateTime()
-        // Derive needs_water from fresh water_retained_pct + threshold (mirrors BE logic in plants_list.py).
-        const threshold =
-          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
-        const waterRetained = responseData?.water_retained_pct
-        // Backend is source of truth: missing data means needs water (True), not "preserve previous"
-        const derivedNeedsWater =
-          waterRetained !== undefined && waterRetained !== null && threshold !== undefined && threshold !== null
-            ? waterRetained <= threshold
-            : true
         return {
           ...prev,
           [plantId]: {
@@ -277,7 +269,6 @@ export default function BulkWeightMeasurement() {
             ...responseData,
             current_weight: numeric,
             needs_weighing: false,
-            needs_water: derivedNeedsWater,
             latest_at:
               responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
@@ -287,6 +278,18 @@ export default function BulkWeightMeasurement() {
 
       if (responseData?.id && !existingId) {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: responseData.id }))
+      }
+
+      // Backend returned the authoritative needs_water in the save response;
+      // apply it directly so the row reflects the new weight live (no extra GET).
+      if (responseData?.needs_water !== undefined) {
+        setPlants((prev) =>
+          prev.map((p) =>
+            String(p.uuid || p.id) === String(plantId)
+              ? { ...p, needs_water: responseData.needs_water }
+              : p,
+          ),
+        )
       }
 
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))

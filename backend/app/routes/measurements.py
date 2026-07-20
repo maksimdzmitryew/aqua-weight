@@ -11,6 +11,7 @@ from ..helpers.calibration import (
     calibrate_by_minimum_dry_weight,
 )
 from ..helpers.last_repotting import get_last_repotting_event
+from ..helpers.needs_water import compute_water_status
 from ..helpers.plants_list import PlantsList
 from ..helpers.water_loss import WaterLossCalculation
 from ..helpers.water_retained import (
@@ -112,6 +113,7 @@ class VacationWateringCreateRequest(BaseModel):
 async def create_vacation_watering(
     plant_id: Annotated[str, Depends(require_plant_access)],
     payload: VacationWateringCreateRequest,
+    defaultThreshold: str | None = Cookie(None),
     get_conn_fn=Depends(get_conn_factory),
 ):
     """
@@ -217,12 +219,32 @@ async def create_vacation_watering(
                     water_loss_total_pct=0,
                 )
 
+                # Fetch the plant's stored recommended threshold (mirrors the list).
+                cur.execute(
+                    "SELECT recommended_water_threshold_pct FROM plants WHERE id = UNHEX(%s)",
+                    (plant_id,),
+                )
+                _rec_row = cur.fetchone()
+                recommended_thr = _rec_row[0] if _rec_row else None
+
+                # Authoritative needs_water for vacation mode (single source of truth).
+                status = compute_water_status(
+                    conn,
+                    plant_id,
+                    water_retained_pct=water_retained_pct,
+                    water_loss_total_pct=0,
+                    mode="vacation",
+                    recommended_water_threshold_pct=recommended_thr,
+                    default_threshold=parse_default_threshold(defaultThreshold),
+                )
+
                 return {
                     "id": bin_to_hex(new_id),
                     "plant_id": plant_id,
                     "measured_at": measured_at_dt.isoformat(sep=" ", timespec="microseconds"),
                     "water_loss_total_pct": 0.0,
                     "water_retained_pct": water_retained_pct,
+                    "needs_water": status.needs_water,
                     "note": final_note,
                 }
         except Exception as e:
@@ -776,6 +798,7 @@ async def create_measurement(
     plant_id: Annotated[str, Depends(require_plant_access)],
     payload: MeasurementCreateRequest,
     mode: str = "manual",
+    defaultThreshold: str | None = Cookie(None),
     get_conn_fn=Depends(get_conn_factory),
 ):
     """
@@ -912,6 +935,27 @@ async def create_measurement(
                 latest_at = cur.fetchone()[0]
                 needs_weighing_val = needs_weighing(latest_at, mode)
 
+                # Fetch the plant's stored recommended threshold (mirrors the list:
+                # thresh_val = recommended if not None else default from cookie).
+                cur.execute(
+                    "SELECT recommended_water_threshold_pct FROM plants WHERE id = UNHEX(%s)",
+                    (plant_id,),
+                )
+                _rec_row = cur.fetchone()
+                recommended_thr = _rec_row[0] if _rec_row else None
+
+                # Authoritative needs_water, computed once at save time so the bulk
+                # pages read it straight from the response (no extra GET /plants).
+                status = compute_water_status(
+                    conn,
+                    plant_id,
+                    water_retained_pct=water_retained_pct,
+                    water_loss_total_pct=loss_calc.water_loss_total_pct,
+                    mode=mode,
+                    recommended_water_threshold_pct=recommended_thr,
+                    default_threshold=parse_default_threshold(defaultThreshold),
+                )
+
                 # Record Prometheus metrics
                 if loss_calc.is_watering_event:
                     watering_events_total.labels(mode="manual").inc()
@@ -925,6 +969,7 @@ async def create_measurement(
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
                         "water_retained_pct": water_retained_pct,
                         "needs_weighing": needs_weighing_val,
+                        "needs_water": status.needs_water,
                     },
                     "meta": {"timestamp": measured_at, "version": "1.0"},
                 }
@@ -947,6 +992,7 @@ async def update_measurement(
     id_hex: str,
     payload: MeasurementUpdateRequest,
     mode: str = "manual",
+    defaultThreshold: str | None = Cookie(None),
     get_conn_fn=Depends(get_conn_factory),
 ):
     """
@@ -1123,6 +1169,25 @@ async def update_measurement(
                 latest_at = cur.fetchone()[0]
                 needs_weighing_val = needs_weighing(latest_at, mode)
 
+                # Fetch the plant's stored recommended threshold (mirrors the list).
+                cur.execute(
+                    "SELECT recommended_water_threshold_pct FROM plants WHERE id = UNHEX(%s)",
+                    (plant_hex,),
+                )
+                _rec_row = cur.fetchone()
+                recommended_thr = _rec_row[0] if _rec_row else None
+
+                # Authoritative needs_water, computed once at save time.
+                status = compute_water_status(
+                    conn,
+                    plant_hex,
+                    water_retained_pct=water_retained_pct,
+                    water_loss_total_pct=loss_calc.water_loss_total_pct,
+                    mode=mode,
+                    recommended_water_threshold_pct=recommended_thr,
+                    default_threshold=parse_default_threshold(defaultThreshold),
+                )
+
                 return {
                     "status": "success",
                     "data": {
@@ -1130,6 +1195,7 @@ async def update_measurement(
                         "water_loss_total_pct": loss_calc.water_loss_total_pct,
                         "water_retained_pct": water_retained_pct,
                         "needs_weighing": needs_weighing_val,
+                        "needs_water": status.needs_water,
                     },
                     "meta": {"timestamp": measured_at, "version": "1.0"},
                 }

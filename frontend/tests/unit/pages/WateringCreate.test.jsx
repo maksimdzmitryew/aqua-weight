@@ -558,4 +558,168 @@ describe('pages/WateringCreate', () => {
     fireEvent.click(cancel)
     expect(mockNavigate).toHaveBeenCalledWith('/some-back-path')
   })
+
+  // --- UC1: overwatering warning (Risk of Root Rot Warning) ---
+
+  test('UC1: over-capacity wet weight opens the root rot warning and defers the submit', async () => {
+    server.use(
+      http.get('/api/plants/u1', () =>
+        HttpResponse.json({
+          uuid: 'u1',
+          name: 'Aloe',
+          min_dry_weight_g: 100,
+          max_water_weight_g: 50,
+        }),
+      ),
+      http.post('/api/plants/:plantId/measurements/watering', () =>
+        HttpResponse.json({ id: 101 }, { status: 201 }),
+      ),
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+
+    const plantSelect = await screen.findByLabelText(/plant/i)
+    await waitFor(() => expect(plantSelect).toHaveValue('u1'))
+
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '200' } }) // 200 > 100 + 50
+
+    const submit = await screen.findByRole('button', { name: /save watering/i })
+    await waitFor(() => expect(submit).not.toBeDisabled())
+    fireEvent.click(submit)
+
+    expect(await screen.findByText(/risk of root rot warning/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument()
+
+    // Submit is deferred: no navigation (saveWatering triggers it) yet.
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  test('UC1: clicking Yes submits the watering unchanged', async () => {
+    let posted = null
+    server.use(
+      http.get('/api/plants/u1', () =>
+        HttpResponse.json({
+          uuid: 'u1',
+          name: 'Aloe',
+          min_dry_weight_g: 100,
+          max_water_weight_g: 50,
+        }),
+      ),
+      http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 101 }, { status: 201 })
+      }),
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+    await screen.findByLabelText(/plant/i)
+
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '200' } })
+    fireEvent.click(await screen.findByRole('button', { name: /save watering/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes' }))
+
+    await waitFor(() => expect(posted).not.toBeNull())
+    expect(posted.last_wet_weight_g).toBe(200)
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1')
+  })
+
+  test('UC1: clicking No recalibrates max water then submits the watering', async () => {
+    let posted = null
+    let patched = null
+    server.use(
+      http.get('/api/plants/u1', () =>
+        HttpResponse.json({
+          uuid: 'u1',
+          name: 'Aloe',
+          min_dry_weight_g: 100,
+          max_water_weight_g: 50,
+        }),
+      ),
+      http.patch('/api/plants/:uuid', async ({ request }) => {
+        patched = await request.json()
+        return HttpResponse.json({ uuid: 'u1', ...patched })
+      }),
+      http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 101 }, { status: 201 })
+      }),
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+    await screen.findByLabelText(/plant/i)
+
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '200' } })
+    fireEvent.click(await screen.findByRole('button', { name: /save watering/i }))
+    fireEvent.click(await screen.findByRole('button', { name: 'No' }))
+
+    await waitFor(() => expect(patched).not.toBeNull())
+    expect(patched.max_water_weight_g).toBe(100) // 200 - 100 (min dry)
+    await waitFor(() => expect(posted).not.toBeNull())
+    expect(posted.last_wet_weight_g).toBe(200)
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/u1')
+  })
+
+  test('UC1: no warning when wet weight is within saturated capacity', async () => {
+    let posted = null
+    server.use(
+      http.get('/api/plants/u1', () =>
+        HttpResponse.json({
+          uuid: 'u1',
+          name: 'Aloe',
+          min_dry_weight_g: 100,
+          max_water_weight_g: 50,
+        }),
+      ),
+      http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 101 }, { status: 201 })
+      }),
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+    await screen.findByLabelText(/plant/i)
+
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '120' } }) // 120 <= 100 + 50
+    fireEvent.click(await screen.findByRole('button', { name: /save watering/i }))
+
+    await waitFor(() => expect(posted).not.toBeNull())
+    expect(screen.queryByText(/risk of root rot warning/i)).not.toBeInTheDocument()
+  })
+
+  test('UC1: fetches plant capacity if not loaded yet, then still shows the warning (no silent skip)', async () => {
+    let posted = null
+    server.use(
+      // Delay the plant load so capacity is still pending when the user submits.
+      http.get('/api/plants/u1', async () => {
+        await new Promise((r) => setTimeout(r, 300))
+        return HttpResponse.json({
+          uuid: 'u1',
+          name: 'Aloe',
+          min_dry_weight_g: 100,
+          max_water_weight_g: 50,
+        })
+      }),
+      http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
+        posted = await request.json()
+        return HttpResponse.json({ id: 101 }, { status: 201 })
+      }),
+    )
+
+    renderWithRouter([{ pathname: '/new', search: '?plant=u1' }])
+
+    const wet = screen.getByLabelText(/current weight/i)
+    fireEvent.change(wet, { target: { value: '200' } })
+    fireEvent.click(await screen.findByRole('button', { name: /save watering/i }))
+
+    // Capacity is fetched on submit, so the deferred warning still appears.
+    expect(
+      await screen.findByText(/risk of root rot warning/i, {}, { timeout: 2000 }),
+    ).toBeInTheDocument()
+    expect(posted).toBeNull()
+  })
 })

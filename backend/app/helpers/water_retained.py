@@ -85,10 +85,12 @@ def calculate_water_retained(
                 result.water_retained_pct = frac_ratio * 100.0
         # else: leave as None
     else:
-        if water_loss_total_pct is not None:
-            result.water_retained_pct = 100 - water_loss_total_pct
-        else:
-            result.water_retained_pct = 100
+        # measured_weight_g equals the dry baseline (min_dry_weight_g): the plant is
+        # at its driest, so retained water is 0%. The exception is when there is no
+        # water-loss history yet (water_loss_total_pct is None or 0 — e.g. a freshly
+        # repotted / newly created plant): there the retained % is undefined, so leave it None.
+        if water_loss_total_pct not in (None, 0):
+            result.water_retained_pct = 0.0
 
     return result
 

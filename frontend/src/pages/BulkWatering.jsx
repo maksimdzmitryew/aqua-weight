@@ -3,6 +3,7 @@ import DashboardLayout from '../components/DashboardLayout.jsx'
 import PageHeader from '../components/PageHeader.jsx'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { measurementsApi } from '../api/measurements'
+import { plantsApi } from '../api/plants'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import useWateringTime from '../hooks/useWateringTime.js'
 import WateringTimeBar from '../components/WateringTimeBar.jsx'
@@ -65,6 +66,7 @@ export default function BulkWatering() {
   const [progressBuffer, setProgressBuffer] = useState({})
   const [inputStatus, setInputStatus] = useState({})
   const [measurementIds, setMeasurementIds] = useState({})
+  const [overwaterPrompt, setOverwaterPrompt] = useState(null)
 
   const commonParams = `operationMode=${operationMode}&defaultThreshold=${defaultThreshold}`
 
@@ -281,25 +283,17 @@ export default function BulkWatering() {
 
       const responseData = data?.status === 'success' && data?.data ? data.data : data
 
-      // Update progress buffer
+      // Update progress buffer. Do NOT re-derive needs_water — the backend is the
+      // single source of truth; we re-fetch the authoritative state below.
       setProgressBuffer((prev) => {
-        const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
-        const prevData = prev[plantId] || currentPlant || {}
+        const prevData = prev[plantId] || {}
         const now = wateringTime.getCommitDateTime()
-        // Derive needs_water from fresh water_retained_pct + threshold (mirrors BE logic in plants_list.py).
-        const threshold =
-          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
-        const derivedNeedsWater =
-          responseData?.water_retained_pct !== undefined && responseData?.water_retained_pct !== null
-            ? responseData.water_retained_pct <= threshold
-            : prevData?.needs_water
         return {
           ...prev,
           [plantId]: {
             ...prevData,
             ...responseData,
             current_weight: numeric,
-            needs_water: derivedNeedsWater,
             latest_at:
               responseData?.latest_at ?? responseData?.measured_at ?? prevData.latest_at ?? now,
             measured_at: responseData?.measured_at ?? prevData.measured_at ?? now,
@@ -311,6 +305,17 @@ export default function BulkWatering() {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: responseData.id }))
       }
 
+      // Apply authoritative needs_water from the save response (no extra GET).
+      if (responseData?.needs_water !== undefined) {
+        setPlants((prev) =>
+          prev.map((p) =>
+            String(p.uuid || p.id) === String(plantId)
+              ? { ...p, needs_water: responseData.needs_water }
+              : p,
+          ),
+        )
+      }
+
       setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
     } catch (err) {
       if (err.name === 'AbortError') return // Ignore if superseded
@@ -320,6 +325,47 @@ export default function BulkWatering() {
       }
       setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
     }
+  }
+
+  // UC1: warn before recording an over-saturated watering. If the entered wet weight
+  // exceeds the plant's saturated capacity (min dry + max water), prompt the user.
+  function maybePromptOverwater(plantId, value) {
+    const wet = Number(value)
+    const plant = plants.find((p) => String(p.uuid || p.id) === String(plantId))
+    if (
+      plant &&
+      Number(plant.min_dry_weight_g) > 0 &&
+      Number(plant.max_water_weight_g) > 0 &&
+      !Number.isNaN(wet) &&
+      wet > Number(plant.min_dry_weight_g) + Number(plant.max_water_weight_g)
+    ) {
+      setOverwaterPrompt({ plantId, wet })
+      return
+    }
+    handleWateringCommit(plantId, value)
+  }
+
+  // UC1 "No": the soil legitimately holds more water than we thought. Recalibrate
+  // max_water_weight_g = entered wet weight - min dry weight, persist it, then record
+  // the watering normally. If the PATCH fails, abort both (do not submit).
+  async function handleNoRecalibrate(plantId, wet) {
+    const plant = plants.find((p) => String(p.uuid || p.id) === String(plantId))
+    if (!plant) return
+    const newMax = Math.round(wet - plant.min_dry_weight_g)
+    const uuid = plant.uuid || plantId
+    try {
+      await plantsApi.update(uuid, { max_water_weight_g: newMax })
+    } catch (err) {
+      console.error('Failed to recalibrate max water weight:', err)
+      setInputStatus((prev) => ({ ...prev, [plantId]: 'error' }))
+      return
+    }
+    setPlants((prev) =>
+      prev.map((p) =>
+        String(p.uuid || p.id) === String(plantId) ? { ...p, max_water_weight_g: newMax } : p,
+      ),
+    )
+    handleWateringCommit(plantId, String(wet))
   }
 
   async function handleWateringDelete(plantId, measurementId) {
@@ -362,18 +408,9 @@ export default function BulkWatering() {
         setMeasurementIds((prev) => ({ ...prev, [plantId]: measurement.id }))
         setInputStatus((prev) => ({ ...prev, [plantId]: 'success' }))
 
-        const currentPlant = plants.find((p) => (p.uuid || p.id) === plantId)
-        const threshold =
-          currentPlant?.recommended_water_threshold_pct ?? Number(defaultThreshold)
-        const derivedNeedsWater =
-          measurement?.water_retained_pct !== undefined && measurement?.water_retained_pct !== null
-            ? measurement.water_retained_pct <= threshold
-            : undefined
-
         const updatedData = {
           water_loss_total_pct: measurement.water_loss_total_pct,
           water_retained_pct: measurement.water_retained_pct,
-          needs_water: derivedNeedsWater,
           latest_at:
             measurement.latest_at || measurement.measured_at || wateringTime.getCommitDateTime(),
           measured_at: measurement.measured_at,
@@ -386,6 +423,17 @@ export default function BulkWatering() {
             ...updatedData,
           },
         }))
+
+        // Apply authoritative needs_water from the save response (no extra GET).
+        if (measurement?.needs_water !== undefined) {
+          setPlants((prev) =>
+            prev.map((p) =>
+              String(p.uuid || p.id) === String(plantId)
+                ? { ...p, needs_water: measurement.needs_water }
+                : p,
+            ),
+          )
+        }
 
         // Refresh approximations for this plant
         try {
@@ -573,7 +621,7 @@ export default function BulkWatering() {
           <BulkMeasurementTable
             plants={filteredPlants}
             inputStatus={inputStatus}
-            onCommitValue={handleWateringCommit}
+            onCommitValue={maybePromptOverwater}
             onDeleteWatering={handleWateringDelete}
             onCommitVacationWatering={handleVacationWateringCommit}
             onDeleteVacationWatering={handleVacationWateringDelete}
@@ -605,6 +653,37 @@ export default function BulkWatering() {
           window.open(`/measurement/repotting?plant=${pid}`, '_blank')
         }}
         onCancel={() => setValidationError(null)}
+      />
+      <ConfirmDialog
+        open={!!overwaterPrompt}
+        title="Risk of Root Rot Warning"
+        tone="warning"
+        defaultFocus="confirm"
+        confirmText="Yes"
+        cancelText="No"
+        message={
+          <div>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>Did you just overwater?</div>
+            <div style={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
+              Current weight indicates the soil retains historical maximum of water. It might mean the
+              roots did not dry enough, or are clogged with water because soil is too wet. Answer 'No'
+              if you are sure you did not water enough previously.
+            </div>
+          </div>
+        }
+        onConfirm={() => {
+          if (!overwaterPrompt) return
+          const { plantId, wet } = overwaterPrompt
+          setOverwaterPrompt(null)
+          handleWateringCommit(plantId, String(wet))
+        }}
+        onCancel={() => {
+          if (!overwaterPrompt) return
+          const { plantId, wet } = overwaterPrompt
+          setOverwaterPrompt(null)
+          handleNoRecalibrate(plantId, wet)
+        }}
+        onClose={() => setOverwaterPrompt(null)}
       />
     </DashboardLayout>
   )

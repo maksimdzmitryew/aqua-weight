@@ -8,8 +8,10 @@ export default function ConfirmDialog({
   confirmText = 'Delete',
   cancelText = 'Cancel',
   tone = 'danger', // 'danger' | 'default' | 'warning' | 'info' | 'success'
+  defaultFocus = 'cancel', // 'cancel' | 'confirm' — which button receives initial focus
   onConfirm,
   onCancel,
+  onClose, // optional: handler for Esc / overlay click, distinct from onCancel; falls back to onCancel
   disabled = false,
   // optional buttons override for future: [{ key, text, tone, onClick }]
   buttons,
@@ -26,7 +28,8 @@ export default function ConfirmDialog({
       if (!open) return
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onCancel && onCancel()
+        const closeHandler = onClose || onCancel
+        closeHandler && closeHandler()
       }
     }
     document.addEventListener('keydown', onKey)
@@ -227,13 +230,14 @@ export default function ConfirmDialog({
   }
 
   const defaultButtons = []
+  const confirmIsDefault = defaultFocus === 'confirm'
   if (cancelText) {
     defaultButtons.push({
       key: 'cancel',
       text: cancelText,
       style: btnBase,
       onClick: onCancel,
-      ref: firstBtnRef,
+      ref: confirmIsDefault ? undefined : firstBtnRef,
       disabled,
     })
   }
@@ -243,7 +247,7 @@ export default function ConfirmDialog({
     text: confirmText,
     style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary },
     onClick: onConfirm,
-    ref: !cancelText ? firstBtnRef : undefined,
+    ref: confirmIsDefault ? firstBtnRef : (cancelText ? undefined : firstBtnRef),
     disabled,
   })
 
@@ -256,7 +260,10 @@ export default function ConfirmDialog({
       aria-labelledby="confirm-title"
       aria-describedby="confirm-desc"
       onClick={(e) => {
-        if (e.target === overlayRef.current) onCancel && onCancel()
+        if (e.target === overlayRef.current) {
+          const closeHandler = onClose || onCancel
+          closeHandler && closeHandler()
+        }
       }}
       ref={overlayRef}
       style={{

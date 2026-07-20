@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from ..db import bin_to_hex, get_conn
 from ..helpers.frequency import compute_frequency_days
 from ..helpers.last_repotting import get_last_repotting_event
+from ..helpers.needs_water import compute_water_status
 from ..helpers.water_retained import (
     calculate_water_retained,
     get_last_watering_event_since,
@@ -299,50 +300,21 @@ class PlantsList:
                             days_offset = None
                     # Ensure next_watering_at is returned as None if it couldn't be calculated
 
-                    # Prediction component
-                    needs_watering_prediction = False
-                    standard_needs_water = False
-                    if mode != "vacation":
-                        thresh_val = (
-                            recommended_water_threshold_pct
-                            if recommended_water_threshold_pct is not None
-                            else default_threshold
-                        )
-                        if water_retained_pct is not None and thresh_val is not None:
-                            standard_needs_water = water_retained_pct <= thresh_val
-                        elif water_retained_pct is None:
-                            # No watering event since the reset: decide need via the
-                            # low water-loss/day prediction rule over post-reset measurements.
-                            standard_needs_water = PlantsList._check_watering_prediction(
-                                conn, uuid_hex
-                            )
-
-                        if water_loss_total_pct == 0 and (
-                            water_retained_pct is None or water_retained_pct > 0
-                        ):
-                            standard_needs_water = False
-
-                    if not standard_needs_water:
-                        needs_watering_prediction = PlantsList._check_watering_prediction(
-                            conn, uuid_hex
-                        )
-
-                    # Final needs_water: threshold-based, single source of truth for UI.
-                    # Combines standard_needs_water (non-vacation) with vacation mode projection.
-                    needs_water = False
-                    if mode == "vacation":
-                        if days_offset is not None and days_offset <= 0:
-                            needs_water = True
-                        elif water_retained_pct is not None:
-                            vac_thresh = (
-                                recommended_water_threshold_pct
-                                if recommended_water_threshold_pct is not None
-                                else default_threshold
-                            )
-                            if vac_thresh is not None:
-                                needs_water = water_retained_pct <= vac_thresh
-                    else:
-                        needs_water = standard_needs_water
+                    # needs_water / needs_watering_prediction: single source of truth,
+                    # shared with the measurement save endpoints (routes/measurements.py)
+                    # so the bulk pages can read it straight from the save response.
+                    status = compute_water_status(
+                        conn,
+                        uuid_hex,
+                        water_retained_pct=water_retained_pct,
+                        water_loss_total_pct=water_loss_total_pct,
+                        mode=mode,
+                        recommended_water_threshold_pct=recommended_water_threshold_pct,
+                        default_threshold=default_threshold,
+                        days_offset=days_offset,
+                    )
+                    needs_water = status.needs_water
+                    needs_watering_prediction = status.needs_watering_prediction
 
                     results.append(
                         {

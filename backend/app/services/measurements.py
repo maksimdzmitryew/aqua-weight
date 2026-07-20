@@ -85,6 +85,48 @@ def validate_water_loss(
     if current_weight is None:
         return
 
+    # 0. Capacity checks. Watering events pass current_weight=None and skip this entirely.
+    #    A weigh-in above the saturated capacity (dry weight + max water) is physically
+    #    impossible / over-saturated, so reject it the same way the existing "Incorrect Weight"
+    #    modal expects — the message must contain "measured weight is incorrect".
+    cursor.execute(
+        """
+        SELECT p.min_dry_weight_g, p.max_water_weight_g,
+               (SELECT last_dry_weight_g
+                  FROM plants_measurements
+                 WHERE plant_id = UNHEX(%s)
+                   AND last_dry_weight_g IS NOT NULL
+                 ORDER BY measured_at DESC
+                 LIMIT 1) AS last_dry_weight_g
+        FROM plants p
+        WHERE p.id = UNHEX(%s)
+        """,
+        (plant_id_hex, plant_id_hex),
+    )
+    cap = cursor.fetchone()
+    if cap is not None:
+        min_dry_weight_g, max_water_weight_g, last_dry_weight_g = cap[0], cap[1], cap[2]
+        if max_water_weight_g is not None and max_water_weight_g > 0:
+            if (
+                min_dry_weight_g is not None
+                and current_weight > min_dry_weight_g + max_water_weight_g
+            ):
+                saturated_min = min_dry_weight_g + max_water_weight_g
+                raise ValueError(
+                    f"The measured weight is incorrect: it exceeds the plant's saturated capacity "
+                    f"({saturated_min}g = min dry {min_dry_weight_g}g + max water {max_water_weight_g}g). "
+                    f"Verify the reading, or repot if the weight is genuine."
+                )
+            if (
+                last_dry_weight_g is not None
+                and current_weight > last_dry_weight_g + max_water_weight_g
+            ):
+                saturated_last = last_dry_weight_g + max_water_weight_g
+                raise ValueError(
+                    f"The measured weight is incorrect: it exceeds the last dry weight plus max water "
+                    f"({saturated_last}g). Verify the reading, or repot if the weight is genuine."
+                )
+
     # 1. Fetch last measured weight BEFORE this one
     where_exclude = ""
     params = [plant_id_hex, measured_at]
