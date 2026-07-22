@@ -909,7 +909,7 @@ async def create_measurement(
                     check_max_water = wa_local
                 # If this is a watering event
                 else:
-                    check_min_weight = last_dry_weight_local
+                    check_min_weight = lw_local
                     check_max_water = wa_local
 
                 update_min_dry_weight_and_max_watering_added_g(
@@ -1148,7 +1148,7 @@ async def update_measurement(
                     )
                 else:
                     update_min_dry_weight_and_max_watering_added_g(
-                        conn, plant_hex, derived.last_dry_weight_g, wa_eff_payload
+                        conn, plant_hex, derived.last_wet_weight_g, wa_eff_payload
                     )
 
                 conn.commit()

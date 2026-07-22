@@ -1,7 +1,6 @@
 from typing import Optional
 
 from .last_repotting import get_last_repotting_event
-from .watering_maximum import calculate_max_watering_added_g
 from .weight_minimum import calculate_min_dry_weight_g
 
 
@@ -34,20 +33,23 @@ def update_min_dry_weight_and_max_watering_added_g(
 
         # Get current minimum from measurements
         current_weight_min = calculate_min_dry_weight_g(conn, plant_id_hex, last_repotting)
-        current_watering_max = calculate_max_watering_added_g(conn, plant_id_hex, last_repotting)
 
-        if (
-            new_added_watering_g is not None
-            and new_added_watering_g > 0
-            and (current_watering_max is None or new_added_watering_g > current_watering_max)
-        ):
-            current_watering_max = new_added_watering_g
+        # Calculate candidate capacity from current event: wet weight - min dry weight
+        candidate_max_water_g = None
+        if new_measured_weight_g is not None and current_weight_min is not None:
+            candidate = int(new_measured_weight_g) - int(current_weight_min)
+            if candidate > 0:
+                candidate_max_water_g = candidate
 
-        # min_dry_weight_g is always recomputed from measurements since the last repotting
-        # (or since creation), so a lower measurement lowers it and a delete raises it.
-        # Respect a user-set value for max water only: don't overwrite explicit configuration.
-        if user_max_water is not None and user_max_water > 0:
-            current_watering_max = user_max_water
+        # Persist max(existing_max_water_weight_g, candidate_max_water_g) back to plants.max_water_weight_g
+        # If the plant already has a value, we take the maximum of existing and candidate.
+        if user_max_water is not None:
+            if candidate_max_water_g is not None:
+                current_watering_max = max(int(user_max_water), int(candidate_max_water_g))
+            else:
+                current_watering_max = user_max_water
+        else:
+            current_watering_max = candidate_max_water_g
 
         # Update the plant's min_dry_weight_g and max_water_weight_g
         with conn.cursor() as cur:
