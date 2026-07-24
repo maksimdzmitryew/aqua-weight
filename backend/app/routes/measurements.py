@@ -739,26 +739,6 @@ async def list_measurements_for_plant(
                         }
                     )
 
-                def _matches_repotting_triple(bucket):
-                    if len(bucket) != 3:
-                        return False
-                    has_a = has_b = has_c = False
-                    for res in bucket:
-                        mw = res.get("measured_weight_g")
-                        ld = res.get("last_dry_weight_g")
-                        lw = res.get("last_wet_weight_g")
-                        wl = res.get("water_loss_total_pct")
-                        # Row A: mw set, ld and lw NULL
-                        if mw is not None and ld is None and lw is None:
-                            has_a = True
-                        # Row B: mw NULL, ld and lw set, wl not NULL
-                        elif mw is None and ld is not None and lw is not None and wl is not None:
-                            has_b = True
-                        # Row C: mw, ld, lw all set
-                        elif mw is not None and ld is not None and lw is not None:
-                            has_c = True
-                    return has_a and has_b and has_c
-
                 # Group by second for repotting identification
                 buckets = {}
                 for res in results:
@@ -767,9 +747,27 @@ async def list_measurements_for_plant(
 
                 # Post-processing: Apply type classification
                 for ts_sec, bucket in buckets.items():
-                    if _matches_repotting_triple(bucket):
-                        for res in bucket:
-                            res["type"] = "Repotting"
+                    candidates_a = []
+                    candidates_b = []
+                    candidates_c = []
+                    for i, res in enumerate(bucket):
+                        mw = res.get("measured_weight_g")
+                        ld = res.get("last_dry_weight_g")
+                        lw = res.get("last_wet_weight_g")
+                        # Row A: mw set, ld and lw NULL
+                        if mw is not None and ld is None and lw is None:
+                            candidates_a.append(i)
+                        # Row B: mw NULL, ld and lw set (water-loss fields may be NULL)
+                        elif mw is None and ld is not None and lw is not None:
+                            candidates_b.append(i)
+                        # Row C: mw, ld, lw all set AND mw == lw
+                        elif mw is not None and ld is not None and lw is not None and mw == lw:
+                            candidates_c.append(i)
+
+                    if len(candidates_a) == 1 and len(candidates_b) == 1 and len(candidates_c) == 1:
+                        bucket[candidates_a[0]]["type"] = "Repotting"
+                        bucket[candidates_b[0]]["type"] = "Repotting"
+                        bucket[candidates_c[0]]["type"] = "Repotting"
 
                 for res in results:
                     if res.get("type"):
