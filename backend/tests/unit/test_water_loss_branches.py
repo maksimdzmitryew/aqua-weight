@@ -11,6 +11,7 @@ class DummyCursor:
         self.params = None
         self._sum_value = sum_value
         self._executed = False
+        self.connection = object()  # Dummy connection object for get_last_watering_event_since
 
     def execute(self, sql, params=None):
         self.sql = sql
@@ -29,7 +30,7 @@ def test_branch_67_to_85_skips_day_calc_when_no_baseline(monkeypatch):
 
     # Ensure last_watering_event is None so the totals section takes the 'no prior watering' path
     monkeypatch.setattr(
-        "backend.app.helpers.water_loss.get_last_watering_event", lambda cursor, plant_id_hex: None
+        "backend.app.helpers.water_retained.get_last_watering_event_since", lambda conn, plant_id_hex: None
     )
 
     res = calculate_water_loss(
@@ -65,8 +66,13 @@ def test_branch_127_to_148_total_pct_skipped_when_last_watering_added_zero(monke
     }
 
     monkeypatch.setattr(
-        "backend.app.helpers.water_loss.get_last_watering_event",
-        lambda cursor, plant_id_hex: last_event,
+        "backend.app.helpers.water_loss.get_last_watering_event_since",
+        lambda conn, plant_id_hex: (
+            last_event["measured_at"],
+            1000.0,
+            1200.0,
+            last_event["water_added_g"],
+        ),
     )
 
     res = calculate_water_loss(

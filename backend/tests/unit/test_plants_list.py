@@ -688,6 +688,13 @@ def test_fetch_all_vacation_mode_full(monkeypatch):
 
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *args, **kwargs: (7, 1))
+    # Mock get_last_watering_event_since to return a proper watering event tuple
+    # (measured_at, last_dry_weight_g, last_wet_weight_g, water_added_g)
+    monkeypatch.setattr(
+        pl_mod,
+        "get_last_watering_event_since",
+        lambda *a, **k: (last_watering, 100.0, 200.0, 50.0),
+    )
 
     # Test vacation mode
     items = PlantsList.fetch_all(mode="vacation", default_threshold=50.0)
@@ -946,11 +953,10 @@ def test_fetch_all_repot_snapshot_float_exception(monkeypatch):
 
 
 def test_fetch_all_repot_snapshot_success(monkeypatch):
-    """Repot snapshot: numeric baseline yields effective capacity override (lines 240-242)."""
+    """Repot snapshot: plant's min/max weights passed to calculate_water_retained."""
     now = datetime.utcnow()
     pid = bytes.fromhex("66" * 16)
     # measured_weight_g set, last_dry/wet set, water_loss_total_pct None -> repot snapshot.
-    # Numeric values so derived_capacity_g > 0 and effective weights are updated.
     row = make_row_full(
         pid_bytes=pid,
         name="RepotOK",
@@ -977,9 +983,9 @@ def test_fetch_all_repot_snapshot_success(monkeypatch):
 
     items = PlantsList.fetch_all()
     assert len(items) == 1
-    # effective_min_dry_weight_g updated to last_dry_weight_g, max to capacity
+    # min_dry_weight_g and max_water_weight_g come from plant table (row[4], row[5])
     assert captured["min_dry"] == 100.0
-    assert captured["max_water"] == 100.0  # 200.0 - 100.0
+    assert captured["max_water"] == 200.0
 
 
 def test_fetch_all_repot_snapshot_non_positive_capacity(monkeypatch):
@@ -1041,6 +1047,8 @@ def test_fetch_all_standard_needs_water_none_retained(monkeypatch):
     # Force water_retained_pct to None via calculate_water_retained mock
     monkeypatch.setattr(pl_mod, "calculate_water_retained", lambda **k: _NoneRetained())
     monkeypatch.setattr(pl_mod, "compute_frequency_days", lambda *a, **k: (None, 0))
+    # Mock _check_watering_prediction to return True (simulating low water loss prediction)
+    monkeypatch.setattr(pl_mod.PlantsList, "_check_watering_prediction", lambda *a, **k: True)
 
     items = PlantsList.fetch_all(default_threshold=None)
     assert items[0]["needs_water"] is True

@@ -643,3 +643,106 @@ def test_get_last_watering_event_wrapper_calls_underlying(monkeypatch):
 
     assert res == {"ok": True, "pid": pid}
     assert called["args"] == (cursor, pid)
+
+
+@pytest.mark.asyncio
+async def test_create_repotting_full_type_resets_water_added_and_closes_plant(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    """Cover lines 106-107 and 217: full repotting type sets water_added_g=0 and updates plant."""
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotFullTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotFullTest")
+
+    # Create repotting with full type - this tests lines 106-107 (effective_water_added_g=0, do_full_reset=True)
+    # and line 217 (UPDATE plants SET min_dry_weight_g, max_water_weight_g)
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 1200,
+        "repotting_type": "full",
+        "note": "full repotting with fresh soil",
+    }
+
+    resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    # Response should contain water_loss_total_g from the mocked compute_water_losses
+    assert data.get("water_loss_total_g") == 100
+
+    # Verify the UPDATE plants statement was executed (line 217)
+    # Check that any query contains "UPDATE plants" (handles multi-line string format)
+    queries = dummy_db["cursor"].executed
+    update_plants_found = any(
+        isinstance(q, str) and "UPDATE plants" in q for q, p in queries
+    )
+    assert update_plants_found, "Expected UPDATE plants query for full repotting"
+
+
+@pytest.mark.asyncio
+async def test_update_repotting_full_type_resets_plant(
+    async_client: AsyncClient, dummy_db, patch_services
+):
+    """Cover line 308: update repotting with full type updates plant capacities."""
+    # First create a plant so require_plant_access finds it
+    plant_r = await async_client.post(
+        "/api/plants", headers=_API_KEY, json={"name": "RepotUpdateFullTest"}
+    )
+    assert plant_r.status_code == 201
+    plant_uid = plant_r.json().get("uuid")
+    if not plant_uid:
+        lr = await async_client.get("/api/plants", headers=_API_KEY)
+        plant_uid = next(
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotUpdateFullTest"
+        )
+
+    # Create a repotting event first to get a valid measurement ID
+    create_payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 880,
+        "last_wet_weight_g": 1200,
+        "note": "initial repot",
+    }
+    create_resp = await async_client.post(
+        f"/api/plants/{plant_uid}/repotting", headers=_API_KEY, json=create_payload
+    )
+    assert create_resp.status_code == 200
+    meas_id = create_resp.json()["id"]
+
+    # Now update with repotting_type = "full" to cover line 308
+    payload = {
+        "plant_id": plant_uid,
+        "measured_at": ISO_TIME,
+        "measured_weight_g": 777,
+        "last_wet_weight_g": 1500,
+        "repotting_type": "full",
+        "note": "updated to full repotting",
+    }
+
+    resp = await async_client.put(
+        f"/api/plants/{plant_uid}/repotting/{meas_id}", headers=_API_KEY, json=payload
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["plant_id"] == plant_uid
+    assert data["measured_weight_g"] == 777
+    assert data["last_wet_weight_g"] == 1500
+
+    # Verify the UPDATE plants statement was executed for the update route (line 308)
+    queries = dummy_db["cursor"].executed
+    update_plants_found = any(
+        isinstance(q, str) and "UPDATE plants" in q for q, p in queries
+    )
+    assert update_plants_found, "Expected UPDATE plants query for full repotting update"

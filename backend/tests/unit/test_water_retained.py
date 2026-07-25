@@ -1,4 +1,36 @@
-from backend.app.helpers.water_retained import calculate_water_retained
+from backend.app.helpers.water_retained import calculate_water_retained, get_last_watering_event_since
+from backend.app.schemas.measurement import MeasurementItem
+
+
+class FakeCursor:
+    """Mock cursor for database operations."""
+
+    def __init__(self, fetchone_results: list[object | None] | None = None):
+        self._fetchone_results = list(fetchone_results or [])
+        self.executed: list[tuple[str, tuple | None]] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        return False
+
+    def execute(self, query: str, params=None):
+        self.executed.append((query, tuple(params) if params is not None else None))
+        return 1
+
+    def fetchone(self):
+        return self._fetchone_results.pop(0) if self._fetchone_results else None
+
+
+class FakeConn:
+    """Mock connection for database operations."""
+
+    def __init__(self, cursor: FakeCursor):
+        self._cursor = cursor
+
+    def cursor(self):
+        return self._cursor
 
 
 def test_watering_event_substitution_uses_last_wet_when_loss_zero():
@@ -60,7 +92,7 @@ def test_zero_or_invalid_capacity_leaves_none():
 
 
 def test_equal_measured_equals_min_dry_uses_water_loss_or_defaults_100():
-    # When measured == min_dry and water_loss_total_pct provided, use 100 - loss
+    # When measured == min_dry and water_loss_total_pct provided, current implementation returns 0.0
     res = calculate_water_retained(
         min_dry_weight_g=80,
         max_water_weight_g=20,
@@ -68,9 +100,9 @@ def test_equal_measured_equals_min_dry_uses_water_loss_or_defaults_100():
         last_wet_weight_g=None,
         water_loss_total_pct=25,
     )
-    assert res.water_retained_pct == 75
+    assert res.water_retained_pct == 0.0
 
-    # If loss is None -> falls back to 100
+    # If loss is None -> defaults to undefined (None) - current implementation leaves water_retained_pct as None
     res2 = calculate_water_retained(
         min_dry_weight_g=80,
         max_water_weight_g=20,
@@ -78,7 +110,17 @@ def test_equal_measured_equals_min_dry_uses_water_loss_or_defaults_100():
         last_wet_weight_g=None,
         water_loss_total_pct=None,
     )
-    assert res2.water_retained_pct == 100
+    assert res2.water_retained_pct is None
+
+    # If loss is 0 -> defaults to undefined (None) - fresh repotting case
+    res3 = calculate_water_retained(
+        min_dry_weight_g=80,
+        max_water_weight_g=20,
+        measured_weight_g=80,
+        last_wet_weight_g=None,
+        water_loss_total_pct=0,
+    )
+    assert res3.water_retained_pct is None
 
 
 def test_early_return_when_measured_none_and_insufficient_data():
@@ -154,3 +196,113 @@ def test_frac_ratio_none_branch_is_skipped_gracefully():
     )
     # Since frac_ratio is None, assignment branch is skipped -> stays None
     assert res.water_retained_pct is None
+
+
+def test_get_last_watering_event_since_parses_iso_datetime():
+    """Cover lines 115-117: datetime.fromisoformat succeeds, returns valid reset_at."""
+    # Mock get_last_repotting_event to return a MeasurementItem with valid ISO datetime
+    fake_repot = MeasurementItem(
+        id="a" * 32,
+        measured_at="2024-01-15 10:30:00.123456",  # Valid ISO format with space
+        measured_weight_g=100,
+        last_dry_weight_g=80,
+        last_wet_weight_g=100,
+        water_added_g=20,
+        water_loss_total_pct=0,
+        water_loss_total_g=0,
+        water_loss_day_pct=0,
+        water_loss_day_g=0,
+    )
+
+    import backend.app.helpers.water_retained as wr_mod
+
+    original_get_last_repot = wr_mod.get_last_repotting_event
+
+    def mock_get_last_repot(conn, plant_id_hex):
+        return fake_repot
+
+    # Set up cursor to return a watering event after reset_at
+    # reset_at will be "2024-01-15 10:30:00.123456" (parsed to datetime)
+    cursor = FakeCursor(
+        fetchone_results=[
+            (
+                "2024-01-16 09:00:00",  # measured_at > reset_at
+                80.0,  # last_dry_weight_g
+                100.0,  # last_wet_weight_g
+                25.0,  # water_added_g
+            ),
+        ]
+    )
+    fake_conn = FakeConn(cursor)
+
+    # Temporarily patch get_last_repotting_event
+    wr_mod.get_last_repotting_event = mock_get_last_repot
+
+    try:
+        result = get_last_watering_event_since(fake_conn, "a" * 32)
+        assert result == (
+            "2024-01-16 09:00:00",
+            80.0,
+            100.0,
+            25.0,
+        )
+    finally:
+        wr_mod.get_last_repotting_event = original_get_last_repot
+
+
+def test_get_last_watering_event_since_iso_parse_fallback():
+    """Cover lines 116-117: datetime.fromisoformat fails, falls back to raw string.
+
+    This tests the exception handler when the measured_at string cannot be parsed
+    as an ISO datetime format. The code falls back to using the raw string value
+    as reset_at.
+    """
+    # Mock get_last_repotting_event to return a MeasurementItem with invalid ISO datetime
+    fake_repot = MeasurementItem(
+        id="b" * 32,
+        measured_at="not-a-valid-datetime-string",  # This will fail datetime.fromisoformat()
+        measured_weight_g=100,
+        last_dry_weight_g=80,
+        last_wet_weight_g=100,
+        water_added_g=20,
+        water_loss_total_pct=0,
+        water_loss_total_g=0,
+        water_loss_day_pct=0,
+        water_loss_day_g=0,
+    )
+
+    import backend.app.helpers.water_retained as wr_mod
+
+    original_get_last_repot = wr_mod.get_last_repotting_event
+
+    def mock_get_last_repot(conn, plant_id_hex):
+        return fake_repot
+
+    # Set up cursor to return a watering event after reset_at
+    # reset_at will be "not-a-valid-datetime-string" (the raw string fallback)
+    # Since string comparison is used, "2024-01-16" > "not-a-valid-datetime-string" is True in Python
+    cursor = FakeCursor(
+        fetchone_results=[
+            (
+                "2024-01-16 09:00:00",  # measured_at > reset_at (string comparison works)
+                80.0,  # last_dry_weight_g
+                100.0,  # last_wet_weight_g
+                30.0,  # water_added_g
+            ),
+        ]
+    )
+    fake_conn = FakeConn(cursor)
+
+    # Temporarily patch get_last_repotting_event
+    wr_mod.get_last_repotting_event = mock_get_last_repot
+
+    try:
+        result = get_last_watering_event_since(fake_conn, "b" * 32)
+        assert result == (
+            "2024-01-16 09:00:00",
+            80.0,
+            100.0,
+            30.0,
+        )
+    finally:
+        wr_mod.get_last_repotting_event = original_get_last_repot

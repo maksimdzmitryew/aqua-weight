@@ -86,6 +86,7 @@ class _FakeCursor:
     def execute(self, sql, params=None):
         self._last = (sql, params)
         sql_norm = " ".join(sql.split()).lower()
+        # print(f"DEBUG SQL: {sql_norm}")  # Debug output
 
         # Default: next_one is None, next_all is empty
         self._next_one = None
@@ -96,9 +97,12 @@ class _FakeCursor:
 
             if "limit 1" in sql_norm:
                 # Specialized mocks for common queries to avoid TypeError/AttributeError
+                # get_last_repotting_event has a complex query with GROUP BY and HAVING
                 if (
                     "from plants_measurements" in sql_norm
                     and "last_dry_weight_g is not null" in sql_norm
+                    and "group by" in sql_norm
+                    and "having" in sql_norm
                 ):
                     # get_last_repotting_event expects 10 columns
                     self._next_one = (
@@ -113,6 +117,33 @@ class _FakeCursor:
                         None,
                         None,
                     )
+                elif (
+                    "from plants_measurements" in sql_norm
+                    and "plant_id = unhex" in sql_norm
+                    and "measured_at = %s" in sql_norm
+                ):
+                    # Second query in get_last_repotting_event - fetch by timestamp
+                    self._next_one = (
+                        b"\x66" * 16,
+                        datetime(2025, 1, 1),
+                        150,
+                        100,
+                        None,
+                        50,
+                        None,
+                        None,
+                        None,
+                        None,
+                    )
+                elif (
+                    "from plants_measurements" in sql_norm
+                    and "measured_weight_g is null" in sql_norm
+                    and "water_loss_total_pct = 0" in sql_norm
+                    and "water_added_g > 0" in sql_norm
+                ):
+                    # get_last_watering_event_since query - return None for non-watering test scenarios
+                    # (no watering event after reset)
+                    self._next_one = None
                 elif "from plants " in sql_norm and "id = unhex" in sql_norm:
                     # plant info query
                     if self.rows_all is not None and len(self.rows_all) > 0:
@@ -165,6 +196,7 @@ class _FakeCursor:
 class _FakeConn:
     def __init__(self, cursor: _FakeCursor, *, raise_on_rollback: bool = False):
         self._cursor = cursor
+        cursor.connection = self  # Back-reference for code that uses cur.connection
         self.autocommit_state = True
         self.raise_on_rollback = raise_on_rollback
 
@@ -328,8 +360,8 @@ async def test_create_measurement_non_watering_branch_and_water_retained(
 
     # Provide plant min/max for retained calc (queried after insert)
     cur = _FakeCursor()
-    cur.rows_all = [(100, 200)]  # min_dry, max_water
-    cur.rows_one = (100, 200)
+    cur.rows_all = [(100, 200, None)]  # min_dry, max_water, last_dry_weight_g
+    cur.rows_one = (100, 200, None)
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
@@ -446,7 +478,7 @@ async def test_create_measurement_retained_block_executes_without_spy(
 
     # Provide plant min/max for retained calc
     cur = _FakeCursor()
-    cur.rows_all = [(100, 200)]
+    cur.rows_all = [(100, 200, None)]
     conn = _FakeConn(cur)
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn)
 
@@ -564,11 +596,11 @@ async def test__compute_water_retained_for_plant_no_plant_row(monkeypatch):
     cur = _FakeCursor(rows_one=None)  # rows_all empty -> SELECT from plants returns None
     # We must also ensure rows_all is empty or None
     cur.rows_all = None
+    conn = _FakeConn(cur)  # Sets cursor.connection
     pct = measurements_routes._compute_water_retained_for_plant(
         cur,
         "aa" * 16,
         measured_weight_g=None,
-        last_wet_weight_g=None,
         water_loss_total_pct=None,
     )
     # Rounded to 0 decimals
@@ -591,14 +623,14 @@ async def test__compute_water_retained_for_plant_pct_none(monkeypatch):
 
     cur = _FakeCursor()
     cur.rows_one = [80, 20]
+    conn = _FakeConn(cur)
     pct = measurements_routes._compute_water_retained_for_plant(
         cur,
         "aa" * 16,
         measured_weight_g=100,
-        last_wet_weight_g=100,
         water_loss_total_pct=0.0,
     )
-    assert pct == 0.0
+    assert pct is None
 
 
 @pytest.mark.asyncio

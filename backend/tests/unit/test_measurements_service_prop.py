@@ -1,5 +1,6 @@
 import types
 from typing import Optional
+from unittest.mock import MagicMock, patch
 
 import pytest
 from hypothesis import given, strategies as st
@@ -31,6 +32,14 @@ class _FakeCursor:
         self._row = row
         self._sql = None
         self._params = None
+        # Mock connection for get_last_watering_event_since
+        self.connection = MagicMock()
+        # Setup the cursor context manager chain
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None
+        mock_cursor.__enter__.return_value = mock_cursor
+        mock_cursor.__exit__.return_value = None
+        self.connection.cursor.return_value = mock_cursor
 
     def execute(self, sql, params=None):
         self._sql = sql
@@ -67,22 +76,22 @@ def test_derive_weights_invariants(
     fake_row = (prev_measured, prev_ld, prev_lw) if has_prev else None
     cur = _FakeCursor(fake_row)
 
-    # Patch watering lookup using context manager to avoid function-scoped fixture
-    from unittest.mock import patch
+    # Configure the mock cursor to return the appropriate watering event data
+    mock_cursor = cur.connection.cursor.return_value.__enter__.return_value
+    if last_watering_added > 0:
+        mock_cursor.fetchone.return_value = ("2025-01-01 00:00:00", 100, 110, last_watering_added)
+    else:
+        mock_cursor.fetchone.return_value = None
 
-    with patch(
-        "backend.app.services.measurements.get_last_watering_event",
-        lambda cursor, plant_id_hex: {"water_added_g": last_watering_added},
-    ):
-        derived = derive_weights(
-            cursor=cur,
-            plant_id_hex="0" * 32,
-            measured_at_db="2025-01-01 00:00:00",
-            measured_weight_g=measured_weight_g,
-            last_dry_weight_g=last_dry_weight_g,
-            last_wet_weight_g=last_wet_weight_g,
-            payload_water_added_g=payload_water_added_g,
-        )
+    derived = derive_weights(
+        cursor=cur,
+        plant_id_hex="0" * 32,
+        measured_at_db="2025-01-01 00:00:00",
+        measured_weight_g=measured_weight_g,
+        last_dry_weight_g=last_dry_weight_g,
+        last_wet_weight_g=last_wet_weight_g,
+        payload_water_added_g=payload_water_added_g,
+    )
 
     # Invariants
     assert isinstance(derived.water_added_g, int)

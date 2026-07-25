@@ -1,5 +1,6 @@
 import types
 from datetime import datetime
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -12,6 +13,8 @@ class DummyCursor:
         self._row = row
         self.sql = None
         self.params = None
+        # Mock connection for get_last_watering_event_since
+        self.connection = MagicMock()
 
     def execute(self, sql, params=None):
         self.sql = sql
@@ -52,9 +55,8 @@ def test_derive_weights_exclude_measurement_id_branch(monkeypatch):
     # Arrange: provide previous row and patch last watering lookup
     cursor = DummyCursor(row=(100, 90, 110))
     monkeypatch.setattr(
-        svc,
-        "get_last_watering_event",
-        lambda cursor, plant_id_hex: {"water_added_g": 50},
+        "backend.app.helpers.water_retained.get_last_watering_event_since",
+        lambda conn, plant_id_hex: ("2024-03-09 09:00:00", 100, 110, 50),
     )
 
     # Act
@@ -130,20 +132,12 @@ def test_branch_155_to_161_skip_recompute_lw_when_present(monkeypatch):
 
     # Patch last watering event (value is not used in this branch but keep consistent)
     monkeypatch.setattr(
-        svc,
-        "get_last_watering_event",
-        lambda cursor, plant_id_hex: {"water_added_g": 42},
+        "backend.app.helpers.water_retained.get_last_watering_event_since",
+        lambda conn, plant_id_hex: None,
     )
 
     # Dummy cursor with no previous row
-    class _Cur:
-        def execute(self, sql, params=None):
-            pass
-
-        def fetchone(self):
-            return None
-
-    cur = _Cur()
+    cur = DummyCursor()
 
     derived = svc.derive_weights(
         cursor=cur,
@@ -172,19 +166,11 @@ def test_derive_weights_recompute_lw_when_missing_line_168(monkeypatch):
     from backend.app.services import measurements as svc
 
     monkeypatch.setattr(
-        svc,
-        "get_last_watering_event",
-        lambda cursor, plant_id_hex: None,
+        "backend.app.helpers.water_retained.get_last_watering_event_since",
+        lambda conn, plant_id_hex: None,
     )
 
-    class _Cur:
-        def execute(self, sql, params=None):
-            pass
-
-        def fetchone(self):
-            return None
-
-    cur = _Cur()
+    cur = DummyCursor()
 
     derived = svc.derive_weights(
         cursor=cur,

@@ -47,6 +47,7 @@ class _FakeCursor:
         self._rows = rows
         self._executed = []
         self._ix = -1
+        self.connection = object()  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
 
     def execute(self, sql, params=None):
         self._executed.append((sql, params))
@@ -83,10 +84,11 @@ def test_derive_weights_basic(monkeypatch):
 
 
 class _FakeValidationCursor:
-    """Cursor that returns a fixed row from fetchone and records execute args."""
+    """Cursor that returns a sequence of rows from fetchone and records execute args."""
 
-    def __init__(self, row):
-        self._row = row
+    def __init__(self, rows):
+        self._rows = list(rows) if rows else []
+        self._index = 0
         self.sql = None
         self.params = None
 
@@ -95,12 +97,16 @@ class _FakeValidationCursor:
         self.params = params
 
     def fetchone(self):
-        return self._row
+        if self._index < len(self._rows):
+            row = self._rows[self._index]
+            self._index += 1
+            return row
+        return None
 
 
 def test_validate_water_loss_returns_when_current_weight_none():
     # Line 85-87: early return when current_weight is None
-    cur = _FakeValidationCursor(row=(100,))
+    cur = _FakeValidationCursor(rows=[])
     # Should not raise and should not even need a DB row
     validate_water_loss(
         cursor=cur,
@@ -113,7 +119,8 @@ def test_validate_water_loss_returns_when_current_weight_none():
 
 def test_validate_water_loss_returns_when_no_previous_weight(monkeypatch):
     # Lines 88-112: executes query but previous row is None -> early return
-    cur = _FakeValidationCursor(row=None)
+    # First row: capacity info (3 cols), Second row: None for previous weight
+    cur = _FakeValidationCursor(rows=[(None, None, None), None])
     validate_water_loss(
         cursor=cur,
         plant_id_hex="a" * 32,
@@ -127,7 +134,8 @@ def test_validate_water_loss_returns_when_no_previous_weight(monkeypatch):
 
 def test_validate_water_loss_uses_exclude_measurement_id_branch(monkeypatch):
     # Lines 88-93: exclude_measurement_id branch builds exclusion clause + params
-    cur = _FakeValidationCursor(row=None)
+    # First row: capacity info, Second row: None for previous weight
+    cur = _FakeValidationCursor(rows=[(None, None, None), None])
     validate_water_loss(
         cursor=cur,
         plant_id_hex="a" * 32,
@@ -142,7 +150,8 @@ def test_validate_water_loss_uses_exclude_measurement_id_branch(monkeypatch):
 def test_validate_water_loss_returns_when_change_within_threshold():
     # Lines 108-120 (no raise branch): prev_weight present and diff <= threshold
     # current=500, prev=300 -> diff=200 <= threshold=500
-    cur = _FakeValidationCursor(row=(300,))
+    # First row: capacity info (no capacity limits), Second row: prev_weight=300
+    cur = _FakeValidationCursor(rows=[(None, None, None), (300,)])
     validate_water_loss(
         cursor=cur,
         plant_id_hex="a" * 32,
@@ -155,7 +164,8 @@ def test_validate_water_loss_returns_when_change_within_threshold():
 def test_validate_water_loss_raises_when_change_exceeds_threshold():
     # Lines 114-120: diff > threshold triggers ValueError
     # current=500, prev=2000 -> diff=1500 > threshold=500
-    cur = _FakeValidationCursor(row=(2000,))
+    # First row: capacity info (no capacity limits), Second row: prev_weight=2000
+    cur = _FakeValidationCursor(rows=[(None, None, None), (2000,)])
     with pytest.raises(ValueError) as exc:
         validate_water_loss(
             cursor=cur,
@@ -164,3 +174,35 @@ def test_validate_water_loss_raises_when_change_exceeds_threshold():
             measured_at="2025-01-01 00:00:00",
         )
     assert "change of 1500g exceeds current weight 500g" in str(exc.value)
+
+
+def test_validate_water_loss_raises_when_exceeds_saturation_capacity():
+    # Lines 110-119: current_weight > min_dry_weight_g + max_water_weight_g
+    # First row: capacity info with min_dry=100, max_water=500, last_dry=None
+    # current_weight=700 > 100 + 500 = 600 (saturated_min)
+    cur = _FakeValidationCursor(rows=[(100, 500, None)])
+    with pytest.raises(ValueError) as exc:
+        validate_water_loss(
+            cursor=cur,
+            plant_id_hex="a" * 32,
+            current_weight=700,
+            measured_at="2025-01-01 00:00:00",
+        )
+    assert "exceeds the plant's saturated capacity" in str(exc.value)
+    assert "600g = min dry 100g + max water 500g" in str(exc.value)
+
+
+def test_validate_water_loss_raises_when_exceeds_last_dry_plus_max_water():
+    # Lines 120-128: current_weight > last_dry_weight_g + max_water_weight_g
+    # First row: capacity info with min_dry=None, max_water=500, last_dry=200
+    # current_weight=800 > 200 + 500 = 700 (saturated_last)
+    cur = _FakeValidationCursor(rows=[(None, 500, 200)])
+    with pytest.raises(ValueError) as exc:
+        validate_water_loss(
+            cursor=cur,
+            plant_id_hex="a" * 32,
+            current_weight=800,
+            measured_at="2025-01-01 00:00:00",
+        )
+    assert "exceeds the last dry weight plus max water" in str(exc.value)
+    assert "700g" in str(exc.value)

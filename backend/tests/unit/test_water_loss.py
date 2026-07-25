@@ -5,11 +5,43 @@ import pytest
 import backend.app.helpers.water_loss as wl
 
 
+class FakeConnection:
+    """Mock connection that returns a cursor for get_last_watering_event_since."""
+
+    def __init__(self, fetchone_result=None):
+        self._fetchone_result = fetchone_result
+
+    def cursor(self):
+        return FakeCursorForConnection(self._fetchone_result)
+
+
+class FakeCursorForConnection:
+    """Mock cursor for the connection."""
+
+    def __init__(self, fetchone_result):
+        self._fetchone_result = fetchone_result
+        self._entered = False
+
+    def __enter__(self):
+        self._entered = True
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def execute(self, query, params=None):
+        pass
+
+    def fetchone(self):
+        return self._fetchone_result
+
+
 class FakeCursor:
     def __init__(self, *, fetchone_results: list[object | None] | None = None, explode_on_execute: bool = False):
         self._fetchone_results = list(fetchone_results or [])
         self._explode_on_execute = explode_on_execute
         self.executed: list[tuple[str, tuple | None]] = []
+        self.connection = FakeConnection()  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
 
     def execute(self, query: str, params=None):
         if self._explode_on_execute:
@@ -41,7 +73,12 @@ def test_calculate_water_loss_watering_event_returns_early_and_sets_total_pct_ze
     assert out.water_loss_total_g is None
 
 
-def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positive() -> None:
+def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positive(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        wl,
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 20),
+    )
     cur = FakeCursor()
     out = wl.calculate_water_loss(
         cur,
@@ -58,7 +95,13 @@ def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positi
     assert out.water_loss_day_pct == 50.0
 
 
-def test_calculate_water_loss_day_pct_falls_back_to_last_wet_weight_when_no_water_added() -> None:
+def test_calculate_water_loss_day_pct_falls_back_to_last_wet_weight_when_no_water_added(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Mock a watering event with water_added_g=200 to match the expected 25% (50/200*100)
+    monkeypatch.setattr(
+        wl,
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 200),
+    )
     cur = FakeCursor()
     out = wl.calculate_water_loss(
         cur,
@@ -74,7 +117,8 @@ def test_calculate_water_loss_day_pct_falls_back_to_last_wet_weight_when_no_wate
     assert out.water_loss_day_pct == 25.0
 
 
-def test_calculate_water_loss_ignores_day_pct_errors() -> None:
+def test_calculate_water_loss_ignores_day_pct_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(wl, "get_last_watering_event_since", lambda _conn, _plant_id_hex: None)
     cur = FakeCursor()
     out = wl.calculate_water_loss(
         cur,
@@ -94,8 +138,8 @@ def test_calculate_water_loss_ignores_day_pct_errors() -> None:
 def test_calculate_water_loss_totals_include_sum_and_set_day_pct_if_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         wl,
-        "get_last_watering_event",
-        lambda _cursor, _plant_id_hex: {"measured_at": "2026-01-01 00:00:00", "water_added_g": 40},
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 40),
     )
     cur = FakeCursor(fetchone_results=[(7,)])
 
@@ -124,7 +168,7 @@ def test_calculate_water_loss_totals_include_sum_and_set_day_pct_if_missing(monk
 
 
 def test_calculate_water_loss_keeps_totals_none_when_no_prior_watering_event(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(wl, "get_last_watering_event", lambda _cursor, _plant_id_hex: None)
+    monkeypatch.setattr(wl, "get_last_watering_event_since", lambda _conn, _plant_id_hex: None)
     cur = FakeCursor()
     out = wl.calculate_water_loss(
         cur,
@@ -143,8 +187,8 @@ def test_calculate_water_loss_keeps_totals_none_when_no_prior_watering_event(mon
 def test_calculate_water_loss_keeps_totals_none_on_execute_error(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         wl,
-        "get_last_watering_event",
-        lambda _cursor, _plant_id_hex: {"measured_at": "2026-01-01 00:00:00", "water_added_g": 40},
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 40),
     )
     cur = FakeCursor(fetchone_results=[(7,)], explode_on_execute=True)
     out = wl.calculate_water_loss(
@@ -165,8 +209,8 @@ def test_calculate_water_loss_keeps_totals_none_on_execute_error(monkeypatch: py
 def test_calculate_water_loss_skips_daily_calc_when_no_baseline_and_handles_zero_water_added(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         wl,
-        "get_last_watering_event",
-        lambda _cursor, _plant_id_hex: {"measured_at": "2026-01-01 00:00:00", "water_added_g": 0},
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 0),
     )
     cur = FakeCursor(fetchone_results=[(0,)])
 
@@ -189,8 +233,8 @@ def test_calculate_water_loss_skips_daily_calc_when_no_baseline_and_handles_zero
 def test_calculate_water_loss_does_not_override_existing_day_pct(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         wl,
-        "get_last_watering_event",
-        lambda _cursor, _plant_id_hex: {"measured_at": "2026-01-01 00:00:00", "water_added_g": 20},
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, 20),
     )
     cur = FakeCursor(fetchone_results=[(0,)])
 
@@ -226,8 +270,8 @@ def test_calculate_water_loss_fallback_day_pct_logs_exception_and_continues(monk
 
     monkeypatch.setattr(
         wl,
-        "get_last_watering_event",
-        lambda _cursor, _plant_id_hex: {"measured_at": "2026-01-01 00:00:00", "water_added_g": FlakyFloat()},
+        "get_last_watering_event_since",
+        lambda _conn, _plant_id_hex: ("2026-01-01 00:00:00", None, None, FlakyFloat()),
     )
     cur = FakeCursor(fetchone_results=[(0,)])
 

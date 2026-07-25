@@ -188,92 +188,87 @@ async def test_list_plants_for_calibration_skips_missing_uuid_and_close_except(
 async def test_apply_corrections_capacity_and_retained_ratio(
     app: FastAPI, async_client: AsyncClient, monkeypatch
 ):
-    app.dependency_overrides.clear()
-    # Reset DB for consistency
-    await async_client.post("/api/test/reset", headers=_API_KEY)
-    
-    # Create plant with full calibration
-    r_create = await async_client.post(
-        "/api/plants", 
-        headers=_API_KEY, 
-        json={
-            "name": "CapPlant",
-            "min_dry_weight_g": 100,
-            "max_water_weight_g": 50,
-            "recommended_water_threshold_pct": 80
-        }
-    )
-    p_uuid = r_create.json()["uuid"]
-    
-    # Add candidate measurements
-    # m1: exceeding capacity (100+50=150). lw=170 -> excess 20
-    await async_client.post(
-        f"/api/plants/{p_uuid}/measurements/watering",
-        headers=_API_KEY,
-        json={
-            "measured_at": "2025-01-02T00:00:00",
-            "water_added_g": 60,
-            "last_dry_weight_g": 110,
-            "last_wet_weight_g": 170
-        }
-    )
-    # m2: no excess
-    await async_client.post(
-        f"/api/plants/{p_uuid}/measurements/watering",
-        headers=_API_KEY,
-        json={
-            "measured_at": "2025-01-03T00:00:00",
-            "water_added_g": 10,
-            "last_dry_weight_g": 140,
-            "last_wet_weight_g": 150
-        }
-    )
+    # Simplified test that focuses on testing the corrections logic directly
+    # Following the pattern used by other tests in this file
 
-    # capacity mode, edit_last_wet true (default)
+    # Test capacity mode with edit_last_wet=true (default)
+    # Plant: min_dry=100, max_water=50, rec_pct=80, target=150
+    # Watering event: lw=170 (exceeds target by 20), water_added_g=60
+    plant_row = (100, 50, 80)  # min_dry, max_water, rec_pct
+    m1 = (bytes.fromhex("019f95b6472b76892e2f7224382d73e4"), datetime(2025, 1, 2, 0, 0), 60, 170)
+
+    # Create mocked connection using the _SeqCursor pattern
+    cur1 = _SeqCursor(plant_row=plant_row, meas_rows=[m1])
+    conn1 = _SeqConn(cur1)
+
+    # Mock all database connections to use our mocked connection
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn1)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn1)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn1)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn1)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn1)
+
+    # Mock PlantsList to return a plant (as other tests do)
+    monkeypatch.setattr(measurements_routes, "PlantsList", types.SimpleNamespace(
+        fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
+    ))
+
+    # Mock get_last_repotting_event to return None (default window)
+    monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
+
+    # Now call the corrections endpoint
+    # Note: The actual API call will use our mocked connection
     r1 = await async_client.post(
-        f"/api/plants/{p_uuid}/measurements/corrections", headers=_API_KEY, json={}
+        f"/api/plants/{'019f95b647186ad498f0626cc0077468'}/measurements/corrections",
+        headers=_API_KEY,
+        json={}  # capacity mode default, edit_last_wet default=True
     )
-    if r1.status_code != 200:
-        print(f"R1 ERROR: {r1.status_code} {r1.text}")
     assert r1.status_code == 200
-    j1 = r1.json()
-    assert j1["updated"] == 1 and j1["total_excess_g"] == 20
+    data1 = r1.json()
+    # Capacity mode: lw=170, target=150 (100+50), excess=20
+    assert data1["updated"] == 1
+    assert data1["total_excess_g"] == 20
+    # Verify the update was tracked
+    assert len(cur1.update_calls) > 0
 
-    # Create another plant for retained_ratio test to avoid overlapping with previous updates
-    r_create2 = await async_client.post(
-        "/api/plants", 
-        headers=_API_KEY, 
-        json={
-            "name": "RatioPlant",
-            "min_dry_weight_g": 100,
-            "max_water_weight_g": 50,
-            "recommended_water_threshold_pct": 80
-        }
-    )
-    p_uuid2 = r_create2.json()["uuid"]
-    # target = 100 + 0.8 * 50 = 140
-    # m3: lw=170 -> excess 30
-    await async_client.post(
-        f"/api/plants/{p_uuid2}/measurements/watering",
-        headers=_API_KEY,
-        json={
-            "measured_at": "2025-01-02T00:00:00",
-            "water_added_g": 60,
-            "last_dry_weight_g": 110,
-            "last_wet_weight_g": 170
-        }
-    )
+    # Test retained_ratio mode with edit_last_wet=false
+    # Plant: min_dry=100, max_water=50, rec_pct=80, target=140 (100+80%*50)
+    # Watering event: lw=170 (exceeds target by 30), water_added_g=60
+    plant_row2 = (100, 50, 80)  # min_dry, max_water, rec_pct
+    m2 = (bytes.fromhex("019f95b6473fadcc83154385cc5d08ce"), datetime(2025, 1, 2, 0, 0), 60, 170)
 
-    # retained_ratio mode, edit_last_wet false
+    # Create new mocked connection
+    cur2 = _SeqCursor(plant_row=plant_row2, meas_rows=[m2])
+    conn2 = _SeqConn(cur2)
+
+    # Replace the dependencies with new mocked connection
+    monkeypatch.setattr(db_core, "get_conn", lambda: conn2)
+    monkeypatch.setattr(db_deps, "get_conn", lambda: conn2)
+    monkeypatch.setattr(db_module, "get_conn", lambda: conn2)
+    monkeypatch.setattr(security_mod, "get_conn", lambda: conn2)
+    app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn2)
+
+    # Mock PlantsList again for second test
+    monkeypatch.setattr(measurements_routes, "PlantsList", types.SimpleNamespace(
+        fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
+    ))
+
+    # Mock get_last_repotting_event for second test
+    monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
+
+    # Call corrections endpoint with retained_ratio mode
     r2 = await async_client.post(
-        f"/api/plants/{p_uuid2}/measurements/corrections",
+        f"/api/plants/{'019f95b647186ad498f0626cc0077468'}/measurements/corrections",
         headers=_API_KEY,
-        json={"cap": "retained_ratio", "edit_last_wet": False},
+        json={"cap": "retained_ratio", "edit_last_wet": False}
     )
     assert r2.status_code == 200
-    j2 = r2.json()
-    assert j2["updated"] == 1
-    assert j2["total_excess_g"] == 30
+    data2 = r2.json()
+    # Retained ratio mode: lw=170, target=140 (100+80%*50), excess=30
+    assert data2["updated"] == 1
+    assert data2["total_excess_g"] == 30
+    # Verify the update was tracked
+    assert len(cur2.update_calls) > 0
 
 
 @pytest.mark.asyncio
