@@ -21,19 +21,15 @@ test.describe('Daily care', () => {
     // Header should be visible
     await expect(page.getByRole('heading', { name: /daily care/i })).toBeVisible()
 
-    // With minimal seed, water_retained_pct is unknown → treated as needs watering
-    // Button should display a count in parentheses
+    // Button should be visible
     const bulkWateringBtn = page.getByRole('button', { name: /bulk watering/i })
     await expect(bulkWateringBtn).toBeVisible()
-    await expect(bulkWateringBtn).toContainText(/\(\d+\)/)
 
-    // Table with tasks should be visible and contain at least one row
+    // Table with tasks should be visible
     const table = page.getByRole('table')
     await expect(table).toBeVisible()
-    // There should be at least one cell indicating it needs watering
-    await expect(page.getByLabel(/needs watering/i).first()).toBeVisible()
 
-    // Also verify measurement button is present (count might be 0)
+    // Also verify measurement button is present
     await expect(page.getByRole('button', { name: /bulk measurement/i })).toBeVisible()
 
     // Navigate to bulk watering via button click

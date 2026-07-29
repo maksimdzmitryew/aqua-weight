@@ -69,7 +69,8 @@ def save_whatsapp_credentials(conn, api_url: str, api_token: str, template_name:
         return save_whatsapp_credentials_from_manager(conn, api_url, api_token, template_name, phone_number_id)
     except Exception as e:
         logger.error(f"Failed to save WhatsApp credentials: {e}")
-        raise
+        # Don't re-raise - return failure status
+        return False
 
 
 def _generate_bin16_id() -> bytes:
@@ -305,11 +306,13 @@ def _build_thirsty_list(thirsty_plants: list[dict], template: str | None = None)
 
 
 def get_weight_plants(conn, owner_user_id: bytes) -> List[Dict[str, Any]]:
-    """Query plants with their latest weight measurements for the owner.
+    """Query plants that need weighing for the owner.
 
     Returns plants ordered by sort_order, then by name for stable ordering.
+    Only includes plants that were weighed more than 18 hours ago or never weighed.
     Each plant includes days_since_last_weigh for the weight plants template.
     """
+    threshold = datetime.now(timezone.utc) - timedelta(hours=18)
     with cursor(conn) as cur:
         cur.execute(
             """
@@ -324,9 +327,10 @@ def get_weight_plants(conn, owner_user_id: bytes) -> List[Dict[str, Any]]:
             ) latest_pm ON latest_pm.plant_id = p.id AND latest_pm.rn = 1
             WHERE p.owner_id = %s
               AND p.archive = 0
+              AND (latest_pm.measured_at IS NULL OR latest_pm.measured_at < %s)
             ORDER BY p.sort_order ASC, p.name ASC
             """,
-            (owner_user_id,),
+            (owner_user_id, threshold),
         )
         rows = cur.fetchall()
 
@@ -483,10 +487,12 @@ def send_whatsapp_message(group_id: str, message: str, conn=None) -> tuple[bool,
 
     # Build the messages URL using phone_number_id if available
     messages_url = api_url.rstrip("/")
-    if phone_number_id:
-        # Use phone_number_id in the URL: /v18.0/{phone_number_id}/messages
-        if not messages_url.endswith("/messages"):
-            messages_url = f"{messages_url}/{phone_number_id}/messages"
+    if "{phone_number_id}" in messages_url and phone_number_id:
+        # Replace placeholder with actual phone number ID
+        messages_url = messages_url.replace("{phone_number_id}", phone_number_id)
+    elif phone_number_id and not messages_url.endswith("/messages"):
+        # Append phone_number_id to URL (backward compatibility)
+        messages_url = f"{messages_url}/{phone_number_id}/messages"
     elif not messages_url.endswith("/messages"):
         messages_url = f"{messages_url}/messages"
 
@@ -540,9 +546,11 @@ def send_whatsapp_text_message(to_number: str, body: str, conn=None) -> tuple[bo
         creds = get_whatsapp_credentials(conn)
         api_url = creds.get("api_url")
         api_token = creds.get("api_token")
+        phone_number_id = creds.get("phone_number_id")
     else:
         api_url = os.getenv("WHATSAPP_API_URL")
         api_token = os.getenv("WHATSAPP_API_TOKEN")
+        phone_number_id = os.getenv("WHATSAPP_PHONE_NUMBER_ID")
 
     if not api_url or not api_token:
         logger.warning("WhatsApp API credentials not configured. Skipping send.")
@@ -552,7 +560,13 @@ def send_whatsapp_text_message(to_number: str, body: str, conn=None) -> tuple[bo
         return False, "Message body is empty"
 
     messages_url = api_url.rstrip("/")
-    if not messages_url.endswith("/messages"):
+    if "{phone_number_id}" in messages_url and phone_number_id:
+        # Replace placeholder with actual phone number ID
+        messages_url = messages_url.replace("{phone_number_id}", phone_number_id)
+    elif phone_number_id and not messages_url.endswith("/messages"):
+        # Append phone_number_id to URL (backward compatibility)
+        messages_url = f"{messages_url}/{phone_number_id}/messages"
+    elif not messages_url.endswith("/messages"):
         messages_url = f"{messages_url}/messages"
 
     try:

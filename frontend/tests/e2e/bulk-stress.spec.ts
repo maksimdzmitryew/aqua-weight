@@ -16,7 +16,10 @@ test.describe('Data Integrity during Rapid Input', () => {
   test('rapid input in bulk weight maps correctly to rows even with slow API', async ({ page }) => {
     await page.goto('/measurements/bulk/weight', { waitUntil: 'commit' })
 
-    // Wait for at least 2 plants to be loaded
+    // Wait for loading to complete (page shows "Loading..." while fetching data)
+    await expect(page.locator('text=Loading...')).toBeHidden()
+
+    // Wait for at least 2 plants to be loaded (To-Do tab shows plants needing weighing)
     const inputs = page.locator('table input[type="number"]')
     await expect(inputs).toHaveCount(2)
 
@@ -80,6 +83,16 @@ test.describe('Data Integrity during Rapid Input', () => {
     page,
   }) => {
     await page.goto('/measurements/bulk/watering', { waitUntil: 'commit' })
+
+    // Switch to "All" tab to see all plants (seeded plants don't need watering yet)
+    const allTab = page.getByRole('button', { name: /all/i })
+    const responsePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/plants?uuids=') && resp.status() === 200,
+    )
+    await allTab.click()
+    await responsePromise
+    await expect(page.getByText(/loading/i)).not.toBeVisible()
+    await page.waitForLoadState('networkidle')
 
     // Wait for at least 2 plants to be loaded
     const inputs = page.locator('table input[type="number"]')

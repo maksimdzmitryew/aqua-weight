@@ -84,13 +84,14 @@ def test_save_whatsapp_credentials_delegates_to_manager(monkeypatch: pytest.Monk
     assert called["args"] == (conn, "u", "t", "tpl", "pid")
 
 
-def test_save_whatsapp_credentials_reraises(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_save_whatsapp_credentials_returns_false_on_error(monkeypatch: pytest.MonkeyPatch) -> None:
     def boom(*_args, **_kwargs):
         raise ValueError("bad")
 
     monkeypatch.setattr(wn, "save_whatsapp_credentials_from_manager", boom)
-    with pytest.raises(ValueError, match="bad"):
-        wn.save_whatsapp_credentials(object(), "u", "t", "tpl")
+    # The function catches exceptions and returns False instead of re-raising
+    result = wn.save_whatsapp_credentials(object(), "u", "t", "tpl")
+    assert result is False
 
 
 def test_generate_bin16_id_delegates_to_credential_manager(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -632,6 +633,73 @@ def test_send_whatsapp_text_message_uses_conn_credentials_and_messages_url_suffi
     ok, err = wn.send_whatsapp_text_message(to_number="+1", body="hi", conn=object())
     assert (ok, err) == (True, "")
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/messages"
+
+
+def test_send_whatsapp_message_uses_placeholder_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cover line 488: api_url contains {phone_number_id} placeholder."""
+    req = httpx.Request("POST", "https://graph.example/v18.0/12345/messages")
+    resp = httpx.Response(200, json={"ok": True}, request=req)
+    fake_client = FakeHttpxClient(response=resp)
+    monkeypatch.setattr(wn.httpx, "Client", lambda timeout: fake_client)
+
+    monkeypatch.setattr(
+        wn,
+        "get_whatsapp_credentials",
+        lambda _conn: {
+            "api_url": "https://graph.example/v18.0/{phone_number_id}/messages",
+            "api_token": "t",
+            "template_name": "tpl",
+            "phone_number_id": "12345",
+        },
+    )
+
+    ok, err = wn.send_whatsapp_message(group_id="+1", message="ignored", conn=object())
+    assert (ok, err) == (True, "")
+    assert fake_client.posts[0][0] == "https://graph.example/v18.0/12345/messages"
+
+
+def test_send_whatsapp_text_message_uses_placeholder_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cover line 561: api_url contains {phone_number_id} placeholder."""
+    req = httpx.Request("POST", "https://graph.example/v18.0/67890/messages")
+    resp = httpx.Response(200, json={"ok": True}, request=req)
+    fake_client = FakeHttpxClient(response=resp)
+    monkeypatch.setattr(wn.httpx, "Client", lambda timeout: fake_client)
+
+    monkeypatch.setattr(
+        wn,
+        "get_whatsapp_credentials",
+        lambda _conn: {
+            "api_url": "https://graph.example/v18.0/{phone_number_id}/messages",
+            "api_token": "t",
+            "phone_number_id": "67890",
+        },
+    )
+
+    ok, err = wn.send_whatsapp_text_message(to_number="+1", body="hi", conn=object())
+    assert (ok, err) == (True, "")
+    assert fake_client.posts[0][0] == "https://graph.example/v18.0/67890/messages"
+
+
+def test_send_whatsapp_text_message_builds_url_with_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Cover line 564: phone_number_id provided but no placeholder and url doesn't end with /messages."""
+    req = httpx.Request("POST", "https://graph.example/v18.0/67890/messages")
+    resp = httpx.Response(200, json={"ok": True}, request=req)
+    fake_client = FakeHttpxClient(response=resp)
+    monkeypatch.setattr(wn.httpx, "Client", lambda timeout: fake_client)
+
+    monkeypatch.setattr(
+        wn,
+        "get_whatsapp_credentials",
+        lambda _conn: {
+            "api_url": "https://graph.example/v18.0",
+            "api_token": "t",
+            "phone_number_id": "67890",
+        },
+    )
+
+    ok, err = wn.send_whatsapp_text_message(to_number="+1", body="hi", conn=object())
+    assert (ok, err) == (True, "")
+    assert fake_client.posts[0][0] == "https://graph.example/v18.0/67890/messages"
 
 
 def test_should_skip_notification_branches(monkeypatch: pytest.MonkeyPatch) -> None:

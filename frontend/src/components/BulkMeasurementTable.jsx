@@ -51,7 +51,7 @@ export default function BulkMeasurementTable({
         title={
           operationMode === 'vacation'
             ? 'Projected water loss based on frequency (100 - retained %)'
-            : 'Water loss of the last water amount added'
+            : 'Water loss of the last water amount'
         }
         className="th hide-column-phone"
       >

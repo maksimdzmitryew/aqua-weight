@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../components/DashboardLayout.jsx'
 import { apiClient } from '../api/client.js'
 import { removeHelper } from '../utils/whatsapp_helpers.js'
+import { createClearStatus } from '../utils/clearStatus.js'
 
 export default function WhatsappHelpers() {
   const [helpers, setHelpers] = useState([])
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [savingState, setSavingState] = useState({ action: null, disabled: false })
+
+  const clearStatus = useMemo(() => createClearStatus(setSavingState), [setSavingState])
 
   useEffect(() => {
     loadHelpers()
@@ -20,10 +23,6 @@ export default function WhatsappHelpers() {
     } catch {
       // Fallback to localStorage via addHelper/removeHelper
     }
-  }
-
-  function clearStatus() {
-    setSavingState({ action: null, disabled: false })
   }
 
   async function handleAdd(e) {

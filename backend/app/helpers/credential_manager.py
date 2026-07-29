@@ -40,7 +40,10 @@ def get_or_create_encryption_key(conn) -> bytes:
 
     env_key = os.getenv(_ENV_CREDENTIALS_ENCRYPTION_KEY)
     if env_key:
-        return _normalize_fernet_key(env_key)
+        try:
+            return _normalize_fernet_key(env_key)
+        except Exception as e:
+            logger.warning(f"Invalid CREDENTIALS_ENCRYPTION_KEY in environment: {e}. Generating new key.")
 
     # Ensure table exists even on older DBs.
     with cursor(conn) as cur:
@@ -113,23 +116,47 @@ def _decrypt_with_fernet(fernet_key: str | bytes, token: Optional[str]) -> str:
 
 
 def ensure_whatsapp_credentials_table(conn) -> None:
-    """Ensure the WhatsApp credentials table exists."""
+    """Ensure the WhatsApp credentials table exists with correct schema."""
 
     with cursor(conn) as cur:
+        # First, check if table exists with expected columns
+        try:
+            cur.execute("DESCRIBE whatsapp_credentials")
+            columns = {row[0] for row in cur.fetchall()}
+
+            # Expected columns for the new schema:
+            # - api_url, template_name: plaintext (non-sensitive)
+            # - api_token_enc, phone_number_id_enc: encrypted (sensitive)
+            required_columns = {
+                'api_url',
+                'template_name',
+                'api_token_enc',
+                'phone_number_id_enc'
+            }
+
+            missing_columns = required_columns - columns
+
+            if missing_columns:
+                # Table exists but missing required columns - drop and recreate
+                cur.execute("DROP TABLE IF EXISTS whatsapp_credentials")
+                logger.info(f"Dropped whatsapp_credentials table due to missing columns: {missing_columns}")
+        except Exception as e:
+            # Table doesn't exist or has corrupted schema - we'll create it below
+            # Check if the error indicates table doesn't exist
+            if "doesn't exist" not in str(e) and "Unknown table" not in str(e):
+                logger.warning(f"Unexpected error checking whatsapp_credentials table: {e}")
+
+        # Create table with only encrypted API credentials and plaintext metadata
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS whatsapp_credentials (
               id BINARY(16) NOT NULL,
-              -- Legacy/plaintext columns (kept for backwards compatibility / migrations)
-              api_url TEXT NULL,
-              api_token TEXT NULL,
-              template_name VARCHAR(255) NULL,
-              phone_number_id VARCHAR(255) NULL,
-              -- Encrypted columns (preferred)
-              api_url_enc TEXT NULL,
-              api_token_enc TEXT NULL,
-              template_name_enc TEXT NULL,
-              phone_number_id_enc TEXT NULL,
+              -- Plaintext metadata (non-sensitive)
+              api_url TEXT NOT NULL,
+              template_name TEXT NOT NULL,
+              -- Encrypted API credentials (sensitive)
+              api_token_enc TEXT NOT NULL,
+              phone_number_id_enc TEXT NOT NULL,
               created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
               updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
               PRIMARY KEY (id),
@@ -158,46 +185,61 @@ def get_whatsapp_credentials(conn=None) -> Dict[str, str]:
 
     ensure_whatsapp_credentials_table(conn)
     with cursor(conn) as cur:
-        cur.execute(
-            """
-            SELECT api_url, api_token, template_name, phone_number_id,
-                   api_url_enc, api_token_enc, template_name_enc, phone_number_id_enc
-            FROM whatsapp_credentials
-            ORDER BY updated_at DESC
-            LIMIT 1
-            """
-        )
-        row = cur.fetchone()
+        try:
+            cur.execute(
+                """
+                SELECT api_url, template_name,
+                       api_token_enc, phone_number_id_enc
+                FROM whatsapp_credentials
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """
+            )
+            row = cur.fetchone()
+        except Exception as e:
+            # If column not found, the table might be corrupted - drop and recreate
+            if "Unknown column" in str(e) or "doesn't exist" in str(e):
+                logger.warning(f"WhatsApp credentials table has corrupted schema: {e}. Recreating table.")
+                try:
+                    # Try to drop the table and let ensure_whatsapp_credentials_table recreate it
+                    cur.execute("DROP TABLE IF EXISTS whatsapp_credentials")
+                    ensure_whatsapp_credentials_table(conn)
+
+                    # Try the query again with the new schema
+                    cur.execute(
+                        """
+                        SELECT api_url, template_name,
+                               api_token_enc, phone_number_id_enc
+                        FROM whatsapp_credentials
+                        ORDER BY updated_at DESC
+                        LIMIT 1
+                        """
+                    )
+                    row = cur.fetchone()
+                except Exception as recreate_e:
+                    logger.error(f"Failed to recreate whatsapp_credentials table: {recreate_e}")
+                    return env_fallback
+            else:
+                # Different error, re-raise
+                raise e
 
     if not row:
         return env_fallback
 
     (
         api_url,
-        api_token,
         template_name,
-        phone_number_id,
-        api_url_enc,
         api_token_enc,
-        template_name_enc,
         phone_number_id_enc,
     ) = row
 
-    if any([api_url_enc, api_token_enc, template_name_enc, phone_number_id_enc]):
-        key = get_or_create_encryption_key(conn)
-        return {
-            "api_url": _decrypt_with_fernet(key, api_url_enc),
-            "api_token": _decrypt_with_fernet(key, api_token_enc),
-            "template_name": _decrypt_with_fernet(key, template_name_enc),
-            "phone_number_id": _decrypt_with_fernet(key, phone_number_id_enc),
-        }
-
-    # Plaintext legacy row
+    key = get_or_create_encryption_key(conn)
+    # Decrypt encrypted fields; plaintext fields returned as-is (non-sensitive)
     return {
-        "api_url": api_url or "",
-        "api_token": api_token or "",
-        "template_name": template_name or "",
-        "phone_number_id": phone_number_id or "",
+        "api_url": api_url or "",                                    # Plaintext (non-sensitive)
+        "api_token": _decrypt_with_fernet(key, api_token_enc) if api_token_enc else "",    # Encrypted
+        "template_name": template_name or "",                        # Plaintext (non-sensitive)
+        "phone_number_id": _decrypt_with_fernet(key, phone_number_id_enc) if phone_number_id_enc else "",    # Encrypted
     }
 
 
@@ -208,14 +250,17 @@ def save_whatsapp_credentials(
     template_name: str,
     phone_number_id: str = "",
 ) -> bool:
-    """Save WhatsApp credentials to DB (encrypted)."""
+    """Save WhatsApp credentials to DB (encrypted).
+
+    Note: api_url and template_name are stored as plaintext (non-sensitive).
+    Only api_token and phone_number_id are encrypted.
+    """
 
     ensure_whatsapp_credentials_table(conn)
     key = get_or_create_encryption_key(conn)
 
-    api_url_enc = _encrypt_with_fernet(key, api_url)
+    # Only encrypt sensitive fields (api_token and phone_number_id)
     api_token_enc = _encrypt_with_fernet(key, api_token)
-    template_name_enc = _encrypt_with_fernet(key, template_name)
     phone_number_id_enc = _encrypt_with_fernet(key, phone_number_id)
 
     with cursor(conn) as cur:
@@ -223,20 +268,16 @@ def save_whatsapp_credentials(
             """
             INSERT INTO whatsapp_credentials (
               id,
-              api_url, api_token, template_name, phone_number_id,
-              api_url_enc, api_token_enc, template_name_enc, phone_number_id_enc
+              api_url, template_name,
+              api_token_enc, phone_number_id_enc
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 _generate_bin16_id(),
-                None,
-                None,
-                None,
-                None,
-                api_url_enc,
+                api_url,
+                template_name,
                 api_token_enc,
-                template_name_enc,
                 phone_number_id_enc,
             ),
         )

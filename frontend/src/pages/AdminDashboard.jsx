@@ -95,6 +95,7 @@ export default function AdminDashboard() {
   })
   const [credsLoading, setCredsLoading] = useState(true)
   const [credsStatus, setCredsStatus] = useState('idle') // 'idle' | 'saving' | 'saved' | 'failed'
+  const [credsError, setCredsError] = useState('') // Inline validation error
   const [templateTestStatus, setTemplateTestStatus] = useState('idle') // 'idle' | 'sending' | 'sent' | 'failed'
 
   // WhatsApp daily digest (free-text template) state
@@ -204,6 +205,7 @@ export default function AdminDashboard() {
   // WhatsApp functions
   const loadWhatsAppCredentials = async () => {
     setCredsLoading(true)
+    setCredsError('')
     try {
       const data = await apiClient.get('/whatsapp/credentials')
       setCredentials({
@@ -268,12 +270,16 @@ export default function AdminDashboard() {
   const handleSaveCredentials = async (e) => {
     e.preventDefault()
     setCredsStatus('saving')
+    setCredsError('')
     try {
       await apiClient.post('/whatsapp/credentials', credentials)
       setCredsStatus('saved')
       setTimeout(() => setCredsStatus('idle'), 2000)
-    } catch {
+    } catch (err) {
       setCredsStatus('failed')
+      // Extract error detail from API response
+      const errorMsg = err.detail || err.message || 'Failed to save credentials'
+      setCredsError(errorMsg)
     }
   }
 
@@ -286,6 +292,23 @@ export default function AdminDashboard() {
     } catch {
       setTemplateTestStatus('failed')
     }
+  }
+
+  const handleExtractPhoneNumberId = () => {
+    const url = credentials.api_url
+    if (!url) return
+    // Match pattern: /v{version}/{phone_number_id}/messages
+    // Example: https://graph.facebook.com/v25.0/1218203918039011/messages
+    const match = url.match(/\/(v\d+\.\d+)\/(\d+)\/messages/)
+    if (!match) return
+    const version = match[1] // e.g., "v25.0"
+    const extractedId = match[2] // e.g., "1218203918039011"
+    // Validate it's a digital number
+    if (!/^\d+$/.test(extractedId)) return
+    // Replace only the phone ID in URL with placeholder, preserve version
+    const newUrl = url.replace(new RegExp(`/${version}/\\d+/messages`), `/${version}/{phone_number_id}/messages`)
+    // Update both phone_number_id and api_url in a single state update
+    setCredentials({ ...credentials, phone_number_id: extractedId, api_url: newUrl })
   }
 
   const loadDailyDigest = async () => {
@@ -876,14 +899,37 @@ export default function AdminDashboard() {
                   <label style={label} htmlFor="api_url">
                     API URL *
                   </label>
-                  <input
-                    id="api_url"
-                    type="text"
-                    value={credentials.api_url}
-                    onChange={(e) => setCredentials({ ...credentials, api_url: e.target.value })}
-                    placeholder="https://graph.facebook.com/v18.0/{phone_number_id}/messages"
-                    style={styles.input}
-                  />
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <input
+                      id="api_url"
+                      type="text"
+                      value={credentials.api_url}
+                      onChange={(e) => {
+                        setCredentials({ ...credentials, api_url: e.target.value })
+                        if (credsError?.includes('API URL')) setCredsError('')
+                      }}
+                      placeholder="https://graph.facebook.com/v18.0/{phone_number_id}/messages"
+                      style={{
+                        ...styles.input,
+                        flex: 1,
+                        borderColor: credsError?.includes('API URL') ? '#ef4444' : undefined,
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={handleExtractPhoneNumberId}
+                      style={{ padding: '8px 12px', fontSize: '0.85em', whiteSpace: 'nowrap' }}
+                      title="Extract phone number ID from URL"
+                    >
+                      Extract
+                    </button>
+                  </div>
+                  {credsError?.includes('API URL') && (
+                    <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
+                      {credsError}
+                    </span>
+                  )}
                 </div>
 
                 <div style={fieldRow}>
@@ -894,10 +940,21 @@ export default function AdminDashboard() {
                     id="api_token"
                     type="password"
                     value={credentials.api_token}
-                    onChange={(e) => setCredentials({ ...credentials, api_token: e.target.value })}
+                    onChange={(e) => {
+                      setCredentials({ ...credentials, api_token: e.target.value })
+                      if (credsError?.includes('API token')) setCredsError('')
+                    }}
                     placeholder="WhatsApp API access token"
-                    style={styles.input}
+                    style={{
+                      ...styles.input,
+                      borderColor: credsError?.includes('API token') ? '#ef4444' : undefined,
+                    }}
                   />
+                  {credsError?.includes('API token') && (
+                    <span style={{ marginTop: 6, color: 'crimson', fontSize: '0.9em' }}>
+                      {credsError}
+                    </span>
+                  )}
                 </div>
 
                 <div style={fieldRow}>

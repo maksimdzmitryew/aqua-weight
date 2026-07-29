@@ -9,8 +9,9 @@ from backend.app.helpers import credential_manager as cm
 
 
 class FakeCursor:
-    def __init__(self, *, fetchone=None):
+    def __init__(self, *, fetchone=None, fetchall=None):
         self.fetchone_return = fetchone
+        self.fetchall_return = fetchall if fetchall is not None else []
         self.executed: list[tuple[str, tuple | None]] = []
         self.closed = False
 
@@ -20,6 +21,9 @@ class FakeCursor:
 
     def fetchone(self):
         return self.fetchone_return
+
+    def fetchall(self):
+        return self.fetchall_return
 
     def close(self):
         self.closed = True
@@ -175,15 +179,12 @@ def test_get_whatsapp_credentials_decrypts_encrypted_row(
     key = Fernet.generate_key()
     monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", key.decode())
     f = Fernet(key)
+    # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
     row = (
-        None,
-        None,
-        None,
-        None,
-        f.encrypt(b"https://api").decode(),
-        f.encrypt(b"tok").decode(),
-        f.encrypt(b"tpl").decode(),
-        f.encrypt(b"pid").decode(),
+        "https://api",                              # api_url (plaintext)
+        "tpl",                                      # template_name (plaintext)
+        f.encrypt(b"tok").decode(),               # api_token_enc
+        f.encrypt(b"pid").decode(),               # phone_number_id_enc
     )
     _CURSORS.extend([FakeCursor(), FakeCursor(fetchone=row)])
 
@@ -195,9 +196,11 @@ def test_get_whatsapp_credentials_decrypts_encrypted_row(
     }
 
 
-def test_get_whatsapp_credentials_legacy_plaintext_row() -> None:
+def test_get_whatsapp_credentials_plain_text_row() -> None:
+    """Test that plaintext api_url and template_name are returned as-is."""
     # Mix of set and None values to exercise the `or ""` branches.
-    row = ("urlA", None, "tplA", None, None, None, None, None)
+    # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
+    row = ("urlA", "tplA", None, None)
     _CURSORS.extend([FakeCursor(), FakeCursor(fetchone=row)])
 
     assert cm.get_whatsapp_credentials(conn=object()) == {
@@ -223,12 +226,17 @@ def test_save_whatsapp_credentials_encrypts_and_inserts(
     assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q, _ in ensure_cur.executed)
     inserts = [p for q, p in insert_cur.executed if "INSERT INTO whatsapp_credentials" in q]
     assert inserts
-    enc = inserts[0][5:9]
+    # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
+    # inserted as positional placeholders: (id, api_url, template_name, api_token_enc, phone_number_id_enc)
+    inserted_values = inserts[0]
+    assert len(inserted_values) == 5, f"Expected 5 values, got {len(inserted_values)}: {inserted_values}"
     f = Fernet(key)
-    assert f.decrypt(enc[0].encode()).decode() == "u"
-    assert f.decrypt(enc[1].encode()).decode() == "t"
-    assert f.decrypt(enc[2].encode()).decode() == "tpl"
-    assert f.decrypt(enc[3].encode()).decode() == "pid"
+    # Plaintext values (non-sensitive, should remain as-is)
+    assert inserted_values[1] == "u"      # api_url (plaintext)
+    assert inserted_values[2] == "tpl"    # template_name (plaintext)
+    # Encrypted values (sensitive, encrypted)
+    assert f.decrypt(inserted_values[3].encode()).decode() == "t"      # api_token_enc
+    assert f.decrypt(inserted_values[4].encode()).decode() == "pid"    # phone_number_id_enc
 
 
 def test_migrate_old_credentials_is_noop() -> None:
@@ -292,3 +300,250 @@ def test_backup_credentials_returns_env_values(monkeypatch: pytest.MonkeyPatch) 
         "template_name": "tpl",
         "phone_number_id": "pid",
     }
+
+
+def test_get_or_create_encryption_key_invalid_env_key_falls_back_to_db(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that invalid CREDENTIALS_ENCRYPTION_KEY falls back to DB-generated key."""
+    monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", "invalid-key-not-valid-fernet")
+    cur = FakeCursor(fetchone=None)
+    _CURSORS.append(cur)
+
+    result = cm.get_or_create_encryption_key(conn=object())
+
+    assert isinstance(result, bytes)
+    # Result is a valid Fernet key.
+    Fernet(result)
+    assert any("INSERT INTO encryption_keys" in q for q, _ in cur.executed)
+
+
+def test_ensure_whatsapp_credentials_table_missing_columns_drops_and_recreates() -> None:
+    """Test that table with missing required columns is dropped and recreated."""
+    # DESCRIBE succeeds but missing required columns (new schema needs api_token_enc and phone_number_id_enc)
+    existing_columns = ["id", "api_url", "template_name"]
+    cur = FakeCursor(fetchall=[(col,) for col in existing_columns])
+    _CURSORS.append(cur)
+
+    cm.ensure_whatsapp_credentials_table(conn=object())
+
+    # Should have executed DESCRIBE and DROP TABLE
+    queries = [q for q, _ in cur.executed]
+    assert any("DESCRIBE whatsapp_credentials" in q for q in queries)
+    assert any("DROP TABLE IF EXISTS whatsapp_credentials" in q for q in queries)
+    assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q in queries)
+
+
+def test_ensure_whatsapp_credentials_table_describe_fails_with_other_error() -> None:
+    """Test that non-table-not-exist errors in DESCRIBE are handled gracefully."""
+
+    class FailingCursor(FakeCursor):
+        def execute(self, query, params=None):
+            if "DESCRIBE" in query:
+                raise Exception("Some other database error")
+            return super().execute(query, params)
+
+    cur = FailingCursor()
+    _CURSORS.append(cur)
+
+    # Should not raise, should continue to CREATE TABLE
+    cm.ensure_whatsapp_credentials_table(conn=object())
+
+    assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q, _ in cur.executed)
+
+
+def test_ensure_whatsapp_credentials_table_describe_fails_with_table_not_exist() -> None:
+    """Test that 'doesn't exist' error in DESCRIBE skips warning and creates table."""
+
+    class FailingCursor(FakeCursor):
+        def execute(self, query, params=None):
+            if "DESCRIBE" in query:
+                raise Exception("Table 'whatsapp_credentials' doesn't exist")
+            return super().execute(query, params)
+
+    cur = FailingCursor()
+    _CURSORS.append(cur)
+
+    # Should not raise, should continue to CREATE TABLE without warning
+    cm.ensure_whatsapp_credentials_table(conn=object())
+
+    assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q, _ in cur.executed)
+
+
+def test_ensure_whatsapp_credentials_table_with_all_columns_no_drop() -> None:
+    """Test that table with all required columns does not get dropped and recreated."""
+    # All required columns present (new schema)
+    existing_columns = [
+        "id", "api_url", "template_name", "api_token_enc", "phone_number_id_enc"
+    ]
+    cur = FakeCursor(fetchall=[(col,) for col in existing_columns])
+    _CURSORS.append(cur)
+
+    cm.ensure_whatsapp_credentials_table(conn=object())
+
+    queries = [q for q, _ in cur.executed]
+    assert any("DESCRIBE whatsapp_credentials" in q for q in queries)
+    # Should NOT have executed DROP TABLE
+    assert not any("DROP TABLE IF EXISTS whatsapp_credentials" in q for q in queries)
+    # Should still have CREATE TABLE (for idempotency)
+    assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q in queries)
+
+
+def test_get_whatsapp_credentials_corrupted_schema_recovers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that corrupted schema (Unknown column) is recovered by dropping and recreating."""
+    monkeypatch.delenv("WHATSAPP_API_URL", raising=False)
+    monkeypatch.delenv("WHATSAPP_API_TOKEN", raising=False)
+    monkeypatch.delenv("WHATSAPP_TEMPLATE_NAME", raising=False)
+    monkeypatch.delenv("WHATSAPP_PHONE_NUMBER_ID", raising=False)
+
+    # First cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 188
+    ensure_cur = FakeCursor()
+
+    # Second cursor: SELECT that fails with "Unknown column", then DROP (recovery), then retry SELECT
+    class RecoveryCursor(FakeCursor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._select_count = 0
+
+        def execute(self, query, params=None):
+            # First SELECT should fail
+            if "SELECT" in query and "whatsapp_credentials" in query:
+                self._select_count += 1
+                if self._select_count == 1:
+                    raise Exception("Unknown column 'api_url_enc' in 'field list'")
+                # After recovery, SELECT should return None
+                self.fetchone_return = None
+            return super().execute(query, params)
+
+    select_cur = RecoveryCursor()
+
+    # Third cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 208
+    create_cur = FakeCursor()
+
+    _CURSORS.extend([ensure_cur, select_cur, create_cur])
+
+    result = cm.get_whatsapp_credentials(conn=object())
+
+    # Should return env fallback since no row after recovery
+    assert result == {"api_url": "", "api_token": "", "template_name": "", "phone_number_id": ""}
+
+
+def test_get_whatsapp_credentials_corrupted_schema_recovers_with_row(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that corrupted schema recovery works when row exists after retry."""
+    key = Fernet.generate_key()
+    monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", key.decode())
+    f = Fernet(key)
+
+    # First cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 188
+    ensure_cur = FakeCursor()
+
+    # Second cursor: SELECT that fails with "Unknown column", then DROP (recovery), then retry SELECT
+    class RecoveryCursor(FakeCursor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._select_count = 0
+
+        def execute(self, query, params=None):
+            # First SELECT should fail, second should return row
+            if "SELECT" in query and "whatsapp_credentials" in query:
+                self._select_count += 1
+                if self._select_count == 1:
+                    raise Exception("Unknown column 'api_url_enc' in 'field list'")
+                # After recovery, SELECT should return row with new schema
+                # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
+                row = (
+                    "https://api",                              # api_url (plaintext)
+                    "tpl",                                      # template_name (plaintext)
+                    f.encrypt(b"tok").decode(),               # api_token_enc
+                    f.encrypt(b"pid").decode(),               # phone_number_id_enc
+                )
+                self.fetchone_return = row
+            return super().execute(query, params)
+
+    select_cur = RecoveryCursor()
+
+    # Third cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 208
+    create_cur = FakeCursor()
+
+    _CURSORS.extend([ensure_cur, select_cur, create_cur])
+
+    result = cm.get_whatsapp_credentials(conn=object())
+
+    assert result == {
+        "api_url": "https://api",
+        "api_token": "tok",
+        "template_name": "tpl",
+        "phone_number_id": "pid",
+    }
+
+
+def test_get_whatsapp_credentials_select_fails_with_other_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that SELECT failure with non-recoverable error is re-raised."""
+    import re
+
+    # First cursor: ensure_whatsapp_credentials_table (CREATE TABLE)
+    ensure_cur = FakeCursor()
+
+    # Second cursor: SELECT that fails with unexpected error
+    class FailingSelectCursor(FakeCursor):
+        def execute(self, query, params=None):
+            if "SELECT" in query:
+                raise Exception("Some unexpected database error")
+            return super().execute(query, params)
+
+    select_cur = FailingSelectCursor()
+
+    _CURSORS.extend([ensure_cur, select_cur])
+
+    # Should re-raise the exception
+    with pytest.raises(Exception, match=re.escape("Some unexpected database error")):
+        cm.get_whatsapp_credentials(conn=object())
+
+
+def test_get_whatsapp_credentials_recovery_fails_returns_env_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that when recovery fails, env fallback is returned."""
+    monkeypatch.delenv("WHATSAPP_API_URL", raising=False)
+    monkeypatch.delenv("WHATSAPP_API_TOKEN", raising=False)
+    monkeypatch.delenv("WHATSAPP_TEMPLATE_NAME", raising=False)
+    monkeypatch.delenv("WHATSAPP_PHONE_NUMBER_ID", raising=False)
+
+    # First cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 188
+    ensure_cur = FakeCursor()
+
+    # Second cursor: SELECT that fails with "Unknown column", then DROP fails, then retry fails
+    class FailingRecoveryCursor(FakeCursor):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._select_count = 0
+
+        def execute(self, query, params=None):
+            # First SELECT should fail
+            if "SELECT" in query and "whatsapp_credentials" in query:
+                self._select_count += 1
+                if self._select_count == 1:
+                    raise Exception("Unknown column 'api_url_enc' in 'field list'")
+                # Retry SELECT fails after recovery
+                raise Exception("Retry failed")
+            if "DROP TABLE" in query:
+                raise Exception("DROP failed")
+            return super().execute(query, params)
+
+    select_cur = FailingRecoveryCursor()
+
+    # Third cursor: ensure_whatsapp_credentials_table (CREATE TABLE) at line 208
+    create_cur = FakeCursor()
+
+    _CURSORS.extend([ensure_cur, select_cur, create_cur])
+
+    result = cm.get_whatsapp_credentials(conn=object())
+
+    # Should return env fallback since recovery failed
+    assert result == {"api_url": "", "api_token": "", "template_name": "", "phone_number_id": ""}
