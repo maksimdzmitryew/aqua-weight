@@ -2,6 +2,7 @@
 
 Based on the project's existing FastAPI backend and your hardware requirements, here is a brief high-level implementation plan for the IoT part using MicroPython on ESP32.
 
+
 #### 1. Hardware Prototyping (Breadboard)
 *   **Sensors:** Use your external weight sensors (load cells). You will likely need an **HX711** load cell amplifier/ADC to interface with the ESP32, as load cell signals are too small for the built-in ADC.
 *   **Wiring:** 
