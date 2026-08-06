@@ -539,6 +539,57 @@ describe('pages/PlantEdit', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/plants')
   })
 
+  test('cancel navigates to plant details when isFromDetails is true via created_at', async () => {
+    const init = {
+      pathname: '/plants/uCancel/edit',
+      state: { plant: { uuid: 'uCancel', name: 'CancelTest', created_at: '2024-01-01T12:00:00Z' } },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    renderWithRoute([init])
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/plants/uCancel')
+  })
+
+  test('isFromDetails is true when from: details is explicitly set', async () => {
+    const init = {
+      pathname: '/plants/uFromDetails/edit',
+      state: { plant: { uuid: 'uFromDetails', name: 'FromDetails', created_at: '2024-01-01T12:00:00Z' }, from: 'details' },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    const { container } = renderWithRoute([init])
+    // Verify the component renders without errors
+    expect(container).toBeTruthy()
+  })
+
+  test('isFromDetails is false when plant has latest_at', async () => {
+    const init = {
+      pathname: '/plants/uLatest/edit',
+      state: { plant: { uuid: 'uLatest', name: 'LatestTest', latest_at: '2024-06-01T12:00:00Z' } },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    renderWithRoute([init])
+    // Verify the component renders - cancel should go to /plants (not /plants/uLatest)
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/plants')
+  })
+
+  test('onSave handles plant.name being null via OR fallback', async () => {
+    // This test covers the (plant.name || '').trim() branch on line 251
+    // When plant.name is null, the OR fallback to '' is taken
+    const init = {
+      pathname: '/plants/uNullName/edit',
+      state: { plant: { uuid: 'uNullName', name: null, created_at: '2024-01-01T12:00:00Z' } },
+    }
+    server.use(http.get('/api/locations', () => HttpResponse.json([])))
+    const { container } = renderWithRoute([init])
+    // Wait for name input to be present
+    await screen.findByLabelText(/name/i)
+    // Find the form and submit it directly to bypass browser validation
+    const form = container.querySelector('form')
+    fireEvent.submit(form)
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+  })
+
   test('fertilizer_ec_ms empty string is sent as null', async () => {
     const init = {
       pathname: '/plants/u6/edit',

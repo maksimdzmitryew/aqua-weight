@@ -96,6 +96,22 @@ def test_hash_and_verify_password_roundtrip() -> None:
     assert sec.verify_password("wrong", hashed) is False
 
 
+def test_verify_password_generic_exception_returns_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that verify_password returns False on any unexpected exception from argon2."""
+    from argon2 import PasswordHasher
+
+    class MockHasher:
+        def hash(self, password: str) -> str:
+            return PasswordHasher().hash(password)
+
+        def verify(self, hashed_password: str, password: str) -> None:
+            raise RuntimeError("argon2 internal error")
+
+    # Replace the module's pwd_hasher with our mock
+    monkeypatch.setattr(sec, "pwd_hasher", MockHasher())
+    assert sec.verify_password("any", "any_hash") is False
+
+
 def test_totp_secret_and_verification_roundtrip() -> None:
     secret = sec.generate_totp_secret()
     assert isinstance(secret, str)

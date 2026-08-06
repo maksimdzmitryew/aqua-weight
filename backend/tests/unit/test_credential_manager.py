@@ -302,20 +302,20 @@ def test_backup_credentials_returns_env_values(monkeypatch: pytest.MonkeyPatch) 
     }
 
 
-def test_get_or_create_encryption_key_invalid_env_key_falls_back_to_db(
+def test_get_or_create_encryption_key_invalid_env_key_raises(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that invalid CREDENTIALS_ENCRYPTION_KEY falls back to DB-generated key."""
+    """Test that invalid CREDENTIALS_ENCRYPTION_KEY raises an error (no fallback to DB)."""
     monkeypatch.setenv("CREDENTIALS_ENCRYPTION_KEY", "invalid-key-not-valid-fernet")
     cur = FakeCursor(fetchone=None)
     _CURSORS.append(cur)
 
-    result = cm.get_or_create_encryption_key(conn=object())
+    with pytest.raises(ValueError, match="Fernet key must be 32 url-safe base64-encoded bytes"):
+        cm.get_or_create_encryption_key(conn=object())
 
-    assert isinstance(result, bytes)
-    # Result is a valid Fernet key.
-    Fernet(result)
-    assert any("INSERT INTO encryption_keys" in q for q, _ in cur.executed)
+    # No database interaction should occur since the exception is raised first
+    assert not any("CREATE TABLE IF NOT EXISTS encryption_keys" in q for q, _ in cur.executed)
+    assert not any("INSERT INTO encryption_keys" in q for q, _ in cur.executed)
 
 
 def test_ensure_whatsapp_credentials_table_missing_columns_drops_and_recreates() -> None:

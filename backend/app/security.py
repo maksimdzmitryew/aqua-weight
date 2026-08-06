@@ -7,11 +7,12 @@ import string
 import time
 from typing import Annotated, Any
 
+import argon2
 import jwt
 import pyotp
+from argon2 import PasswordHasher
 from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from passlib.context import CryptContext
 
 from .db import HEX_RE, get_conn, hex_to_bin
 
@@ -31,18 +32,24 @@ NONCE_MAX_AGE_SECONDS = 900  # 15 minutes
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
-# Password and Recovery Code hashing context using Argon2
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Password and Recovery Code hashing using Argon2 (argon2-cffi directly)
+pwd_hasher = PasswordHasher()
 
 
 def hash_password(password: str) -> str:
     """Hash a password using Argon2."""
-    return pwd_context.hash(password)
+    return pwd_hasher.hash(password)
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
     """Verify a password against an Argon2 hash."""
-    return pwd_context.verify(password, hashed_password)
+    try:
+        pwd_hasher.verify(hashed_password, password)
+        return True
+    except argon2.exceptions.VerifyMismatchError:
+        return False
+    except Exception:
+        return False
 
 
 def generate_totp_secret() -> str:

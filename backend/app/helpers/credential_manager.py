@@ -43,7 +43,8 @@ def get_or_create_encryption_key(conn) -> bytes:
         try:
             return _normalize_fernet_key(env_key)
         except Exception as e:
-            logger.warning(f"Invalid CREDENTIALS_ENCRYPTION_KEY in environment: {e}. Generating new key.")
+            logger.error(f"Invalid CREDENTIALS_ENCRYPTION_KEY in environment: {e}")
+            raise
 
     # Ensure table exists even on older DBs.
     with cursor(conn) as cur:

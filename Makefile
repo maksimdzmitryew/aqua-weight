@@ -1,6 +1,8 @@
 # Standardized developer workflows
+export PATH := /usr/local/bin:$(PATH)
 
 # Compose files
+DOCKER_COMPOSE = /usr/local/bin/docker-compose
 RUN_COMPOSE = docker-compose.yml
 TEST_COMPOSE = docker-compose.test.yml
 
@@ -75,6 +77,9 @@ help:
 	@echo "  make fix-fe            - Auto-fix formatting and lint"
 	@echo "  make cicd-fe           - Run CI/CD pipeline for FE"
 	@echo ""
+	@echo "Single-file frontend test:"
+	@echo "  make test-fe-one <file>  - Run a single test file (e.g. make test-fe-one PlantEdit.test.jsx)"
+	@echo ""
 	@echo "Backend tooling (in Docker):"
 	@echo "  make be-lint           - Run ruff"
 	@echo "  make be-lint-fix       - Run ruff with --fix"
@@ -99,125 +104,128 @@ help:
 # --- Runtime stack ---
 .PHONY: run-build
 run-build:
-	docker compose -f $(RUN_COMPOSE) build
+	docker-compose -f $(RUN_COMPOSE) build
 
 .PHONY: run-up
 run-up:
-	docker compose -f $(RUN_COMPOSE) up -d
+	docker-compose -f $(RUN_COMPOSE) up -d
 
 .PHONY: run-up-f
 run-up-f:
-	docker compose -f $(RUN_COMPOSE) up
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) up
 
 .PHONY: run-down
 run-down:
-	docker compose -f $(RUN_COMPOSE) down
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) down
 
 .PHONY: run-start
 run-start:
-	docker compose -f $(RUN_COMPOSE) start
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) start
 
 .PHONY: run-stop
 run-stop:
-	docker compose -f $(RUN_COMPOSE) stop
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) stop
 
 .PHONY: run-logs
 run-logs:
-	docker compose -f $(RUN_COMPOSE) logs -f
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) logs -f
 
 .PHONY: run-ps
 run-ps:
-	docker compose -f $(RUN_COMPOSE) ps
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) ps
 
 .PHONY: scheduler-up
 scheduler-up:
-	docker compose -f $(RUN_COMPOSE) up -d scheduler
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) up -d scheduler
 
 .PHONY: scheduler-down
 scheduler-down:
-	docker compose -f $(RUN_COMPOSE) stop scheduler
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) stop scheduler
 
 .PHONY: scheduler-restart
 scheduler-restart:
-	docker compose -f $(RUN_COMPOSE) restart scheduler
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) restart scheduler
 
 .PHONY: scheduler-logs
 scheduler-logs:
-	docker compose -f $(RUN_COMPOSE) logs -f scheduler
+	$(DOCKER_COMPOSE) -f $(RUN_COMPOSE) logs -f scheduler
 
 # --- Test stack ---
 .PHONY: test-build
 test-build:
-	docker compose -f $(TEST_COMPOSE) build
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) build
 
 .PHONY: test-up
 test-up:
-	docker compose -f $(TEST_COMPOSE) up -d
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d
 
 .PHONY: test-up-f
 test-up-f:
-	docker compose -f $(TEST_COMPOSE) up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up
 
 .PHONY: test-down
 test-down:
-	docker compose -f $(TEST_COMPOSE) down
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) down
 
 .PHONY: test-start
 test-start:
-	docker compose -f $(TEST_COMPOSE) start
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) start
 
 .PHONY: test-stop
 test-stop:
-	docker compose -f $(TEST_COMPOSE) stop
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) stop
 
 .PHONY: test-logs
 test-logs:
-	docker compose -f $(TEST_COMPOSE) logs -f
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) logs -f
 
 .PHONY: test-ps
 test-ps:
-	docker compose -f $(TEST_COMPOSE) ps
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) ps
 
 .PHONY: test-be
 test-be:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner pytest -q
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pytest -q
 	$(WORKFLOW_HINT)
 
 .PHONY: test-integration
 test-integration: test-up
-	docker compose -f $(TEST_COMPOSE) exec runner pytest -q backend/tests/integration -v
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pytest -q backend/tests/integration -v
 
 .PHONY: test-api
 test-api: test-up
-	docker compose -f $(TEST_COMPOSE) exec runner \
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend \
 		pytest -q backend/tests/integration/test_api_contract.py -v --tb=short
 
 .PHONY: test-full
 test-full:
-	docker compose -f $(TEST_COMPOSE) exec runner pytest
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pytest
 
 .PHONY: test-cov
 test-cov:
-	docker compose -f $(TEST_COMPOSE) exec runner pytest -q --cov=app --cov-report=term-missing
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pytest -q --cov=app --cov-report=term-missing
 
 # --- E2E ---
 .PHONY: e2e-deps
 e2e-deps:
-	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d e2e
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npm install && npx playwright test --config playwright.config.ts"
 
 .PHONY: test-e2e
 test-e2e:
-	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d frontend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -d frontend npm run dev -- --host 0.0.0.0
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d e2e
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts"
 	$(WORKFLOW_HINT)
 
 .PHONY: test-e2e-ci-wait
 test-e2e-ci-wait:
 	@# Mirrors GitHub E2E readiness behavior from a clean Docker volume state.
-	docker compose -f $(TEST_COMPOSE) down -v
-	SSL_CERT_FILE=./ssl/dev.fullchain.pem SSL_KEY_FILE=./ssl/dev.privkey.pem docker compose -f $(TEST_COMPOSE) up -d --build db backend frontend nginx
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) down -v
+	SSL_CERT_FILE=./ssl/dev.fullchain.pem SSL_KEY_FILE=./ssl/dev.privkey.pem $(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d --build db api frontend nginx
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -d frontend npm run dev -- --host 0.0.0.0
 	@bash -lc 'set -euo pipefail; \
 		backend_ready=0; \
 		for i in {1..90}; do \
@@ -231,18 +239,20 @@ test-e2e-ci-wait:
 		done; \
 		if [ "$$backend_ready" -ne 1 ] || [ "$$frontend_ready" -ne 1 ]; then \
 			echo "Stack not reachable after wait; dumping logs..."; \
-			docker compose -f $(TEST_COMPOSE) ps; \
-			docker compose -f $(TEST_COMPOSE) logs --no-color nginx || true; \
-			docker compose -f $(TEST_COMPOSE) logs --no-color backend || true; \
-			docker compose -f $(TEST_COMPOSE) logs --no-color frontend || true; \
+			$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) ps; \
+			$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) logs --no-color nginx || true; \
+			$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) logs --no-color api || true; \
+			$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) logs --no-color frontend || true; \
 			exit 1; \
 		fi; \
 		echo "Services reachable via nginx at http://127.0.0.1:5080"'
 
 .PHONY: e2e-headed
 e2e-headed:
-	docker compose -f $(TEST_COMPOSE) up -d e2e
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d frontend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -d frontend npm run dev -- --host 0.0.0.0
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d e2e
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec e2e bash -lc "cd /app && npx playwright test --config playwright.config.ts --headed"
 
 .PHONY: e2e-report
 e2e-report:
@@ -255,9 +265,8 @@ fe-dev:
 
 .PHONY: test-fe
 test-fe:
-	docker compose -f $(TEST_COMPOSE) up -d e2e
 	@# Safe execution in /tmp to avoid Dropbox Bus errors on macOS
-	docker compose -f $(TEST_COMPOSE) exec e2e bash -lc "\
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec frontend bash -lc "\
 		mkdir -p /tmp/fe && \
 		find . -maxdepth 1 ! -name 'node_modules' ! -name '.' -exec cp -rp {} /tmp/fe/ \; && \
 		cd /tmp/fe && \
@@ -266,6 +275,50 @@ test-fe:
 		npm run test:unit:coverage -- --bail 1 && \
 		cp -r coverage /app/"
 		$(WORKFLOW_HINT)
+
+.PHONY: test-fe-one
+test-fe-one:
+	@# 1) cleaning extension
+	@$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec frontend bash -lc ' \
+		rm -f /tmp/fe_target /tmp/fe_src_path /tmp/fe_test_paths; \
+		TARGET="$(word 2,$(MAKECMDGOALS))"; TARGET=$${TARGET%%.*}; \
+		if [ -z "$$TARGET" ]; then printf "\033[31mError: No target specified. Usage: make test-fe-one <filename>\033[0m\n"; exit 0; fi; \
+		echo "$$TARGET" > /tmp/fe_target'
+	@# 2) detection source path
+	@$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec frontend bash -lc ' \
+		TARGET=$$(cat /tmp/fe_target 2>/dev/null); \
+		if [ -z "$$TARGET" ]; then exit 0; fi; \
+		SOURCES=$$(find src -name "$$TARGET.*" | grep -E "\.(js|jsx|ts|tsx)$$"); \
+		if [ -z "$$SOURCES" ]; then printf "\033[31mError: Source %s not found\033[0m\n" "$$TARGET"; exit 0; fi; \
+		if [ $$(echo "$$SOURCES" | wc -l) -gt 1 ]; then printf "\033[33mError: Multiple sources found:\n%s\033[0m\n" "$$SOURCES"; exit 0; fi; \
+		echo "$$SOURCES" > /tmp/fe_src_path; \
+		printf "\033[32m1) Source: %s\033[0m\n" "$$SOURCES"'
+	@# 3) detection test path
+	@$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec frontend bash -lc ' \
+		TARGET=$$(cat /tmp/fe_target 2>/dev/null); \
+		SOURCES=$$(cat /tmp/fe_src_path 2>/dev/null); \
+		if [ -z "$$SOURCES" ]; then exit 0; fi; \
+		TESTS=$$(find tests/unit \( -name "$$TARGET.*test.*" -o -name "$$TARGET.*spec.*" \) | grep -E "\.(js|jsx|ts|tsx)$$" | sort | tr "\n" " "); \
+		if [ -z "$$TESTS" ]; then printf "\033[33m2) No tests found for %s\033[0m\n" "$$SOURCES"; exit 0; fi; \
+		echo "$$TESTS" > /tmp/fe_test_paths; \
+		idx=0; for T in $$TESTS; do \
+			if [ $$idx -eq 0 ]; then printf "\033[32m2) Test:   %s\033[0m\n" "$$T"; \
+			else printf "\033[32m           %s\033[0m\n" "$$T"; fi; \
+			idx=$$((idx+1)); \
+		done'
+	@# 4) test execution
+	@$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec frontend bash -lc ' \
+		SOURCES=$$(cat /tmp/fe_src_path 2>/dev/null); \
+		TESTS=$$(cat /tmp/fe_test_paths 2>/dev/null); \
+		if [ -z "$$TESTS" ] || [ -z "$$SOURCES" ]; then exit 0; fi; \
+		printf "\033[32m3) Executing test...\033[0m\n"; \
+		mkdir -p /tmp/fe && \
+		find . -maxdepth 1 ! -name "node_modules" ! -name "." -exec cp -rp {} /tmp/fe/ \; && \
+		cd /tmp/fe && \
+		rm -rf node_modules && \
+		ln -s /app/node_modules node_modules && \
+		npx vitest --config vitest.config.ts run --coverage --coverage.include "$$SOURCES" $$TESTS && \
+		cp -r coverage /app/' || true
 
 .PHONY: test-fe-ci
 test-fe-ci:
@@ -291,35 +344,35 @@ fe-sb-build:
 # Storybook in Docker
 .PHONY: sb-up
 sb-up: test-up
-	docker compose -f $(TEST_COMPOSE) --profile storybook up -d storybook
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) --profile storybook up -d storybook
 	@echo "Storybook running at http://localhost:6006"
 
 .PHONY: sb-down
 sb-down:
-	docker compose -f $(TEST_COMPOSE) --profile storybook stop storybook
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) --profile storybook stop storybook
 
 .PHONY: sb-build
 sb-build: test-up
-	docker compose -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
 		npx storybook build --output-dir /app/frontend/storybook-static
 
 .PHONY: sb-test
 sb-test: test-up
-	docker compose -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) --profile storybook run --rm storybook \
 		npx test-storybook --ci
 
 .PHONY: fe-clean
 fe-clean: ## Clear Vite cache and restart frontend container
 	rm -rf frontend/node_modules/.vite
-	docker compose restart frontend
+	$(DOCKER_COMPOSE) restart frontend
 
 .PHONY: fe-fmt-fix
 fe-fmt-fix: ## Auto-fix frontend formatting with Prettier
-	docker-compose run --rm frontend sh -c "npx prettier --write ."
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) run --rm frontend sh -c "npx prettier --write ."
 
 .PHONY: fe-lint-fix
 fe-lint-fix: ## Auto-fix frontend ESLint issues
-	docker-compose run --rm frontend sh -c "npm run lint -- --fix"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) run --rm frontend sh -c "npm run lint -- --fix"
 
 .PHONY: fix-fe
 fix-fe: ## Run all frontend auto-fixes
@@ -329,8 +382,8 @@ fix-fe: ## Run all frontend auto-fixes
 
 .PHONY: cicd-fe
 cicd-fe:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files frontend)
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pre-commit run --files $$(git ls-files frontend)
 	$(WORKFLOW_HINT)
 
 # --- Utility ---
@@ -342,28 +395,28 @@ certs:
 # --- Backend tooling in Docker ---
 .PHONY: be-lint
 be-lint:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check backend"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "ruff check backend"
 
 .PHONY: be-lint-fix
 be-lint-fix:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "ruff check --fix backend"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "ruff check --fix backend"
 
 .PHONY: be-fmt
 be-fmt:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black --check backend"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "black --check backend"
 
 .PHONY: be-fmt-fix
 be-fmt-fix:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "black backend"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "black backend"
 
 .PHONY: be-mypy
 be-mypy:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "mypy backend"
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "mypy backend"
 
 .PHONY: fix-be
 fix-be: ## Run all backend auto-fixes
@@ -374,8 +427,8 @@ fix-be: ## Run all backend auto-fixes
 
 .PHONY: be-pre-commit
 be-pre-commit:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc "printf '%s\\n' \
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc "printf '%s\\n' \
 	  'repos:' \
 	  '  - repo: https://github.com/pre-commit/pre-commit-hooks' \
 	  '    rev: v4.6.0' \
@@ -390,19 +443,19 @@ be-pre-commit:
 	  '        types_or: [python]' \
 	  '        files: ^backend/|' \
 	  > .pre-commit-config.ci.yaml"
-	docker compose -f $(TEST_COMPOSE) exec runner bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -lc 'pre-commit run --all-files --show-diff-on-failure --color always --config .pre-commit-config.ci.yaml'
 
 .PHONY: all-cicd
 al-cicd:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --all-files
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pre-commit run --all-files
 	$(WORKFLOW_HINT)
 
 
 .PHONY: cicd-be
 cicd-be:
-	docker compose -f $(TEST_COMPOSE) up -d runner
-	docker compose -f $(TEST_COMPOSE) exec runner pre-commit run --files $$(git ls-files backend)
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d backend
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pre-commit run --files $$(git ls-files backend)
 	$(WORKFLOW_HINT)
 
 .PHONY: install-hooks
@@ -418,7 +471,7 @@ dep-audit:
 
 .PHONY: dep-audit-ci
 dep-audit-ci:
-	docker compose -f $(TEST_COMPOSE) exec runner bash -c \
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend bash -c \
 		"pip-audit -r backend/requirements.txt && cd /app/frontend && npm audit --omit=dev"
 
 # --- Load testing ---
@@ -444,5 +497,9 @@ load-test-ui: test-up
 
 .PHONY: token-test
 token-test:
-	TOKEN=$(docker compose -f docker-compose.test.yml exec e2e curl -sk https://aw.max/api/test/login -X POST 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+	TOKEN=$($(DOCKER_COMPOSE) -f docker-compose.test.yml exec e2e curl -sk https://aw.max/api/test/login -X POST 2>&1 | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 	@echo $TOKEN
+
+# Catch-all target to allow passing arguments to targets
+%:
+	@:

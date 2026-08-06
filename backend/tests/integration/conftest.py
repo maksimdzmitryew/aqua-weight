@@ -1,7 +1,7 @@
 import pytest
 import httpx
 
-BASE_URL = "http://backend:8000/api"
+BASE_URL = "http://api:8000/api"
 
 
 @pytest.fixture

@@ -30,11 +30,11 @@ services:
       retries: 10
       start_period: 20s
 
-  backend:
+  api:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: aw_test_backend
+    container_name: aw_test_api
     restart: unless-stopped
     depends_on:
       db:
@@ -86,12 +86,12 @@ services:
       - ./frontend:/app
       - fe_node_modules_test:/app/node_modules
     # Ensure dev server dependencies (vite) are present in the shared test node_modules volume.
-    # On fresh CI runners this volume starts empty; bootstrap it deterministically before starting Vite.
+    # On fresh CI runners this volume starts empty; bootstrap it deterministically.
     command:
       [
         "bash",
         "-lc",
-        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm install --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm install' >&2; exit 1; fi; exec npm run dev -- --host 0.0.0.0",
+        "cd /app && if [ ! -x node_modules/.bin/vite ]; then echo 'Installing frontend deps in shared volume...'; npm install --no-audit --no-fund; fi; if [ ! -x node_modules/.bin/vite ]; then echo 'vite binary missing after npm install' >&2; exit 1; fi; exec tail -f /dev/null",
       ]
 
   nginx:
@@ -101,7 +101,7 @@ services:
     container_name: aw_test_nginx
     restart: unless-stopped
     depends_on:
-      - backend
+      - api
       - frontend
     ports:
       - "5080:80"
@@ -111,6 +111,9 @@ services:
       # CI: workflow sets SSL_CERT_FILE/SSL_KEY_FILE to ./ssl/github-ci.* (generated in CI)
       - ${SSL_CERT_FILE:-./ssl/dev.fullchain.pem}:/etc/ssl/aw.max/fullchain.pem:ro
       - ${SSL_KEY_FILE:-./ssl/dev.privkey.pem}:/etc/ssl/aw.max/privkey.pem:ro
+    # Patch nginx.conf to use 'api' instead of 'backend' for the test stack without modifying the shared config file.
+    command: >
+      sh -c "sed -i 's/server backend:8000/server api:8000/' /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
     healthcheck:
       test:
         [
@@ -127,11 +130,11 @@ services:
         aliases:
           - aw.max
 
-  runner:
+  backend:
     build:
       context: .
       dockerfile: backend/Dockerfile.test
-    container_name: aw_test_runner
+    container_name: aw_test_backend
     restart: unless-stopped
     working_dir: /app
     environment:
@@ -144,6 +147,7 @@ services:
     command: ["tail", "-f", "/dev/null"]
     networks:
       - aw-tests-net
+
 
   e2e:
     image: mcr.microsoft.com/playwright:v1.56.1-jammy
