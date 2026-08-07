@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from starlette.concurrency import run_in_threadpool
 
-from ..db import HEX_RE, bin_to_hex, get_conn_factory
+from ..db import bin_to_hex, get_conn_factory
 from ..helpers.last_plant_event import LastPlantEvent
 from ..helpers.watering import get_last_watering_event as _get_last_watering_event
 from ..schemas.measurement import (

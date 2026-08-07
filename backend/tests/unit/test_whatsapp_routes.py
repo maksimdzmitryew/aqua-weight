@@ -291,7 +291,9 @@ async def test_trigger_digest_success_records_timestamp(
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
     monkeypatch.setattr(whatsapp_routes.SettingsService, "update_settings", fake_update)
     monkeypatch.setattr(whatsapp_routes, "get_thirsty_plants", lambda conn, uid: [{"name": "Fern"}])
-    monkeypatch.setattr(whatsapp_routes, "format_digest_message", lambda plants, helpers_count=0: "digest")
+    monkeypatch.setattr(
+        whatsapp_routes, "format_digest_message", lambda plants, helpers_count=0: "digest"
+    )
     monkeypatch.setattr(whatsapp_routes, "send_whatsapp_text_message", lambda *a, **k: (True, None))
     monkeypatch.setattr(whatsapp_routes, "record_whatsapp_send_log", lambda *a, **k: None)
 
@@ -331,8 +333,12 @@ async def test_trigger_digest_send_failure(
 
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
     monkeypatch.setattr(whatsapp_routes, "get_thirsty_plants", lambda conn, uid: [])
-    monkeypatch.setattr(whatsapp_routes, "format_digest_message", lambda plants, helpers_count=0: "digest")
-    monkeypatch.setattr(whatsapp_routes, "send_whatsapp_text_message", lambda *a, **k: (False, "nope"))
+    monkeypatch.setattr(
+        whatsapp_routes, "format_digest_message", lambda plants, helpers_count=0: "digest"
+    )
+    monkeypatch.setattr(
+        whatsapp_routes, "send_whatsapp_text_message", lambda *a, **k: (False, "nope")
+    )
     monkeypatch.setattr(whatsapp_routes, "record_whatsapp_send_log", lambda *a, **k: None)
 
     resp = await async_client.post("/api/whatsapp/trigger-digest")
@@ -391,9 +397,7 @@ async def test_save_daily_digest_success(
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
     monkeypatch.setattr(whatsapp_routes.SettingsService, "update_settings", fake_update)
 
-    resp = await async_client.post(
-        "/api/whatsapp/daily-digest", json={"daily_digest": "  Hi  "}
-    )
+    resp = await async_client.post("/api/whatsapp/daily-digest", json={"daily_digest": "  Hi  "})
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
     assert captured["settings"][whatsapp_routes.SETTINGS_KEY_DAILY_DIGEST] == "Hi"
@@ -450,7 +454,9 @@ async def test_save_thirsty_list_template(
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
     monkeypatch.setattr(whatsapp_routes.SettingsService, "update_settings", fake_update)
 
-    resp = await async_client.post("/api/whatsapp/thirsty-list", json={"thirsty_list_template": " t "})
+    resp = await async_client.post(
+        "/api/whatsapp/thirsty-list", json={"thirsty_list_template": " t "}
+    )
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
     assert captured["settings"][whatsapp_routes.SETTINGS_KEY_THIRSTY_LIST_TEMPLATE] == "t"
@@ -506,7 +512,9 @@ async def test_save_weight_plants_template(
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
     monkeypatch.setattr(whatsapp_routes.SettingsService, "update_settings", fake_update)
 
-    resp = await async_client.post("/api/whatsapp/weight-plants", json={"weight_plants_template": " w "})
+    resp = await async_client.post(
+        "/api/whatsapp/weight-plants", json={"weight_plants_template": " w "}
+    )
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
     assert captured["settings"][whatsapp_routes.SETTINGS_KEY_WEIGHT_PLANTS_TEMPLATE] == "w"
@@ -593,7 +601,9 @@ async def test_send_daily_digest_test_send_failure(
     monkeypatch.setattr(whatsapp_routes, "_build_thirsty_list", lambda plants, tpl: "")
     monkeypatch.setattr(whatsapp_routes, "_build_weight_plants_list", lambda plants, tpl: "")
     monkeypatch.setattr(whatsapp_routes, "render_placeholders", lambda tpl, vals: "RENDERED")
-    monkeypatch.setattr(whatsapp_routes, "send_whatsapp_text_message", lambda *a, **k: (False, "fail"))
+    monkeypatch.setattr(
+        whatsapp_routes, "send_whatsapp_text_message", lambda *a, **k: (False, "fail")
+    )
     monkeypatch.setattr(whatsapp_routes, "record_whatsapp_send_log", lambda *a, **k: None)
 
     resp = await async_client.post("/api/whatsapp/daily-digest/send-test")
@@ -848,9 +858,7 @@ async def test_save_whatsapp_credentials_default_template(
 async def test_save_whatsapp_credentials_missing_url(
     async_client, admin_user, db_override, monkeypatch: pytest.MonkeyPatch
 ):
-    resp = await async_client.post(
-        "/api/whatsapp/credentials", json={"api_token": "tok"}
-    )
+    resp = await async_client.post("/api/whatsapp/credentials", json={"api_token": "tok"})
     assert resp.status_code == 400
     assert resp.json() == {"detail": "API URL is required"}
 
@@ -859,9 +867,7 @@ async def test_save_whatsapp_credentials_missing_url(
 async def test_save_whatsapp_credentials_missing_token(
     async_client, admin_user, db_override, monkeypatch: pytest.MonkeyPatch
 ):
-    resp = await async_client.post(
-        "/api/whatsapp/credentials", json={"api_url": "https://x"}
-    )
+    resp = await async_client.post("/api/whatsapp/credentials", json={"api_url": "https://x"})
     assert resp.status_code == 400
     assert resp.json() == {"detail": "API token is required"}
 
@@ -943,7 +949,9 @@ async def test_save_whatsapp_credentials_save_returns_false(
         "/api/whatsapp/credentials", json={"api_url": "https://x", "api_token": "tok"}
     )
     assert resp.status_code == 500
-    assert resp.json() == {"detail": "Failed to save credentials. Please check server logs for details."}
+    assert resp.json() == {
+        "detail": "Failed to save credentials. Please check server logs for details."
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -993,7 +1001,9 @@ async def test_send_template_test_send_failure(
         return settings, 1
 
     monkeypatch.setattr(whatsapp_routes.SettingsService, "get_settings", fake_get)
-    monkeypatch.setattr(whatsapp_routes, "send_whatsapp_message", lambda *a, **k: (False, "tmpl fail"))
+    monkeypatch.setattr(
+        whatsapp_routes, "send_whatsapp_message", lambda *a, **k: (False, "tmpl fail")
+    )
     monkeypatch.setattr(whatsapp_routes, "record_whatsapp_send_log", lambda *a, **k: None)
 
     resp = await async_client.post("/api/whatsapp/credentials/send-test-template")

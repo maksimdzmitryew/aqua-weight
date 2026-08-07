@@ -3,22 +3,21 @@
 import logging
 from datetime import datetime, timezone
 
+import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-import pytz
 
-from ..db.core import cursor
-from ..db.core import get_conn
+from ..db.core import cursor, get_conn
 from ..helpers.whatsapp_notify import (
+    SETTINGS_KEY_DAILY_DIGEST,
+    _build_thirsty_list,
+    _build_weight_plants_list,
     get_thirsty_plants,
     get_weight_plants,
     record_whatsapp_send_log,
     render_placeholders,
     send_whatsapp_text_message,
     should_skip_notification,
-    SETTINGS_KEY_DAILY_DIGEST,
-    _build_thirsty_list,
-    _build_weight_plants_list,
 )
 from ..services.settings_service import SettingsService
 
@@ -187,6 +186,7 @@ def schedule_daily_digest():
 if __name__ == "__main__":
     """Run as a standalone cron process: python -m app.services.whatsapp_scheduler"""
     import logging as _logging
+
     _logging.basicConfig(level=_logging.INFO)
 
     schedule_daily_digest()
@@ -195,6 +195,7 @@ if __name__ == "__main__":
     try:
         # Block forever; schedule_daily_digest already started the background jobs
         import threading
+
         threading.Event().wait()
     except (KeyboardInterrupt, SystemExit):
         if _scheduler is not None:

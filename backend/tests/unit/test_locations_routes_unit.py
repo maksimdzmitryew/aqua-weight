@@ -183,9 +183,7 @@ def test_update_location_by_name_non_admin_without_owner_role_raises_403():
 def test_update_location_by_name_non_admin_with_non_owner_role_raises_403():
     """Lines 151-157: non-admin present in ACL but with role != owner is rejected (403)."""
     # orig_row, new_row, acl_row(role='helper')
-    cur = FakeCursor(
-        scripted_fetchone=[(b"\x01" * 16,), None, ("helper",)], rowcount=0
-    )
+    cur = FakeCursor(scripted_fetchone=[(b"\x01" * 16,), None, ("helper",)], rowcount=0)
     conn = FakeConn(cursor=cur)
 
     with pytest.raises(HTTPException) as exc:
@@ -432,9 +430,7 @@ def test_update_location_by_name_admin_noop_when_same_row():
 
 def test_update_location_by_name_conflict_when_new_row_differs_raises_409():
     """Lines 167-168, 202: different existing new name -> 409."""
-    cur = FakeCursor(
-        scripted_fetchone=[(b"\x01" * 16,), (b"\x02" * 16,)], rowcount=0
-    )
+    cur = FakeCursor(scripted_fetchone=[(b"\x01" * 16,), (b"\x02" * 16,)], rowcount=0)
     conn = FakeConn(cursor=cur)
 
     with pytest.raises(HTTPException) as exc:
@@ -448,9 +444,7 @@ def test_update_location_by_name_conflict_when_new_row_differs_raises_409():
 
 def test_update_location_by_name_existing_success():
     """Lines 170-180: non-admin owner updates an existing location."""
-    cur = FakeCursor(
-        scripted_fetchone=[(b"\x01" * 16,), None, ("owner",)], rowcount=3
-    )
+    cur = FakeCursor(scripted_fetchone=[(b"\x01" * 16,), None, ("owner",)], rowcount=3)
     conn = FakeConn(cursor=cur)
 
     result = update_location_by_name(

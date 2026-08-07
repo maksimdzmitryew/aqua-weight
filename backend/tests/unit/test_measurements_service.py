@@ -47,7 +47,9 @@ class _FakeCursor:
         self._rows = rows
         self._executed = []
         self._ix = -1
-        self.connection = object()  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
+        self.connection = (
+            object()
+        )  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
 
     def execute(self, sql, params=None):
         self._executed.append((sql, params))

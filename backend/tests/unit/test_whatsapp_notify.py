@@ -58,7 +58,9 @@ def test_get_whatsapp_credentials_returns_manager_result(monkeypatch: pytest.Mon
     assert wn.get_whatsapp_credentials(conn=object()) == {"api_url": "u"}
 
 
-def test_get_whatsapp_credentials_returns_empty_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_whatsapp_credentials_returns_empty_on_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     def boom(_conn):
         raise RuntimeError("db down")
 
@@ -133,9 +135,15 @@ def test_record_whatsapp_send_log_inserts_row(monkeypatch: pytest.MonkeyPatch) -
     assert any("INSERT INTO whatsapp_send_logs" in q for q, _p in insert_cur.executed)
 
 
-def test_record_whatsapp_send_log_ignores_ensure_table_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_record_whatsapp_send_log_ignores_ensure_table_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Force ensure to fail; insert still attempted and failures are swallowed.
-    monkeypatch.setattr(wn, "ensure_whatsapp_send_logs_table", lambda _conn: (_ for _ in ()).throw(RuntimeError("x")))
+    monkeypatch.setattr(
+        wn,
+        "ensure_whatsapp_send_logs_table",
+        lambda _conn: (_ for _ in ()).throw(RuntimeError("x")),
+    )
 
     conn = FakeConn([FakeCursor()])
     monkeypatch.setattr(wn, "_generate_bin16_id", lambda: b"1" * 16)
@@ -177,9 +185,21 @@ def test_get_thirsty_plants_filters_and_maps(monkeypatch: pytest.MonkeyPatch) ->
         wn.PlantsList,
         "fetch_all",
         lambda **_kwargs: [
-            {"needs_water": True, "name": "A", "location": "L", "water_retained_pct": 10, "recommended_water_threshold_pct": None},
+            {
+                "needs_water": True,
+                "name": "A",
+                "location": "L",
+                "water_retained_pct": 10,
+                "recommended_water_threshold_pct": None,
+            },
             {"needs_water": False, "name": "B"},
-            {"needs_water": True, "name": None, "location": None, "water_retained_pct": None, "recommended_water_threshold_pct": 55},
+            {
+                "needs_water": True,
+                "name": None,
+                "location": None,
+                "water_retained_pct": None,
+                "recommended_water_threshold_pct": 55,
+            },
         ],
     )
 
@@ -213,7 +233,12 @@ def test_build_thirsty_list_with_combined_template_groups_by_location() -> None:
     )
     plants = [
         {"name": "A", "location": "Kitchen", "water_retained_pct": 10, "min_water_retention": 40},
-        {"name": "B", "location": "Kitchen", "water_retained_pct": None, "min_water_retention": None},
+        {
+            "name": "B",
+            "location": "Kitchen",
+            "water_retained_pct": None,
+            "min_water_retention": None,
+        },
         {"name": "C", "location": None, "water_retained_pct": 5, "min_water_retention": 30},
     ]
 
@@ -230,7 +255,12 @@ def test_build_thirsty_list_with_combined_template_groups_by_location() -> None:
 def test_build_thirsty_list_header_only_template_still_adds_default_items() -> None:
     template = "[[AW_LOCATION_GROUP_HEADER]]\nH {{location_group}}\n"  # no item template
     plants = [
-        {"name": "A", "location": "Kitchen", "water_retained_pct": None, "min_water_retention": None},
+        {
+            "name": "A",
+            "location": "Kitchen",
+            "water_retained_pct": None,
+            "min_water_retention": None,
+        },
         {"name": "B", "location": "Kitchen", "water_retained_pct": 1, "min_water_retention": 2},
     ]
     msg = wn._build_thirsty_list(plants, template=template)
@@ -249,14 +279,16 @@ def test_build_thirsty_list_skips_empty_rendered_header(monkeypatch: pytest.Monk
         return real_render(template_text, values)
 
     monkeypatch.setattr(wn, "render_placeholders", fake_render)
-    template = (
-        "[[AW_LOCATION_GROUP_HEADER]]\n"
-        "ANY\n"
-        "[[AW_ITEM_TEMPLATE]]\n"
-        "* {{name}}\n"
-    )
+    template = "[[AW_LOCATION_GROUP_HEADER]]\n" "ANY\n" "[[AW_ITEM_TEMPLATE]]\n" "* {{name}}\n"
     msg = wn._build_thirsty_list(
-        [{"name": "A", "location": "Kitchen", "water_retained_pct": None, "min_water_retention": None}],
+        [
+            {
+                "name": "A",
+                "location": "Kitchen",
+                "water_retained_pct": None,
+                "min_water_retention": None,
+            }
+        ],
         template=template,
     )
     assert msg.strip() == "* A"
@@ -264,7 +296,14 @@ def test_build_thirsty_list_skips_empty_rendered_header(monkeypatch: pytest.Monk
 
 def test_build_thirsty_list_default_format_without_template() -> None:
     msg = wn._build_thirsty_list(
-        [{"name": "A", "location": "Kitchen", "water_retained_pct": None, "min_water_retention": None}],
+        [
+            {
+                "name": "A",
+                "location": "Kitchen",
+                "water_retained_pct": None,
+                "min_water_retention": None,
+            }
+        ],
         template=None,
     )
     assert msg == "- A (Kitchen) water retained: N/A"
@@ -328,7 +367,9 @@ def test_build_weight_plants_list_empty_uses_default_or_template() -> None:
 
 def test_build_weight_plants_list_with_header_only_template() -> None:
     template = "[[AW_LOCATION_GROUP_HEADER]]\nH {{location_count}}\n"  # no item template
-    plants = [{"name": "A", "location": "Kitchen", "measured_weight_g": 1, "days_since_last_weigh": 2}]
+    plants = [
+        {"name": "A", "location": "Kitchen", "measured_weight_g": 1, "days_since_last_weigh": 2}
+    ]
     msg = wn._build_weight_plants_list(plants, template=template)
     # Header rendered via alias: template uses location_count, code provides location_group_count.
     assert msg.splitlines()[0] == "H 1"
@@ -358,7 +399,12 @@ def test_build_weight_plants_list_with_simple_item_template_no_header() -> None:
     # Template without the location header marker should be treated as an item template.
     template = "* {{name}} @ {{location}}"
     plants = [
-        {"name": "A", "location": "Kitchen", "measured_weight_g": None, "days_since_last_weigh": None},
+        {
+            "name": "A",
+            "location": "Kitchen",
+            "measured_weight_g": None,
+            "days_since_last_weigh": None,
+        },
         # Same location to cover the "already seen location" branch in grouping.
         {"name": "B", "location": "Kitchen", "measured_weight_g": 1, "days_since_last_weigh": 2},
     ]
@@ -366,7 +412,9 @@ def test_build_weight_plants_list_with_simple_item_template_no_header() -> None:
     assert msg.splitlines() == ["* A @ Kitchen", "* B @ Kitchen"]
 
 
-def test_build_weight_plants_list_skips_empty_rendered_header(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_build_weight_plants_list_skips_empty_rendered_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     real_render = wn.render_placeholders
 
     def fake_render(template_text: str, values: dict[str, str]) -> str:
@@ -375,12 +423,7 @@ def test_build_weight_plants_list_skips_empty_rendered_header(monkeypatch: pytes
         return real_render(template_text, values)
 
     monkeypatch.setattr(wn, "render_placeholders", fake_render)
-    template = (
-        "[[AW_LOCATION_GROUP_HEADER]]\n"
-        "ANY\n"
-        "[[AW_ITEM_TEMPLATE]]\n"
-        "* {{name}}\n"
-    )
+    template = "[[AW_LOCATION_GROUP_HEADER]]\n" "ANY\n" "[[AW_ITEM_TEMPLATE]]\n" "* {{name}}\n"
     msg = wn._build_weight_plants_list(
         [{"name": "A", "location": "Kitchen", "measured_weight_g": 1, "days_since_last_weigh": 2}],
         template=template,
@@ -408,7 +451,9 @@ def test_format_digest_message_non_empty_without_helpers() -> None:
 
 
 class FakeHttpxClient:
-    def __init__(self, *, response: httpx.Response | None = None, raise_exc: Exception | None = None):
+    def __init__(
+        self, *, response: httpx.Response | None = None, raise_exc: Exception | None = None
+    ):
         self._response = response
         self._raise_exc = raise_exc
         self.posts: list[tuple[str, dict, dict]] = []
@@ -436,7 +481,9 @@ def test_send_whatsapp_message_missing_credentials(monkeypatch: pytest.MonkeyPat
     assert "not configured" in err
 
 
-def test_send_whatsapp_message_success_builds_phone_number_id_url(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_success_builds_phone_number_id_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://example/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
     fake_client = FakeHttpxClient(response=resp)
@@ -458,7 +505,9 @@ def test_send_whatsapp_message_success_builds_phone_number_id_url(monkeypatch: p
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/PN/messages"
 
 
-def test_send_whatsapp_message_does_not_duplicate_messages_suffix(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_does_not_duplicate_messages_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://example/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
     fake_client = FakeHttpxClient(response=resp)
@@ -481,7 +530,9 @@ def test_send_whatsapp_message_does_not_duplicate_messages_suffix(monkeypatch: p
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/messages"
 
 
-def test_send_whatsapp_message_without_phone_number_id_preserves_messages_suffix(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_without_phone_number_id_preserves_messages_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://example/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
     fake_client = FakeHttpxClient(response=resp)
@@ -495,7 +546,9 @@ def test_send_whatsapp_message_without_phone_number_id_preserves_messages_suffix
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/messages"
 
 
-def test_send_whatsapp_message_http_status_error_extracts_facebook_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_http_status_error_extracts_facebook_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(
         400,
@@ -514,7 +567,9 @@ def test_send_whatsapp_message_http_status_error_extracts_facebook_error(monkeyp
     assert err == "(999) Bad"
 
 
-def test_send_whatsapp_message_http_status_error_without_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_http_status_error_without_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(400, json={"error": {"message": "Bad"}}, request=req)
     fake_client = FakeHttpxClient(response=resp)
@@ -526,7 +581,9 @@ def test_send_whatsapp_message_http_status_error_without_code(monkeypatch: pytes
     assert (ok, err) == (False, "Bad")
 
 
-def test_send_whatsapp_message_http_status_error_with_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_http_status_error_with_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(400, content=b"not-json", request=req)
     fake_client = FakeHttpxClient(response=resp)
@@ -566,7 +623,9 @@ def test_send_whatsapp_text_message_missing_credentials(monkeypatch: pytest.Monk
     assert "not configured" in err
 
 
-def test_send_whatsapp_text_message_success_and_error_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_success_and_error_paths(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Success
     req_ok = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp_ok = httpx.Response(200, json={"ok": True}, request=req_ok)
@@ -579,7 +638,9 @@ def test_send_whatsapp_text_message_success_and_error_paths(monkeypatch: pytest.
 
     # HTTP status error
     req_bad = httpx.Request("POST", "https://graph.example/v18.0/messages")
-    resp_bad = httpx.Response(403, json={"error": {"message": "Nope", "type": "forbidden"}}, request=req_bad)
+    resp_bad = httpx.Response(
+        403, json={"error": {"message": "Nope", "type": "forbidden"}}, request=req_bad
+    )
     fake_bad = FakeHttpxClient(response=resp_bad)
     monkeypatch.setattr(wn.httpx, "Client", lambda timeout: fake_bad)
     ok, err = wn.send_whatsapp_text_message(to_number="+1", body="hi", conn=None)
@@ -593,7 +654,9 @@ def test_send_whatsapp_text_message_success_and_error_paths(monkeypatch: pytest.
     assert (ok, err) == (False, "boom")
 
 
-def test_send_whatsapp_text_message_http_status_error_without_code(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_http_status_error_without_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(400, json={"error": {"message": "Bad"}}, request=req)
     fake_bad = FakeHttpxClient(response=resp)
@@ -605,7 +668,9 @@ def test_send_whatsapp_text_message_http_status_error_without_code(monkeypatch: 
     assert (ok, err) == (False, "Bad")
 
 
-def test_send_whatsapp_text_message_http_status_error_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_http_status_error_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(400, content=b"not-json", request=req)
     fake_bad = FakeHttpxClient(response=resp)
@@ -618,7 +683,9 @@ def test_send_whatsapp_text_message_http_status_error_invalid_json(monkeypatch: 
     assert err
 
 
-def test_send_whatsapp_text_message_uses_conn_credentials_and_messages_url_suffix(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_uses_conn_credentials_and_messages_url_suffix(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # api_url already ends with /messages; it should not be duplicated.
     req = httpx.Request("POST", "https://graph.example/v18.0/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
@@ -635,7 +702,9 @@ def test_send_whatsapp_text_message_uses_conn_credentials_and_messages_url_suffi
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/messages"
 
 
-def test_send_whatsapp_message_uses_placeholder_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_message_uses_placeholder_phone_number_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Cover line 488: api_url contains {phone_number_id} placeholder."""
     req = httpx.Request("POST", "https://graph.example/v18.0/12345/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
@@ -658,7 +727,9 @@ def test_send_whatsapp_message_uses_placeholder_phone_number_id(monkeypatch: pyt
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/12345/messages"
 
 
-def test_send_whatsapp_text_message_uses_placeholder_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_uses_placeholder_phone_number_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Cover line 561: api_url contains {phone_number_id} placeholder."""
     req = httpx.Request("POST", "https://graph.example/v18.0/67890/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
@@ -680,7 +751,9 @@ def test_send_whatsapp_text_message_uses_placeholder_phone_number_id(monkeypatch
     assert fake_client.posts[0][0] == "https://graph.example/v18.0/67890/messages"
 
 
-def test_send_whatsapp_text_message_builds_url_with_phone_number_id(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_send_whatsapp_text_message_builds_url_with_phone_number_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Cover line 564: phone_number_id provided but no placeholder and url doesn't end with /messages."""
     req = httpx.Request("POST", "https://graph.example/v18.0/67890/messages")
     resp = httpx.Response(200, json={"ok": True}, request=req)
@@ -719,7 +792,9 @@ def test_should_skip_notification_branches(monkeypatch: pytest.MonkeyPatch) -> N
     assert wn.should_skip_notification({}) is False
     assert wn.should_skip_notification({"whatsapp_last_notification": {}}) is False
     assert wn.should_skip_notification({"whatsapp_last_notification": {"sent_at": None}}) is False
-    assert wn.should_skip_notification({"whatsapp_last_notification": {"sent_at": "not-iso"}}) is False
+    assert (
+        wn.should_skip_notification({"whatsapp_last_notification": {"sent_at": "not-iso"}}) is False
+    )
 
     recent = (fixed_now - timedelta(hours=1)).replace(tzinfo=None).isoformat()
     assert (

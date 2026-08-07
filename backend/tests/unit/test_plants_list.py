@@ -1599,7 +1599,8 @@ def test_check_watering_prediction_exception(monkeypatch):
     fake_conn = FakeConnection(rows=[])
     monkeypatch.setattr(pl_mod, "get_conn", lambda: fake_conn)
     monkeypatch.setattr(
-        pl_mod, "get_last_repotting_event",
+        pl_mod,
+        "get_last_repotting_event",
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")),
     )
 

@@ -52,9 +52,9 @@ def test_calculate_water_loss_day_and_total_pct_with_prev_and_last_event(fake_cu
 
     last_event = (
         "2024-12-31T00:00:00Z",  # measured_at
-        None,                     # last_dry_weight_g
-        None,                     # last_wet_weight_g
-        800,                      # water_added_g
+        None,  # last_dry_weight_g
+        None,  # last_wet_weight_g
+        800,  # water_added_g
     )
     monkeypatch.setattr(
         "backend.app.helpers.water_loss.get_last_watering_event_since",
@@ -84,9 +84,9 @@ def test_calculate_water_loss_uses_last_wet_when_prev_missing(fake_cursor, monke
     fake_cursor.summed = 0
     last_event = (
         "2024-12-31T00:00:00Z",  # measured_at
-        None,                     # last_dry_weight_g
-        None,                     # last_wet_weight_g
-        1000,                     # water_added_g
+        None,  # last_dry_weight_g
+        None,  # last_wet_weight_g
+        1000,  # water_added_g
     )
     monkeypatch.setattr(
         "backend.app.helpers.water_loss.get_last_watering_event_since",
@@ -138,9 +138,9 @@ def test_calculate_water_loss_exclude_measurement_id_param(fake_cursor, monkeypa
     fake_cursor.summed = 10
     last_event = (
         "2024-12-31T00:00:00Z",  # measured_at
-        None,                     # last_dry_weight_g
-        None,                     # last_wet_weight_g
-        200,                      # water_added_g
+        None,  # last_dry_weight_g
+        None,  # last_wet_weight_g
+        200,  # water_added_g
     )
     monkeypatch.setattr(
         "backend.app.helpers.water_loss.get_last_watering_event_since",
@@ -217,9 +217,9 @@ def test_day_pct_set_inside_totals_block_when_not_set_earlier(fake_cursor, monke
     fake_cursor.summed = 40  # accumulated since watering
     last_event = (
         "2025-01-01T00:00:00Z",  # measured_at
-        None,                     # last_dry_weight_g
-        None,                     # last_wet_weight_g
-        600,                      # water_added_g
+        None,  # last_dry_weight_g
+        None,  # last_wet_weight_g
+        600,  # water_added_g
     )
     monkeypatch.setattr(
         "backend.app.helpers.water_loss.get_last_watering_event_since",
@@ -277,9 +277,9 @@ def test_day_pct_inner_try_except_branch_hit(fake_cursor, monkeypatch):
 
     last_event = (
         "2025-01-01T00:00:00Z",  # measured_at
-        None,                     # last_dry_weight_g
-        None,                     # last_wet_weight_g
-        300,                      # water_added_g  # > 0 to enter totals pct branch
+        None,  # last_dry_weight_g
+        None,  # last_wet_weight_g
+        300,  # water_added_g  # > 0 to enter totals pct branch
     )
     monkeypatch.setattr(
         "backend.app.helpers.water_loss.get_last_watering_event_since",

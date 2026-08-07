@@ -91,7 +91,9 @@ def test_update_min_and_max_respects_user_set_values(monkeypatch: pytest.MonkeyP
     assert params == (100, 50, "a" * 32)
 
 
-def test_update_min_and_max_handles_none_min_and_non_positive_watering(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_update_min_and_max_handles_none_min_and_non_positive_watering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: None)
     monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: None)
     monkeypatch.setattr(wm, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: None)
@@ -111,7 +113,9 @@ def test_update_min_and_max_handles_none_min_and_non_positive_watering(monkeypat
     assert params == (None, 0, "a" * 32)
 
 
-def test_update_min_and_max_keeps_existing_min_when_new_weight_not_lower(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_update_min_and_max_keeps_existing_min_when_new_weight_not_lower(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(ww, "get_last_repotting_event", lambda _conn, _pid: None)
     monkeypatch.setattr(ww, "calculate_min_dry_weight_g", lambda _conn, _pid, _rep: 100)
     monkeypatch.setattr(wm, "calculate_max_watering_added_g", lambda _conn, _pid, _rep: 20)

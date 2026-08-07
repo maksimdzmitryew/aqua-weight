@@ -14,9 +14,7 @@ async def test_settings_flow(client: httpx.AsyncClient, admin_token, auth_header
     # Update settings
     update_resp = await client.put(
         "/settings",
-        json={
-            "settings": {"theme": "dark", "operationMode": "manual", "defaultThreshold": "35"}
-        },
+        json={"settings": {"theme": "dark", "operationMode": "manual", "defaultThreshold": "35"}},
         headers={**auth_headers, "Content-Type": "application/json"},
     )
     assert update_resp.status_code in (200, 204)

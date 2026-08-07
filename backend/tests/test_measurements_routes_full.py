@@ -21,6 +21,7 @@ def _override_measurements_auth(app: FastAPI):
     }
 
     from fastapi import HTTPException
+
     def _bypass_plant_access(request: Request) -> str:
         plant_id = request.path_params.get("plant_id", "")
         if plant_id and not measurements_routes.HEX_RE.match(plant_id):

@@ -8,6 +8,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..db import bin_to_hex, get_conn, hex_to_bin
 from ..helpers.plants_list import PlantsList
+from ..metrics import plants_with_prediction
 from ..schemas.plant import (
     PaginatedPlantsResponse,
     PlantCreateRequest,
@@ -25,7 +26,6 @@ from ..security import (
 )
 from ..services.auth_service import generate_ulid_bytes
 from ..utils.settings_defaults import parse_default_threshold
-from ..metrics import plants_with_prediction
 
 app = APIRouter()
 

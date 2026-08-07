@@ -90,17 +90,13 @@ def patch_all(jwt_decode=None):
             "hash_password",
             "hash_recovery_code",
         ]:
-            m = stack.enter_context(
-                patch(f"backend.app.services.auth_service.{name}")
-            )
+            m = stack.enter_context(patch(f"backend.app.services.auth_service.{name}"))
             mocks[name] = m
 
         mocks["verify_password"].return_value = True
         mocks["verify_totp_code"].return_value = True
         mocks["verify_recovery_code"].return_value = True
-        mocks["generate_recovery_codes"].return_value = [
-            f"RC{i:04d}-AAAA" for i in range(10)
-        ]
+        mocks["generate_recovery_codes"].return_value = [f"RC{i:04d}-AAAA" for i in range(10)]
         mocks["hash_password"].return_value = "HP"
         mocks["hash_recovery_code"].return_value = "HR"
 
@@ -194,10 +190,7 @@ def test_issue_tokens_without_device_name():
     assert access and refresh
     txn = svc.db.seen[-1]
     # Without a device name, the second INSERT shape omits device_name.
-    assert any(
-        "INSERT INTO user_devices" in q and "device_name" not in q
-        for q, _ in txn.queries
-    )
+    assert any("INSERT INTO user_devices" in q and "device_name" not in q for q, _ in txn.queries)
 
 
 def test_issue_tokens_existing_device_without_user_agent():
@@ -210,17 +203,13 @@ def test_issue_tokens_existing_device_without_user_agent():
 
 def test_issue_tokens_existing_device_with_user_agent():
     svc = AuthService(FakeConn([c(fetchone=(b"devid",)), c()]))
-    svc.issue_tokens(
-        user_id=USER_ID, device_id_str=DEVICE_ID_STR, user_agent="ua"
-    )
+    svc.issue_tokens(user_id=USER_ID, device_id_str=DEVICE_ID_STR, user_agent="ua")
     resolve = svc.db.seen[0]
     assert any("UPDATE devices" in q for q, _ in resolve.queries)
 
 
 def test_issue_tokens_rolls_back_on_transaction_error():
-    svc = AuthService(
-        FakeConn([c(fetchone=None), c(execute_raises=RuntimeError("boom"))])
-    )
+    svc = AuthService(FakeConn([c(fetchone=None), c(execute_raises=RuntimeError("boom"))]))
     try:
         svc.issue_tokens(user_id=USER_ID, device_id_str=DEVICE_ID_STR)
         assert False, "expected RuntimeError"
@@ -285,7 +274,6 @@ def test_login_invalid_password_raises():
             assert "Invalid username or password" in str(e)
 
 
-
 def test_login_success_without_mfa():
     conn = FakeConn(
         [
@@ -305,11 +293,13 @@ def test_login_success_without_mfa():
 def test_login_success_trusted_device_mfa():
     conn = FakeConn(
         [
-            c(fetchone_seq=[
-                (USER_ID, "uname", "ph", "admin"),  # user
-                (1,),  # MFA enabled
-                (1, "Existing Name"),  # user_devices: trusted
-            ]),
+            c(
+                fetchone_seq=[
+                    (USER_ID, "uname", "ph", "admin"),  # user
+                    (1,),  # MFA enabled
+                    (1, "Existing Name"),  # user_devices: trusted
+                ]
+            ),
             c(fetchone=None),  # _resolve_device during mfa check
             c(fetchone=None),  # issue_tokens _resolve_device
             c(),  # issue_tokens txn
@@ -317,9 +307,7 @@ def test_login_success_trusted_device_mfa():
     )
     with patch_all():
         svc = AuthService(conn)
-        result = svc.login(
-            "uname", "pw", DEVICE_ID_STR, user_agent="ua", device_name="Phone"
-        )
+        result = svc.login("uname", "pw", DEVICE_ID_STR, user_agent="ua", device_name="Phone")
     assert "access_token" in result
     assert result["user"]["global_role"] == "admin"
 
@@ -327,11 +315,13 @@ def test_login_success_trusted_device_mfa():
 def test_login_mfa_required_untrusted_device():
     conn = FakeConn(
         [
-            c(fetchone_seq=[
-                (USER_ID, "uname", "ph", "user"),
-                (1,),  # MFA enabled
-                (0, "MyPhone"),  # user_devices: not trusted
-            ]),
+            c(
+                fetchone_seq=[
+                    (USER_ID, "uname", "ph", "user"),
+                    (1,),  # MFA enabled
+                    (0, "MyPhone"),  # user_devices: not trusted
+                ]
+            ),
             c(fetchone=None),  # _resolve_device
         ]
     )
@@ -345,11 +335,13 @@ def test_login_mfa_required_untrusted_device():
 def test_login_mfa_required_no_device_row():
     conn = FakeConn(
         [
-            c(fetchone_seq=[
-                (USER_ID, "uname", "ph", "user"),
-                (1,),  # MFA enabled
-                None,  # user_devices: no row
-            ]),
+            c(
+                fetchone_seq=[
+                    (USER_ID, "uname", "ph", "user"),
+                    (1,),  # MFA enabled
+                    None,  # user_devices: no row
+                ]
+            ),
             c(fetchone=None),  # _resolve_device
         ]
     )
@@ -363,10 +355,12 @@ def test_login_mfa_required_no_device_row():
 def test_login_success_and_trust_device():
     conn = FakeConn(
         [
-            c(fetchone_seq=[
-                (USER_ID, "uname", "ph", "user"),
-                None,  # MFA disabled
-            ]),
+            c(
+                fetchone_seq=[
+                    (USER_ID, "uname", "ph", "user"),
+                    None,  # MFA disabled
+                ]
+            ),
             c(fetchone=None),  # issue_tokens _resolve_device
             c(),  # issue_tokens txn
             c(fetchone=None),  # set_device_trusted _resolve_device
@@ -375,15 +369,11 @@ def test_login_success_and_trust_device():
     )
     with patch_all():
         svc = AuthService(conn)
-        result = svc.login(
-            "uname", "pw", DEVICE_ID_STR, trust_device=True, device_name="Phone"
-        )
+        result = svc.login("uname", "pw", DEVICE_ID_STR, trust_device=True, device_name="Phone")
     assert "access_token" in result
     trust_txn = conn.seen[-1]
-    assert any(
-        "UPDATE user_devices" in q and "device_name" in q
-        for q, _ in trust_txn.queries
-    )
+    assert any("UPDATE user_devices" in q and "device_name" in q for q, _ in trust_txn.queries)
+
 
 def test_rotate_tokens_invalid_token():
     with patch_all():
@@ -435,10 +425,7 @@ def test_rotate_tokens_success():
     assert access and refresh
     assert user["global_role"] == "admin"
     # The old token is marked revoked in the same query block.
-    assert any(
-        "UPDATE auth_refresh_tokens SET revoked_at" in q
-        for q, _ in conn.seen[0].queries
-    )
+    assert any("UPDATE auth_refresh_tokens SET revoked_at" in q for q, _ in conn.seen[0].queries)
 
 
 # --------------------------------------------------------------------------- #
@@ -449,28 +436,19 @@ def test_rotate_tokens_success():
 def test_revoke_session_executes():
     svc = AuthService(FakeConn([c()]))
     svc.revoke_session("tok")
-    assert any(
-        "UPDATE auth_refresh_tokens SET revoked_at" in q
-        for q, _ in svc.db.seen[0].queries
-    )
+    assert any("UPDATE auth_refresh_tokens SET revoked_at" in q for q, _ in svc.db.seen[0].queries)
 
 
 def test_revoke_device_sessions_executes():
     svc = AuthService(FakeConn([c()]))
     svc.revoke_device_sessions(USER_ID, b"dev")
-    assert any(
-        "UPDATE auth_refresh_tokens SET revoked_at" in q
-        for q, _ in svc.db.seen[0].queries
-    )
+    assert any("UPDATE auth_refresh_tokens SET revoked_at" in q for q, _ in svc.db.seen[0].queries)
 
 
 def test_revoke_all_user_sessions_executes():
     svc = AuthService(FakeConn([c()]))
     svc.revoke_all_user_sessions(USER_ID)
-    assert any(
-        "UPDATE auth_refresh_tokens SET revoked_at" in q
-        for q, _ in svc.db.seen[0].queries
-    )
+    assert any("UPDATE auth_refresh_tokens SET revoked_at" in q for q, _ in svc.db.seen[0].queries)
 
 
 # --------------------------------------------------------------------------- #
@@ -483,13 +461,10 @@ def test_set_device_trusted_true_with_name():
     svc.set_device_trusted(USER_ID, DEVICE_ID_STR, True, "Phone")
     txn = svc.db.seen[-1]
     assert any(
-        "UPDATE user_devices SET trusted" in q and "device_name" in q
-        for q, _ in txn.queries
+        "UPDATE user_devices SET trusted" in q and "device_name" in q for q, _ in txn.queries
     )
     # No session revocation when trusting.
-    assert all(
-        "revoked_at" not in q for q, _ in txn.queries
-    )
+    assert all("revoked_at" not in q for q, _ in txn.queries)
 
 
 def test_set_device_trusted_false_revokes_sessions():
@@ -505,15 +480,12 @@ def test_set_device_trusted_true_without_name():
     svc.set_device_trusted(USER_ID, DEVICE_ID_STR, True)
     txn = svc.db.seen[-1]
     assert any(
-        "UPDATE user_devices SET trusted" in q and "device_name" not in q
-        for q, _ in txn.queries
+        "UPDATE user_devices SET trusted" in q and "device_name" not in q for q, _ in txn.queries
     )
 
 
 def test_set_device_trusted_rolls_back_on_error():
-    svc = AuthService(
-        FakeConn([c(fetchone=None), c(execute_raises=RuntimeError("boom"))])
-    )
+    svc = AuthService(FakeConn([c(fetchone=None), c(execute_raises=RuntimeError("boom"))]))
     try:
         svc.set_device_trusted(USER_ID, DEVICE_ID_STR, True)
         assert False
@@ -529,11 +501,7 @@ def test_set_device_trusted_rolls_back_on_error():
 
 def test_get_user_devices_returns_recognized_list():
     last = datetime.now(timezone.utc)
-    svc = AuthService(
-        FakeConn(
-            [c(fetchall=[("dev1", "Phone", 1, last, "ua")])]
-        )
-    )
+    svc = AuthService(FakeConn([c(fetchall=[("dev1", "Phone", 1, last, "ua")])]))
     devices = svc.get_user_devices(USER_ID)
     assert len(devices) == 1
     d = devices[0]
@@ -614,7 +582,6 @@ def test_verify_mfa_recovery_code_success():
     assert user["username"] == "user"
 
 
-
 def test_verify_mfa_totp_success():
     conn = FakeConn(
         [
@@ -645,6 +612,7 @@ def test_verify_mfa_invalid_totp_code():
         except ValueError as e:
             assert "Invalid verification code" in str(e)
 
+
 def test_verify_mfa_recovery_code_no_match():
     conn = FakeConn(
         [
@@ -662,7 +630,6 @@ def test_verify_mfa_recovery_code_no_match():
             assert "Invalid verification code" in str(e)
 
 
-
 def test_verify_mfa_totp_missing_secret():
     conn = FakeConn(
         [
@@ -676,6 +643,7 @@ def test_verify_mfa_totp_missing_secret():
             assert False
         except ValueError as e:
             assert "Invalid verification code" in str(e)
+
 
 def test_verify_mfa_trust_device():
     conn = FakeConn(
@@ -693,15 +661,12 @@ def test_verify_mfa_trust_device():
         svc = AuthService(conn)
         svc.verify_mfa("tok", "ABCD-EFGH", trust_device=True, device_name="Phone")
     trust_txn = conn.seen[-1]
-    assert any(
-        "UPDATE user_devices SET trusted" in q for q, _ in trust_txn.queries
-    )
+    assert any("UPDATE user_devices SET trusted" in q for q, _ in trust_txn.queries)
 
 
 # --------------------------------------------------------------------------- #
 # consume_recovery_code
 # --------------------------------------------------------------------------- #
-
 
 
 def test_consume_recovery_code_matches():
@@ -724,7 +689,6 @@ def test_consume_recovery_code_skip_invalid_hash():
         assert svc.consume_recovery_code(USER_ID, "ABCD-EFGH") is True
 
 
-
 def test_consume_recovery_code_rolls_back_on_error():
     # The SELECT and the consuming transaction share the same cursor, so the
     # raising execute must be the 2nd call on that single cursor.
@@ -734,6 +698,7 @@ def test_consume_recovery_code_rolls_back_on_error():
         )
         assert svc.consume_recovery_code(USER_ID, "ABCD-EFGH") is False
     assert svc.db.rollback.called
+
 
 def test_regenerate_invalid_password_no_user():
     with patch_all():
@@ -770,9 +735,7 @@ def test_regenerate_rate_limited():
 
 def test_regenerate_success_no_prior_codes():
     with patch_all():
-        svc = AuthService(
-            FakeConn([c(fetchone_seq=[(b"ph",), (None,)]), c()])
-        )
+        svc = AuthService(FakeConn([c(fetchone_seq=[(b"ph",), (None,)]), c()]))
         codes = svc.regenerate_recovery_codes(USER_ID, "pw")
     assert len(codes) == 10
 
@@ -781,13 +744,9 @@ def test_regenerate_success_old_codes_aware():
     now = datetime.now(timezone.utc)
     old = (now - timedelta(hours=48)).replace(tzinfo=timezone.utc)
     with patch_all():
-        svc = AuthService(
-            FakeConn([c(fetchone_seq=[(b"ph",), (old,)]), c()])
-        )
+        svc = AuthService(FakeConn([c(fetchone_seq=[(b"ph",), (old,)]), c()]))
         codes = svc.regenerate_recovery_codes(USER_ID, "pw")
     assert len(codes) == 10
-
-
 
 
 def test_regenerate_rolls_back_on_error():
@@ -808,6 +767,7 @@ def test_regenerate_rolls_back_on_error():
         except RuntimeError:
             pass
         assert svc.db.rollback.called
+
 
 def test_generate_mfa_setup_already_enrolled():
     with patch_all():
@@ -863,18 +823,16 @@ def test_enroll_mfa_success():
     assert len(codes) == 10
 
 
-
 def test_enroll_mfa_rolls_back_on_error():
     with patch_all():
-        svc = AuthService(
-            FakeConn([c(fetchone=None, execute_raises=[None, RuntimeError("boom")])])
-        )
+        svc = AuthService(FakeConn([c(fetchone=None, execute_raises=[None, RuntimeError("boom")])]))
         try:
             svc.enroll_mfa(USER_ID, "secret", "123456", DEVICE_ID_STR)
             assert False
         except RuntimeError:
             pass
         assert svc.db.rollback.called
+
 
 def test_complete_invite_invalid_token():
     with patch_all():
@@ -955,19 +913,16 @@ def test_complete_invite_success_trust_device():
             trust_device=True,
             device_name="Phone",
         )
-    assert any(
-        "UPDATE user_devices SET trusted" in q
-        for cur in conn.seen
-        for q, _ in cur.queries
-    )
-
+    assert any("UPDATE user_devices SET trusted" in q for cur in conn.seen for q, _ in cur.queries)
 
 
 def test_complete_invite_rolls_back_on_error():
     future = datetime.now() + timedelta(days=1)
     with patch_all():
         svc = AuthService(
-            FakeConn([c(fetchone=(USER_ID, future, None), execute_raises=[None, RuntimeError("boom")])])
+            FakeConn(
+                [c(fetchone=(USER_ID, future, None), execute_raises=[None, RuntimeError("boom")])]
+            )
         )
         try:
             svc.complete_invite("tok", "pw", "secret", "123456", DEVICE_ID_STR)

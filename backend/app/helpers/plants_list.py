@@ -133,18 +133,18 @@ class PlantsList:
                         )
 
                 SORTABLE_COLUMNS = {
-                    'name': 'p.name',
-                    'water_retained_pct': 'latest_pm.water_retained_pct',
-                    'recommended_water_threshold_pct': 'p.recommended_water_threshold_pct',
-                    'frequency_days': 'frequency_days',
-                    'next_watering_at': 'next_watering_at',
-                    'notes': 'p.notes',
-                    'location': 'l.name',
-                    'latest_at': 'latest_pm.measured_at',
-                    'sort_order': 'p.sort_order',
+                    "name": "p.name",
+                    "water_retained_pct": "latest_pm.water_retained_pct",
+                    "recommended_water_threshold_pct": "p.recommended_water_threshold_pct",
+                    "frequency_days": "frequency_days",
+                    "next_watering_at": "next_watering_at",
+                    "notes": "p.notes",
+                    "location": "l.name",
+                    "latest_at": "latest_pm.measured_at",
+                    "sort_order": "p.sort_order",
                 }
                 if sort_by and sort_by in SORTABLE_COLUMNS:
-                    direction = 'DESC' if sort_dir == 'desc' else 'ASC'
+                    direction = "DESC" if sort_dir == "desc" else "ASC"
                     query += f" ORDER BY {SORTABLE_COLUMNS[sort_by]} {direction}"
                     query += ", p.sort_order ASC"
                 else:
@@ -387,7 +387,9 @@ class PlantsList:
             if not last_repot or not last_repot.measured_at:
                 # No repotting: use plant created_at as reference
                 with conn.cursor() as cur:
-                    cur.execute("SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,))
+                    cur.execute(
+                        "SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,)
+                    )
                     row = cur.fetchone()
                     ref_at = row[0] if row else None
                 if not ref_at:

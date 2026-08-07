@@ -74,8 +74,7 @@ class TestComputeWaterStatus:
         """Test vacation mode with days_offset <= 0 sets needs_water=True (line 77)."""
         # Mock _days_offset_for_plant to return 0 (overdue)
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: 0
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: 0
         )
 
         fake_conn = FakeConnection()
@@ -98,8 +97,7 @@ class TestComputeWaterStatus:
     def test_compute_water_status_vacation_days_offset_negative(self, monkeypatch):
         """Test vacation mode with negative days_offset sets needs_water=True (line 77)."""
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: -5
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: -5
         )
 
         fake_conn = FakeConnection()
@@ -118,11 +116,12 @@ class TestComputeWaterStatus:
 
         assert result.needs_water is True
 
-    def test_compute_water_status_vacation_days_offset_none_retained_below_threshold(self, monkeypatch):
+    def test_compute_water_status_vacation_days_offset_none_retained_below_threshold(
+        self, monkeypatch
+    ):
         """Test vacation mode with days_offset=None and retained <= threshold (lines 78-79)."""
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: None
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: None
         )
 
         fake_conn = FakeConnection()
@@ -142,11 +141,12 @@ class TestComputeWaterStatus:
 
         assert result.needs_water is True
 
-    def test_compute_water_status_vacation_days_offset_none_retained_above_threshold(self, monkeypatch):
+    def test_compute_water_status_vacation_days_offset_none_retained_above_threshold(
+        self, monkeypatch
+    ):
         """Test vacation mode with days_offset=None and retained > threshold."""
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: None
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: None
         )
 
         fake_conn = FakeConnection()
@@ -169,8 +169,7 @@ class TestComputeWaterStatus:
     def test_compute_water_status_vacation_days_offset_positive(self, monkeypatch):
         """Test vacation mode with positive days_offset uses retained vs threshold."""
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: 5
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: 5
         )
 
         fake_conn = FakeConnection()
@@ -284,8 +283,7 @@ class TestComputeWaterStatus:
         """Test manual mode with None retained calls _check_watering_prediction."""
         mock_check = MagicMock(return_value=True)
         monkeypatch.setattr(
-            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction",
-            mock_check
+            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction", mock_check
         )
 
         fake_conn = FakeConnection()
@@ -308,8 +306,7 @@ class TestComputeWaterStatus:
         """Test needs_watering_prediction is checked when standard_needs_water is False."""
         mock_check = MagicMock(return_value=True)
         monkeypatch.setattr(
-            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction",
-            mock_check
+            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction", mock_check
         )
 
         fake_conn = FakeConnection()
@@ -335,8 +332,7 @@ class TestComputeWaterStatus:
         """Test vacation mode still checks prediction when standard_needs_water is False."""
         mock_check = MagicMock(return_value=True)
         monkeypatch.setattr(
-            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction",
-            mock_check
+            "backend.app.helpers.plants_list.PlantsList._check_watering_prediction", mock_check
         )
 
         fake_conn = FakeConnection()
@@ -418,8 +414,7 @@ class TestComputeWaterStatus:
         so the elif condition fails and falls through to return.
         """
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: 5
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: 5
         )
 
         fake_conn = FakeConnection()
@@ -448,8 +443,7 @@ class TestComputeWaterStatus:
         so the elif condition fails.
         """
         monkeypatch.setattr(
-            "backend.app.helpers.needs_water._days_offset_for_plant",
-            lambda conn, plant_id: 5
+            "backend.app.helpers.needs_water._days_offset_for_plant", lambda conn, plant_id: 5
         )
 
         fake_conn = FakeConnection()
@@ -496,7 +490,7 @@ class TestDaysOffsetForPlant:
         # Mock get_last_watering_event_since to return a tuple
         monkeypatch.setattr(
             "backend.app.helpers.needs_water.get_last_watering_event_since",
-            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0)
+            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0),
         )
 
         with patch("backend.app.helpers.needs_water.datetime") as mock_datetime:
@@ -526,7 +520,7 @@ class TestDaysOffsetForPlant:
 
         monkeypatch.setattr(
             "backend.app.helpers.needs_water.get_last_watering_event_since",
-            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0)
+            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0),
         )
 
         with patch("backend.app.helpers.needs_water.datetime") as mock_datetime:
@@ -571,7 +565,7 @@ class TestDaysOffsetForPlant:
 
         monkeypatch.setattr(
             "backend.app.helpers.needs_water.get_last_watering_event_since",
-            lambda conn, plant_id: None
+            lambda conn, plant_id: None,
         )
 
         result = _days_offset_for_plant(fake_conn, "55" * 16)
@@ -606,7 +600,7 @@ class TestDaysOffsetForPlant:
 
         monkeypatch.setattr(
             "backend.app.helpers.needs_water.get_last_watering_event_since",
-            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0)
+            lambda conn, plant_id: (last_watering_at, 100.0, 200.0, 50.0),
         )
 
         with patch("backend.app.helpers.needs_water.datetime") as mock_datetime:

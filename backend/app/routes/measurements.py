@@ -22,6 +22,7 @@ from ..helpers.water_weight import (
     update_min_dry_weight_and_max_watering_added_g,
 )
 from ..helpers.weighing import needs_weighing
+from ..metrics import measurements_total, watering_events_total
 from ..schemas.measurement import (
     LastMeasurementResponse,
     MeasurementCreateRequest,
@@ -45,7 +46,6 @@ from ..services.measurements import (
     validate_water_loss,
 )
 from ..utils.settings_defaults import parse_default_threshold
-from ..metrics import watering_events_total, measurements_total
 
 # Ensure router is defined before any @app.* decorators are used
 app = APIRouter()

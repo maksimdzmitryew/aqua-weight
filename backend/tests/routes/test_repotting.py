@@ -200,7 +200,7 @@ async def test_create_repotting_missing_required_due_to_zero(
     )
     assert plant_r.status_code == 201
     plant_uid = plant_r.json().get("uuid")
-    
+
     # measured_weight_g is required by the route.
     payload = {
         "plant_id": plant_uid,
@@ -465,9 +465,7 @@ async def test_create_repotting_small_pot_confirmed(
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
         plant_uid = next(
-            it["uuid"]
-            for it in lr.json()["items"]
-            if it["name"] == "RepotSmallPotConfirmTest"
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotSmallPotConfirmTest"
         )
 
     payload = {
@@ -496,9 +494,7 @@ async def test_update_repotting_not_found_no_row(
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
         plant_uid = next(
-            it["uuid"]
-            for it in lr.json()["items"]
-            if it["name"] == "RepotUpdateNoRowTest"
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotUpdateNoRowTest"
         )
 
     # Force the cursor's fetchone to return nothing for the ownership lookup.
@@ -530,9 +526,7 @@ async def test_update_repotting_not_found_plant_mismatch(
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
         plant_uid = next(
-            it["uuid"]
-            for it in lr.json()["items"]
-            if it["name"] == "RepotUpdateMismatchTest"
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotUpdateMismatchTest"
         )
 
     # No repotting inserted in this test, so the SELECT returns the default 00*16 id,
@@ -563,9 +557,7 @@ async def test_create_repotting_conn_close_raises(
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
         plant_uid = next(
-            it["uuid"]
-            for it in lr.json()["items"]
-            if it["name"] == "RepotCloseCreateTest"
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotCloseCreateTest"
         )
 
     def _raise_close(self):
@@ -599,15 +591,11 @@ async def test_update_repotting_conn_close_raises(
     if not plant_uid:
         lr = await async_client.get("/api/plants", headers=_API_KEY)
         plant_uid = next(
-            it["uuid"]
-            for it in lr.json()["items"]
-            if it["name"] == "RepotCloseUpdateTest"
+            it["uuid"] for it in lr.json()["items"] if it["name"] == "RepotCloseUpdateTest"
         )
 
     # Make the ownership SELECT return the requested plant so the update proceeds.
-    monkeypatch.setattr(
-        dummy_db["cursor"], "fetchone", lambda: (bytes.fromhex(plant_uid),)
-    )
+    monkeypatch.setattr(dummy_db["cursor"], "fetchone", lambda: (bytes.fromhex(plant_uid),))
 
     def _raise_close(self):
         raise RuntimeError("close failed")
@@ -683,9 +671,7 @@ async def test_create_repotting_full_type_resets_water_added_and_closes_plant(
     # Verify the UPDATE plants statement was executed (line 217)
     # Check that any query contains "UPDATE plants" (handles multi-line string format)
     queries = dummy_db["cursor"].executed
-    update_plants_found = any(
-        isinstance(q, str) and "UPDATE plants" in q for q, p in queries
-    )
+    update_plants_found = any(isinstance(q, str) and "UPDATE plants" in q for q, p in queries)
     assert update_plants_found, "Expected UPDATE plants query for full repotting"
 
 
@@ -742,7 +728,5 @@ async def test_update_repotting_full_type_resets_plant(
 
     # Verify the UPDATE plants statement was executed for the update route (line 308)
     queries = dummy_db["cursor"].executed
-    update_plants_found = any(
-        isinstance(q, str) and "UPDATE plants" in q for q, p in queries
-    )
+    update_plants_found = any(isinstance(q, str) and "UPDATE plants" in q for q, p in queries)
     assert update_plants_found, "Expected UPDATE plants query for full repotting update"

@@ -209,9 +209,13 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn1)
 
     # Mock PlantsList to return a plant (as other tests do)
-    monkeypatch.setattr(measurements_routes, "PlantsList", types.SimpleNamespace(
-        fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
-    ))
+    monkeypatch.setattr(
+        measurements_routes,
+        "PlantsList",
+        types.SimpleNamespace(
+            fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
+        ),
+    )
 
     # Mock get_last_repotting_event to return None (default window)
     monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
@@ -221,7 +225,7 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     r1 = await async_client.post(
         f"/api/plants/{'019f95b647186ad498f0626cc0077468'}/measurements/corrections",
         headers=_API_KEY,
-        json={}  # capacity mode default, edit_last_wet default=True
+        json={},  # capacity mode default, edit_last_wet default=True
     )
     assert r1.status_code == 200
     data1 = r1.json()
@@ -249,9 +253,13 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     app.dependency_overrides[get_conn_factory] = lambda: (lambda: conn2)
 
     # Mock PlantsList again for second test
-    monkeypatch.setattr(measurements_routes, "PlantsList", types.SimpleNamespace(
-        fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
-    ))
+    monkeypatch.setattr(
+        measurements_routes,
+        "PlantsList",
+        types.SimpleNamespace(
+            fetch_all=lambda **kw: [{"id": 1, "uuid": "019f95b647186ad498f0626cc0077468"}]
+        ),
+    )
 
     # Mock get_last_repotting_event for second test
     monkeypatch.setattr(measurements_routes, "get_last_repotting_event", lambda conn, pid: None)
@@ -260,7 +268,7 @@ async def test_apply_corrections_capacity_and_retained_ratio(
     r2 = await async_client.post(
         f"/api/plants/{'019f95b647186ad498f0626cc0077468'}/measurements/corrections",
         headers=_API_KEY,
-        json={"cap": "retained_ratio", "edit_last_wet": False}
+        json={"cap": "retained_ratio", "edit_last_wet": False},
     )
     assert r2.status_code == 200
     data2 = r2.json()

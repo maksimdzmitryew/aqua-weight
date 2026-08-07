@@ -33,6 +33,7 @@ def _override_measurements_auth(app: FastAPI):
 
 class _FakeCursor:
     """Fake cursor for mocking database operations in tests."""
+
     def __init__(
         self,
         *,
@@ -130,7 +131,11 @@ class _FakeCursor:
                     self._next_one = self.rows_one
             elif "max(measured_at)" in sql_norm:
                 self._next_one = [datetime.utcnow()]
-            elif " from plants " in sql_norm and " where " in sql_norm and "id = unhex" not in sql_norm:
+            elif (
+                " from plants " in sql_norm
+                and " where " in sql_norm
+                and "id = unhex" not in sql_norm
+            ):
                 if self.rows_all is not None and len(self.rows_all) > 0:
                     self._next_one = self.rows_all[0]
                 else:
@@ -171,6 +176,7 @@ class _FakeCursor:
 
 class _FakeConn:
     """Fake connection for mocking database operations in tests."""
+
     def __init__(self, cursor: _FakeCursor, *, raise_on_rollback: bool = False):
         self._cursor = cursor
         cursor.connection = self  # Back-reference for code that uses cur.connection
@@ -193,8 +199,12 @@ class _FakeConn:
 
     def close(self):
         pass
+
+
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_no_excess(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_no_excess(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections when no measurements exceed the cap (edited from test_water_loss.py)."""
     plant_id = "aa" * 16
 
@@ -215,7 +225,7 @@ async def test_apply_measurements_corrections_no_excess(app: FastAPI, async_clie
             "to_ts": None,
             "cap": "capacity",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then
@@ -224,8 +234,12 @@ async def test_apply_measurements_corrections_no_excess(app: FastAPI, async_clie
     assert data == {"updated": 0, "total_excess_g": 0, "details": []}
 
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_capacity_cap_mode(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_capacity_cap_mode(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections with capacity cap mode (edited from test_water_loss.py)."""
     plant_id = "aa" * 16
 
@@ -239,7 +253,12 @@ async def test_apply_measurements_corrections_capacity_cap_mode(app: FastAPI, as
 
     # Setup watering events that exceed capacity
     cur.rows_all = [
-        (b"1" * 16, datetime(2025, 1, 1), 500, 450),  # id, measured_at, water_added_g, last_wet_weight_g
+        (
+            b"1" * 16,
+            datetime(2025, 1, 1),
+            500,
+            450,
+        ),  # id, measured_at, water_added_g, last_wet_weight_g
     ]
 
     # When - call the endpoint with explicit time window to avoid get_last_repotting_event call
@@ -250,7 +269,7 @@ async def test_apply_measurements_corrections_capacity_cap_mode(app: FastAPI, as
             "to_ts": datetime(2025, 1, 2, 0, 0, 1).isoformat(),
             "cap": "capacity",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then
@@ -270,8 +289,12 @@ async def test_apply_measurements_corrections_capacity_cap_mode(app: FastAPI, as
     assert "water_added_g" in sql
 
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_retained_ratio_cap_mode(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_retained_ratio_cap_mode(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections with retained_ratio cap mode (edited from test_water_loss.py)."""
     plant_id = "aa" * 16
 
@@ -285,7 +308,12 @@ async def test_apply_measurements_corrections_retained_ratio_cap_mode(app: FastA
 
     # Setup watering events that exceed retained ratio cap
     cur.rows_all = [
-        (b"2" * 16, datetime(2025, 1, 1), 500, 460),  # id, measured_at, water_added_g, last_wet_weight_g
+        (
+            b"2" * 16,
+            datetime(2025, 1, 1),
+            500,
+            460,
+        ),  # id, measured_at, water_added_g, last_wet_weight_g
     ]
 
     # When - call the endpoint with explicit time window to avoid get_last_repotting_event call
@@ -296,7 +324,7 @@ async def test_apply_measurements_corrections_retained_ratio_cap_mode(app: FastA
             "to_ts": datetime(2025, 1, 2, 0, 0, 1).isoformat(),
             "cap": "retained_ratio",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then
@@ -312,8 +340,12 @@ async def test_apply_measurements_corrections_retained_ratio_cap_mode(app: FastA
     assert data["details"][0]["new_water_added_g"] == 300
 
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_invalid_cap_mode(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_invalid_cap_mode(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections with invalid cap mode raises HTTPException."""
     plant_id = "aa" * 16
 
@@ -325,7 +357,7 @@ async def test_apply_measurements_corrections_invalid_cap_mode(app: FastAPI, asy
             "to_ts": None,
             "cap": "invalid_mode",
             "edit_last_wet": True,
-        }
+        },
     )
 
     assert r.status_code == 400
@@ -334,7 +366,9 @@ async def test_apply_measurements_corrections_invalid_cap_mode(app: FastAPI, asy
 
 
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_calibration_incomplete(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_calibration_incomplete(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections when plant calibration is incomplete (no min_dry/max_water)."""
     plant_id = "aa" * 16
 
@@ -354,7 +388,7 @@ async def test_apply_measurements_corrections_calibration_incomplete(app: FastAP
             "to_ts": None,
             "cap": "capacity",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then - should return empty results
@@ -363,8 +397,12 @@ async def test_apply_measurements_corrections_calibration_incomplete(app: FastAP
     assert data == {"updated": 0, "total_excess_g": 0, "details": []}
 
     app.dependency_overrides.pop(get_conn_factory, None)
+
+
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_with_time_window(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_with_time_window(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections with specific time window (from_ts/to_ts)."""
     plant_id = "aa" * 16
 
@@ -379,7 +417,7 @@ async def test_apply_measurements_corrections_with_time_window(app: FastAPI, asy
     # Setup watering events within the time window that need correction
     # The mock returns rows_all directly without filtering by WHERE clause
     cur.rows_all = [
-        (b"3" * 16, datetime(2025, 6, 1), 500, 450),    # Exceeds target: 450 > 300, needs correction
+        (b"3" * 16, datetime(2025, 6, 1), 500, 450),  # Exceeds target: 450 > 300, needs correction
     ]
 
     # When - call the endpoint with time window
@@ -390,7 +428,7 @@ async def test_apply_measurements_corrections_with_time_window(app: FastAPI, asy
             "to_ts": datetime(2025, 12, 31, 23, 59, 59).isoformat(),
             "cap": "capacity",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then
@@ -401,7 +439,11 @@ async def test_apply_measurements_corrections_with_time_window(app: FastAPI, asy
     assert data["total_excess_g"] == 150
 
     app.dependency_overrides.pop(get_conn_factory, None)
-async def test_apply_measurements_corrections_edit_last_wet_false(app: FastAPI, async_client: AsyncClient, monkeypatch):
+
+
+async def test_apply_measurements_corrections_edit_last_wet_false(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections when edit_last_wet is false (only water_added_g updated)."""
     plant_id = "aa" * 16
 
@@ -426,7 +468,7 @@ async def test_apply_measurements_corrections_edit_last_wet_false(app: FastAPI, 
             "to_ts": None,
             "cap": "capacity",
             "edit_last_wet": False,
-        }
+        },
     )
 
     # Then
@@ -443,7 +485,9 @@ async def test_apply_measurements_corrections_edit_last_wet_false(app: FastAPI, 
 
 
 @pytest.mark.asyncio
-async def test_apply_measurements_corrections_datetime_measured_at(app: FastAPI, async_client: AsyncClient, monkeypatch):
+async def test_apply_measurements_corrections_datetime_measured_at(
+    app: FastAPI, async_client: AsyncClient, monkeypatch
+):
     """Test corrections when last_repotting_event returns datetime for measured_at (line 588).
 
     This tests the branch where measured_at is already a datetime object instead of a string.
@@ -479,11 +523,10 @@ async def test_apply_measurements_corrections_datetime_measured_at(app: FastAPI,
 
     # Patch get_last_repotting_event at the module level
     import backend.app.routes.measurements as measurements_module
+
     original_get_last_repotting = measurements_module.get_last_repotting_event
     monkeypatch.setattr(
-        measurements_module,
-        "get_last_repotting_event",
-        lambda conn, pid: fake_repot
+        measurements_module, "get_last_repotting_event", lambda conn, pid: fake_repot
     )
 
     # When - call the endpoint WITHOUT explicit time window to trigger get_last_repotting_event
@@ -494,7 +537,7 @@ async def test_apply_measurements_corrections_datetime_measured_at(app: FastAPI,
             "to_ts": None,
             "cap": "capacity",
             "edit_last_wet": True,
-        }
+        },
     )
 
     # Then
@@ -506,7 +549,5 @@ async def test_apply_measurements_corrections_datetime_measured_at(app: FastAPI,
     # Cleanup
     app.dependency_overrides.pop(get_conn_factory, None)
     monkeypatch.setattr(
-        measurements_module,
-        "get_last_repotting_event",
-        original_get_last_repotting
+        measurements_module, "get_last_repotting_event", original_get_last_repotting
     )

@@ -95,9 +95,7 @@ def calculate_water_retained(
     return result
 
 
-def get_last_watering_event_since(
-    conn, plant_id_hex: str
-) -> Optional[Tuple[Any, Any, Any, Any]]:
+def get_last_watering_event_since(conn, plant_id_hex: str) -> Optional[Tuple[Any, Any, Any, Any]]:
     """Return (measured_at, last_dry_weight_g, last_wet_weight_g) of the most recent watering
     event strictly after the reset boundary (last repotting, or plant creation if none).
 
@@ -117,9 +115,7 @@ def get_last_watering_event_since(
                 reset_at = last_repot.measured_at
         else:
             with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,)
-                )
+                cur.execute("SELECT created_at FROM plants WHERE id = UNHEX(%s)", (plant_id_hex,))
                 row = cur.fetchone()
                 reset_at = row[0] if row else None
 

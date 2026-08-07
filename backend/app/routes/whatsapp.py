@@ -1,28 +1,27 @@
 """WhatsApp notification routes for helping users and test messages."""
 
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any, List
 
-from fastapi import APIRouter, Depends, HTTPException, status
 import pytz
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..helpers.whatsapp_notify import (
-    get_thirsty_plants,
-    get_weight_plants,
-    format_digest_message,
-    ensure_whatsapp_send_logs_table,
-    record_whatsapp_send_log,
-    render_placeholders,
-    send_whatsapp_message,
-    send_whatsapp_text_message,
-    save_whatsapp_credentials,
+    SETTINGS_KEY_DAILY_DIGEST,
     _build_thirsty_list,
     _build_weight_plants_list,
-    SETTINGS_KEY_DAILY_DIGEST,
+    ensure_whatsapp_send_logs_table,
+    format_digest_message,
+    get_thirsty_plants,
+    get_weight_plants,
+    record_whatsapp_send_log,
+    render_placeholders,
+    save_whatsapp_credentials,
+    send_whatsapp_message,
+    send_whatsapp_text_message,
 )
-from ..security import get_db, require_authenticated_user, require_admin_user
+from ..security import get_db, require_admin_user, require_authenticated_user
 from ..services.settings_service import SettingsService
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
@@ -63,6 +62,7 @@ async def add_helping_user(
 
     # Generate a simple ID
     import time
+
     helper_id = f"helper_{int(time.time() * 1000)}"
 
     new_helper = {"id": helper_id, "name": name, "phone": phone}
@@ -92,7 +92,9 @@ async def delete_helping_user(
             detail="Helper not found",
         )
 
-    service.update_settings(current_user["id"], {**settings, "whatsapp_helpers": updated_helpers}, version)
+    service.update_settings(
+        current_user["id"], {**settings, "whatsapp_helpers": updated_helpers}, version
+    )
     return {"ok": True}
 
 
@@ -182,6 +184,7 @@ async def trigger_digest(
 # ============================================================================
 # Admin routes for WhatsApp credentials management
 # ============================================================================
+
 
 @router.get("/daily-digest")
 async def get_daily_digest(
@@ -280,7 +283,9 @@ async def send_daily_digest_test(
 
     whatsapp_number = (settings.get("whatsapp_number") or "").strip()
     if not whatsapp_number:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="WhatsApp number not configured")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="WhatsApp number not configured"
+        )
 
     digest_template = (settings.get(SETTINGS_KEY_DAILY_DIGEST) or "").strip()
     if not digest_template:
@@ -302,7 +307,9 @@ async def send_daily_digest_test(
         "thirsty_list": _build_thirsty_list(thirsty_plants, thirsty_list_template or None),
         "helpers_count": str(len(helpers)),
         "admin_username": current_user.get("username", ""),
-        "weight_plants_list": _build_weight_plants_list(weight_plants, weight_plants_template or None),
+        "weight_plants_list": _build_weight_plants_list(
+            weight_plants, weight_plants_template or None
+        ),
         "weight_plants_count": str(len(weight_plants)),
         "phone_number_id": settings.get("whatsapp_number") or "",
     }
@@ -355,7 +362,16 @@ async def get_whatsapp_logs(
 
     items = []
     for row in rows:
-        log_id, user_id, to_number, message_type, triggered_by, success, error_message, created_at = row
+        (
+            log_id,
+            user_id,
+            to_number,
+            message_type,
+            triggered_by,
+            success,
+            error_message,
+            created_at,
+        ) = row
         items.append(
             {
                 "id_hex": log_id.hex() if log_id else None,
@@ -380,6 +396,7 @@ async def get_whatsapp_credentials_route(db: Annotated[Any, Depends(get_db)]) ->
     for security - use this endpoint to verify configuration, not to retrieve the token.
     """
     from ..helpers.whatsapp_notify import get_whatsapp_credentials
+
     creds = get_whatsapp_credentials(db)
     return {
         "api_url": creds.get("api_url", ""),
@@ -425,7 +442,9 @@ async def save_whatsapp_credentials_route(
     # Add hint about Phone Number ID format in the URL
     if phone_number_id:
         if not (phone_number_id.isdigit() and len(phone_number_id) >= 10):
-            logger.warning(f"Phone number ID '{phone_number_id}' might be invalid. It should typically be a numeric phone number ID from the Meta Business Suite.")
+            logger.warning(
+                f"Phone number ID '{phone_number_id}' might be invalid. It should typically be a numeric phone number ID from the Meta Business Suite."
+            )
 
     try:
         success = save_whatsapp_credentials(db, api_url, api_token, template_name, phone_number_id)
@@ -456,7 +475,9 @@ async def send_template_test_message(
 
     whatsapp_number = (settings.get("whatsapp_number") or "").strip()
     if not whatsapp_number:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="WhatsApp number not configured")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="WhatsApp number not configured"
+        )
 
     sent, error = send_whatsapp_message(whatsapp_number, "", conn=db)
     record_whatsapp_send_log(

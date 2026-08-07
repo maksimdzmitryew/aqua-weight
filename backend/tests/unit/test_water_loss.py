@@ -37,11 +37,18 @@ class FakeCursorForConnection:
 
 
 class FakeCursor:
-    def __init__(self, *, fetchone_results: list[object | None] | None = None, explode_on_execute: bool = False):
+    def __init__(
+        self,
+        *,
+        fetchone_results: list[object | None] | None = None,
+        explode_on_execute: bool = False,
+    ):
         self._fetchone_results = list(fetchone_results or [])
         self._explode_on_execute = explode_on_execute
         self.executed: list[tuple[str, tuple | None]] = []
-        self.connection = FakeConnection()  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
+        self.connection = (
+            FakeConnection()
+        )  # Mock connection for get_last_watering_event_since(cursor.connection, ...)
 
     def execute(self, query: str, params=None):
         if self._explode_on_execute:
@@ -73,7 +80,9 @@ def test_calculate_water_loss_watering_event_returns_early_and_sets_total_pct_ze
     assert out.water_loss_total_g is None
 
 
-def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positive(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         wl,
         "get_last_watering_event_since",
@@ -95,7 +104,9 @@ def test_calculate_water_loss_day_pct_uses_last_watering_water_added_when_positi
     assert out.water_loss_day_pct == 50.0
 
 
-def test_calculate_water_loss_day_pct_falls_back_to_last_wet_weight_when_no_water_added(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_day_pct_falls_back_to_last_wet_weight_when_no_water_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Mock a watering event with water_added_g=200 to match the expected 25% (50/200*100)
     monkeypatch.setattr(
         wl,
@@ -135,7 +146,9 @@ def test_calculate_water_loss_ignores_day_pct_errors(monkeypatch: pytest.MonkeyP
     assert out.water_loss_day_pct is None
 
 
-def test_calculate_water_loss_totals_include_sum_and_set_day_pct_if_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_totals_include_sum_and_set_day_pct_if_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         wl,
         "get_last_watering_event_since",
@@ -167,7 +180,9 @@ def test_calculate_water_loss_totals_include_sum_and_set_day_pct_if_missing(monk
     assert params[1] == "f" * 32
 
 
-def test_calculate_water_loss_keeps_totals_none_when_no_prior_watering_event(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_keeps_totals_none_when_no_prior_watering_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(wl, "get_last_watering_event_since", lambda _conn, _plant_id_hex: None)
     cur = FakeCursor()
     out = wl.calculate_water_loss(
@@ -184,7 +199,9 @@ def test_calculate_water_loss_keeps_totals_none_when_no_prior_watering_event(mon
     assert out.water_loss_total_pct is None
 
 
-def test_calculate_water_loss_keeps_totals_none_on_execute_error(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_keeps_totals_none_on_execute_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         wl,
         "get_last_watering_event_since",
@@ -206,7 +223,9 @@ def test_calculate_water_loss_keeps_totals_none_on_execute_error(monkeypatch: py
     assert out.water_loss_total_pct is None
 
 
-def test_calculate_water_loss_skips_daily_calc_when_no_baseline_and_handles_zero_water_added(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_skips_daily_calc_when_no_baseline_and_handles_zero_water_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         wl,
         "get_last_watering_event_since",
@@ -230,7 +249,9 @@ def test_calculate_water_loss_skips_daily_calc_when_no_baseline_and_handles_zero
     assert out.water_loss_total_pct is None
 
 
-def test_calculate_water_loss_does_not_override_existing_day_pct(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_does_not_override_existing_day_pct(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(
         wl,
         "get_last_watering_event_since",
@@ -254,7 +275,9 @@ def test_calculate_water_loss_does_not_override_existing_day_pct(monkeypatch: py
     assert out.water_loss_total_pct == 50.0
 
 
-def test_calculate_water_loss_fallback_day_pct_logs_exception_and_continues(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_calculate_water_loss_fallback_day_pct_logs_exception_and_continues(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class FlakyFloat:
         def __init__(self):
             self._calls = 0

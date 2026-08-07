@@ -52,22 +52,16 @@ def compute_water_status(
             # water-loss/day prediction rule over post-reset measurements.
             from ..helpers.plants_list import PlantsList
 
-            standard_needs_water = PlantsList._check_watering_prediction(
-                conn, plant_id_hex
-            )
+            standard_needs_water = PlantsList._check_watering_prediction(conn, plant_id_hex)
 
-        if water_loss_total_pct == 0 and (
-            water_retained_pct is None or water_retained_pct > 0
-        ):
+        if water_loss_total_pct == 0 and (water_retained_pct is None or water_retained_pct > 0):
             standard_needs_water = False
 
     needs_watering_prediction = False
     if not standard_needs_water:
         from ..helpers.plants_list import PlantsList
 
-        needs_watering_prediction = PlantsList._check_watering_prediction(
-            conn, plant_id_hex
-        )
+        needs_watering_prediction = PlantsList._check_watering_prediction(conn, plant_id_hex)
 
     needs_water = False
     if mode == "vacation":

@@ -1,5 +1,4 @@
 import os as _os
-
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, Depends, FastAPI, Request
@@ -7,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from .db import get_conn
 from .errors import register_exception_handlers
@@ -21,7 +21,6 @@ from .routes.settings import router as settings_router
 from .routes.test_admin import app as test_admin_app
 from .routes.whatsapp import router as whatsapp_router
 from .security import require_authenticated_user
-from prometheus_fastapi_instrumentator import Instrumentator
 
 APP_ENV = _os.getenv("APP_ENV", "development").lower()
 TEST_MODE = _os.getenv("TEST_MODE") == "1"
@@ -31,11 +30,13 @@ API_VERSION = _os.getenv("API_VERSION", "1.0.0")
 if TEST_MODE and APP_ENV not in {"test", "development", "local"}:
     raise RuntimeError("TEST_MODE=1 is only allowed in test/dev environments")
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize database tables on startup."""
     # Ensure WhatsApp credentials table exists
     from .helpers.whatsapp_notify import ensure_whatsapp_credentials_table
+
     conn = get_conn()
     try:
         ensure_whatsapp_credentials_table(conn)

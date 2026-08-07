@@ -181,10 +181,10 @@ def test_get_whatsapp_credentials_decrypts_encrypted_row(
     f = Fernet(key)
     # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
     row = (
-        "https://api",                              # api_url (plaintext)
-        "tpl",                                      # template_name (plaintext)
-        f.encrypt(b"tok").decode(),               # api_token_enc
-        f.encrypt(b"pid").decode(),               # phone_number_id_enc
+        "https://api",  # api_url (plaintext)
+        "tpl",  # template_name (plaintext)
+        f.encrypt(b"tok").decode(),  # api_token_enc
+        f.encrypt(b"pid").decode(),  # phone_number_id_enc
     )
     _CURSORS.extend([FakeCursor(), FakeCursor(fetchone=row)])
 
@@ -220,23 +220,31 @@ def test_save_whatsapp_credentials_encrypts_and_inserts(
     insert_cur = FakeCursor()
     _CURSORS.extend([ensure_cur, insert_cur])
 
-    assert cm.save_whatsapp_credentials(conn=object(), api_url="u", api_token="t",
-                                        template_name="tpl", phone_number_id="pid") is True
+    assert (
+        cm.save_whatsapp_credentials(
+            conn=object(), api_url="u", api_token="t", template_name="tpl", phone_number_id="pid"
+        )
+        is True
+    )
 
-    assert any("CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q, _ in ensure_cur.executed)
+    assert any(
+        "CREATE TABLE IF NOT EXISTS whatsapp_credentials" in q for q, _ in ensure_cur.executed
+    )
     inserts = [p for q, p in insert_cur.executed if "INSERT INTO whatsapp_credentials" in q]
     assert inserts
     # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
     # inserted as positional placeholders: (id, api_url, template_name, api_token_enc, phone_number_id_enc)
     inserted_values = inserts[0]
-    assert len(inserted_values) == 5, f"Expected 5 values, got {len(inserted_values)}: {inserted_values}"
+    assert (
+        len(inserted_values) == 5
+    ), f"Expected 5 values, got {len(inserted_values)}: {inserted_values}"
     f = Fernet(key)
     # Plaintext values (non-sensitive, should remain as-is)
-    assert inserted_values[1] == "u"      # api_url (plaintext)
-    assert inserted_values[2] == "tpl"    # template_name (plaintext)
+    assert inserted_values[1] == "u"  # api_url (plaintext)
+    assert inserted_values[2] == "tpl"  # template_name (plaintext)
     # Encrypted values (sensitive, encrypted)
-    assert f.decrypt(inserted_values[3].encode()).decode() == "t"      # api_token_enc
-    assert f.decrypt(inserted_values[4].encode()).decode() == "pid"    # phone_number_id_enc
+    assert f.decrypt(inserted_values[3].encode()).decode() == "t"  # api_token_enc
+    assert f.decrypt(inserted_values[4].encode()).decode() == "pid"  # phone_number_id_enc
 
 
 def test_migrate_old_credentials_is_noop() -> None:
@@ -373,9 +381,7 @@ def test_ensure_whatsapp_credentials_table_describe_fails_with_table_not_exist()
 def test_ensure_whatsapp_credentials_table_with_all_columns_no_drop() -> None:
     """Test that table with all required columns does not get dropped and recreated."""
     # All required columns present (new schema)
-    existing_columns = [
-        "id", "api_url", "template_name", "api_token_enc", "phone_number_id_enc"
-    ]
+    existing_columns = ["id", "api_url", "template_name", "api_token_enc", "phone_number_id_enc"]
     cur = FakeCursor(fetchall=[(col,) for col in existing_columns])
     _CURSORS.append(cur)
 
@@ -456,10 +462,10 @@ def test_get_whatsapp_credentials_corrupted_schema_recovers_with_row(
                 # After recovery, SELECT should return row with new schema
                 # New schema: api_url (plaintext), template_name (plaintext), api_token_enc, phone_number_id_enc
                 row = (
-                    "https://api",                              # api_url (plaintext)
-                    "tpl",                                      # template_name (plaintext)
-                    f.encrypt(b"tok").decode(),               # api_token_enc
-                    f.encrypt(b"pid").decode(),               # phone_number_id_enc
+                    "https://api",  # api_url (plaintext)
+                    "tpl",  # template_name (plaintext)
+                    f.encrypt(b"tok").decode(),  # api_token_enc
+                    f.encrypt(b"pid").decode(),  # phone_number_id_enc
                 )
                 self.fetchone_return = row
             return super().execute(query, params)

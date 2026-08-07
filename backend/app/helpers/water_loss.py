@@ -96,9 +96,7 @@ def calculate_water_loss(
         # so loss totals are not computed across the repot boundary. When none exists
         # yet, the loss total/percentage values are undefined and left null.
         last_watering_event = get_last_watering_event_since(cursor.connection, plant_id_hex)
-        last_watering_water_added = (
-            last_watering_event[3] if last_watering_event else 0
-        )
+        last_watering_water_added = last_watering_event[3] if last_watering_event else 0
         last_watered_at = last_watering_event[0] if last_watering_event else None
 
         if last_watering_event:

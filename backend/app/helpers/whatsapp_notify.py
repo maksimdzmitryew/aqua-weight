@@ -1,32 +1,24 @@
 """WhatsApp notification helper functions."""
 
-import base64
-import hashlib
-import hmac
-import json
 import logging
 import os
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import httpx
 
 from ..db.core import cursor
-from ..db.core import get_conn
-from .plants_list import PlantsList
 from .credential_manager import (
-    get_whatsapp_credentials as get_whatsapp_credentials_from_manager,
-    save_whatsapp_credentials as save_whatsapp_credentials_from_manager,
-    ensure_whatsapp_credentials_table,
-    migrate_old_credentials,
-    initialize_whatsapp_credentials_if_needed,
-    backup_credentials,
-    get_or_create_encryption_key,
-    _encrypt_with_fernet,
-    _decrypt_with_fernet,
     _generate_bin16_id,
 )
+from .credential_manager import (
+    get_whatsapp_credentials as get_whatsapp_credentials_from_manager,
+)
+from .credential_manager import (
+    save_whatsapp_credentials as save_whatsapp_credentials_from_manager,
+)
+from .plants_list import PlantsList
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +30,6 @@ DEFAULT_TEMPLATE_LANGUAGE = "en_US"
 SETTINGS_KEY_DAILY_DIGEST = "whatsapp_daily_digest"
 
 _PLACEHOLDER_RE = re.compile(r"\{\{\s*([a-zA-Z0-9_]+)\s*\}\}")
-
-
 
 
 def get_whatsapp_credentials(conn) -> dict:
@@ -62,11 +52,15 @@ def get_whatsapp_credentials(conn) -> dict:
         }
 
 
-def save_whatsapp_credentials(conn, api_url: str, api_token: str, template_name: str, phone_number_id: str = "") -> bool:
+def save_whatsapp_credentials(
+    conn, api_url: str, api_token: str, template_name: str, phone_number_id: str = ""
+) -> bool:
     """Save WhatsApp credentials to database (encrypted)."""
     try:
         # Use the credential manager for encryption (required; no insecure fallbacks).
-        return save_whatsapp_credentials_from_manager(conn, api_url, api_token, template_name, phone_number_id)
+        return save_whatsapp_credentials_from_manager(
+            conn, api_url, api_token, template_name, phone_number_id
+        )
     except Exception as e:
         logger.error(f"Failed to save WhatsApp credentials: {e}")
         # Don't re-raise - return failure status
@@ -76,6 +70,7 @@ def save_whatsapp_credentials(conn, api_url: str, api_token: str, template_name:
 def _generate_bin16_id() -> bytes:
     """Generate a compact 16-byte ID suitable for BINARY(16) primary keys."""
     from .credential_manager import _generate_bin16_id as cm_generate_bin16_id
+
     return cm_generate_bin16_id()
 
 
@@ -347,13 +342,15 @@ def get_weight_plants(conn, owner_user_id: bytes) -> List[Dict[str, Any]]:
                 measured_at = measured_at.replace(tzinfo=timezone.utc)
             days_since = (now - measured_at).days
 
-        results.append({
-            "name": row[1],
-            "location": row[2] or "Unknown",
-            "measured_weight_g": measured_weight_g,
-            "measured_at": measured_at,
-            "days_since_last_weigh": days_since,
-        })
+        results.append(
+            {
+                "name": row[1],
+                "location": row[2] or "Unknown",
+                "measured_weight_g": measured_weight_g,
+                "measured_at": measured_at,
+                "days_since_last_weigh": days_since,
+            }
+        )
     return results
 
 

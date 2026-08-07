@@ -128,19 +128,16 @@ def ensure_whatsapp_credentials_table(conn) -> None:
             # Expected columns for the new schema:
             # - api_url, template_name: plaintext (non-sensitive)
             # - api_token_enc, phone_number_id_enc: encrypted (sensitive)
-            required_columns = {
-                'api_url',
-                'template_name',
-                'api_token_enc',
-                'phone_number_id_enc'
-            }
+            required_columns = {"api_url", "template_name", "api_token_enc", "phone_number_id_enc"}
 
             missing_columns = required_columns - columns
 
             if missing_columns:
                 # Table exists but missing required columns - drop and recreate
                 cur.execute("DROP TABLE IF EXISTS whatsapp_credentials")
-                logger.info(f"Dropped whatsapp_credentials table due to missing columns: {missing_columns}")
+                logger.info(
+                    f"Dropped whatsapp_credentials table due to missing columns: {missing_columns}"
+                )
         except Exception as e:
             # Table doesn't exist or has corrupted schema - we'll create it below
             # Check if the error indicates table doesn't exist
@@ -200,7 +197,9 @@ def get_whatsapp_credentials(conn=None) -> Dict[str, str]:
         except Exception as e:
             # If column not found, the table might be corrupted - drop and recreate
             if "Unknown column" in str(e) or "doesn't exist" in str(e):
-                logger.warning(f"WhatsApp credentials table has corrupted schema: {e}. Recreating table.")
+                logger.warning(
+                    f"WhatsApp credentials table has corrupted schema: {e}. Recreating table."
+                )
                 try:
                     # Try to drop the table and let ensure_whatsapp_credentials_table recreate it
                     cur.execute("DROP TABLE IF EXISTS whatsapp_credentials")
@@ -237,10 +236,12 @@ def get_whatsapp_credentials(conn=None) -> Dict[str, str]:
     key = get_or_create_encryption_key(conn)
     # Decrypt encrypted fields; plaintext fields returned as-is (non-sensitive)
     return {
-        "api_url": api_url or "",                                    # Plaintext (non-sensitive)
-        "api_token": _decrypt_with_fernet(key, api_token_enc) if api_token_enc else "",    # Encrypted
-        "template_name": template_name or "",                        # Plaintext (non-sensitive)
-        "phone_number_id": _decrypt_with_fernet(key, phone_number_id_enc) if phone_number_id_enc else "",    # Encrypted
+        "api_url": api_url or "",  # Plaintext (non-sensitive)
+        "api_token": _decrypt_with_fernet(key, api_token_enc) if api_token_enc else "",  # Encrypted
+        "template_name": template_name or "",  # Plaintext (non-sensitive)
+        "phone_number_id": (
+            _decrypt_with_fernet(key, phone_number_id_enc) if phone_number_id_enc else ""
+        ),  # Encrypted
     }
 
 

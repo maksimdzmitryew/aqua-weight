@@ -115,8 +115,20 @@ def db_override(app):
 async def test_list_users_returns_mapped_entries(app, admin_user, db_override):
     created = datetime.datetime(2026, 1, 1, 12, 0, 0, tzinfo=datetime.timezone.utc)
     rows = [
-        (b"\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", "alice", "admin", created, 1),
-        (b"\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", "bob", "customer", created, 0),
+        (
+            b"\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            "alice",
+            "admin",
+            created,
+            1,
+        ),
+        (
+            b"\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+            "bob",
+            "customer",
+            created,
+            0,
+        ),
     ]
     db_override._cursors = [FakeCursor(fetchall_result=rows)]
 
@@ -124,9 +136,15 @@ async def test_list_users_returns_mapped_entries(app, admin_user, db_override):
 
     assert resp.users[0].username == "alice"
     assert resp.users[0].mfa_enabled is True
-    assert resp.users[0].id_hex == b"\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00".hex()
+    assert (
+        resp.users[0].id_hex
+        == b"\x01\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00".hex()
+    )
     assert resp.users[1].mfa_enabled is False
-    assert resp.users[1].id_hex == b"\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00".hex()
+    assert (
+        resp.users[1].id_hex
+        == b"\x03\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00".hex()
+    )
 
 
 @pytest.mark.asyncio

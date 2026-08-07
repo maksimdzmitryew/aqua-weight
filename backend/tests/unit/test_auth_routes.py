@@ -215,7 +215,14 @@ async def test_invite_complete_invalid_nonce_returns_403(
 
     resp = await async_client.post(
         "/api/auth/invite/complete",
-        json={"token": "t", "password": "password1", "device_id": "d1", "page_nonce": "n", "totp_secret": "s", "totp_code": "123456"},
+        json={
+            "token": "t",
+            "password": "password1",
+            "device_id": "d1",
+            "page_nonce": "n",
+            "totp_secret": "s",
+            "totp_code": "123456",
+        },
     )
     assert resp.status_code == 403
     assert resp.json() == {"detail": "Invalid or expired page nonce"}
@@ -280,7 +287,14 @@ async def test_invite_complete_value_error_returns_400(
 
     resp = await async_client.post(
         "/api/auth/invite/complete",
-        json={"token": "t", "password": "password1", "device_id": "d1", "page_nonce": "n", "totp_secret": "s", "totp_code": "123456"},
+        json={
+            "token": "t",
+            "password": "password1",
+            "device_id": "d1",
+            "page_nonce": "n",
+            "totp_secret": "s",
+            "totp_code": "123456",
+        },
     )
     assert resp.status_code == 400
     assert resp.json() == {"detail": "invite broken"}

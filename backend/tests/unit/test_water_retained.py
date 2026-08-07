@@ -1,4 +1,7 @@
-from backend.app.helpers.water_retained import calculate_water_retained, get_last_watering_event_since
+from backend.app.helpers.water_retained import (
+    calculate_water_retained,
+    get_last_watering_event_since,
+)
 from backend.app.schemas.measurement import MeasurementItem
 
 

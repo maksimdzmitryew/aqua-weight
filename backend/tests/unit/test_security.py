@@ -193,7 +193,9 @@ def test_page_nonce_signature_mismatch_returns_false(monkeypatch: pytest.MonkeyP
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_bearer_missing_subject(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_bearer_missing_subject(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(sec.jwt, "decode", lambda *_a, **_k: {})
     auth = HTTPAuthorizationCredentials(scheme="Bearer", credentials="t")
     with pytest.raises(HTTPException) as exc_info:
@@ -203,7 +205,9 @@ async def test_require_authenticated_user_bearer_missing_subject(monkeypatch: py
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_bearer_user_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_bearer_user_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr(sec.jwt, "decode", lambda *_a, **_k: {"sub": "a" * 32})
     monkeypatch.setattr(sec, "hex_to_bin", lambda _h: b"u" * 16)
 
@@ -257,7 +261,9 @@ async def test_require_authenticated_user_bearer_invalid(monkeypatch: pytest.Mon
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_test_mode_fallback_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_test_mode_fallback_requires_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.delenv("API_KEY", raising=False)
 
@@ -267,7 +273,9 @@ async def test_require_authenticated_user_test_mode_fallback_requires_api_key(mo
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_test_mode_fallback_admin_from_db(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_test_mode_fallback_admin_from_db(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.setenv("API_KEY", "k")
 
@@ -280,7 +288,9 @@ async def test_require_authenticated_user_test_mode_fallback_admin_from_db(monke
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_test_mode_fallback_no_admin_user(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_test_mode_fallback_no_admin_user(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.setenv("API_KEY", "k")
     db = FakeDB([FakeCursor(fetchone_results=[None])])
@@ -289,7 +299,9 @@ async def test_require_authenticated_user_test_mode_fallback_no_admin_user(monke
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_test_mode_fallback_invalid_key(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_test_mode_fallback_invalid_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.setenv("API_KEY", "k")
     with pytest.raises(HTTPException) as exc_info:
@@ -299,7 +311,9 @@ async def test_require_authenticated_user_test_mode_fallback_invalid_key(monkeyp
 
 
 @pytest.mark.asyncio
-async def test_require_authenticated_user_non_test_mode_requires_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_authenticated_user_non_test_mode_requires_bearer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("TEST_MODE", "0")
     with pytest.raises(HTTPException) as exc_info:
         await sec.require_authenticated_user(auth=None, db=FakeDB([]), x_api_key=None)
@@ -337,7 +351,11 @@ async def test_require_location_access_branches() -> None:
 
     # Invalid hex
     with pytest.raises(HTTPException) as exc_info:
-        await sec.require_location_access(SimpleNamespace(path_params={"location_id": "zzz"}), {"global_role": "user", "id": b"u"}, FakeDB([]))
+        await sec.require_location_access(
+            SimpleNamespace(path_params={"location_id": "zzz"}),
+            {"global_role": "user", "id": b"u"},
+            FakeDB([]),
+        )
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
     # Test-mode fallback user with id=None returns location_id
@@ -369,7 +387,9 @@ async def test_verify_location_access_branches() -> None:
 
     # No row -> denied
     with pytest.raises(HTTPException) as exc_info:
-        await sec.verify_location_access(FakeDB([FakeCursor(fetchone_results=[None])]), b"u", "user", valid_hex)
+        await sec.verify_location_access(
+            FakeDB([FakeCursor(fetchone_results=[None])]), b"u", "user", valid_hex
+        )
     assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
     # Require owner and not owner -> denied
@@ -402,11 +422,20 @@ async def test_require_plant_access_and_owner_branches() -> None:
     req = SimpleNamespace(path_params={"plant_id": plant_hex})
 
     # Missing plant_id
-    assert await sec.require_plant_access(SimpleNamespace(path_params={}), {"global_role": "user", "id": b"u"}, FakeDB([])) == ""
+    assert (
+        await sec.require_plant_access(
+            SimpleNamespace(path_params={}), {"global_role": "user", "id": b"u"}, FakeDB([])
+        )
+        == ""
+    )
 
     # Invalid hex
     with pytest.raises(HTTPException):
-        await sec.require_plant_access(SimpleNamespace(path_params={"plant_id": "zzz"}), {"global_role": "user", "id": b"u"}, FakeDB([]))
+        await sec.require_plant_access(
+            SimpleNamespace(path_params={"plant_id": "zzz"}),
+            {"global_role": "user", "id": b"u"},
+            FakeDB([]),
+        )
 
     # Admin not found -> 404
     db = FakeDB([FakeCursor(fetchone_results=[None])])
@@ -416,7 +445,9 @@ async def test_require_plant_access_and_owner_branches() -> None:
 
     # Admin found -> ok
     db = FakeDB([FakeCursor(fetchone_results=[(1,)])])
-    assert await sec.require_plant_access(req, {"global_role": "admin", "id": b"u"}, db) == plant_hex
+    assert (
+        await sec.require_plant_access(req, {"global_role": "admin", "id": b"u"}, db) == plant_hex
+    )
 
     # Non-admin not found -> 404
     db = FakeDB([FakeCursor(fetchone_results=[None])])
@@ -427,7 +458,9 @@ async def test_require_plant_access_and_owner_branches() -> None:
     # Non-admin allowed by ACL
     user_id = b"u" * 16
     db = FakeDB([FakeCursor(fetchone_results=[(b"x" * 16, "helper")])])
-    assert await sec.require_plant_access(req, {"global_role": "user", "id": user_id}, db) == plant_hex
+    assert (
+        await sec.require_plant_access(req, {"global_role": "user", "id": user_id}, db) == plant_hex
+    )
 
     # Non-admin denied
     db = FakeDB([FakeCursor(fetchone_results=[(b"x" * 16, None)])])
@@ -437,7 +470,9 @@ async def test_require_plant_access_and_owner_branches() -> None:
 
     # Plant owner required: allowed by direct owner
     db = FakeDB([FakeCursor(fetchone_results=[(user_id, None)])])
-    assert await sec.require_plant_owner(req, {"global_role": "user", "id": user_id}, db) == plant_hex
+    assert (
+        await sec.require_plant_owner(req, {"global_role": "user", "id": user_id}, db) == plant_hex
+    )
 
     # Plant owner required: missing plant_id
     assert (
@@ -466,7 +501,9 @@ async def test_require_plant_access_and_owner_branches() -> None:
 
     # Admin in require_plant_owner found -> ok
     db = FakeDB([FakeCursor(fetchone_results=[(1,)])])
-    assert await sec.require_plant_owner(req, {"global_role": "admin", "id": user_id}, db) == plant_hex
+    assert (
+        await sec.require_plant_owner(req, {"global_role": "admin", "id": user_id}, db) == plant_hex
+    )
 
     # Non-admin require_plant_owner row missing -> 404
     db = FakeDB([FakeCursor(fetchone_results=[None])])
@@ -495,7 +532,9 @@ async def test_verify_plant_access_and_measurement_access(monkeypatch: pytest.Mo
 
     # Not found
     with pytest.raises(HTTPException) as exc_info:
-        await sec.verify_plant_access(FakeDB([FakeCursor(fetchone_results=[None])]), b"u", "user", plant_hex)
+        await sec.verify_plant_access(
+            FakeDB([FakeCursor(fetchone_results=[None])]), b"u", "user", plant_hex
+        )
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     # Allowed (non-owner, helper)
@@ -510,7 +549,9 @@ async def test_verify_plant_access_and_measurement_access(monkeypatch: pytest.Mo
 
     # Require owner allowed
     db = FakeDB([FakeCursor(fetchone_results=[(b"u" * 16, None)])])
-    assert await sec.verify_plant_access(db, b"u" * 16, "user", plant_hex, require_owner=True) is None
+    assert (
+        await sec.verify_plant_access(db, b"u" * 16, "user", plant_hex, require_owner=True) is None
+    )
 
     # Non-owner denied for non-owner checks
     db = FakeDB([FakeCursor(fetchone_results=[(b"x" * 16, None)])])

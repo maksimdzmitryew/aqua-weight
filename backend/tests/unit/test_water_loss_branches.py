@@ -30,7 +30,8 @@ def test_branch_67_to_85_skips_day_calc_when_no_baseline(monkeypatch):
 
     # Ensure last_watering_event is None so the totals section takes the 'no prior watering' path
     monkeypatch.setattr(
-        "backend.app.helpers.water_retained.get_last_watering_event_since", lambda conn, plant_id_hex: None
+        "backend.app.helpers.water_retained.get_last_watering_event_since",
+        lambda conn, plant_id_hex: None,
     )
 
     res = calculate_water_loss(

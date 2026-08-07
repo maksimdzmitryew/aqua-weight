@@ -94,12 +94,8 @@ def fake_conn(monkeypatch: pytest.MonkeyPatch):
     conn = FakeConnection(fetchone_result=None)
     created["conn"] = conn
 
-    monkeypatch.setattr(
-        test_admin, "connect", lambda: _FakeConnectCM(_make())
-    )
-    monkeypatch.setattr(
-        test_admin, "cursor", lambda c: _FakeCursorCM(c)
-    )
+    monkeypatch.setattr(test_admin, "connect", lambda: _FakeConnectCM(_make()))
+    monkeypatch.setattr(test_admin, "cursor", lambda c: _FakeCursorCM(c))
     monkeypatch.setattr(test_admin, "hash_password", lambda pw: f"hashed::{pw}")
     # test_login imports JWT_SECRET_KEY/JWT_ALGORITHM lazily from
     # backend.app.security, which default to usable values in TEST_MODE.
