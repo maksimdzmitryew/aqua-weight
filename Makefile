@@ -50,6 +50,15 @@ help:
 	@echo "  make test-be           - Run backend tests (pytest)"
 	@echo "  make test-integration  - Run integration tests"
 	@echo "  make test-api          - Run API contract tests"
+	@echo "  make test-scales-build - Build dedicated scales test-runner container"
+	@echo "  make test-scales-up    - Start DB + API + scales test-runner services"
+	@echo "  make test-scales-unit  - Run scales unit tests only (in Docker)"
+	@echo "  make test-scales-int   - Run scales integration tests only (in Docker)"
+	@echo "  make test-scales-compat - Run MicroPython compatibility gate (in Docker)"
+	@echo "  make test-scales       - Run full scales suite with strict coverage gate"
+	@echo "  make test-scales-deploy-verify - Verify scales deploy manifest checksums (in Docker)"
+	@echo "  make test-scales-deploy-stage  - Stage scales deploy bundle from manifest (in Docker)"
+	@echo "  make test-scales-deploy-smoke  - Stage + smoke-check deploy bundle imports (in Docker)"
 	@echo "  make test-logs         - Show test logs"
 	@echo "  make test-ps           - Status of test containers"
 	@echo ""
@@ -205,6 +214,47 @@ test-full:
 .PHONY: test-cov
 test-cov:
 	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec backend pytest -q --cov=app --cov-report=term-missing
+
+.PHONY: test-scales-build
+test-scales-build:
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) build scales-tests
+
+.PHONY: test-scales-up
+test-scales-up:
+	API_KEY=$${API_KEY:-test-api-key} $(DOCKER_COMPOSE) -f $(TEST_COMPOSE) up -d db api scales-tests
+
+.PHONY: test-scales-unit
+test-scales-unit: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests pytest -q -c /dev/null -m "not integration" scales/tests
+
+.PHONY: test-scales-int
+test-scales-int: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests pytest -q -c /dev/null -m integration scales/tests
+
+.PHONY: test-scales-compat
+test-scales-compat: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests \
+		python -m scales.scripts.check_micropython_compat
+
+.PHONY: test-scales
+test-scales: test-scales-up test-scales-compat
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests \
+		pytest -q -c /dev/null scales/tests --cov=scales/firmware --cov-branch --cov-report=term-missing --cov-fail-under=100
+
+.PHONY: test-scales-deploy-verify
+test-scales-deploy-verify: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests \
+		python -m scales.scripts.deploy_firmware --verify-only
+
+.PHONY: test-scales-deploy-stage
+test-scales-deploy-stage: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests \
+		python -m scales.scripts.deploy_firmware --print-mpremote
+
+.PHONY: test-scales-deploy-smoke
+test-scales-deploy-smoke: test-scales-up
+	$(DOCKER_COMPOSE) -f $(TEST_COMPOSE) exec -e PYTHONPATH=/workspace scales-tests \
+		python -m scales.scripts.deploy_firmware --smoke
 
 # --- E2E ---
 .PHONY: e2e-deps

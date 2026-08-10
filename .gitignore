@@ -60,6 +60,7 @@ pnpm-debug.log*
 .env
 .env.*
 .envrc
+scales/firmware/secrets.py
 
 # Package manager configs that may contain credentials
 auth.json
