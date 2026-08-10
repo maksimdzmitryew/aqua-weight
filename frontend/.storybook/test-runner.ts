@@ -1,4 +1,4 @@
-import type { TestRunnerConfig } from '@storybook/test-runner';
+import type { TestRunnerConfig } from '@storybook/test-runner'
 
 const config: TestRunnerConfig = {
   async preRender(page) {
@@ -7,6 +7,6 @@ const config: TestRunnerConfig = {
   async postRender(page) {
     // Hook for post-render checks
   },
-};
+}
 
-export default config;
+export default config
