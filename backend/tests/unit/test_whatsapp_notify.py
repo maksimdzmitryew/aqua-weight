@@ -97,9 +97,9 @@ def test_save_whatsapp_credentials_returns_false_on_error(monkeypatch: pytest.Mo
 
 
 def test_generate_bin16_id_delegates_to_credential_manager(monkeypatch: pytest.MonkeyPatch) -> None:
-    from backend.app.helpers import credential_manager as cm
+    import backend.app.helpers.whatsapp_notify as wn
 
-    monkeypatch.setattr(cm, "_generate_bin16_id", lambda: b"x" * 16)
+    monkeypatch.setattr(wn, "_generate_bin16_id", lambda: b"x" * 16)
     assert wn._generate_bin16_id() == b"x" * 16
 
 

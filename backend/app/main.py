@@ -35,7 +35,7 @@ if TEST_MODE and APP_ENV not in {"test", "development", "local"}:
 async def lifespan(app: FastAPI):
     """Initialize database tables on startup."""
     # Ensure WhatsApp credentials table exists
-    from .helpers.whatsapp_notify import ensure_whatsapp_credentials_table
+    from .helpers.credential_manager import ensure_whatsapp_credentials_table
 
     conn = get_conn()
     try:

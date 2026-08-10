@@ -67,13 +67,6 @@ def save_whatsapp_credentials(
         return False
 
 
-def _generate_bin16_id() -> bytes:
-    """Generate a compact 16-byte ID suitable for BINARY(16) primary keys."""
-    from .credential_manager import _generate_bin16_id as cm_generate_bin16_id
-
-    return cm_generate_bin16_id()
-
-
 def render_placeholders(template_text: str, values: Dict[str, str]) -> str:
     """Render {{placeholders}} using an allowlist mapping.
 
