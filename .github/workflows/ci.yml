@@ -43,8 +43,8 @@ jobs:
       - name: Mypy (type check)
         run: mypy backend/app --config-file=pyproject.toml
 
-      - name: Start test stack (db + runner)
-        run: docker compose -f docker-compose.test.yml up -d db runner
+      - name: Start test stack (db + backend)
+        run: docker compose -f docker-compose.test.yml up -d db backend
 
       - name: Wait for DB healthy
         run: |
@@ -53,9 +53,9 @@ jobs:
               ping -h 127.0.0.1 --protocol=TCP -uroot -p"${MARIADB_ROOT_PASSWORD:-rootpass}" --silent; then
               echo "DB OK"; break; fi; echo "Waiting for DB..."; sleep 3; done
 
-      - name: Pytest (inside runner) with 10% coverage
+      - name: Pytest (inside backend) with 10% coverage
         run: |
-          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+          docker compose -f docker-compose.test.yml exec -T backend bash -lc \
             "pytest -q --cov=backend/app --cov-report=xml:backend-coverage.xml --cov-report=term-missing --cov-fail-under=10"
 
       - name: Upload backend coverage artifact
@@ -79,8 +79,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Start test stack (db + runner)
-        run: docker compose -f docker-compose.test.yml up -d db runner
+      - name: Start test stack (db + backend)
+        run: docker compose -f docker-compose.test.yml up -d db backend
 
       - name: Wait for DB healthy
         run: |
@@ -91,7 +91,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+          docker compose -f docker-compose.test.yml exec -T backend bash -lc \
             "pytest -q backend/tests/integration -v -m integration"
 
       - name: Teardown test stack
@@ -109,8 +109,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Start test stack (db + runner)
-        run: docker compose -f docker-compose.test.yml up -d db runner
+      - name: Start test stack (db + backend)
+        run: docker compose -f docker-compose.test.yml up -d db backend
 
       - name: Wait for DB healthy
         run: |
@@ -121,7 +121,7 @@ jobs:
 
       - name: Run API contract tests
         run: |
-          docker compose -f docker-compose.test.yml exec -T runner bash -lc \
+          docker compose -f docker-compose.test.yml exec -T backend bash -lc \
             "pytest -q backend/tests/integration/test_api_contract.py -v --tb=short"
 
       - name: Teardown test stack
