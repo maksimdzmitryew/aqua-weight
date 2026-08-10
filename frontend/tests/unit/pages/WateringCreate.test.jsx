@@ -20,14 +20,31 @@ vi.mock('../../../src/components/DashboardLayout.jsx', () => ({
 }))
 
 vi.mock('../../../src/components/ConfirmDialog.jsx', () => ({
-  default: ({ open, onConfirm, onCancel, onClose, title, message, confirmText, cancelText, tone, defaultFocus }) =>
+  default: ({
+    open,
+    onConfirm,
+    onCancel,
+    onClose,
+    title,
+    message,
+    confirmText,
+    cancelText,
+    tone,
+    defaultFocus,
+  }) =>
     open ? (
       <div role="dialog" data-testid="mock-confirm-dialog">
         <h2>{title}</h2>
         <div>{message}</div>
-        <button onClick={onConfirm} data-testid="confirm-btn">{confirmText}</button>
-        <button onClick={onCancel} data-testid="cancel-btn">{cancelText}</button>
-        <button onClick={onClose} data-testid="close-btn">Close</button>
+        <button onClick={onConfirm} data-testid="confirm-btn">
+          {confirmText}
+        </button>
+        <button onClick={onCancel} data-testid="cancel-btn">
+          {cancelText}
+        </button>
+        <button onClick={onClose} data-testid="close-btn">
+          Close
+        </button>
       </div>
     ) : null,
 }))

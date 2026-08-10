@@ -39,13 +39,13 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 const SORTABLE_COLUMNS = {
-  'care': { label: 'Care', field: 'water_retained_pct' },
-  'freq': { label: 'Freq', field: 'frequency_days' },
-  'next': { label: 'Next', field: 'next_watering_at' },
-  'name': { label: 'Name', field: 'name' },
-  'notes': { label: 'Notes', field: 'notes' },
-  'location': { label: 'Location', field: 'location' },
-  'updated': { label: 'Updated', field: 'latest_at' },
+  care: { label: 'Care', field: 'water_retained_pct' },
+  freq: { label: 'Freq', field: 'frequency_days' },
+  next: { label: 'Next', field: 'next_watering_at' },
+  name: { label: 'Name', field: 'name' },
+  notes: { label: 'Notes', field: 'notes' },
+  location: { label: 'Location', field: 'location' },
+  updated: { label: 'Updated', field: 'latest_at' },
 }
 
 function SortablePlantRow({
@@ -675,209 +675,232 @@ export default function PlantsList() {
             </div>
           )}
           <div style={loading ? { opacity: 0.4, pointerEvents: 'none' } : {}}>
-          {/* Active filter indicator */}
-          {searchQuery && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '6px 12px',
-                margin: '0 0 12px 0',
-                background: '#f3f4f6',
-                borderRadius: 6,
-                fontSize: 14,
-                color: '#374151',
-              }}
-            >
-              <span>
-                Filtered by: <strong>&quot;{searchQuery}&quot;</strong>
-              </span>
-              <button
-                onClick={() => handleSearchChange('')}
+            {/* Active filter indicator */}
+            {searchQuery && (
+              <div
                 style={{
-                  background: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '2px 6px',
-                  fontSize: 16,
-                  color: '#6b7280',
-                  lineHeight: 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 12px',
+                  margin: '0 0 12px 0',
+                  background: '#f3f4f6',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  color: '#374151',
                 }}
-                aria-label="Clear filter"
-                title="Clear filter"
               >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* Drift detection notification */}
-          {showDriftNotification && (
-            <DriftNotification onRefresh={handleRefresh} onDismiss={handleDismissDrift} />
-          )}
-
-          {/* Conditional content based on results */}
-          {total === 0 ? (
-            searchQuery ? (
-              // Empty search results - user filtered but got nothing
-              <EmptyState
-                title={`No plants found for "${searchQuery}"`}
-                description="Try a different search term or clear the filter to see all plants."
-              >
-                <button className="btn btn-primary" onClick={() => handleSearchChange('')}>
-                  Clear search
-                </button>
-              </EmptyState>
-            ) : (
-              // Truly empty database - no plants exist at all
-              !loading && (
-                <EmptyState
-                  title="No plants"
-                  description="Get started by creating your first plant."
+                <span>
+                  Filtered by: <strong>&quot;{searchQuery}&quot;</strong>
+                </span>
+                <button
+                  onClick={() => handleSearchChange('')}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    fontSize: 16,
+                    color: '#6b7280',
+                    lineHeight: 1,
+                  }}
+                  aria-label="Clear filter"
+                  title="Clear filter"
                 >
-                  <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>
-                    New plant
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* Drift detection notification */}
+            {showDriftNotification && (
+              <DriftNotification onRefresh={handleRefresh} onDismiss={handleDismissDrift} />
+            )}
+
+            {/* Conditional content based on results */}
+            {total === 0 ? (
+              searchQuery ? (
+                // Empty search results - user filtered but got nothing
+                <EmptyState
+                  title={`No plants found for "${searchQuery}"`}
+                  description="Try a different search term or clear the filter to see all plants."
+                >
+                  <button className="btn btn-primary" onClick={() => handleSearchChange('')}>
+                    Clear search
                   </button>
                 </EmptyState>
+              ) : (
+                // Truly empty database - no plants exist at all
+                !loading && (
+                  <EmptyState
+                    title="No plants"
+                    description="Get started by creating your first plant."
+                  >
+                    <button className="btn btn-primary" onClick={() => navigate('/plants/new')}>
+                      New plant
+                    </button>
+                  </EmptyState>
+                )
               )
-            )
-          ) : (
-            <div className="overflow-x-auto">
-              {/* Pagination controls (top) */}
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                pageSize={limit}
-                onPageSizeChange={handlePageSizeChange}
-                total={total}
-                disabled={loading}
-              />
+            ) : (
+              <div className="overflow-x-auto">
+                {/* Pagination controls (top) */}
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  pageSize={limit}
+                  onPageSizeChange={handlePageSizeChange}
+                  total={total}
+                  disabled={loading}
+                />
 
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={displayedPlants.map((p) => p.uuid).filter(Boolean)}
-                  strategy={verticalListSortingStrategy}
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
                 >
-                  <table className="table plants-table">
-                    <thead>
-                      <tr>
-                        <th
-                          className="th"
-                          scope="col"
-                          title="Current retained water percentage and quick actions"
-                          style={{ minWidth: 200, cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('care')}
-                        >
-                          Water min/retained{' '}
-                          {sortConfig.column === 'care' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th"
-                          scope="col"
-                          title="Plant name"
-                          style={{ minWidth: 160, width: 180, cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('name')}
-                        >
-                          Name {sortConfig.column === 'name' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th"
-                          scope="col"
-                          title="Notes"
-                          style={{ minWidth: 160, cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('notes')}
-                        >
-                          Notes {sortConfig.column === 'notes' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th hide-column-phone"
-                          scope="col"
-                          title="Watering frequency"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('freq')}
-                        >
-                          Freq {sortConfig.column === 'freq' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th hide-column-phone"
-                          scope="col"
-                          title="Next planned watering date"
-                          style={{ cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('next')}
-                        >
-                          Next {sortConfig.column === 'next' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th hide-column-phone"
-                          scope="col"
-                          title="Location"
-                          style={{ minWidth: 90, cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('location')}
-                        >
-                          Location {sortConfig.column === 'location' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th
-                          className="th hide-column-tablet"
-                          scope="col"
-                          title="Last update time"
-                          style={{ minWidth: 100, width: 100, cursor: 'pointer', userSelect: 'none' }}
-                          onClick={() => handleSort('updated')}
-                        >
-                          Updated {sortConfig.column === 'updated' && (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
-                          <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                        <th className="th right" scope="col" title="Row actions">
-                          Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedPlants.map((p, idx) => (
-                        <SortablePlantRow
-                          key={p.uuid || idx}
-                          p={p}
-                          idx={idx}
-                          canReorder={!searchQuery && page === 1}
-                          operationMode={operationMode}
-                          defaultThreshold={defaultThreshold}
-                          handleView={handleView}
-                          handleEdit={handleEdit}
-                          handleDelete={handleDelete}
-                          moveUp={moveUp}
-                          moveDown={moveDown}
-                          displayedPlantsCount={displayedPlants.length}
-                        />
-                      ))}
-                    </tbody>
-                  </table>
-                </SortableContext>
-              </DndContext>
+                  <SortableContext
+                    items={displayedPlants.map((p) => p.uuid).filter(Boolean)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <table className="table plants-table">
+                      <thead>
+                        <tr>
+                          <th
+                            className="th"
+                            scope="col"
+                            title="Current retained water percentage and quick actions"
+                            style={{ minWidth: 200, cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => handleSort('care')}
+                          >
+                            Water min/retained{' '}
+                            {sortConfig.column === 'care' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th"
+                            scope="col"
+                            title="Plant name"
+                            style={{
+                              minWidth: 160,
+                              width: 180,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                            onClick={() => handleSort('name')}
+                          >
+                            Name{' '}
+                            {sortConfig.column === 'name' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th"
+                            scope="col"
+                            title="Notes"
+                            style={{ minWidth: 160, cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => handleSort('notes')}
+                          >
+                            Notes{' '}
+                            {sortConfig.column === 'notes' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th hide-column-phone"
+                            scope="col"
+                            title="Watering frequency"
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => handleSort('freq')}
+                          >
+                            Freq{' '}
+                            {sortConfig.column === 'freq' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th hide-column-phone"
+                            scope="col"
+                            title="Next planned watering date"
+                            style={{ cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => handleSort('next')}
+                          >
+                            Next{' '}
+                            {sortConfig.column === 'next' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th hide-column-phone"
+                            scope="col"
+                            title="Location"
+                            style={{ minWidth: 90, cursor: 'pointer', userSelect: 'none' }}
+                            onClick={() => handleSort('location')}
+                          >
+                            Location{' '}
+                            {sortConfig.column === 'location' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th
+                            className="th hide-column-tablet"
+                            scope="col"
+                            title="Last update time"
+                            style={{
+                              minWidth: 100,
+                              width: 100,
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                            onClick={() => handleSort('updated')}
+                          >
+                            Updated{' '}
+                            {sortConfig.column === 'updated' &&
+                              (sortConfig.direction === 'asc' ? ' ↑' : ' ↓')}
+                            <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                          <th className="th right" scope="col" title="Row actions">
+                            Actions <span style={{ marginLeft: 6, color: '#6b7280' }}>ⓘ</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedPlants.map((p, idx) => (
+                          <SortablePlantRow
+                            key={p.uuid || idx}
+                            p={p}
+                            idx={idx}
+                            canReorder={!searchQuery && page === 1}
+                            operationMode={operationMode}
+                            defaultThreshold={defaultThreshold}
+                            handleView={handleView}
+                            handleEdit={handleEdit}
+                            handleDelete={handleDelete}
+                            moveUp={moveUp}
+                            moveDown={moveDown}
+                            displayedPlantsCount={displayedPlants.length}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  </SortableContext>
+                </DndContext>
 
-              {/* Pagination controls (bottom) */}
-              <Pagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={handlePageChange}
-                pageSize={limit}
-                onPageSizeChange={handlePageSizeChange}
-                total={total}
-                disabled={loading}
-              />
-            </div>
-          )}
-        </div>
+                {/* Pagination controls (bottom) */}
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  pageSize={limit}
+                  onPageSizeChange={handlePageSizeChange}
+                  total={total}
+                  disabled={loading}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
       <ConfirmDialog

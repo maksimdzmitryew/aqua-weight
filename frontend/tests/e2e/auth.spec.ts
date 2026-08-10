@@ -50,7 +50,9 @@ test.describe('Session Timeout & Re-authentication Flow', () => {
     await expect(page.getByRole('heading', { name: /login/i })).toBeVisible()
   })
 
-  test('UI handles expired refresh token by redirecting to login without loop', async ({ page }) => {
+  test('UI handles expired refresh token by redirecting to login without loop', async ({
+    page,
+  }) => {
     // Mock ALL API routes (including refresh) to return 401
     await page.route('**/*', async (route) => {
       const url = new URL(route.request().url())

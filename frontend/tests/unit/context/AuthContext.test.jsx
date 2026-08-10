@@ -59,7 +59,7 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     // Initially should show Loader
@@ -79,14 +79,14 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     await waitFor(() => {
       expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
       expect(screen.getByTestId('username')).toHaveTextContent('test_admin')
     })
-    
+
     // Check that setAuthHooks was called and getAccessToken returns the test token
     const authHooks = apiClient.setAuthHooks.mock.calls[0][0]
     expect(authHooks.getAccessToken()).toBe(mockToken)
@@ -96,13 +96,13 @@ describe('AuthContext', () => {
     apiClient.refreshTokens.mockRejectedValue(new Error('no session'))
     apiClient.post.mockResolvedValue({
       access_token: 'new-token',
-      user: { username: 'logged-in-user' }
+      user: { username: 'logged-in-user' },
     })
 
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     await waitFor(() => {
@@ -115,23 +115,26 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('status')).toHaveTextContent('authenticated')
     expect(screen.getByTestId('username')).toHaveTextContent('logged-in-user')
-    expect(apiClient.post).toHaveBeenCalledWith('/auth/login', expect.objectContaining({
-      username: 'testuser',
-      password: 'password'
-    }))
+    expect(apiClient.post).toHaveBeenCalledWith(
+      '/auth/login',
+      expect.objectContaining({
+        username: 'testuser',
+        password: 'password',
+      }),
+    )
   })
 
   it('performs logout', async () => {
     // Start authenticated
     apiClient.refreshTokens.mockResolvedValue({
       access_token: 'token',
-      user: { username: 'user' }
+      user: { username: 'user' },
     })
 
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     await waitFor(() => {
@@ -161,20 +164,20 @@ describe('AuthContext', () => {
 
     apiClient.post.mockResolvedValue({
       access_token: 'mfa-new-token',
-      user: { username: 'mfa-user' }
+      user: { username: 'mfa-user' },
     })
 
     render(
       <AuthProvider>
         <MfaTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     await waitFor(() => expect(typeof verifyMfaFn).toBe('function'))
 
     let res
     await act(async () => {
-       res = await verifyMfaFn('mfa-token', '123456')
+      res = await verifyMfaFn('mfa-token', '123456')
     })
 
     expect(res.access_token).toBe('mfa-new-token')
@@ -184,11 +187,11 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     const authHooks = apiClient.setAuthHooks.mock.calls[0][0]
-    
+
     // This should trigger toast.error (mocking toast is not easy but we can check if it's called if we mock it)
     // For now we just call it to get coverage
     await act(async () => {
@@ -200,11 +203,11 @@ describe('AuthContext', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     const authHooks = apiClient.setAuthHooks.mock.calls[0][0]
-    
+
     await act(async () => {
       authHooks.onUnauthenticated()
     })
@@ -215,9 +218,11 @@ describe('AuthContext', () => {
   it('throws error if useAuth is used outside AuthProvider', () => {
     // Suppress console.error for this expected error
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    
-    expect(() => render(<AuthTestComponent />)).toThrow('useAuth must be used within an AuthProvider')
-    
+
+    expect(() => render(<AuthTestComponent />)).toThrow(
+      'useAuth must be used within an AuthProvider',
+    )
+
     consoleSpy.mockRestore()
   })
 })

@@ -40,10 +40,21 @@ export default function BulkMeasurementTable({
 
   const renderHeaders = () => (
     <>
-      <TableHeader title={firstColumnTooltip} style={{ minWidth: 165 }}>{firstColumnLabel}</TableHeader>
-      <TableHeader title="Watering threshold — water when retained ≤ value" style={{ minWidth: 95 }}>Thresh</TableHeader>
-      <TableHeader title="Plant name" style={{ minWidth: 200 }}>Name</TableHeader>
-      <TableHeader title="Notes" style={{ minWidth: 240 }}>Notes</TableHeader>
+      <TableHeader title={firstColumnTooltip} style={{ minWidth: 165 }}>
+        {firstColumnLabel}
+      </TableHeader>
+      <TableHeader
+        title="Watering threshold — water when retained ≤ value"
+        style={{ minWidth: 95 }}
+      >
+        Thresh
+      </TableHeader>
+      <TableHeader title="Plant name" style={{ minWidth: 200 }}>
+        Name
+      </TableHeader>
+      <TableHeader title="Notes" style={{ minWidth: 240 }}>
+        Notes
+      </TableHeader>
       <TableHeader title="Location" className="th hide-column-phone" style={{ minWidth: 90 }}>
         Location
       </TableHeader>
@@ -58,7 +69,11 @@ export default function BulkMeasurementTable({
         Water loss
       </TableHeader>
       {showUpdatedColumn && (
-        <TableHeader title="Last update time" className="th hide-column-tablet" style={{ minWidth: 100 }}>
+        <TableHeader
+          title="Last update time"
+          className="th hide-column-tablet"
+          style={{ minWidth: 100 }}
+        >
           Updated
         </TableHeader>
       )}
@@ -216,11 +231,23 @@ export default function BulkMeasurementTable({
                 ...(iconToUse || mId || needsWater ? {} : { visibility: 'hidden' }),
               }}
             >
-              {!mId && (iconToUse === 'water' || (apiResponded && needsWater)) && <StatusIcon type="water" active={true} />}
+              {!mId && (iconToUse === 'water' || (apiResponded && needsWater)) && (
+                <StatusIcon type="water" active={true} />
+              )}
               {!mId && iconToUse === 'measure' && <StatusIcon type="measure" active={true} />}
             </span>
             {retained !== 'N/A' && (
-              <span style={{ fontSize: '0.9em', color: '#6b7280', width: 36, textAlign: 'right', display: 'inline-block' }}>{displayRetained}</span>
+              <span
+                style={{
+                  fontSize: '0.9em',
+                  color: '#6b7280',
+                  width: 36,
+                  textAlign: 'right',
+                  display: 'inline-block',
+                }}
+              >
+                {displayRetained}
+              </span>
             )}
             {operationMode === 'vacation' && approx?.next_watering_at && (
               <span
@@ -343,9 +370,9 @@ export default function BulkMeasurementTable({
             </a>
           ) : (
             displayWaterLossText
-        )}
-      </td>
-      {showUpdatedColumn && (
+          )}
+        </td>
+        {showUpdatedColumn && (
           <td className="td hide-column-tablet" style={{ minWidth: 100 }}>
             {operationMode === 'vacation' ? (
               '—'

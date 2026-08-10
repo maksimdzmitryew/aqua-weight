@@ -370,7 +370,14 @@ test('missing latest_at results in no measurement icon and potentially needs wat
       HttpResponse.json({ items: [] }),
     ),
     ...paginatedPlantsHandler([
-      { uuid: 'm1', id: 20, name: 'Monstera', status: 'active', needs_weighing: false, needs_water: true },
+      {
+        uuid: 'm1',
+        id: 20,
+        name: 'Monstera',
+        status: 'active',
+        needs_weighing: false,
+        needs_water: true,
+      },
     ]),
   )
   renderPage('vacation')

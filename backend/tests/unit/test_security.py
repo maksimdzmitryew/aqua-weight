@@ -647,3 +647,59 @@ def test_module_env_enforcement_raises_in_production(monkeypatch: pytest.MonkeyP
     monkeypatch.setenv("TEST_MODE", "1")
     monkeypatch.setenv("APP_ENV", "development")
     importlib.reload(sec)
+
+
+@pytest.mark.asyncio
+async def test_require_device_or_user_plant_access_device_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    req = SimpleNamespace(path_params={"plant_id": "a" * 32}, state=SimpleNamespace())
+
+    async def fake_device_auth(request, db, plant_id):
+        assert request is req
+        assert db == "db"
+        assert plant_id == ("a" * 32)
+        return {"auth_type": "scale_device", "scale_id_hex": "7" * 32}
+
+    async def fail_user_auth(*_a, **_k):
+        raise AssertionError("user auth fallback should not be called")
+
+    monkeypatch.setattr(sec, "_try_authenticate_scale_device_request", fake_device_auth)
+    monkeypatch.setattr(sec, "require_authenticated_user", fail_user_auth)
+
+    out = await sec.require_device_or_user_plant_access(req, None, "db", None)
+    assert out == ("a" * 32)
+    assert req.state.scale_device["auth_type"] == "scale_device"
+
+
+@pytest.mark.asyncio
+async def test_require_device_or_user_plant_access_user_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    req = SimpleNamespace(path_params={"plant_id": "b" * 32}, state=SimpleNamespace())
+    called = {}
+
+    async def no_device(*_a, **_k):
+        return None
+
+    async def fake_user_auth(*_a, **_k):
+        return {"id": b"u" * 16, "global_role": "user"}
+
+    async def fake_verify_plant_access(db, user_id, global_role, plant_id, require_owner=False):
+        called["args"] = (db, user_id, global_role, plant_id, require_owner)
+
+    monkeypatch.setattr(sec, "_try_authenticate_scale_device_request", no_device)
+    monkeypatch.setattr(sec, "require_authenticated_user", fake_user_auth)
+    monkeypatch.setattr(sec, "verify_plant_access", fake_verify_plant_access)
+
+    out = await sec.require_device_or_user_plant_access(req, None, "db", None)
+    assert out == ("b" * 32)
+    assert called["args"] == ("db", b"u" * 16, "user", "b" * 32, False)
+    assert req.state.authenticated_user["global_role"] == "user"
+
+
+@pytest.mark.asyncio
+async def test_try_authenticate_scale_device_request_missing_headers_returns_none() -> None:
+    req = SimpleNamespace(headers={}, method="POST", url=SimpleNamespace(path="/api/any"))
+    out = await sec._try_authenticate_scale_device_request(req, FakeDB([]), "a" * 32)
+    assert out is None

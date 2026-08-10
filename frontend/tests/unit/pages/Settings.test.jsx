@@ -1,4 +1,4 @@
-"use strict"
+'use strict'
 
 import React from 'react'
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
@@ -43,7 +43,17 @@ const updateSettingsMock = vi.fn().mockImplementation((newSettings) => {
 // Cache settings to provide stable reference across renders
 let cachedSettings = {}
 function settingsFromLocalStorage() {
-  const keys = ['displayName', 'dtFormat', 'operationMode', 'defaultThreshold', 'pageSize', 'theme', 'plantsListSort', 'whatsapp_number', 'whatsapp_enabled']
+  const keys = [
+    'displayName',
+    'dtFormat',
+    'operationMode',
+    'defaultThreshold',
+    'pageSize',
+    'theme',
+    'plantsListSort',
+    'whatsapp_number',
+    'whatsapp_enabled',
+  ]
   const settings = {}
   keys.forEach((key) => {
     const val = localStorage.getItem(key)
@@ -306,7 +316,10 @@ describe('pages/Settings', () => {
   })
 
   test('reset sort button clears sort settings', async () => {
-    window.localStorage.setItem('plantsListSort', JSON.stringify({ column: 'name', direction: 'desc' }))
+    window.localStorage.setItem(
+      'plantsListSort',
+      JSON.stringify({ column: 'name', direction: 'desc' }),
+    )
 
     renderPage()
 
@@ -456,7 +469,11 @@ describe('pages/Settings', () => {
     })
 
     expect(screen.getByText('New Recovery Codes')).toBeInTheDocument()
-    expect(screen.getByText('WARNING: These codes will only be shown once. Please save them in a secure location.')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'WARNING: These codes will only be shown once. Please save them in a secure location.',
+      ),
+    ).toBeInTheDocument()
     mockCodes.forEach((code) => {
       expect(screen.getByText(code)).toBeInTheDocument()
     })
@@ -838,9 +855,10 @@ describe('pages/Settings', () => {
     // Make updateSettings delay to catch the saving state
     let resolveUpdate
     updateSettingsMock.mockImplementationOnce(
-      () => new Promise((resolve) => {
-        resolveUpdate = resolve
-      })
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve
+        }),
     )
 
     renderPage()
@@ -864,9 +882,10 @@ describe('pages/Settings', () => {
   test('test message button shows Sending... while loading', async () => {
     let resolveSend
     apiClient.post.mockImplementationOnce(
-      () => new Promise((resolve) => {
-        resolveSend = resolve
-      })
+      () =>
+        new Promise((resolve) => {
+          resolveSend = resolve
+        }),
     )
     window.localStorage.setItem('whatsapp_number', '+1234567890')
 
@@ -888,7 +907,10 @@ describe('pages/Settings', () => {
   })
 
   test('sort column uses plantsListSort from localStorage when available', async () => {
-    window.localStorage.setItem('plantsListSort', JSON.stringify({ column: 'name', direction: 'desc' }))
+    window.localStorage.setItem(
+      'plantsListSort',
+      JSON.stringify({ column: 'name', direction: 'desc' }),
+    )
 
     renderPage()
     fireEvent.click(screen.getByRole('tab', { name: /preferences/i }))
@@ -909,7 +931,10 @@ describe('pages/Settings', () => {
   })
 
   test('sort direction uses plantsListSort from localStorage when available', async () => {
-    window.localStorage.setItem('plantsListSort', JSON.stringify({ column: 'name', direction: 'desc' }))
+    window.localStorage.setItem(
+      'plantsListSort',
+      JSON.stringify({ column: 'name', direction: 'desc' }),
+    )
 
     renderPage()
     fireEvent.click(screen.getByRole('tab', { name: /preferences/i }))

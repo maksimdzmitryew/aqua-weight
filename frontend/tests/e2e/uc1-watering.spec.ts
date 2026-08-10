@@ -10,7 +10,9 @@ test.afterAll(async () => {
   await cleanup(ORIGIN)
 })
 
-test('UC1: overwater warning modal appears from Plant Details watering button', async ({ page }) => {
+test('UC1: overwater warning modal appears from Plant Details watering button', async ({
+  page,
+}) => {
   await login(page, ORIGIN)
 
   // Get a token for direct API calls

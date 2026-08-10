@@ -88,7 +88,11 @@ test.describe('Plants CRUD', () => {
       localStorage.setItem('dtFormat', 'europe')
     })
 
-    const saveMeasurement = async (plantName: keyof typeof SEED_PLANTS, weight: string, measuredAt: string) => {
+    const saveMeasurement = async (
+      plantName: keyof typeof SEED_PLANTS,
+      weight: string,
+      measuredAt: string,
+    ) => {
       const api = await createApiClient(ORIGIN)
       try {
         const loginRes = await api.post('/api/test/login')

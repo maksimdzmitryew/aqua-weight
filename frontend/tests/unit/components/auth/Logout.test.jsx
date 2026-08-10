@@ -61,7 +61,7 @@ describe('Logout Component', () => {
     // Set up authenticated state
     apiClient.refreshTokens.mockResolvedValue({
       access_token: 'token',
-      user: { username: 'user' }
+      user: { username: 'user' },
     })
 
     // Mock logout to return a promise that resolves
@@ -70,7 +70,7 @@ describe('Logout Component', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     // Wait for initial authentication to complete
@@ -85,7 +85,7 @@ describe('Logout Component', () => {
 
     // Verify the logout API was called with the correct endpoint and device_id
     expect(apiClient.post).toHaveBeenCalledWith('/auth/logout', {
-      device_id: expect.any(String)
+      device_id: expect.any(String),
     })
   })
 
@@ -96,7 +96,7 @@ describe('Logout Component', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     // Wait for auth to be unauthenticated
@@ -112,7 +112,7 @@ describe('Logout Component', () => {
     // Set up authenticated state
     apiClient.refreshTokens.mockResolvedValue({
       access_token: 'token',
-      user: { username: 'user' }
+      user: { username: 'user' },
     })
 
     apiClient.post.mockResolvedValue({ success: true })
@@ -120,7 +120,7 @@ describe('Logout Component', () => {
     render(
       <AuthProvider>
         <AuthTestComponent />
-      </AuthProvider>
+      </AuthProvider>,
     )
 
     // Wait for authentication
@@ -135,7 +135,7 @@ describe('Logout Component', () => {
 
     // Verify logout was called with device_id
     expect(apiClient.post).toHaveBeenCalledWith('/auth/logout', {
-      device_id: expect.any(String)
+      device_id: expect.any(String),
     })
   })
 })

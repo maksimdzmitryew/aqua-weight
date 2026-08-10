@@ -139,7 +139,11 @@ describe('pages/WhatsappHelpers', () => {
 
     it('adds a new helper with phone number', async () => {
       apiClient.get.mockResolvedValue([])
-      apiClient.post.mockResolvedValue({ id: '123', name: 'Helper With Phone', phone: '+1112223333' })
+      apiClient.post.mockResolvedValue({
+        id: '123',
+        name: 'Helper With Phone',
+        phone: '+1112223333',
+      })
 
       renderPage()
 
@@ -673,7 +677,11 @@ describe('pages/WhatsappHelpers', () => {
       renderPage()
 
       await waitFor(() => {
-        expect(screen.getByText(/Manage users who can request thirsty plants lists during vacation mode./)).toBeInTheDocument()
+        expect(
+          screen.getByText(
+            /Manage users who can request thirsty plants lists during vacation mode./,
+          ),
+        ).toBeInTheDocument()
       })
     })
 
@@ -726,7 +734,9 @@ describe('pages/WhatsappHelpers', () => {
       renderPage()
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Request Thirsty Plants Now' })).toBeInTheDocument()
+        expect(
+          screen.getByRole('button', { name: 'Request Thirsty Plants Now' }),
+        ).toBeInTheDocument()
       })
     })
   })
@@ -749,7 +759,9 @@ describe('pages/WhatsappHelpers', () => {
       renderPage()
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: 'Request Thirsty Plants Now' })).toBeInTheDocument()
+        expect(
+          screen.getByRole('button', { name: 'Request Thirsty Plants Now' }),
+        ).toBeInTheDocument()
       })
     })
   })

@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import React from 'react'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import Dashboard, { 
-  getInitialShowSuggestedInterval, 
-  isAbortError, 
+import Dashboard, {
+  getInitialShowSuggestedInterval,
+  isAbortError,
   arrayOrEmpty,
   safeLocalGetItem,
   getInitialChartsPerRow,
   clampChartsPerRow,
   toTimestamp,
-  safeSetItem
+  safeSetItem,
 } from '../../../src/pages/Dashboard'
 import { measurementsApi } from '../../../src/api/measurements'
 import usePlants from '../../../src/hooks/usePlants'
@@ -53,7 +53,11 @@ describe('Dashboard Helpers', () => {
     expect(getInitialShowSuggestedInterval(() => '1')).toBe(true)
     expect(getInitialShowSuggestedInterval(() => null)).toBe(true)
     expect(getInitialShowSuggestedInterval(null)).toBe(true)
-    expect(getInitialShowSuggestedInterval(() => { throw new Error() })).toBe(true)
+    expect(
+      getInitialShowSuggestedInterval(() => {
+        throw new Error()
+      }),
+    ).toBe(true)
   })
 
   it('isAbortError works', () => {
@@ -85,7 +89,9 @@ describe('Dashboard Helpers', () => {
   })
 
   it('toTimestamp works', () => {
-    expect(toTimestamp({ measured_at: '2025-01-01 10:00:00' })).toBe(Date.parse('2025-01-01T10:00:00'))
+    expect(toTimestamp({ measured_at: '2025-01-01 10:00:00' })).toBe(
+      Date.parse('2025-01-01T10:00:00'),
+    )
     expect(toTimestamp({})).toBe(NaN)
     expect(toTimestamp(null)).toBe(NaN)
   })
@@ -95,13 +101,17 @@ describe('Dashboard Helpers', () => {
     expect(safeLocalGetItem('test')).toBe('val')
     safeSetItem('test2', 'val2')
     expect(localStorage.getItem('test2')).toBe('val2')
-    
+
     // Test catch branches by mocking localStorage
-    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error() })
+    const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error()
+    })
     expect(safeLocalGetItem('test')).toBe(null)
     spy.mockRestore()
-    
-    const spySet = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error() })
+
+    const spySet = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error()
+    })
     safeSetItem('test', 'fail') // should not throw
     spySet.mockRestore()
   })
@@ -116,38 +126,57 @@ describe('Dashboard Component', () => {
 
   it('shows loader while plants are loading', () => {
     usePlants.mockReturnValue({ plants: [], loading: true, error: null })
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
     expect(screen.getByText(/Loading dashboard.../i)).toBeInTheDocument()
   })
 
   it('shows error if usePlants fails', () => {
     usePlants.mockReturnValue({ plants: [], loading: false, error: 'Failed to load' })
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
     expect(screen.getByText(/Failed to load/i)).toBeInTheDocument()
   })
 
   it('renders empty dashboard when no plants', async () => {
     usePlants.mockReturnValue({ plants: [], loading: false, error: null })
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
     expect(screen.queryByTestId('sparkline')).not.toBeInTheDocument()
   })
 
   it('renders dashboard with plants and sparklines', async () => {
     const mockPlants = [
-      { uuid: '123', name: 'Plant 1', min_dry_weight_g: 100, max_water_weight_g: 50 }
+      { uuid: '123', name: 'Plant 1', min_dry_weight_g: 100, max_water_weight_g: 50 },
     ]
     usePlants.mockReturnValue({ plants: mockPlants, loading: false, error: null })
     measurementsApi.listByPlant.mockResolvedValue([
       { measured_at: '2025-01-01 10:00:00', measured_weight_g: 120 },
-      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 110 }
+      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 110 },
     ])
 
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
-    await waitFor(() => {
-      expect(screen.getByText('Plant 1')).toBeInTheDocument()
-      expect(screen.getByTestId('sparkline')).toBeInTheDocument()
-    }, { timeout: 3000 })
+    await waitFor(
+      () => {
+        expect(screen.getByText('Plant 1')).toBeInTheDocument()
+        expect(screen.getByTestId('sparkline')).toBeInTheDocument()
+      },
+      { timeout: 3000 },
+    )
   })
 
   it('toggles reference lines', async () => {
@@ -155,10 +184,14 @@ describe('Dashboard Component', () => {
     usePlants.mockReturnValue({ plants: mockPlants, loading: false, error: null })
     measurementsApi.listByPlant.mockResolvedValue([
       { measured_at: '2025-01-01 10:00:00', measured_weight_g: 120 },
-      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 110 }
+      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 110 },
     ])
 
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('sparkline')).toBeInTheDocument()
@@ -181,7 +214,7 @@ describe('Dashboard Component', () => {
       threshRefCheckbox.click()
     })
     expect(threshRefCheckbox).not.toBeChecked()
-    
+
     const intervalCheckbox = screen.getByLabelText(/Show suggested watering interval/i)
     act(() => {
       intervalCheckbox.click()
@@ -195,7 +228,11 @@ describe('Dashboard Component', () => {
     measurementsApi.listByPlant.mockResolvedValue([])
 
     const user = userEvent.setup()
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
     const select = await screen.findByLabelText(/Charts per row/i)
     await user.selectOptions(select, '3')
@@ -209,27 +246,31 @@ describe('Dashboard Component', () => {
   it('identifies and filters by repotting event correctly', async () => {
     const mockPlants = [{ uuid: '123', name: 'P' }]
     usePlants.mockReturnValue({ plants: mockPlants, loading: false, error: null })
-    
+
     // measurements in DESC order
     measurementsApi.listByPlant.mockResolvedValue([
       { measured_at: '2025-01-05 10:00:00', measured_weight_g: 100 },
       { measured_at: '2025-01-04 10:00:00', measured_weight_g: 110 },
       // Repotting event (isRepot detection logic)
-      { 
-        measured_at: '2025-01-03 10:00:00', 
-        measured_weight_g: 500, 
-        last_dry_weight_g: 400, 
+      {
+        measured_at: '2025-01-03 10:00:00',
+        measured_weight_g: 500,
+        last_dry_weight_g: 400,
         water_added_g: 100,
         last_wet_weight_g: null,
         water_loss_total_pct: null,
         water_loss_total_g: null,
         water_loss_day_pct: null,
-        water_loss_day_g: null
+        water_loss_day_g: null,
       },
-      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 90 }
+      { measured_at: '2025-01-02 10:00:00', measured_weight_g: 90 },
     ])
 
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('sparkline')).toBeInTheDocument()
@@ -239,15 +280,19 @@ describe('Dashboard Component', () => {
   it('handles invalid measurement data gracefully', async () => {
     const mockPlants = [{ uuid: '123', name: 'P' }]
     usePlants.mockReturnValue({ plants: mockPlants, loading: false, error: null })
-    
+
     measurementsApi.listByPlant.mockResolvedValue([
       { measured_at: 'invalid-date', measured_weight_g: 100 },
       { measured_at: '2025-01-01 10:00:00', measured_weight_g: NaN },
       { measured_at: '2025-01-02 10:00:00', measured_weight_g: 120 },
-      { measured_at: '2025-01-03 10:00:00', measured_weight_g: 110 }
+      { measured_at: '2025-01-03 10:00:00', measured_weight_g: 110 },
     ])
 
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('sparkline')).toBeInTheDocument()
@@ -256,12 +301,16 @@ describe('Dashboard Component', () => {
 
   it('handles measurement load failure gracefully', async () => {
     const mockPlants = [
-      { uuid: '123', name: 'Plant 1', min_dry_weight_g: 100, max_water_weight_g: 50 }
+      { uuid: '123', name: 'Plant 1', min_dry_weight_g: 100, max_water_weight_g: 50 },
     ]
     usePlants.mockReturnValue({ plants: mockPlants, loading: false, error: null })
     measurementsApi.listByPlant.mockRejectedValue(new Error('API Error'))
 
-    render(<BrowserRouter><Dashboard /></BrowserRouter>)
+    render(
+      <BrowserRouter>
+        <Dashboard />
+      </BrowserRouter>,
+    )
 
     await waitFor(() => {
       expect(screen.getByText('Plant 1')).toBeInTheDocument()

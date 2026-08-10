@@ -294,8 +294,9 @@ const RepottingCreate = () => {
             />
             {isEdit && (
               <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)', marginTop: 4 }}>
-                Repotting type is fixed after creation and cannot be changed. <br />Delete (optionally) all 3 measurements of this repotting and/or create a new
-                one if the soil type/volume changed.
+                Repotting type is fixed after creation and cannot be changed. <br />
+                Delete (optionally) all 3 measurements of this repotting and/or create a new one if
+                the soil type/volume changed.
               </div>
             )}
           </div>

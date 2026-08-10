@@ -25,7 +25,12 @@ vi.mock('react-router-dom', async (importOriginal) => {
     useNavigate: () => mockNavigate,
     useLocation: () => mockLocationValue,
     Navigate: ({ to, state, replace }) => (
-      <div data-testid="navigate" data-to={to} data-state={JSON.stringify(state)} data-replace={replace}>
+      <div
+        data-testid="navigate"
+        data-to={to}
+        data-state={JSON.stringify(state)}
+        data-replace={replace}
+      >
         Navigated to {to}
       </div>
     ),
@@ -78,7 +83,7 @@ describe('SessionManager', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/login', {
       state: { from: { pathname: '/dashboard', state: { from: { pathname: '/dashboard' } } } },
-      replace: true
+      replace: true,
     })
   })
 
@@ -99,7 +104,7 @@ describe('SessionManager', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/login', {
       state: { from: { pathname: '/plants', state: { from: { pathname: '/plants' } } } },
-      replace: true
+      replace: true,
     })
   })
 
@@ -203,7 +208,7 @@ describe('SessionManager', () => {
     render(<TestComponent />)
 
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard', {
-      replace: true
+      replace: true,
     })
   })
 
@@ -222,7 +227,7 @@ describe('SessionManager', () => {
     render(<TestComponent />)
 
     expect(mockNavigate).toHaveBeenCalledWith('/dashboard', {
-      replace: true
+      replace: true,
     })
   })
 

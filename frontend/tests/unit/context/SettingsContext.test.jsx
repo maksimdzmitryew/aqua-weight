@@ -49,13 +49,13 @@ describe('SettingsContext', () => {
     useAuth.mockReturnValue({ isAuthenticated: true })
     apiClient.get.mockResolvedValue({
       settings: { theme: 'light', displayName: 'User' },
-      version: 1
+      version: 1,
     })
 
     render(
       <SettingsProvider>
         <SettingsTestComponent />
-      </SettingsProvider>
+      </SettingsProvider>,
     )
 
     await waitFor(() => {
@@ -73,7 +73,7 @@ describe('SettingsContext', () => {
     render(
       <SettingsProvider>
         <SettingsTestComponent />
-      </SettingsProvider>
+      </SettingsProvider>,
     )
 
     expect(apiClient.get).not.toHaveBeenCalled()
@@ -89,7 +89,7 @@ describe('SettingsContext', () => {
     render(
       <SettingsProvider>
         <SettingsTestComponent />
-      </SettingsProvider>
+      </SettingsProvider>,
     )
 
     await waitFor(() => {
@@ -107,7 +107,7 @@ describe('SettingsContext', () => {
     render(
       <SettingsProvider>
         <SettingsTestComponent />
-      </SettingsProvider>
+      </SettingsProvider>,
     )
 
     await waitFor(() => {
@@ -118,9 +118,12 @@ describe('SettingsContext', () => {
       screen.getByText('Update Theme').click()
     })
 
-    expect(apiClient.put).toHaveBeenCalledWith('/settings', expect.objectContaining({
-      settings: expect.objectContaining({ theme: 'dark' })
-    }))
+    expect(apiClient.put).toHaveBeenCalledWith(
+      '/settings',
+      expect.objectContaining({
+        settings: expect.objectContaining({ theme: 'dark' }),
+      }),
+    )
     expect(screen.getByTestId('theme')).toHaveTextContent('dark')
     expect(mockSetTheme).toHaveBeenCalledWith('dark')
     expect(localStorage.getItem('theme')).toBe('dark')
@@ -128,7 +131,9 @@ describe('SettingsContext', () => {
 
   it('throws error if useSettings is used outside Provider', () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(() => render(<SettingsTestComponent />)).toThrow('useSettings must be used within a SettingsProvider')
+    expect(() => render(<SettingsTestComponent />)).toThrow(
+      'useSettings must be used within a SettingsProvider',
+    )
     consoleSpy.mockRestore()
   })
 })

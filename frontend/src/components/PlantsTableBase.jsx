@@ -143,11 +143,7 @@ export function TableHeader({ title, children, className = 'th', scope = 'col', 
         </span>
       )}
       {open && (
-        <div
-          ref={popoverRef}
-          className="th-popover"
-          role="tooltip"
-        >
+        <div ref={popoverRef} className="th-popover" role="tooltip">
           {title}
         </div>
       )}

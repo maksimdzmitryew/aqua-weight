@@ -247,7 +247,7 @@ export default function ConfirmDialog({
     text: confirmText,
     style: tone === 'danger' ? { ...btnBase, ...btnDanger } : { ...btnBase, ...btnPrimary },
     onClick: onConfirm,
-    ref: confirmIsDefault ? firstBtnRef : (cancelText ? undefined : firstBtnRef),
+    ref: confirmIsDefault ? firstBtnRef : cancelText ? undefined : firstBtnRef,
     disabled,
   })
 

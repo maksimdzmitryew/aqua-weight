@@ -13,7 +13,8 @@ export function getHelpers() {
 
 export function addHelper(helper) {
   const helpers = getHelpers()
-  const id = crypto.randomUUID?.() || Math.random().toString(36).substring(2) + Date.now().toString(36)
+  const id =
+    crypto.randomUUID?.() || Math.random().toString(36).substring(2) + Date.now().toString(36)
   const newHelper = { ...helper, id }
   helpers.push(newHelper)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(helpers))

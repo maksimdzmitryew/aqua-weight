@@ -178,19 +178,10 @@ export default function LocationEdit() {
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              style={btn}
-            >
+            <button type="submit" className="btn btn-primary" style={btn}>
               Save
             </button>
-            <button
-              type="button"
-              onClick={onCancel}
-              className="btn btn-secondary"
-              style={btn}
-            >
+            <button type="button" onClick={onCancel} className="btn btn-secondary" style={btn}>
               Cancel
             </button>
           </div>

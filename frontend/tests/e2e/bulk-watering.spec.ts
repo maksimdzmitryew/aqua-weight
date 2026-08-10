@@ -70,9 +70,11 @@ test.describe('Bulk Watering', () => {
     await input.blur()
 
     // Wait for the API call to complete
-    await page.waitForResponse(
-      (resp) => resp.url().includes('/plants/') && resp.status() === 200,
-      { timeout: 15000 }).catch(() => {}) // Ignore timeout if no API call
+    await page
+      .waitForResponse((resp) => resp.url().includes('/plants/') && resp.status() === 200, {
+        timeout: 15000,
+      })
+      .catch(() => {}) // Ignore timeout if no API call
 
     // Verify "Success" status/styling
     // The class 'bg-success' is added on success

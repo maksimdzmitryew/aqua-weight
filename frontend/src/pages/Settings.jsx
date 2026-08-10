@@ -476,12 +476,23 @@ export default function Settings() {
             type="submit"
             style={{
               ...styles.button,
-              backgroundColor: saveStatus === 'saved' ? '#10b981' : saveStatus === 'failed' ? '#ef4444' : undefined,
+              backgroundColor:
+                saveStatus === 'saved'
+                  ? '#10b981'
+                  : saveStatus === 'failed'
+                    ? '#ef4444'
+                    : undefined,
               minWidth: '100px',
             }}
             disabled={isSaving}
           >
-            {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'failed' ? 'Failed' : 'Save'}
+            {isSaving
+              ? 'Saving...'
+              : saveStatus === 'saved'
+                ? 'Saved!'
+                : saveStatus === 'failed'
+                  ? 'Failed'
+                  : 'Save'}
           </button>
         </div>
       </form>

@@ -12,47 +12,61 @@ vi.mock('../../../../src/context/AuthContext', () => ({
 describe('ProtectedRoute', () => {
   it('redirects to /login if not authenticated', () => {
     useAuth.mockReturnValue({ isAuthenticated: false })
-    
+
     render(
       <MemoryRouter initialEntries={['/protected']}>
         <Routes>
           <Route path="/login" element={<div>Login Page</div>} />
-          <Route path="/protected" element={<ProtectedRoute><div>Secret</div></ProtectedRoute>} />
+          <Route
+            path="/protected"
+            element={
+              <ProtectedRoute>
+                <div>Secret</div>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
-    
+
     expect(screen.getByText('Login Page')).toBeInTheDocument()
     expect(screen.queryByText('Secret')).not.toBeInTheDocument()
   })
 
   it('renders children if authenticated', () => {
     useAuth.mockReturnValue({ isAuthenticated: true })
-    
+
     render(
       <MemoryRouter initialEntries={['/protected']}>
         <Routes>
-          <Route path="/protected" element={<ProtectedRoute><div>Secret</div></ProtectedRoute>} />
+          <Route
+            path="/protected"
+            element={
+              <ProtectedRoute>
+                <div>Secret</div>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
-    
+
     expect(screen.getByText('Secret')).toBeInTheDocument()
   })
 
   it('renders Outlet if no children provided and authenticated', () => {
     useAuth.mockReturnValue({ isAuthenticated: true })
-    
+
     render(
       <MemoryRouter initialEntries={['/parent/child']}>
         <Routes>
           <Route path="/parent" element={<ProtectedRoute />}>
-             <Route path="child" element={<div>Child Content</div>} />
+            <Route path="child" element={<div>Child Content</div>} />
           </Route>
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     )
-    
+
     expect(screen.getByText('Child Content')).toBeInTheDocument()
   })
 })

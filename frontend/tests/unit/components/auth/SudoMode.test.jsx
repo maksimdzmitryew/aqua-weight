@@ -16,12 +16,14 @@ vi.mock('../../../../src/components/ConfirmDialog', () => ({
       <div data-testid="sudo-dialog">
         <h1>{title}</h1>
         <div>{message}</div>
-        {buttons.map(b => (
-          <button key={b.key} onClick={b.onClick}>{b.text}</button>
+        {buttons.map((b) => (
+          <button key={b.key} onClick={b.onClick}>
+            {b.text}
+          </button>
         ))}
       </div>
     )
-  }
+  },
 }))
 
 describe('SudoMode', () => {
@@ -46,42 +48,48 @@ describe('SudoMode', () => {
 
   it('shows error if password is empty on confirm', () => {
     render(<SudoMode open={true} onConfirm={onConfirm} onCancel={onCancel} />)
-    
+
     fireEvent.click(screen.getByText('Verify Password'))
-    
+
     expect(screen.getByText('Password is required')).toBeInTheDocument()
     expect(onConfirm).not.toHaveBeenCalled()
   })
 
   it('calls onConfirm with password', () => {
     render(<SudoMode open={true} onConfirm={onConfirm} onCancel={onCancel} />)
-    
-    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), { target: { value: 'secret' } })
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), {
+      target: { value: 'secret' },
+    })
     fireEvent.click(screen.getByText('Verify Password'))
-    
+
     expect(onConfirm).toHaveBeenCalledWith('secret')
   })
 
   it('calls onCancel and clears state', () => {
     render(<SudoMode open={true} onConfirm={onConfirm} onCancel={onCancel} />)
-    
-    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), { target: { value: 'secret' } })
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), {
+      target: { value: 'secret' },
+    })
     fireEvent.click(screen.getByText('Cancel'))
-    
+
     expect(onCancel).toHaveBeenCalled()
-    
+
     // Open again to check if cleared (it should be because state is internal and component re-renders or we check logic)
     // Actually, SudoMode should clear state in handleCancel
   })
 
   it('submits form on Enter', () => {
     render(<SudoMode open={true} onConfirm={onConfirm} onCancel={onCancel} />)
-    
-    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), { target: { value: 'secret' } })
-    
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter your password/i), {
+      target: { value: 'secret' },
+    })
+
     // Submit the form
     fireEvent.submit(screen.getByPlaceholderText(/Enter your password/i).closest('form'))
-    
+
     expect(onConfirm).toHaveBeenCalledWith('secret')
   })
 })

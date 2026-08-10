@@ -665,9 +665,9 @@ export default function BulkWatering() {
           <div>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Did you just overwater?</div>
             <div style={{ fontSize: '0.85rem', lineHeight: 1.4 }}>
-              Current weight indicates the soil retains historical maximum of water. It might mean the
-              roots did not dry enough, or are clogged with water because soil is too wet. Answer 'No'
-              if you are sure you did not water enough previously.
+              Current weight indicates the soil retains historical maximum of water. It might mean
+              the roots did not dry enough, or are clogged with water because soil is too wet.
+              Answer 'No' if you are sure you did not water enough previously.
             </div>
           </div>
         }

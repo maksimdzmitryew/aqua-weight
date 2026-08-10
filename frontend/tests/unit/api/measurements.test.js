@@ -14,7 +14,7 @@ vi.mock('../../../src/api/client', () => ({
       super(message)
       this.name = 'ApiError'
     }
-  }
+  },
 }))
 
 describe('measurementsApi', () => {
@@ -42,7 +42,7 @@ describe('measurementsApi', () => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/plants/p1/measurements/weight?mode=test',
         { val: 10 },
-        expect.any(Object)
+        expect.any(Object),
       )
     })
 
@@ -58,7 +58,7 @@ describe('measurementsApi', () => {
       expect(apiClient.post).toHaveBeenCalledWith(
         '/plants/p1/measurements/vacation/watering',
         { water: 50 },
-        expect.any(Object)
+        expect.any(Object),
       )
     })
 
@@ -66,13 +66,13 @@ describe('measurementsApi', () => {
       expect(() => measurementsApi.watering.update()).toThrow('Missing plant id')
       expect(() => measurementsApi.watering.update('p1')).toThrow('Missing measurement id')
     })
-    
+
     it('update works with mode', async () => {
       await measurementsApi.watering.update('p1', 'm1', { val: 5 }, null, 'bulk')
       expect(apiClient.put).toHaveBeenCalledWith(
         '/plants/p1/measurements/watering/m1?mode=bulk',
         { val: 5 },
-        expect.any(Object)
+        expect.any(Object),
       )
     })
   })
@@ -91,14 +91,14 @@ describe('measurementsApi', () => {
       expect(() => measurementsApi.repotting.update()).toThrow('Missing plant id')
       expect(() => measurementsApi.repotting.update('p1')).toThrow('Missing repotting id')
     })
-    
+
     it('update works', async () => {
-        await measurementsApi.repotting.update('p1', 'r1', { plant_id: 'p1', note: 'ok' })
-        expect(apiClient.put).toHaveBeenCalledWith(
-          '/plants/p1/repotting/r1',
-          { note: 'ok' },
-          expect.any(Object)
-        )
+      await measurementsApi.repotting.update('p1', 'r1', { plant_id: 'p1', note: 'ok' })
+      expect(apiClient.put).toHaveBeenCalledWith(
+        '/plants/p1/repotting/r1',
+        { note: 'ok' },
+        expect.any(Object),
+      )
     })
   })
 })

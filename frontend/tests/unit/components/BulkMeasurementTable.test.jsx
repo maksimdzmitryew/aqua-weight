@@ -22,7 +22,11 @@ function makePlant(overrides = {}) {
 
 describe('BulkMeasurementTable', () => {
   test('renders rows and needs-water badge when retained ≤ threshold; link click calls onViewPlant', () => {
-    const p1 = makePlant({ water_retained_pct: 20, recommended_water_threshold_pct: 25, needs_water: true }) // needs water
+    const p1 = makePlant({
+      water_retained_pct: 20,
+      recommended_water_threshold_pct: 25,
+      needs_water: true,
+    }) // needs water
     const onViewPlant = vi.fn()
     render(
       <BulkMeasurementTable

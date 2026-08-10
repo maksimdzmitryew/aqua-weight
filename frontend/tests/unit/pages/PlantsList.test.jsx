@@ -58,10 +58,7 @@ vi.mock('@dnd-kit/core', async () => {
     DndContext: ({ children, onDragEnd, ...props }) => (
       <OriginalDndContext onDragEnd={onDragEnd} {...props}>
         {children}
-        <button
-          type="button"
-          onClick={() => onDragEnd?.({ active: { id: 'a' }, over: null })}
-        >
+        <button type="button" onClick={() => onDragEnd?.({ active: { id: 'a' }, over: null })}>
           Simulate drag without target
         </button>
         <button
@@ -487,7 +484,10 @@ test('applies updatedPlant from router state without crashing (effect path exerc
     <ThemeProvider>
       <MemoryRouter
         initialEntries={[
-          { pathname: '/plants', state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED', needs_water: true } } },
+          {
+            pathname: '/plants',
+            state: { updatedPlant: { uuid: 'u1', name: 'Aloe UPDATED', needs_water: true } },
+          },
         ]}
       >
         <PlantsList />
@@ -503,9 +503,27 @@ test('applies updatedPlant from router state without crashing (effect path exerc
 test('reordering integration: handles drag-and-drop and move buttons', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
+      {
+        uuid: 'a',
+        name: 'A',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'b',
+        name: 'B',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'c',
+        name: 'C',
+        water_retained_pct: 40,
+        recommended_water_threshold_pct: 30,
+        needs_water: false,
+      },
     ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
   )
@@ -541,9 +559,27 @@ test('reordering integration: handles drag-and-drop and move buttons', async () 
 test('drag-end handler reorders and ignores non-actionable drag events', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
+      {
+        uuid: 'a',
+        name: 'A',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'b',
+        name: 'B',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'c',
+        name: 'C',
+        water_retained_pct: 40,
+        recommended_water_threshold_pct: 30,
+        needs_water: false,
+      },
     ]),
     http.put('/api/plants/order', () => HttpResponse.json({ ok: true })),
   )
@@ -572,7 +608,13 @@ test('drag-end handler reorders and ignores non-actionable drag events', async (
 test('sort state handles legacy storage, corrupt storage, and sortable headers', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 'a',
+        name: 'A',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
 
@@ -645,7 +687,12 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 1) Missing uuid case
   server.use(
     mockPlantsHandler([
-      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        name: 'NoId',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
 
@@ -669,7 +716,13 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 2) API error case
   server.use(
     mockPlantsHandler([
-      { uuid: 'x1', name: 'X', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 'x1',
+        name: 'X',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ message: 'Boom' }, { status: 500 })),
   )
@@ -692,7 +745,13 @@ test('delete flow: missing uuid shows saveError; API error shows error; success 
   // 3) Success removes row
   server.use(
     mockPlantsHandler([
-      { uuid: 'y1', name: 'Y', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 'y1',
+        name: 'Y',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
     http.delete('/api/plants/:uuid', () => HttpResponse.json({ ok: true })),
   )
@@ -811,7 +870,13 @@ test('treats non-array response as empty and shows EmptyState', async () => {
 test('delete failure with null/empty error shows generic message branch', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'd1', name: 'Del', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 'd1',
+        name: 'Del',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
 
@@ -896,9 +961,27 @@ test('onDragOver early-return branches and onDragEnd with null dragIndex do not 
   // Arrange three predictable items
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'c', name: 'C', water_retained_pct: 40, recommended_water_threshold_pct: 30, needs_water: false },
+      {
+        uuid: 'a',
+        name: 'A',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'b',
+        name: 'B',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'c',
+        name: 'C',
+        water_retained_pct: 40,
+        recommended_water_threshold_pct: 30,
+        needs_water: false,
+      },
     ]),
     http.put('/api/plants/order', async ({ request }) => {
       const body = await request.json()
@@ -972,7 +1055,13 @@ test('falls back to empty style object when getWaterRetainCellStyle returns fals
   // Re-require PlantsList after mocking? Not necessary because component imports function at render call time
   server.use(
     mockPlantsHandler([
-      { uuid: 's1', name: 'Styled', water_retained_pct: 12, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 's1',
+        name: 'Styled',
+        water_retained_pct: 12,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
   render(
@@ -1020,8 +1109,20 @@ test('Cancel in delete dialog triggers closeDialog without deleting', async () =
 test('persistOrder generic error branch when reorder rejects with empty error object', async () => {
   server.use(
     mockPlantsHandler([
-      { uuid: 'a', name: 'A', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        uuid: 'a',
+        name: 'A',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'b',
+        name: 'B',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
 
@@ -1134,8 +1235,19 @@ test('load error with falsy message shows generic fallback (plantsApi.list rejec
 test('persistOrder shows error when plants are missing identifiers', async () => {
   server.use(
     mockPlantsHandler([
-      { name: 'NoId', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
-      { uuid: 'b', name: 'B', water_retained_pct: 20, recommended_water_threshold_pct: 30, needs_water: true },
+      {
+        name: 'NoId',
+        water_retained_pct: 10,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
+      {
+        uuid: 'b',
+        name: 'B',
+        water_retained_pct: 20,
+        recommended_water_threshold_pct: 30,
+        needs_water: true,
+      },
     ]),
   )
   renderPage()
@@ -1320,7 +1432,13 @@ test('integrated: line 437 coverage - badge titles', async () => {
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
-            { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+            {
+              uuid: 'p1',
+              name: 'P1',
+              water_retained_pct: 10,
+              recommended_water_threshold_pct: 30,
+              needs_water: true,
+            },
           ],
           total: 1,
           global_total: 1,
@@ -1345,7 +1463,13 @@ test('integrated: line 437 coverage - badge titles', async () => {
       http.get('/api/plants', () =>
         HttpResponse.json({
           items: [
-            { uuid: 'p2', name: 'P2', water_retained_pct: 10, recommended_water_threshold_pct: 30, needs_water: true },
+            {
+              uuid: 'p2',
+              name: 'P2',
+              water_retained_pct: 10,
+              recommended_water_threshold_pct: 30,
+              needs_water: true,
+            },
           ],
           total: 1,
           global_total: 1,

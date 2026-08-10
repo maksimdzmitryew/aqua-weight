@@ -306,7 +306,10 @@ export default function AdminDashboard() {
     // Validate it's a digital number
     if (!/^\d+$/.test(extractedId)) return
     // Replace only the phone ID in URL with placeholder, preserve version
-    const newUrl = url.replace(new RegExp(`/${version}/\\d+/messages`), `/${version}/{phone_number_id}/messages`)
+    const newUrl = url.replace(
+      new RegExp(`/${version}/\\d+/messages`),
+      `/${version}/{phone_number_id}/messages`,
+    )
     // Update both phone_number_id and api_url in a single state update
     setCredentials({ ...credentials, phone_number_id: extractedId, api_url: newUrl })
   }

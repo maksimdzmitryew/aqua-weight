@@ -219,9 +219,9 @@ export const handlers = [
 
   // Catch-all: fail tests for unexpected method/URL combinations
   http.all('/api/*', ({ request }) => {
-    return new HttpResponse(
-      JSON.stringify({ detail: `Unexpected ${request.method} request` }),
-      { status: 405, headers: { 'Content-Type': 'application/json' } }
-    )
+    return new HttpResponse(JSON.stringify({ detail: `Unexpected ${request.method} request` }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }),
 ]

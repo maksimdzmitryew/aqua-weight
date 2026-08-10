@@ -96,7 +96,9 @@ describe('DailyCare branches', () => {
       http.get('/api/plants/measurements/approximation/weight', () =>
         HttpResponse.json({ detail: 'error' }, { status: 500 }),
       ),
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'Plant 1', needs_weighing: true, needs_water: true }]),
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'Plant 1', needs_weighing: true, needs_water: true },
+      ]),
     )
 
     render(
@@ -158,7 +160,9 @@ describe('DailyCare branches', () => {
     }
 
     server.use(
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true }]),
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true },
+      ]),
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: [] }),
       ),
@@ -192,7 +196,9 @@ describe('DailyCare branches', () => {
       }, {})
     }
     server.use(
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true }]),
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true },
+      ]),
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: [{ plant_uuid: 'p1' }] }),
       ),
@@ -289,7 +295,9 @@ describe('DailyCare branches', () => {
     // Case 1: Needs measurement (true)
     localStorage.setItem('operationMode', 'manual')
     server.use(
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true }]),
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true },
+      ]),
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: [] }),
       ),
@@ -311,7 +319,13 @@ describe('DailyCare branches', () => {
     // Force plants that need water
     server.use(
       ...paginatedPlantsHandler([
-        { uuid: 'p1', name: 'P1', water_retained_pct: 10, recommended_water_threshold_pct: 50, needs_water: true },
+        {
+          uuid: 'p1',
+          name: 'P1',
+          water_retained_pct: 10,
+          recommended_water_threshold_pct: 50,
+          needs_water: true,
+        },
       ]),
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({
@@ -383,7 +397,9 @@ describe('DailyCare branches', () => {
     const mockNavigate = vi.fn()
 
     server.use(
-      ...paginatedPlantsHandler([{ uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true }]),
+      ...paginatedPlantsHandler([
+        { uuid: 'p1', name: 'P1', needs_weighing: true, needs_water: true },
+      ]),
       http.get('/api/plants/measurements/approximation/watering', () =>
         HttpResponse.json({ items: [] }),
       ),

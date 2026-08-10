@@ -433,7 +433,8 @@ describe('pages/RepottingCreate', () => {
   test('cancel navigates back and button disabled when form incomplete', async () => {
     server.use(
       http.post('/api/plants/:plantId/repotting', () =>
-        HttpResponse.json({ id: 99 }, { status: 201 })),
+        HttpResponse.json({ id: 99 }, { status: 201 }),
+      ),
     )
 
     renderWithRouter(['/repotting/new?plant=p1'])
@@ -467,7 +468,8 @@ describe('pages/RepottingCreate', () => {
   test('submit handler early-returns when form incomplete (branch)', async () => {
     server.use(
       http.post('/api/plants/:plantId/repotting', () =>
-        HttpResponse.json({ id: 99 }, { status: 201 })),
+        HttpResponse.json({ id: 99 }, { status: 201 }),
+      ),
     )
 
     // Render with defaults: plant is not selected, numeric fields empty
@@ -618,8 +620,11 @@ describe('pages/RepottingCreate', () => {
         const body = await request.json()
         // Return a 409 error to trigger the dialog
         return HttpResponse.json(
-          { message: 'Moved to a very small pot? This pot seems too small for the current water. Continue with your selected repotting type — Partial — keep current water?' },
-          { status: 409 }
+          {
+            message:
+              'Moved to a very small pot? This pot seems too small for the current water. Continue with your selected repotting type — Partial — keep current water?',
+          },
+          { status: 409 },
         )
       }),
     )
@@ -641,7 +646,9 @@ describe('pages/RepottingCreate', () => {
 
     // Verify error message text is inside the dialog
     expect(await within(dialog).findByText(/Moved to a very small pot\?/i)).toBeInTheDocument()
-    expect(await within(dialog).findByText(/This pot seems too small for the current water/i)).toBeInTheDocument()
+    expect(
+      await within(dialog).findByText(/This pot seems too small for the current water/i),
+    ).toBeInTheDocument()
     // Verify 'No' button exists and is clickable
     const noBtn = within(dialog).getByRole('button', { name: 'No' })
     expect(noBtn).toBeInTheDocument()
@@ -658,10 +665,7 @@ describe('pages/RepottingCreate', () => {
         requestCount++
         const body = await request.json()
         if (requestCount === 1) {
-          return HttpResponse.json(
-            { message: 'Moved to a very small pot?' },
-            { status: 409 }
-          )
+          return HttpResponse.json({ message: 'Moved to a very small pot?' }, { status: 409 })
         }
         // This is the confirmation call - check for confirm_small_pot
         expect(body.confirm_small_pot).toBe(true)
@@ -700,10 +704,7 @@ describe('pages/RepottingCreate', () => {
       http.post('/api/plants/:plantId/repotting', async ({ request }) => {
         requestCount++
         if (requestCount === 1) {
-          return HttpResponse.json(
-            { message: 'Moved to a very small pot?' },
-            { status: 409 }
-          )
+          return HttpResponse.json({ message: 'Moved to a very small pot?' }, { status: 409 })
         } else if (requestCount === 2) {
           // This is the error case where confirm fails
           return HttpResponse.text('Failed to save after confirmation', { status: 500 })

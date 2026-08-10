@@ -12,7 +12,10 @@ test.describe('Sparkline Hover', () => {
       const loginRes = await api.post('/api/test/login')
       expect(loginRes.ok()).toBeTruthy()
       const { access_token } = await loginRes.json()
-      const headers = { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }
+      const headers = {
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/json',
+      }
 
       const plantCalibration = await api.patch(`/api/plants/${SEED_FERN_ID}`, {
         headers,

@@ -34,7 +34,12 @@ export default function DailyCare() {
       : null) || 'manual'
 
   // Use shared usePlants hook for consistent data fetching
-  const { plants: allPlants, loading: plantsLoading, error: plantsError, refetch: refetchPlants } = usePlants()
+  const {
+    plants: allPlants,
+    loading: plantsLoading,
+    error: plantsError,
+    refetch: refetchPlants,
+  } = usePlants()
 
   const [tasks, setTasks] = useState([])
   const [approxLoading, setApproxLoading] = useState(false)

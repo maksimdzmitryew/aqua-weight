@@ -59,7 +59,18 @@ vi.mock('../../../src/components/form/fields/TextInput.jsx', () => ({
 vi.mock('../../../src/components/ConfirmDialog.jsx', () => {
   // Store the original handlers for testing guard clauses
   let capturedHandlers = null
-  const MockDialog = ({ open, onConfirm, onCancel, onClose, title, message, confirmText, cancelText, tone, defaultFocus }) => {
+  const MockDialog = ({
+    open,
+    onConfirm,
+    onCancel,
+    onClose,
+    title,
+    message,
+    confirmText,
+    cancelText,
+    tone,
+    defaultFocus,
+  }) => {
     // Capture handlers for testing
     if (typeof window !== 'undefined') {
       capturedHandlers = { onConfirm, onCancel, onClose }
@@ -68,9 +79,15 @@ vi.mock('../../../src/components/ConfirmDialog.jsx', () => {
       <div data-testid="mock-confirm-dialog" style={{ display: open ? 'block' : 'none' }}>
         <h2>{title}</h2>
         <div>{message}</div>
-        <button onClick={onConfirm} data-testid="confirm-btn">{confirmText}</button>
-        <button onClick={onCancel} data-testid="cancel-btn">{cancelText}</button>
-        <button onClick={onClose} data-testid="close-btn">Close</button>
+        <button onClick={onConfirm} data-testid="confirm-btn">
+          {confirmText}
+        </button>
+        <button onClick={onCancel} data-testid="cancel-btn">
+          {cancelText}
+        </button>
+        <button onClick={onClose} data-testid="close-btn">
+          Close
+        </button>
       </div>
     )
   }
@@ -117,12 +134,17 @@ describe('pages/WateringCreate (branches)', () => {
   // --- Lines 175-176: catch branch in onSubmit when plantsApi.getByUuid fails ---
   test('onSubmit: catches plantsApi.getByUuid failure and sets capacityPlant to null (lines 175-176)', async () => {
     server.use(
-      http.get('/api/plants/u1', () => HttpResponse.json({
-        uuid: 'u1',
-        name: 'Aloe',
-        min_dry_weight_g: 100,
-        max_water_weight_g: 50,
-      }, { status: 500 })),
+      http.get('/api/plants/u1', () =>
+        HttpResponse.json(
+          {
+            uuid: 'u1',
+            name: 'Aloe',
+            min_dry_weight_g: 100,
+            max_water_weight_g: 50,
+          },
+          { status: 500 },
+        ),
+      ),
       http.post('/api/plants/:plantId/measurements/watering', () =>
         HttpResponse.json({ id: 101 }, { status: 201 }),
       ),
@@ -215,10 +237,13 @@ describe('pages/WateringCreate (branches)', () => {
     let posted = null
     server.use(
       http.get('/api/plants/u1', () =>
-        HttpResponse.json({
-          uuid: 'u1',
-          name: 'Aloe',
-        }, { status: 500 }),
+        HttpResponse.json(
+          {
+            uuid: 'u1',
+            name: 'Aloe',
+          },
+          { status: 500 },
+        ),
       ),
       http.post('/api/plants/:plantId/measurements/watering', async ({ request }) => {
         posted = await request.json()
@@ -421,7 +446,9 @@ describe('pages/WateringCreate (branches)', () => {
 
     // Test with an existing plant object - should merge and update max_water_weight_g
     const plantObject = { uuid: 'u1', name: 'Aloe', min_dry_weight_g: 100, max_water_weight_g: 50 }
-    const resultWhenPlantExists = plantObject ? { ...plantObject, max_water_weight_g: newMax } : plantObject
+    const resultWhenPlantExists = plantObject
+      ? { ...plantObject, max_water_weight_g: newMax }
+      : plantObject
     expect(resultWhenPlantExists.max_water_weight_g).toBe(newMax)
     expect(resultWhenPlantExists.uuid).toBe('u1')
 

@@ -553,7 +553,10 @@ describe('pages/PlantEdit', () => {
   test('isFromDetails is true when from: details is explicitly set', async () => {
     const init = {
       pathname: '/plants/uFromDetails/edit',
-      state: { plant: { uuid: 'uFromDetails', name: 'FromDetails', created_at: '2024-01-01T12:00:00Z' }, from: 'details' },
+      state: {
+        plant: { uuid: 'uFromDetails', name: 'FromDetails', created_at: '2024-01-01T12:00:00Z' },
+        from: 'details',
+      },
     }
     server.use(http.get('/api/locations', () => HttpResponse.json([])))
     const { container } = renderWithRoute([init])
